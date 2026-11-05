@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import { Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
 import {
-  Search, Plus, Upload, Download, X,
-  User, CheckCircle2, XCircle, AlertCircle, Loader2,
-} from "lucide-react";
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import {
   createEmployee, updateEmployee, toggleEmployeeActive,
   bulkCreateEmployees, type EmployeeInput,
@@ -21,16 +31,17 @@ type Employee = {
 
 const ROLES = ["KARYAWAN", "HRD", "MANAGER", "ADMIN"];
 const STATUSES = ["KONTRAK", "TETAP", "PROBATION"];
-const ROLE_COLOR: Record<string, string> = {
-  KARYAWAN: "bg-gray-100 text-gray-600",
-  HRD: "bg-green-100 text-green-700",
-  MANAGER: "bg-blue-100 text-blue-700",
-  ADMIN: "bg-red-100 text-red-700",
+
+const ROLE_BADGE: Record<string, string> = {
+  KARYAWAN: "bg-gray-100 text-gray-600 border-gray-200",
+  HRD: "bg-green-100 text-green-700 border-green-200",
+  MANAGER: "bg-blue-100 text-blue-700 border-blue-200",
+  ADMIN: "bg-red-100 text-[#c42828] border-red-200",
 };
-const STATUS_COLOR: Record<string, string> = {
-  TETAP: "bg-emerald-100 text-emerald-700",
-  KONTRAK: "bg-amber-100 text-amber-700",
-  PROBATION: "bg-orange-100 text-orange-700",
+const STATUS_BADGE: Record<string, string> = {
+  TETAP: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  KONTRAK: "bg-amber-100 text-amber-700 border-amber-200",
+  PROBATION: "bg-orange-100 text-orange-700 border-orange-200",
 };
 
 const EMPTY: Partial<EmployeeInput> = {
@@ -97,7 +108,16 @@ function csvRowToInput(row: Record<string, string>): EmployeeInput {
   };
 }
 
-export default function KaryawanClient({ employees: initial, depts }: { employees: Employee[]; depts: Dept[] }) {
+function StatusBadge({ value, map }: { value: string; map: Record<string, string> }) {
+  const cls = map[value] ?? "bg-gray-100 text-gray-600 border-gray-200";
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+      {value}
+    </span>
+  );
+}
+
+export default function KaryawanClient({ employees: initial }: { employees: Employee[]; depts: Dept[] }) {
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"none" | "add" | "edit" | "upload">("none");
@@ -212,244 +232,299 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
       setImportResult({ ok, skip });
       setCsvRows([]);
       if (fileRef.current) fileRef.current.value = "";
-      // Refresh employee list
       window.location.reload();
     });
   }
 
-  const field = (key: keyof EmployeeInput, label: string, opts?: { type?: string; options?: string[] }) => (
-    <div>
-      <label className="text-xs font-medium text-gray-500 block mb-1">{label}</label>
-      {opts?.options ? (
-        <select
-          value={(form[key] as string) ?? ""}
-          onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c42828]/30"
-        >
-          {opts.options.map(o => <option key={o}>{o}</option>)}
-        </select>
-      ) : (
-        <input
-          type={opts?.type ?? "text"}
-          value={(form[key] as string) ?? ""}
-          onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#c42828]/30"
-        />
-      )}
-    </div>
-  );
+  const isFormOpen = modal === "add" || modal === "edit";
 
   return (
     <div className="bg-gray-50 min-h-full">
-      {/* Page title */}
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800">Data Karyawan</h2>
         <p className="text-xs text-gray-400 mt-0.5">{employees.length} karyawan terdaftar</p>
       </div>
 
-      <main className="px-6 py-5 max-w-5xl space-y-4">
-        {/* Action buttons */}
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={openAdd}
-            className="flex items-center gap-1.5 bg-[#c42828] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-red-700 transition-colors">
-            <Plus size={15} /> Tambah
-          </button>
-          <button onClick={() => { setModal("upload"); setCsvRows([]); setImportResult(null); }}
-            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+      <main className="px-6 py-5 max-w-6xl space-y-4">
+        {/* Action bar */}
+        <div className="flex gap-2 flex-wrap items-center">
+          <Button onClick={openAdd} size="sm" className="gap-1.5">
+            <Plus size={15} /> Tambah Karyawan
+          </Button>
+          <Button variant="outline" size="sm"
+            onClick={() => { setModal("upload"); setCsvRows([]); setImportResult(null); }}
+            className="gap-1.5">
             <Upload size={15} /> Upload CSV
-          </button>
-          <button onClick={downloadTemplate}
-            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+          </Button>
+          <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-1.5">
             <Download size={15} /> Template
-          </button>
+          </Button>
+          <div className="relative ml-auto w-full sm:w-72 mt-2 sm:mt-0">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Cari NIK, nama, jabatan..."
+              className="pl-9"
+            />
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Cari NIK, nama, jabatan, departemen..."
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c42828]/30"
-          />
-        </div>
-
-        {/* Employee list */}
-        <div className="space-y-2">
-          {filtered.length === 0 && (
-            <div className="text-center py-10 text-gray-400 text-sm">
-              {search ? "Tidak ada karyawan yang cocok." : "Belum ada karyawan. Tambah atau upload CSV."}
-            </div>
-          )}
-          {filtered.map(emp => (
-            <div key={emp.id} className={`bg-white rounded-2xl border p-4 ${!emp.isActive ? "opacity-60 border-gray-100" : "border-gray-100 shadow-sm"}`}>
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-[#1e3a5f]/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <User size={16} className="text-[#1e3a5f]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-800 text-sm">{emp.name}</span>
-                    {!emp.isActive && <span className="text-xs text-red-500 font-medium">NONAKTIF</span>}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{emp.employeeId} · {emp.email ?? "—"}</p>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {emp.department && (
-                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{emp.department.name}</span>
-                    )}
-                    {emp.position && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{emp.position}</span>
-                    )}
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[emp.employmentStatus] ?? "bg-gray-100 text-gray-600"}`}>
-                      {emp.employmentStatus}
+        {/* Table */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
+                <TableHead className="w-[110px] px-4">NIK</TableHead>
+                <TableHead className="px-4">Nama</TableHead>
+                <TableHead className="hidden md:table-cell px-4">Departemen</TableHead>
+                <TableHead className="hidden lg:table-cell px-4">Status Kerja</TableHead>
+                <TableHead className="hidden lg:table-cell px-4">Role</TableHead>
+                <TableHead className="hidden sm:table-cell px-4">Status</TableHead>
+                <TableHead className="text-right px-4">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={7} className="text-center py-12 text-gray-400 text-sm">
+                    {search ? "Tidak ada karyawan yang cocok." : "Belum ada karyawan. Tambah atau upload CSV."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map(emp => (
+                <TableRow key={emp.id} className={!emp.isActive ? "opacity-50" : ""}>
+                  <TableCell className="px-4 font-mono text-xs text-gray-500 whitespace-nowrap">
+                    {emp.employeeId}
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <div>
+                      <p className="font-medium text-sm text-gray-800">{emp.name}</p>
+                      <p className="text-xs text-gray-400">{emp.email ?? "—"}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell px-4 text-sm text-gray-600">
+                    <div>
+                      <p>{emp.department?.name ?? "—"}</p>
+                      {emp.position && <p className="text-xs text-gray-400">{emp.position}</p>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell px-4">
+                    <StatusBadge value={emp.employmentStatus} map={STATUS_BADGE} />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell px-4">
+                    <StatusBadge value={emp.role} map={ROLE_BADGE} />
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell px-4">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                      emp.isActive
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-red-50 text-red-700 border-red-200"
+                    }`}>
+                      {emp.isActive ? "Aktif" : "Nonaktif"}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLOR[emp.role] ?? "bg-gray-100 text-gray-600"}`}>
-                      {emp.role}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
-                <button onClick={() => openEdit(emp)}
-                  className="flex-1 text-xs font-medium text-[#c42828] bg-red-50 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
-                  Edit
-                </button>
-                <button onClick={() => handleToggle(emp)} disabled={isPending}
-                  className={`flex-1 text-xs font-medium py-1.5 rounded-lg transition-colors ${emp.isActive
-                    ? "text-red-600 bg-red-50 hover:bg-red-100"
-                    : "text-green-600 bg-green-50 hover:bg-green-100"}`}>
-                  {emp.isActive ? "Nonaktifkan" : "Aktifkan"}
-                </button>
-              </div>
-            </div>
-          ))}
+                  </TableCell>
+                  <TableCell className="px-4 text-right whitespace-nowrap">
+                    <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="sm"
+                        onClick={() => openEdit(emp)}
+                        className="h-7 px-2 text-xs text-[#c42828] hover:text-[#c42828] hover:bg-red-50">
+                        Edit
+                      </Button>
+                      <Button variant="ghost" size="sm"
+                        onClick={() => handleToggle(emp)} disabled={isPending}
+                        className={`h-7 px-2 text-xs ${emp.isActive
+                          ? "text-gray-500 hover:text-red-600 hover:bg-red-50"
+                          : "text-gray-500 hover:text-green-600 hover:bg-green-50"}`}>
+                        {emp.isActive ? "Nonaktifkan" : "Aktifkan"}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </main>
 
-      {/* Add/Edit Modal */}
-      {(modal === "add" || modal === "edit") && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
-              <h2 className="font-bold text-gray-800">{modal === "add" ? "Tambah Karyawan" : "Edit Karyawan"}</h2>
-              <button onClick={() => setModal("none")}><X size={20} className="text-gray-400" /></button>
+      {/* Add/Edit Dialog */}
+      <Dialog open={isFormOpen} onOpenChange={(open: boolean) => { if (!open) setModal("none"); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{modal === "add" ? "Tambah Karyawan" : "Edit Karyawan"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-1">
+            {msg && (
+              <div className={`text-sm px-4 py-3 rounded-lg ${msg.type === "err" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                {msg.text}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">NIK *</Label>
+                <Input value={form.employeeId ?? ""} onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nama Lengkap *</Label>
+                <Input value={form.name ?? ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
             </div>
-            <div className="overflow-y-auto px-5 py-4 space-y-3 flex-1">
-              {msg && (
-                <div className={`text-sm px-4 py-3 rounded-xl ${msg.type === "err" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
-                  {msg.text}
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                {field("employeeId", "NIK *")}
-                {field("name", "Nama Lengkap *")}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Email</Label>
+                <Input type="email" value={form.email ?? ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {field("email", "Email", { type: "email" })}
-                {field("phone", "No HP")}
+              <div className="space-y-1.5">
+                <Label className="text-xs">No HP</Label>
+                <Input value={form.phone ?? ""} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {field("departmentName", "Departemen")}
-                {field("position", "Jabatan")}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {field("employmentStatus", "Status Kerja", { options: STATUSES })}
-                {field("role", "Role", { options: ROLES })}
-              </div>
-              {field("joinDate", "Tanggal Masuk", { type: "date" })}
-              {field("password", modal === "add" ? "Password *" : "Password Baru (kosongkan jika tidak diganti)", { type: "password" })}
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Info Bank</p>
-              <div className="grid grid-cols-2 gap-3">
-                {field("bankName", "Nama Bank")}
-                {field("bankAccount", "No Rekening")}
-              </div>
-              {field("bankHolder", "Nama Pemilik Rekening")}
             </div>
-            <div className="px-5 py-4 border-t border-gray-100">
-              <button onClick={handleSave} disabled={isPending}
-                className="w-full bg-[#c42828] text-white font-semibold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-                {isPending && <Loader2 size={16} className="animate-spin" />}
-                {modal === "add" ? "Simpan Karyawan" : "Simpan Perubahan"}
-              </button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Departemen</Label>
+                <Input value={form.departmentName ?? ""} onChange={e => setForm(f => ({ ...f, departmentName: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Jabatan</Label>
+                <Input value={form.position ?? ""} onChange={e => setForm(f => ({ ...f, position: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Status Kerja</Label>
+                <Select
+                  value={form.employmentStatus ?? "KONTRAK"}
+                  onValueChange={(v: string | null) => setForm(f => ({ ...f, employmentStatus: v ?? f.employmentStatus }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Role</Label>
+                <Select
+                  value={form.role ?? "KARYAWAN"}
+                  onValueChange={(v: string | null) => setForm(f => ({ ...f, role: v ?? f.role }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tanggal Masuk</Label>
+              <Input type="date" value={form.joinDate ?? ""} onChange={e => setForm(f => ({ ...f, joinDate: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                {modal === "add" ? "Password *" : "Password Baru (kosongkan jika tidak diganti)"}
+              </Label>
+              <Input type="password" value={form.password ?? ""} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+            </div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Info Bank</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nama Bank</Label>
+                <Input value={form.bankName ?? ""} onChange={e => setForm(f => ({ ...f, bankName: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">No Rekening</Label>
+                <Input value={form.bankAccount ?? ""} onChange={e => setForm(f => ({ ...f, bankAccount: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nama Pemilik Rekening</Label>
+              <Input value={form.bankHolder ?? ""} onChange={e => setForm(f => ({ ...f, bankHolder: e.target.value }))} />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* CSV Upload Modal */}
-      {modal === "upload" && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
-              <h2 className="font-bold text-gray-800">Upload CSV Karyawan</h2>
-              <button onClick={() => setModal("none")}><X size={20} className="text-gray-400" /></button>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setModal("none")}>Batal</Button>
+            <Button size="sm" onClick={handleSave} disabled={isPending} className="gap-2">
+              {isPending && <Loader2 size={14} className="animate-spin" />}
+              {modal === "add" ? "Simpan Karyawan" : "Simpan Perubahan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Upload Dialog */}
+      <Dialog open={modal === "upload"} onOpenChange={(open: boolean) => { if (!open) setModal("none"); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Upload CSV Karyawan</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-1">
+            <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+              <p className="font-semibold">Format kolom CSV:</p>
+              <p className="text-blue-600">NIK, Nama, Email, No HP, Departemen, Jabatan, Status Kerja, Role, Tanggal Masuk, Password, No Rekening, Nama Bank, Nama Pemilik Rekening</p>
+              <p className="text-blue-500">• Status Kerja: TETAP / KONTRAK / PROBATION</p>
+              <p className="text-blue-500">• Role: KARYAWAN / HRD / MANAGER / ADMIN</p>
+              <p className="text-blue-500">• Tanggal: YYYY-MM-DD (mis. 2024-01-15)</p>
+              <p className="text-blue-500">• NIK yang sudah ada akan dilewati</p>
             </div>
-            <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1">
-              {/* Instructions */}
-              <div className="bg-blue-50 rounded-xl p-3 text-xs text-blue-700 space-y-1">
-                <p className="font-semibold">Format CSV:</p>
-                <p>NIK, Nama, Email, No HP, Departemen, Jabatan, Status Kerja, Role, Tanggal Masuk, Password, No Rekening, Nama Bank, Nama Pemilik Rekening</p>
-                <p className="text-blue-500">• Status Kerja: TETAP / KONTRAK / PROBATION</p>
-                <p className="text-blue-500">• Role: KARYAWAN / HRD / MANAGER / ADMIN</p>
-                <p className="text-blue-500">• Tanggal: YYYY-MM-DD (mis. 2024-01-15)</p>
-                <p className="text-blue-500">• NIK yang sudah ada akan dilewati</p>
-              </div>
 
-              <button onClick={downloadTemplate}
-                className="w-full flex items-center justify-center gap-2 border border-dashed border-gray-300 text-gray-600 text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-                <Download size={15} /> Download Template CSV
-              </button>
+            <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
+              <Download size={15} /> Download Template CSV
+            </Button>
 
-              {/* File input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Pilih File CSV</Label>
+              <input ref={fileRef} type="file" accept=".csv,text/csv"
+                onChange={handleFileChange}
+                className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#c42828] file:text-white file:text-xs file:font-medium hover:file:bg-red-700 cursor-pointer" />
+            </div>
+
+            {csvRows.length > 0 && (
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1">Pilih File CSV</label>
-                <input ref={fileRef} type="file" accept=".csv,text/csv"
-                  onChange={handleFileChange}
-                  className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#1e3a5f] file:text-white file:text-xs file:font-medium hover:file:bg-blue-800 cursor-pointer" />
-              </div>
-
-              {/* Preview */}
-              {csvRows.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 mb-2">{csvRows.length} data siap diimport:</p>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {csvRows.slice(0, 10).map((r, i) => (
-                      <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1.5 text-xs">
-                        <span className="font-mono text-gray-500 w-16 shrink-0">{r.employeeId}</span>
-                        <span className="text-gray-700 flex-1 truncate">{r.name}</span>
-                        <span className="text-gray-400 shrink-0">{r.employmentStatus}</span>
-                      </div>
-                    ))}
-                    {csvRows.length > 10 && (
-                      <p className="text-xs text-gray-400 text-center">... dan {csvRows.length - 10} lainnya</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Import result */}
-              {importResult && (
-                <div className="bg-green-50 rounded-xl p-3 space-y-1">
-                  <div className="flex items-center gap-2 text-green-700 text-sm font-semibold">
-                    <CheckCircle2 size={16} /> Import selesai
-                  </div>
-                  <p className="text-xs text-green-600">✓ {importResult.ok} karyawan berhasil diimport</p>
-                  {importResult.skip > 0 && (
-                    <p className="text-xs text-amber-600">⚠ {importResult.skip} dilewati (NIK sudah ada)</p>
+                <p className="text-xs font-semibold text-gray-500 mb-2">{csvRows.length} data siap diimport:</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {csvRows.slice(0, 10).map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-gray-50 rounded px-3 py-1.5 text-xs">
+                      <span className="font-mono text-gray-500 w-16 shrink-0">{r.employeeId}</span>
+                      <span className="text-gray-700 flex-1 truncate">{r.name}</span>
+                      <span className="text-gray-400 shrink-0">{r.employmentStatus}</span>
+                    </div>
+                  ))}
+                  {csvRows.length > 10 && (
+                    <p className="text-xs text-gray-400 text-center">... dan {csvRows.length - 10} lainnya</p>
                   )}
                 </div>
-              )}
-            </div>
-            <div className="px-5 py-4 border-t border-gray-100">
-              <button onClick={handleImport} disabled={isPending || csvRows.length === 0}
-                className="w-full bg-[#c42828] text-white font-semibold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-                {isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                {isPending ? "Mengimport..." : `Import ${csvRows.length} Karyawan`}
-              </button>
-            </div>
+              </div>
+            )}
+
+            {importResult && (
+              <div className="bg-green-50 rounded-lg p-3 space-y-1">
+                <div className="flex items-center gap-2 text-green-700 text-sm font-semibold">
+                  <CheckCircle2 size={16} /> Import selesai
+                </div>
+                <p className="text-xs text-green-600">✓ {importResult.ok} karyawan berhasil diimport</p>
+                {importResult.skip > 0 && (
+                  <p className="text-xs text-amber-600">⚠ {importResult.skip} dilewati (NIK sudah ada)</p>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setModal("none")}>Tutup</Button>
+            <Button size="sm" onClick={handleImport} disabled={isPending || csvRows.length === 0} className="gap-2">
+              {isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {isPending ? "Mengimport..." : `Import ${csvRows.length} Karyawan`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

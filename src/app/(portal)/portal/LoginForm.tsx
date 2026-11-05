@@ -3,6 +3,9 @@
 import { useActionState } from "react";
 import { loginAction } from "./actions";
 import { Lock, Loader2, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 export default function LoginForm() {
   const [state, formAction, isPending] = useActionState(loginAction, undefined);
@@ -16,45 +19,41 @@ export default function LoginForm() {
         </div>
       )}
 
-      <div>
-        <label className="text-sm font-medium text-gray-700 mb-1 block">
-          ID Karyawan / Email
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="login" className="text-gray-700">ID Karyawan / Email</Label>
+        <Input
+          id="login"
           name="login"
           type="text"
           required
           disabled={isPending}
           placeholder="Masukkan ID karyawan"
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30 focus:border-[#1e3a5f] disabled:opacity-60"
         />
       </div>
 
-      <div>
-        <label className="text-sm font-medium text-gray-700 mb-1 block">
-          Password
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="password" className="text-gray-700">Password</Label>
+        <Input
+          id="password"
           name="password"
           type="password"
           required
           disabled={isPending}
           placeholder="••••••••"
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30 focus:border-[#1e3a5f] disabled:opacity-60"
         />
       </div>
 
-      <button
+      <Button
         type="submit"
         disabled={isPending}
-        className="w-full bg-[#1e3a5f] text-white font-semibold py-2.5 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+        className="w-full gap-2 bg-[#1e3a5f] hover:bg-[#1e3a5f]/85"
       >
         {isPending ? (
           <><Loader2 size={16} className="animate-spin" /> Memverifikasi...</>
         ) : (
           <><Lock size={16} /> Masuk</>
         )}
-      </button>
+      </Button>
     </form>
   );
 }
