@@ -16,7 +16,7 @@ export async function changeAdminPassword(
     where: { id: session.user.id },
     select: { passwordHash: true },
   });
-  if (!user) return { error: "User tidak ditemukan" };
+  if (!user || !user.passwordHash) return { error: "User tidak ditemukan" };
 
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) return { error: "Password saat ini salah" };
