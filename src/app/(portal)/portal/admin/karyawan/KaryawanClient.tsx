@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import { Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -51,23 +52,10 @@ const EMPTY: Partial<EmployeeInput> = {
   bankName: "", bankAccount: "", bankHolder: "",
 };
 
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.trim().split("\n").map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map(line => {
-    const cols: string[] = [];
-    let cur = "", inQ = false;
-    for (const ch of line) {
-      if (ch === '"') { inQ = !inQ; continue; }
-      if (ch === "," && !inQ) { cols.push(cur); cur = ""; continue; }
-      cur += ch;
-    }
-    cols.push(cur);
-    const obj: Record<string, string> = {};
-    headers.forEach((h, i) => { obj[h] = (cols[i] ?? "").trim(); });
-    return obj;
-  });
+function parseExcel(buffer: ArrayBuffer): Record<string, string>[] {
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  return XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
 }
 
 const CSV_HEADERS = [
@@ -82,12 +70,10 @@ const CSV_EXAMPLE = [
 ];
 
 function downloadTemplate() {
-  const csv = [CSV_HEADERS.join(","), CSV_EXAMPLE.join(",")].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = "template_karyawan.csv"; a.click();
-  URL.revokeObjectURL(url);
+  const ws = XLSX.utils.aoa_to_sheet([CSV_HEADERS, CSV_EXAMPLE]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Karyawan");
+  XLSX.writeFile(wb, "template_karyawan.xlsx");
 }
 
 function csvRowToInput(row: Record<string, string>): EmployeeInput {
@@ -215,12 +201,12 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const parsed = parseCsv(text);
+      const buffer = ev.target?.result as ArrayBuffer;
+      const parsed = parseExcel(buffer);
       setCsvRows(parsed.map(csvRowToInput).filter(r => r.employeeId && r.name));
       setImportResult(null);
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   }
 
   function handleImport() {
@@ -254,10 +240,10 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
           <Button variant="outline" size="sm"
             onClick={() => { setModal("upload"); setCsvRows([]); setImportResult(null); }}
             className="gap-1.5">
-            <Upload size={15} /> Upload CSV
+            <Upload size={15} /> Upload Excel
           </Button>
           <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-1.5">
-            <Download size={15} /> Template
+            <Download size={15} /> Template .xlsx
           </Button>
           <div className="relative ml-auto w-full sm:w-72 mt-2 sm:mt-0">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -461,12 +447,12 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
       <Dialog open={modal === "upload"} onOpenChange={(open: boolean) => { if (!open) setModal("none"); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Upload CSV Karyawan</DialogTitle>
+            <DialogTitle>Upload Excel Karyawan</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-1">
             <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700 space-y-1">
-              <p className="font-semibold">Format kolom CSV:</p>
+              <p className="font-semibold">Format kolom Excel:</p>
               <p className="text-blue-600">NIK, Nama, Email, No HP, Departemen, Jabatan, Status Kerja, Role, Tanggal Masuk, Password, No Rekening, Nama Bank, Nama Pemilik Rekening</p>
               <p className="text-blue-500">• Status Kerja: TETAP / KONTRAK / PROBATION</p>
               <p className="text-blue-500">• Role: KARYAWAN / HRD / MANAGER / ADMIN</p>
@@ -475,12 +461,13 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
             </div>
 
             <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
-              <Download size={15} /> Download Template CSV
+              <Download size={15} /> Download Template Excel (.xlsx)
             </Button>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Pilih File CSV</Label>
-              <input ref={fileRef} type="file" accept=".csv,text/csv"
+              <Label className="text-xs">Pilih File Excel</Label>
+              <input ref={fileRef} type="file"
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 onChange={handleFileChange}
                 className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#c42828] file:text-white file:text-xs file:font-medium hover:file:bg-red-700 cursor-pointer" />
             </div>
