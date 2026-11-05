@@ -165,10 +165,14 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
         } else if (editTarget) {
           await updateEmployee(editTarget.id, form);
           setEmployees(prev => prev.map(e => e.id === editTarget.id ? {
-            ...e, ...form,
+            ...e,
+            name: form.name ?? e.name,
             email: form.email || null, phone: form.phone || null,
             position: form.position || null, bankName: form.bankName || null,
             bankAccount: form.bankAccount || null, bankHolder: form.bankHolder || null,
+            role: form.role ?? e.role,
+            employmentStatus: form.employmentStatus ?? e.employmentStatus,
+            joinDate: form.joinDate ? new Date(form.joinDate) : e.joinDate,
             department: form.departmentName ? { id: e.department?.id ?? "", name: form.departmentName } : null,
           } : e));
         }
