@@ -3,8 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { ChevronLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatRupiah } from "@/lib/utils";
 
@@ -20,18 +19,13 @@ export default async function PayslipPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-[#1e3a5f] text-white px-4 py-4 flex items-center gap-3">
-        <Link href="/portal/dashboard" className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-          <ChevronLeft size={20} />
-        </Link>
-        <div>
-          <h1 className="font-bold text-base">Slip Gaji</h1>
-          <p className="text-blue-200 text-xs">{session.user.name}</p>
-        </div>
-      </header>
+    <div className="bg-gray-50 min-h-full">
+      <div className="px-6 py-4 border-b border-gray-100 bg-white">
+        <h2 className="font-bold text-gray-800">Slip Gaji</h2>
+        <p className="text-xs text-gray-400 mt-0.5">{session.user.name}</p>
+      </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-3xl px-6 py-6">
         {payslips.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
             <FileText size={40} className="text-gray-200 mx-auto mb-3" />

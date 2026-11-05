@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import {
-  Search, Plus, Upload, Download, X, ChevronLeft,
+  Search, Plus, Upload, Download, X,
   User, CheckCircle2, XCircle, AlertCircle, Loader2,
 } from "lucide-react";
 import {
@@ -224,7 +224,7 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
         <select
           value={(form[key] as string) ?? ""}
           onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c42828]/30"
         >
           {opts.options.map(o => <option key={o}>{o}</option>)}
         </select>
@@ -233,32 +233,25 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
           type={opts?.type ?? "text"}
           value={(form[key] as string) ?? ""}
           onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#c42828]/30"
         />
       )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-[#1e3a5f] text-white px-4 py-4 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <a href="/portal/dashboard" className="text-blue-200 hover:text-white">
-            <ChevronLeft size={22} />
-          </a>
-          <div className="flex-1">
-            <h1 className="font-bold text-base">Admin — Data Karyawan</h1>
-            <p className="text-blue-200 text-xs">{employees.length} karyawan terdaftar</p>
-          </div>
-        </div>
-      </header>
+    <div className="bg-gray-50 min-h-full">
+      {/* Page title */}
+      <div className="bg-white border-b border-gray-100 px-6 py-4">
+        <h2 className="font-bold text-gray-800">Data Karyawan</h2>
+        <p className="text-xs text-gray-400 mt-0.5">{employees.length} karyawan terdaftar</p>
+      </div>
 
-      <main className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+      <main className="px-6 py-5 max-w-5xl space-y-4">
         {/* Action buttons */}
         <div className="flex gap-2 flex-wrap">
           <button onClick={openAdd}
-            className="flex items-center gap-1.5 bg-[#1e3a5f] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-blue-800 transition-colors">
+            className="flex items-center gap-1.5 bg-[#c42828] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-red-700 transition-colors">
             <Plus size={15} /> Tambah
           </button>
           <button onClick={() => { setModal("upload"); setCsvRows([]); setImportResult(null); }}
@@ -277,7 +270,7 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Cari NIK, nama, jabatan, departemen..."
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30"
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c42828]/30"
           />
         </div>
 
@@ -318,7 +311,7 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
               </div>
               <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
                 <button onClick={() => openEdit(emp)}
-                  className="flex-1 text-xs font-medium text-[#1e3a5f] bg-blue-50 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                  className="flex-1 text-xs font-medium text-[#c42828] bg-red-50 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
                   Edit
                 </button>
                 <button onClick={() => handleToggle(emp)} disabled={isPending}
@@ -374,7 +367,7 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
             </div>
             <div className="px-5 py-4 border-t border-gray-100">
               <button onClick={handleSave} disabled={isPending}
-                className="w-full bg-[#1e3a5f] text-white font-semibold py-3 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                className="w-full bg-[#c42828] text-white font-semibold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
                 {isPending && <Loader2 size={16} className="animate-spin" />}
                 {modal === "add" ? "Simpan Karyawan" : "Simpan Perubahan"}
               </button>
@@ -449,7 +442,7 @@ export default function KaryawanClient({ employees: initial, depts }: { employee
             </div>
             <div className="px-5 py-4 border-t border-gray-100">
               <button onClick={handleImport} disabled={isPending || csvRows.length === 0}
-                className="w-full bg-[#1e3a5f] text-white font-semibold py-3 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                className="w-full bg-[#c42828] text-white font-semibold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
                 {isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                 {isPending ? "Mengimport..." : `Import ${csvRows.length} Karyawan`}
               </button>
