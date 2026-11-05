@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Home, Clock, Calendar, Briefcase, FileText,
-  Receipt, Users, LogOut, Menu, X, ChevronDown,
+  Receipt, Users, LogOut, Menu, X, ChevronDown, Settings,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 
@@ -40,6 +40,13 @@ function getNavSections(role: string): NavSection[] {
     sections.push({
       section: "EMPLOYEE",
       items: [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }],
+    });
+  }
+
+  if (role === "ADMIN") {
+    sections.push({
+      section: "ADMIN",
+      items: [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }],
     });
   }
 
