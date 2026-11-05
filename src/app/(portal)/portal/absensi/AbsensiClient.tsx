@@ -133,7 +133,7 @@ export default function AbsensiClient({ today, week }: Props) {
     startTransition(async () => {
       const res = await checkIn(pos.lat, pos.lng);
       if ("error" in res) {
-        setMessage({ type: "err", text: res.error });
+        setMessage({ type: "err", text: res.error ?? "" });
       } else {
         const dist = res.distance ?? 0;
         if (!res.inRadius) {
@@ -151,7 +151,7 @@ export default function AbsensiClient({ today, week }: Props) {
     startTransition(async () => {
       const res = await checkOut(pos.lat, pos.lng);
       if ("error" in res) {
-        setMessage({ type: "err", text: res.error });
+        setMessage({ type: "err", text: res.error ?? "" });
       } else {
         setMessage({ type: "ok", text: "Check-out berhasil! Sampai jumpa besok." });
       }
