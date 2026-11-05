@@ -1,39 +1,38 @@
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 const COMING_SOON = process.env.COMING_SOON === "true";
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+export default auth((req) => {
+  const { nextUrl, auth: session } = req;
+  const isLoggedIn = !!session?.user;
+  const path = nextUrl.pathname;
 
-  const isPortalPage = pathname.startsWith("/portal");
-  const isLoginPage = pathname === "/portal";
-  const isComingSoonPage = pathname === "/coming-soon";
+  // Use actual request host from headers (not nextUrl which is affected by NEXTAUTH_URL)
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || nextUrl.host;
+  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0] || "https";
+  const origin = `${proto}://${host}`;
+
+  const isPortalPage = path.startsWith("/portal");
+  const isLoginPage = path === "/portal";
+  const isComingSoonPage = path === "/coming-soon";
   const isPublicAsset =
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".") ||
-    pathname.startsWith("/progress");
+    path.startsWith("/_next") || path.startsWith("/api") ||
+    path.includes(".") || path.startsWith("/progress");
 
-  if (COMING_SOON && !isPortalPage && !isComingSoonPage && !isPublicAsset && pathname === "/") {
-    return NextResponse.redirect(new URL("/coming-soon", req.url));
+  if (COMING_SOON && !isPortalPage && !isComingSoonPage && !isPublicAsset && path === "/") {
+    return NextResponse.redirect(`${origin}/coming-soon`);
   }
 
-  if (isPortalPage) {
-    const token = await getToken({ req });
-    const isLoggedIn = !!token;
-
-    if (!isLoginPage && !isLoggedIn) {
-      return NextResponse.redirect(new URL("/portal", req.url));
-    }
-    if (isLoginPage && isLoggedIn) {
-      return NextResponse.redirect(new URL("/portal/dashboard", req.url));
-    }
+  if (isPortalPage && !isLoginPage && !isLoggedIn) {
+    return NextResponse.redirect(`${origin}/portal`);
+  }
+  if (isLoginPage && isLoggedIn) {
+    return NextResponse.redirect(`${origin}/portal/dashboard`);
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: ["/", "/portal/:path*"],
