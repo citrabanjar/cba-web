@@ -1,0 +1,142 @@
+export const dynamic = "force-dynamic";
+
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import {
+  Clock, CalendarDays, Briefcase, FileText,
+  Receipt, TrendingUp, CheckCircle2, AlertCircle,
+} from "lucide-react";
+import Link from "next/link";
+
+export default async function DashboardPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/portal");
+
+  const user = session.user;
+  const greeting = getGreeting();
+
+  const menuItems = [
+    {
+      href: "/portal/absensi",
+      icon: Clock,
+      label: "Absensi",
+      desc: "Check-in & Check-out",
+      color: "bg-blue-50 text-blue-700",
+      badge: null,
+    },
+    {
+      href: "/portal/cuti",
+      icon: CalendarDays,
+      label: "Cuti",
+      desc: "Pengajuan cuti",
+      color: "bg-green-50 text-green-700",
+      badge: null,
+    },
+    {
+      href: "/portal/dinas",
+      icon: Briefcase,
+      label: "Dinas Luar",
+      desc: "Pengajuan dinas",
+      color: "bg-amber-50 text-amber-700",
+      badge: null,
+    },
+    {
+      href: "/portal/payslip",
+      icon: FileText,
+      label: "Slip Gaji",
+      desc: "Riwayat pembayaran",
+      color: "bg-purple-50 text-purple-700",
+      badge: null,
+    },
+    {
+      href: "/portal/pph21",
+      icon: Receipt,
+      label: "PPh 21",
+      desc: "Bukti potong pajak",
+      color: "bg-red-50 text-red-700",
+      badge: null,
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-[#1e3a5f] text-white px-4 py-5">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div>
+            <p className="text-blue-200 text-xs">{greeting}</p>
+            <h1 className="font-bold text-lg mt-0.5">{user.name}</h1>
+            <p className="text-blue-200 text-xs mt-0.5">
+              {user.employeeId} · {user.role} · {user.employmentStatus}
+            </p>
+          </div>
+          <form action="/api/auth/signout" method="POST">
+            <button className="text-xs text-blue-200 hover:text-white transition-colors">
+              Keluar
+            </button>
+          </form>
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {/* Status hari ini */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Status Hari Ini</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+              <TrendingUp size={18} className="text-gray-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Belum Check-in</p>
+              <p className="text-xs text-gray-400">Lakukan absensi sekarang</p>
+            </div>
+            <Link
+              href="/portal/absensi"
+              className="ml-auto text-xs font-semibold text-[#1e3a5f] bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              Absen →
+            </Link>
+          </div>
+        </div>
+
+        {/* Menu utama */}
+        <div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Menu</p>
+          <div className="grid grid-cols-2 gap-3">
+            {menuItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow flex flex-col gap-3"
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color}`}>
+                  <item.icon size={20} />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800 text-sm">{item.label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="bg-blue-50 rounded-2xl p-4 flex items-start gap-3">
+          <AlertCircle size={18} className="text-blue-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-blue-700">
+            Butuh bantuan? Hubungi HRD melalui email atau datang langsung ke kantor.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Selamat Pagi";
+  if (hour < 15) return "Selamat Siang";
+  if (hour < 18) return "Selamat Sore";
+  return "Selamat Malam";
+}

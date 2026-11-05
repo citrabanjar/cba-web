@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ───────────────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Karyawan ────────────────────────────────────────────────────────────────
+
+enum EmploymentStatus {
+  TETAP
+  KONTRAK
+  PROBATION
+}
+
+enum UserRole {
+  KARYAWAN
+  ADMIN
+  HRD
+  MANAGER
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id               String           @id @default(cuid())
+  employeeId       String           @unique
+  name             String
+  email            String?          @unique
+  emailVerified    DateTime?
+  image            String?
+  passwordHash     String?
+  phone            String?
+  role             UserRole         @default(KARYAWAN)
+  employmentStatus EmploymentStatus @default(KONTRAK)
+  departmentId     String?
+  position         String?
+  joinDate         DateTime?
+  bankName         String?
+  bankAccount      String?
+  bankHolder       String?
+  isActive         Boolean          @default(true)
+  kantorkuId       String?
+
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  accounts     Account[]
+  sessions     Session[]
+  attendances  Attendance[]
+  leaves       LeaveRequest[]
+  businessTrips BusinessTrip[]
+  payslips     Payslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Absensi ─────────────────────────────────────────────────────────────────
+
+enum AttendanceStatus {
+  HADIR
+  IZIN
+  SAKIT
+  ALPHA
+  CUTI
+  DINAS
+}
+
+model Attendance {
+  id          String           @id @default(cuid())
+  userId      String
+  date        DateTime         @db.Date
+  checkIn     DateTime?
+  checkOut    DateTime?
+  checkInLat  Float?
+  checkInLng  Float?
+  checkOutLat Float?
+  checkOutLng Float?
+  checkInAddr String?
+  checkOutAddr String?
+  status      AttendanceStatus @default(HADIR)
+  note        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+// ─── Cuti ─────────────────────────────────────────────────────────────────────
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveType {
+  TAHUNAN
+  SAKIT
+  MELAHIRKAN
+  PENTING
+  LAINNYA
+}
+
+model LeaveRequest {
+  id          String      @id @default(cuid())
+  userId      String
+  type        LeaveType
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  totalDays   Int
+  reason      String      @db.Text
+  status      LeaveStatus @default(PENDING)
+  approvedBy  String?
+  approvedAt  DateTime?
+  note        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Dinas Luar ──────────────────────────────────────────────────────────────
+
+model BusinessTrip {
+  id          String      @id @default(cuid())
+  userId      String
+  destination String
+  purpose     String      @db.Text
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  totalDays   Int
+  status      LeaveStatus @default(PENDING)
+  approvedBy  String?
+  approvedAt  DateTime?
+  note        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Payslip ──────────────────────────────────────────────────────────────────
+
+model Payslip {
+  id              String   @id @default(cuid())
+  userId          String
+  period          String   // e.g. "2026-10"
+  periodLabel     String   // e.g. "Oktober 2026"
+  basicSalary     Float
+  overtimePay     Float    @default(0)
+  mealAllowance   Float    @default(0)
+  travelAllowance Float    @default(0)
+  otherBenefits   Float    @default(0)
+  pph21           Float    @default(0)
+  bpjsKesehatan   Float    @default(0)
+  bpjsKetenagakerjaan Float @default(0)
+  otherDeductions Float    @default(0)
+  netPay          Float
+  paidAt          DateTime?
+  paidVia         String?  // e.g. "Transfer Bank Mandiri"
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  @@unique([userId, period])
+  @@index([period])
+}
+
+// ─── Customer Project ─────────────────────────────────────────────────────────
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model CustomerProject {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  clientName   String
+  clientEmail  String?
+  clientPhone  String?
+  projectName  String
+  description  String?       @db.Text
+  status       ProjectStatus @default(PLANNING)
+  startDate    DateTime?     @db.Date
+  endDate      DateTime?     @db.Date
+  progress     Int           @default(0)
+  accessToken  String        @unique @default(cuid())
+  updates      ProjectUpdate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProjectUpdate {
+  id          String          @id @default(cuid())
+  projectId   String
+  title       String
+  description String          @db.Text
+  progress    Int
+  images      String[]
+  createdBy   String
+
+  project CustomerProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
