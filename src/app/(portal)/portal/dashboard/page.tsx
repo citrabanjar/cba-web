@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, CheckCircle2, AlertCircle,
+  Receipt, TrendingUp, CheckCircle2, AlertCircle, ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -15,7 +15,17 @@ export default async function DashboardPage() {
   const user = session.user;
   const greeting = getGreeting();
 
+  const isAdmin = user.role === "ADMIN";
+
   const menuItems = [
+    ...(isAdmin ? [{
+      href: "/portal/admin/karyawan",
+      icon: ShieldCheck,
+      label: "Admin",
+      desc: "Kelola karyawan",
+      color: "bg-red-50 text-red-700",
+      badge: null,
+    }] : []),
     {
       href: "/portal/absensi",
       icon: Clock,
