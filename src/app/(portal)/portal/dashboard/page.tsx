@@ -4,8 +4,9 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, CheckCircle2, AlertCircle, ShieldCheck,
+  Receipt, TrendingUp, AlertCircle, ShieldCheck,
 } from "lucide-react";
+import { logoutAction } from "./actions";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -80,8 +81,8 @@ export default async function DashboardPage() {
               {user.employeeId} · {user.role} · {user.employmentStatus}
             </p>
           </div>
-          <form action="/api/auth/signout" method="POST">
-            <button className="text-xs text-blue-200 hover:text-white transition-colors">
+          <form action={logoutAction}>
+            <button type="submit" className="text-xs text-blue-200 hover:text-white transition-colors">
               Keluar
             </button>
           </form>
