@@ -17,15 +17,15 @@ export default auth((req) => {
 
   // Coming soon mode: redirect public homepage to /coming-soon
   if (COMING_SOON && !isPortalPage && !isComingSoonPage && !isPublicAsset && path === "/") {
-    return NextResponse.redirect(new URL("/coming-soon", nextUrl));
+    return NextResponse.redirect(new URL("/coming-soon", req.url));
   }
 
   // Portal auth guards
   if (isPortalPage && !isLoginPage && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/portal", nextUrl));
+    return NextResponse.redirect(new URL("/portal", req.url));
   }
   if (isLoginPage && isLoggedIn) {
-    return NextResponse.redirect(new URL("/portal/dashboard", nextUrl));
+    return NextResponse.redirect(new URL("/portal/dashboard", req.url));
   }
 
   return NextResponse.next();
