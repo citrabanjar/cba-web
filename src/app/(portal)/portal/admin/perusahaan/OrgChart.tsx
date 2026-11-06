@@ -93,6 +93,10 @@ function Branch({
   node: Tree; closed: Set<string>; toggle: (id: string) => void; canOpenProfile: boolean;
 }) {
   const open = !closed.has(node.id);
+  // Anak buah paling bawah disusun ke bawah dalam satu kolom supaya bagan tidak melebar.
+  const leaves = node.reports.filter((r) => r.reports.length === 0);
+  const stacked = leaves.length >= 2;
+  const branches = stacked ? node.reports.filter((r) => r.reports.length > 0) : node.reports;
   return (
     <li>
       <div className="org-node">
@@ -111,9 +115,20 @@ function Branch({
       </div>
       {open && node.reports.length > 0 && (
         <ul>
-          {node.reports.map((r) => (
+          {branches.map((r) => (
             <Branch key={r.id} node={r} closed={closed} toggle={toggle} canOpenProfile={canOpenProfile} />
           ))}
+          {stacked && (
+            <li>
+              <div className="org-stack">
+                {leaves.map((r) => (
+                  <div key={r.id} className="org-leaf">
+                    <PersonCard person={r} canOpenProfile={canOpenProfile} />
+                  </div>
+                ))}
+              </div>
+            </li>
+          )}
         </ul>
       )}
     </li>
