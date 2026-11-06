@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { PERSONAL_LOG_LABELS } from "@/lib/personal-info";
 import KaryawanDetailClient from "./KaryawanDetailClient";
 
 function tenure(joinDate: Date | null): string | null {
@@ -40,7 +41,8 @@ export default async function KaryawanDetailPage({
       employmentStatus: true, position: true, branch: true, joinDate: true,
       contractEndDate: true, resignDate: true, paymentSchedule: true,
       bankName: true, bankAccount: true, bankHolder: true, isActive: true,
-      ktpNumber: true, address: true, birthPlace: true, birthDate: true,
+      idType: true, ktpNumber: true, address: true, currentAddress: true,
+      addressSameAsId: true, birthPlace: true, birthDate: true,
       gender: true, religion: true, maritalStatus: true, nationality: true,
       emergencyName: true, emergencyPhone: true, emergencyRelation: true,
       npwp: true, ptkpStatus: true, taxability: true, taxStatus: true,
@@ -48,6 +50,16 @@ export default async function KaryawanDetailPage({
       bpjsKesNumber: true, bpjsKesActive: true, managerId: true,
       manager: { select: { name: true, employeeId: true } },
       department: { select: { id: true, name: true } },
+      family: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true, idNumber: true, relation: true },
+      },
+      changeLogs: {
+        where: { field: { in: Object.keys(PERSONAL_LOG_LABELS) } },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: { id: true, field: true, changedBy: true, createdAt: true },
+      },
       attendances: {
         orderBy: { date: "desc" },
         take: 31,

@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireMenu, requireSuperAdmin } from "@/lib/access";
 import { MENUS, isSuperAdmin } from "@/lib/roles";
+import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow } from "@/lib/employee-import";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -15,13 +16,14 @@ const STATUS_MAP: Record<string, EmploymentStatus> = {
 
 const TEXT_FIELDS = [
   "employeeId", "email", "phone", "position", "branch", "paymentSchedule",
-  "bankName", "bankAccount", "bankHolder", "ktpNumber", "address", "birthPlace",
+  "bankName", "bankAccount", "bankHolder", "idType", "ktpNumber", "address",
+  "currentAddress", "birthPlace",
   "gender", "religion", "maritalStatus", "nationality", "emergencyName",
   "emergencyPhone", "emergencyRelation", "npwp", "ptkpStatus", "taxability",
   "taxStatus", "taxObjectCode", "bpjsTkNumber", "bpjsKesNumber",
 ] as const;
 const DATE_FIELDS = ["joinDate", "contractEndDate", "resignDate", "birthDate"] as const;
-const FLAG_FIELDS = ["bpjsTkActive", "bpjsKesActive"] as const;
+const FLAG_FIELDS = ["bpjsTkActive", "bpjsKesActive", "addressSameAsId"] as const;
 
 export type EmployeeInput = {
   employeeId: string;
@@ -142,6 +144,9 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
     return true;
   };
 
+  if (data.idType && !ID_TYPES.includes(data.idType)) throw new Error("Jenis ID tidak dikenal");
+  if (data.addressSameAsId === "true") data = { ...data, currentAddress: "" };
+
   if (data.name !== undefined) {
     if (!data.name.trim()) throw new Error("Nama wajib diisi");
     if (track("name", current.name, data.name.trim())) changes.name = data.name.trim();
@@ -191,6 +196,35 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
     },
   });
   revalidatePath(LIST_PATH);
+  revalidatePath(`${LIST_PATH}/${id}`);
+  return { success: true };
+}
+
+export type FamilyInput = { name: string; idNumber: string; relation: string };
+
+// Daftar keluarga disimpan sekaligus, jadi tambah, ubah, dan hapus baris cukup satu aksi.
+export async function saveFamily(id: string, rows: FamilyInput[]) {
+  const actor = await requireMenu("karyawan");
+  const target = await prisma.user.findFirst({
+    where: { id, ...editableTarget(actor.role) },
+    select: { family: { orderBy: { createdAt: "asc" }, select: { name: true, idNumber: true, relation: true } } },
+  });
+  if (!target) throw new Error("Not found");
+
+  const family = rows.map((r) => ({
+    name: r.name.trim(), idNumber: r.idNumber.trim() || null, relation: r.relation,
+  }));
+  if (family.some((r) => !r.name || !FAMILY_RELATIONS.includes(r.relation))) {
+    throw new Error("Nama dan jenis anggota keluarga wajib diisi");
+  }
+
+  if (JSON.stringify(family) !== JSON.stringify(target.family)) {
+    await prisma.$transaction([
+      prisma.familyMember.deleteMany({ where: { userId: id } }),
+      prisma.familyMember.createMany({ data: family.map((r) => ({ ...r, userId: id })) }),
+      prisma.employeeChangeLog.create({ data: { userId: id, field: "family", changedBy: actor.name } }),
+    ]);
+  }
   revalidatePath(`${LIST_PATH}/${id}`);
   return { success: true };
 }
@@ -344,6 +378,7 @@ export async function importEmployees(rows: ImportRow[]) {
           bankName: row.bankName,
           bankAccount: row.bankAccount,
           bankHolder: row.bankHolder,
+          idType: row.ktpNumber ? "KTP" : null,
           ktpNumber: row.ktpNumber,
           address: row.address,
           birthPlace: row.birthPlace,

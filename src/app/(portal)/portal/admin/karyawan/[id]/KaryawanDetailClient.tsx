@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronRight, Loader2, Mail, Phone, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Mail, Phone, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,9 @@ import {
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
+import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS } from "@/lib/personal-info";
 import {
-  addSalaryAdjustment, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
+  addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
 
@@ -33,16 +34,18 @@ type Employee = {
   branch: string | null; joinDate: Date | null; contractEndDate: Date | null;
   resignDate: Date | null; paymentSchedule: string | null;
   bankName: string | null; bankAccount: string | null; bankHolder: string | null;
-  isActive: boolean; ktpNumber: string | null; address: string | null;
+  isActive: boolean; idType: string | null; ktpNumber: string | null; address: string | null;
+  currentAddress: string | null; addressSameAsId: boolean;
   birthPlace: string | null; birthDate: Date | null; gender: string | null;
   religion: string | null; maritalStatus: string | null; nationality: string | null;
-  emergencyName: string | null; emergencyPhone: string | null;
-  emergencyRelation: string | null; npwp: string | null; ptkpStatus: string | null;
+  npwp: string | null; ptkpStatus: string | null;
   taxability: string | null; taxStatus: string | null; taxObjectCode: string | null;
   bpjsTkNumber: string | null; bpjsTkActive: boolean; bpjsKesNumber: string | null;
   bpjsKesActive: boolean; managerId: string | null;
   manager: { name: string; employeeId: string | null } | null;
   department: { id: string; name: string } | null;
+  family: { id: string; name: string; idNumber: string | null; relation: string }[];
+  changeLogs: { id: string; field: string; changedBy: string | null; createdAt: Date }[];
   attendances: {
     id: string; date: Date; checkIn: Date | null; checkOut: Date | null;
     checkInAddr: string | null; status: string; note: string | null;
@@ -65,14 +68,16 @@ type Employee = {
 type Option = { value: string; label: string };
 type FormField = {
   key: string; label: string; hint?: string;
-  type?: "date" | "email" | "select" | "suggest"; options?: Option[];
+  type?: "date" | "email" | "select" | "suggest" | "check"; options?: Option[];
 };
-type Section = "detail" | "unit" | "kontrak" | "bank" | "pribadi" | "darurat" | "pajak" | "bpjs";
+type Section = "detail" | "unit" | "kontrak" | "bank" | "pribadi" | "alamat" | "pajak" | "bpjs";
 type Component = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number };
+type FamilyRow = { name: string; idNumber: string; relation: string };
 
 const TAB_LIST = [
-  { key: "pekerjaan", label: "Pekerjaan & Gaji" },
-  { key: "pribadi", label: "Info Pribadi" },
+  { key: "pribadi", label: "Personal Info" },
+  { key: "pekerjaan", label: "Pekerjaan" },
+  { key: "gaji", label: "Gaji & Tunjangan" },
   { key: "pajak", label: "Pajak & BPJS" },
   { key: "absensi", label: "Absensi" },
   { key: "cuti", label: "Cuti" },
@@ -90,7 +95,7 @@ const FLAG_OPTIONS: Option[] = [
 
 const SECTION_TITLE: Record<Section, string> = {
   detail: "Detail Pekerjaan", unit: "Unit Perusahaan", kontrak: "Kontrak",
-  bank: "Rekening Bank", pribadi: "Data Pribadi", darurat: "Kontak Darurat",
+  bank: "Rekening Bank", pribadi: "Data Pribadi", alamat: "Tempat Tinggal",
   pajak: "Pajak", bpjs: "BPJS",
 };
 
@@ -125,6 +130,12 @@ function fmtTime(d: Date | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleTimeString("id-ID", {
     hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
+  });
+}
+function fmtDateTime(d: Date): string {
+  return new Date(d).toLocaleString("id-ID", {
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+    timeZone: "Asia/Jakarta",
   });
 }
 const toInputDate = (d: Date | null) => (d ? new Date(d).toISOString().split("T")[0] : "");
@@ -171,13 +182,17 @@ function Empty({ text }: { text: string }) {
   );
 }
 
+function salaryTotals(salary: Salary) {
+  const sum = (type: string) =>
+    salary.components.filter((c) => c.type === type).reduce((total, c) => total + c.amount, 0);
+  const benefits = sum("TUNJANGAN");
+  const deductions = sum("POTONGAN");
+  return { benefits, deductions, total: salary.basicSalary + benefits - deductions };
+}
+
 function SalaryCard({ salary }: { salary: Salary }) {
   const benefits = salary.components.filter((c) => c.type === "TUNJANGAN");
   const deductions = salary.components.filter((c) => c.type === "POTONGAN");
-  const total =
-    salary.basicSalary +
-    benefits.reduce((sum, c) => sum + c.amount, 0) -
-    deductions.reduce((sum, c) => sum + c.amount, 0);
   const rows = [
     { label: "Gaji Pokok", value: salary.basicSalary },
     ...benefits.map((c) => ({ label: c.name, value: c.amount })),
@@ -193,9 +208,137 @@ function SalaryCard({ salary }: { salary: Salary }) {
       ))}
       <div className="flex justify-between gap-4 pt-2 mt-1 border-t border-gray-100 text-sm font-semibold text-gray-900">
         <span><T>Total Gaji</T></span>
-        <span className="tabular-nums">{formatRupiah(total)}</span>
+        <span className="tabular-nums">{formatRupiah(salaryTotals(salary).total)}</span>
       </div>
     </div>
+  );
+}
+
+function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?: string }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <h3 className="font-semibold text-sm text-gray-800 px-5 py-3 bg-gray-50 border-b border-gray-200">
+        <T>Riwayat Gaji</T>
+      </h3>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="px-4"><T>Berlaku</T></TableHead>
+            <TableHead className="px-4 text-right"><T>Gaji Pokok</T></TableHead>
+            <TableHead className="hidden sm:table-cell px-4 text-right"><T>Tunjangan</T></TableHead>
+            <TableHead className="hidden sm:table-cell px-4 text-right"><T>Potongan</T></TableHead>
+            <TableHead className="px-4 text-right"><T>Total Gaji</T></TableHead>
+            <TableHead className="hidden md:table-cell px-4"><T>Catatan</T></TableHead>
+            <TableHead className="hidden md:table-cell px-4"><T>Oleh</T></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {salaries.map((s) => {
+            const open = openId === s.id;
+            const totals = salaryTotals(s);
+            return (
+              <Fragment key={s.id}>
+                <TableRow>
+                  <TableCell className="px-4 text-sm whitespace-nowrap">
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      onClick={() => setOpenId(open ? null : s.id)}
+                      className="inline-flex items-center gap-1 hover:text-brand"
+                    >
+                      {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      {fmtDate(s.effectiveDate)}
+                    </button>
+                    {s.id === currentId && (
+                      <span className="ml-2">
+                        <Pill cls="bg-green-50 text-green-700 border-green-200"><T>Saat ini</T></Pill>
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 text-sm text-right tabular-nums">{formatRupiah(s.basicSalary)}</TableCell>
+                  <TableCell className="hidden sm:table-cell px-4 text-sm text-right tabular-nums">{formatRupiah(totals.benefits)}</TableCell>
+                  <TableCell className="hidden sm:table-cell px-4 text-sm text-right tabular-nums">{formatRupiah(totals.deductions)}</TableCell>
+                  <TableCell className="px-4 text-sm text-right tabular-nums font-medium">{formatRupiah(totals.total)}</TableCell>
+                  <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.note ?? "—"}</TableCell>
+                  <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.createdBy ?? "—"}</TableCell>
+                </TableRow>
+                {open && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="px-4 bg-gray-50/60 whitespace-normal">
+                      <div className="max-w-md"><SalaryCard salary={s} /></div>
+                      {s.note && <p className="md:hidden text-xs text-gray-500 pb-1">{s.note}</p>}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function FamilyDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
+  const [rows, setRows] = useState<FamilyRow[]>(
+    employee.family.map((f) => ({ name: f.name, idNumber: f.idNumber ?? "", relation: f.relation })),
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const patch = (index: number, change: Partial<FamilyRow>) =>
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...change } : r)));
+
+  function save() {
+    startTransition(async () => {
+      try {
+        await saveFamily(employee.id, rows.filter((r) => r.name.trim() || r.idNumber.trim()));
+        onClose();
+      } catch {
+        setError("Gagal menyimpan. Nama dan jenis anggota keluarga wajib diisi.");
+      }
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(value: boolean) => { if (!value) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader><DialogTitle><T>Keluarga</T></DialogTitle></DialogHeader>
+        <div className="space-y-2 py-1">
+          {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
+          {rows.map((r, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1fr_120px_auto] gap-2 items-center">
+              <Input value={r.name} placeholder="Nama" aria-label="Nama"
+                onChange={(e) => patch(i, { name: e.target.value })} />
+              <Input value={r.idNumber} placeholder="ID Number" aria-label="ID Number"
+                onChange={(e) => patch(i, { idNumber: e.target.value })} />
+              <select value={r.relation} aria-label="Jenis Anggota Keluarga"
+                onChange={(e) => patch(i, { relation: e.target.value })}
+                className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+                {FAMILY_RELATIONS.map((o) => <option key={o} value={o}><T>{o}</T></option>)}
+              </select>
+              <button type="button" aria-label="Hapus baris"
+                onClick={() => setRows((prev) => prev.filter((_, at) => at !== i))}
+                className="p-1 text-gray-400 hover:text-brand">
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" className="gap-1.5"
+            onClick={() => setRows((prev) => [...prev, { name: "", idNumber: "", relation: FAMILY_RELATIONS[0] }])}>
+            <Plus size={14} /> <T>Tambah Baris</T>
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}><T>Batal</T></Button>
+          <Button size="sm" onClick={save} disabled={isPending} className="gap-2">
+            {isPending && <Loader2 size={14} className="animate-spin" />}
+            <T>Simpan Perubahan</T>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -360,22 +503,21 @@ export default function KaryawanDetailClient({
   canEdit: boolean;
 }) {
   const t = useT();
-  const [tab, setTab] = useState("pekerjaan");
+  const [tab, setTab] = useState("pribadi");
   const [editing, setEditing] = useState<Section | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [salaryOpen, setSalaryOpen] = useState(false);
+  const [familyOpen, setFamilyOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const tabs = TAB_LIST.filter(
-    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "akses" || isSuper),
+    (t) => (!["gaji", "payslip"].includes(t.key) || canSeePay) && (t.key !== "akses" || isSuper),
   );
 
   const fields = useMemo<Record<Section, FormField[]>>(() => ({
     detail: [
       { key: "employeeId", label: "ID Karyawan *" },
-      { key: "name", label: "Nama Lengkap *" },
-      { key: "email", label: "Email", type: "email" },
       {
         key: "managerEmployeeId", label: "Atasan Langsung (ID Karyawan)", type: "suggest",
         hint: "Isi ID Karyawan atasan langsung. Kosongkan kalau tidak punya atasan.",
@@ -403,20 +545,24 @@ export default function KaryawanDetailClient({
       { key: "bankHolder", label: "Nama Pemilik Rekening" },
     ],
     pribadi: [
-      { key: "phone", label: "No HP" },
-      { key: "ktpNumber", label: "No KTP" },
-      { key: "address", label: "Alamat KTP" },
+      { key: "name", label: "Nama Lengkap *" },
+      { key: "phone", label: "Phone Number" },
+      { key: "email", label: "Email", type: "email" },
       { key: "birthPlace", label: "Tempat Lahir" },
       { key: "birthDate", label: "Tanggal Lahir", type: "date" },
+      {
+        key: "idType", label: "Jenis ID", type: "select",
+        options: [{ value: "", label: "—" }, ...ID_TYPES.map((value) => ({ value, label: value }))],
+      },
+      { key: "ktpNumber", label: "ID Number" },
       { key: "gender", label: "Jenis Kelamin" },
+      { key: "maritalStatus", label: "Status Perkawinan" },
       { key: "religion", label: "Agama" },
-      { key: "maritalStatus", label: "Status Nikah" },
-      { key: "nationality", label: "Kewarganegaraan" },
     ],
-    darurat: [
-      { key: "emergencyName", label: "Nama" },
-      { key: "emergencyPhone", label: "Nomor" },
-      { key: "emergencyRelation", label: "Hubungan" },
+    alamat: [
+      { key: "address", label: "Alamat sesuai Identitas" },
+      { key: "addressSameAsId", label: "Sama dengan alamat identitas", type: "check" },
+      { key: "currentAddress", label: "Alamat Saat Ini" },
     ],
     pajak: [
       { key: "npwp", label: "NPWP" },
@@ -547,8 +693,6 @@ export default function KaryawanDetailClient({
             <SectionCard title="Detail Pekerjaan" onEdit={edit("detail")}>
               <Field label="No. Urut">{emp.employeeNo}</Field>
               <Field label="ID Karyawan">{emp.employeeId}</Field>
-              <Field label="Nama Lengkap">{emp.name}</Field>
-              <Field label="Email">{emp.email}</Field>
               <Field label="Atasan Langsung">
                 {emp.manager ? `${emp.manager.name} (${emp.manager.employeeId ?? "-"})` : null}
               </Field>
@@ -574,71 +718,96 @@ export default function KaryawanDetailClient({
               <Field label="No Rekening">{emp.bankAccount}</Field>
               <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
             </SectionCard>
+          </div>
+        )}
 
-            {canSeePay && (
-              <>
-                <SectionCard
-                  title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
-                  action={
-                    <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-7 px-3 text-xs">
-                      <T>Penyesuaian Gaji</T>
-                    </Button>
-                  }
-                >
-                  {currentSalary
-                    ? <SalaryCard salary={currentSalary} />
-                    : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
-                </SectionCard>
+        {tab === "gaji" && canSeePay && (
+          <div className="space-y-5">
+            <SectionCard
+              title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
+              action={
+                <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-7 px-3 text-xs">
+                  <T>Penyesuaian Gaji</T>
+                </Button>
+              }
+            >
+              {currentSalary
+                ? <SalaryCard salary={currentSalary} />
+                : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
+            </SectionCard>
 
-                {emp.salaries.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <h3 className="font-semibold text-sm text-gray-800 px-5 py-3 bg-gray-50 border-b border-gray-200">
-                      <T>Riwayat Gaji</T>
-                    </h3>
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="px-4"><T>Berlaku</T></TableHead>
-                          <TableHead className="px-4 text-right"><T>Gaji Pokok</T></TableHead>
-                          <TableHead className="px-4"><T>Catatan</T></TableHead>
-                          <TableHead className="hidden sm:table-cell px-4"><T>Oleh</T></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {emp.salaries.map((s) => (
-                          <TableRow key={s.id}>
-                            <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(s.effectiveDate)}</TableCell>
-                            <TableCell className="px-4 text-sm text-right tabular-nums">{formatRupiah(s.basicSalary)}</TableCell>
-                            <TableCell className="px-4 text-xs text-gray-500">{s.note ?? "—"}</TableCell>
-                            <TableCell className="hidden sm:table-cell px-4 text-xs text-gray-500">{s.createdBy ?? "—"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </>
-            )}
+            {emp.salaries.length > 0 && <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} />}
           </div>
         )}
 
         {tab === "pribadi" && (
           <div className="space-y-5">
             <SectionCard title="Data Pribadi" onEdit={edit("pribadi")}>
-              <Field label="No HP">{emp.phone}</Field>
-              <Field label="No KTP">{emp.ktpNumber}</Field>
-              <Field label="Alamat KTP">{emp.address}</Field>
+              <Field label="Nama Lengkap">{emp.name}</Field>
+              <Field label="Phone Number">{emp.phone}</Field>
+              <Field label="Email">{emp.email}</Field>
               <Field label="Tempat Lahir">{emp.birthPlace}</Field>
               <Field label="Tanggal Lahir">{emp.birthDate ? fmtDate(emp.birthDate) : null}</Field>
+              <Field label="Jenis ID">{emp.idType ? <T>{emp.idType}</T> : null}</Field>
+              <Field label="ID Number">{emp.ktpNumber}</Field>
               <Field label="Jenis Kelamin">{emp.gender}</Field>
+              <Field label="Status Perkawinan">{emp.maritalStatus}</Field>
               <Field label="Agama">{emp.religion}</Field>
-              <Field label="Status Nikah">{emp.maritalStatus}</Field>
-              <Field label="Kewarganegaraan">{emp.nationality}</Field>
             </SectionCard>
-            <SectionCard title="Kontak Darurat" onEdit={edit("darurat")}>
-              <Field label="Nama">{emp.emergencyName}</Field>
-              <Field label="Nomor">{emp.emergencyPhone}</Field>
-              <Field label="Hubungan">{emp.emergencyRelation}</Field>
+
+            <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")}>
+              <Field label="Alamat sesuai Identitas">{emp.address}</Field>
+              <Field label="Alamat Saat Ini">{emp.addressSameAsId ? emp.address : emp.currentAddress}</Field>
+            </SectionCard>
+
+            <SectionCard title="Keluarga" onEdit={canEdit ? () => setFamilyOpen(true) : undefined}>
+              {emp.family.length === 0 ? (
+                <p className="py-4 text-sm text-gray-400"><T>Belum ada data keluarga.</T></p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead><T>Nama</T></TableHead>
+                      <TableHead><T>ID Number</T></TableHead>
+                      <TableHead><T>Jenis Anggota Keluarga</T></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {emp.family.map((f) => (
+                      <TableRow key={f.id}>
+                        <TableCell className="text-sm">{f.name}</TableCell>
+                        <TableCell className="text-sm">{f.idNumber ?? "—"}</TableCell>
+                        <TableCell className="text-sm"><T>{f.relation}</T></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </SectionCard>
+
+            <SectionCard title="History Perubahan">
+              {emp.changeLogs.length === 0 ? (
+                <p className="py-4 text-sm text-gray-400"><T>Belum ada perubahan.</T></p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead><T>Tanggal Perubahan</T></TableHead>
+                      <TableHead><T>Bagian yang Diubah</T></TableHead>
+                      <TableHead><T>Diubah Oleh</T></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {emp.changeLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm whitespace-nowrap">{fmtDateTime(log.createdAt)}</TableCell>
+                        <TableCell className="text-sm"><T>{PERSONAL_LOG_LABELS[log.field] ?? log.field}</T></TableCell>
+                        <TableCell className="text-sm">{log.changedBy ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </SectionCard>
           </div>
         )}
@@ -791,6 +960,8 @@ export default function KaryawanDetailClient({
         {tab === "akses" && isSuper && <AccessPanel employee={emp} />}
       </main>
 
+      {familyOpen && <FamilyDialog employee={emp} onClose={() => setFamilyOpen(false)} />}
+
       {canSeePay && salaryOpen && (
         <SalaryDialog employee={emp} current={currentSalary} open={salaryOpen} onClose={() => setSalaryOpen(false)} />
       )}
@@ -803,7 +974,17 @@ export default function KaryawanDetailClient({
 
           <div className="space-y-3 py-1">
             {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
-            {editing && fields[editing].map((field) => (
+            {editing && fields[editing].map((field) => field.type === "check" ? (
+              <label key={field.key} className="flex items-center gap-2 text-sm text-gray-800">
+                <input
+                  type="checkbox"
+                  className="accent-[var(--color-brand)] w-4 h-4"
+                  checked={form[field.key] === "true"}
+                  onChange={(e) => setForm((f) => ({ ...f, [field.key]: String(e.target.checked) }))}
+                />
+                <T>{field.label}</T>
+              </label>
+            ) : field.key === "currentAddress" && form.addressSameAsId === "true" ? null : (
               <div key={field.key} className="space-y-1.5">
                 <Label htmlFor={field.key} className="text-xs"><T>{field.label}</T></Label>
                 {field.type === "select" ? (

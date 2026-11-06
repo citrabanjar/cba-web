@@ -100,8 +100,11 @@ model User {
   paymentSchedule  String?
 
   // Data pribadi
+  idType           String?
   ktpNumber        String?          @unique
-  address          String?          @db.Text // alamat sesuai KTP
+  address          String?          @db.Text // alamat sesuai identitas
+  currentAddress   String?          @db.Text
+  addressSameAsId  Boolean          @default(false)
   birthPlace       String?
   birthDate        DateTime?        @db.Date
   gender           String?
@@ -128,6 +131,7 @@ model User {
   reports      User[]        @relation("Atasan")
   salaries     EmployeeSalary[]
   changeLogs   EmployeeChangeLog[]
+  family       FamilyMember[]
   accounts     Account[]
   sessions     Session[]
   attendances  Attendance[]
@@ -328,6 +332,19 @@ model SalaryComponent {
   salary EmployeeSalary @relation(fields: [salaryId], references: [id], onDelete: Cascade)
 
   @@index([salaryId])
+}
+
+model FamilyMember {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  idNumber  String?
+  relation  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model EmployeeChangeLog {
