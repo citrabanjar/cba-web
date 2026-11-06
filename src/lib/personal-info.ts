@@ -21,3 +21,19 @@ export const PERSONAL_LOG_LABELS: Record<string, string> = {
   bankAccount: "No Rekening",
   bankHolder: "Nama Pemilik Rekening",
 };
+
+// Catatan perubahan yang tampil di tab Pekerjaan.
+export const WORK_LOG_LABELS: Record<string, string> = {
+  employeeId: "Employee ID",
+  joinDate: "Tanggal Masuk",
+  employmentStatus: "Status",
+  contractEndDate: "Tanggal Akhir Kontrak",
+  spkNumber: "No SPK",
+  spkDate: "Tanggal SPK",
+  resignDate: "Tanggal Berhenti",
+  isActive: "Status Aktif",
+  branch: "Cabang",
+  department: "Departemen",
+  position: "Jabatan",
+  manager: "Atasan Langsung",
+};

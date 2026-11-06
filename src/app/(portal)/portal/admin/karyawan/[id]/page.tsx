@@ -4,7 +4,7 @@ import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
-import { PERSONAL_LOG_LABELS } from "@/lib/personal-info";
+import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
 import KaryawanDetailClient from "./KaryawanDetailClient";
 
 function tenure(joinDate: Date | null): string | null {
@@ -65,9 +65,9 @@ export default async function KaryawanDetailPage({
         select: { id: true, name: true, idNumber: true, relation: true },
       },
       changeLogs: {
-        where: { field: { in: Object.keys(PERSONAL_LOG_LABELS) } },
+        where: { field: { in: Object.keys({ ...PERSONAL_LOG_LABELS, ...WORK_LOG_LABELS }) } },
         orderBy: { createdAt: "desc" },
-        take: 50,
+        take: 200,
         select: { id: true, field: true, changedBy: true, createdAt: true },
       },
       attendances: {

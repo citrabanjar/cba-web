@@ -16,7 +16,7 @@ import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
 import type { MasterOptions } from "@/lib/master-data";
-import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS } from "@/lib/personal-info";
+import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
 import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
 } from "../actions";
@@ -329,6 +329,40 @@ function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+function ChangeHistory({
+  logs, labels,
+}: {
+  logs: Employee["changeLogs"]; labels: Record<string, string>;
+}) {
+  const shown = logs.filter((log) => labels[log.field]);
+  return (
+    <SectionCard title="History Perubahan">
+      {shown.length === 0 ? (
+        <p className="py-4 text-sm text-gray-400"><T>Belum ada perubahan.</T></p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead><T>Tanggal Perubahan</T></TableHead>
+              <TableHead><T>Bagian yang Diubah</T></TableHead>
+              <TableHead><T>Diubah Oleh</T></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown.map((log) => (
+              <TableRow key={log.id}>
+                <TableCell className="text-sm whitespace-nowrap">{formatDateTime(log.createdAt)}</TableCell>
+                <TableCell className="text-sm"><T>{labels[log.field]}</T></TableCell>
+                <TableCell className="text-sm">{log.changedBy ?? "—"}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </SectionCard>
   );
 }
 
@@ -795,7 +829,7 @@ export default function KaryawanDetailClient({
               <Field label="Departemen">{emp.department?.name}</Field>
               <Field label="Jabatan">{emp.position}</Field>
               <Field label="Atasan Langsung">
-                {emp.manager ? `${emp.manager.name} (${emp.manager.employeeId ?? "-"})` : null}
+                {emp.manager ? [emp.manager.employeeId, emp.manager.name].filter(Boolean).join(" - ") : null}
               </Field>
             </SectionCard>
 
@@ -829,6 +863,8 @@ export default function KaryawanDetailClient({
                 </Table>
               )}
             </SectionCard>
+
+            <ChangeHistory logs={emp.changeLogs} labels={WORK_LOG_LABELS} />
           </div>
         )}
 
@@ -906,30 +942,7 @@ export default function KaryawanDetailClient({
               <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
             </SectionCard>
 
-            <SectionCard title="History Perubahan">
-              {emp.changeLogs.length === 0 ? (
-                <p className="py-4 text-sm text-gray-400"><T>Belum ada perubahan.</T></p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead><T>Tanggal Perubahan</T></TableHead>
-                      <TableHead><T>Bagian yang Diubah</T></TableHead>
-                      <TableHead><T>Diubah Oleh</T></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {emp.changeLogs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="text-sm whitespace-nowrap">{formatDateTime(log.createdAt)}</TableCell>
-                        <TableCell className="text-sm"><T>{PERSONAL_LOG_LABELS[log.field] ?? log.field}</T></TableCell>
-                        <TableCell className="text-sm">{log.changedBy ?? "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </SectionCard>
+            <ChangeHistory logs={emp.changeLogs} labels={PERSONAL_LOG_LABELS} />
           </div>
         )}
 
