@@ -230,7 +230,7 @@ export const en: Record<string, string> = {
   "Pekerjaan": "Employment",
   "Gaji & Tunjangan": "Salary & Allowances",
   "Saat ini": "Current",
-  "Setup Perusahaan": "Company Setup",
+  "Setup Organisasi": "Organization Setup",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
   "karyawan": "employees",

@@ -114,6 +114,13 @@ const EDIT_MODES: Partial<Record<Section, EditMode[]>> = {
   detail: ["ubah", "PERPANJANGAN", "PEMBERHENTIAN"],
   unit: ["ubah", "MUTASI", "PROMOSI"],
 };
+const MODE_COLOR: Record<EditMode, { active: string; idle: string }> = {
+  ubah: { active: "bg-ink text-white border-ink", idle: "bg-gray-100 text-gray-700 border-gray-300" },
+  PERPANJANGAN: { active: "bg-blue-700 text-white border-blue-700", idle: "bg-blue-50 text-blue-700 border-blue-300" },
+  PEMBERHENTIAN: { active: "bg-brand text-white border-brand", idle: "bg-red-50 text-brand border-red-300" },
+  MUTASI: { active: "bg-amber-600 text-white border-amber-600", idle: "bg-amber-50 text-amber-800 border-amber-300" },
+  PROMOSI: { active: "bg-green-700 text-white border-green-700", idle: "bg-green-50 text-green-700 border-green-300" },
+};
 const STOP_TYPES = ["Resign", "Diberhentikan", "Kontrak Berakhir"];
 type EventField = { key: string; label: string; type: string; options?: string[] };
 const JOB_CHANGE_FIELDS: EventField[] = [
@@ -1079,7 +1086,7 @@ export default function KaryawanDetailClient({
           <div className="space-y-3 py-1">
             {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
             {editing && canEdit && EDIT_MODES[editing] && (
-              <div className="flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
+              <div className="flex flex-wrap gap-2">
                 {EDIT_MODES[editing].map((key) => (
                   <button
                     key={key}
@@ -1087,8 +1094,8 @@ export default function KaryawanDetailClient({
                     aria-pressed={mode === key}
                     disabled={key === "PERPANJANGAN" && emp.employmentStatus !== "KONTRAK"}
                     onClick={() => { setMode(key); setEventForm({}); setError(null); }}
-                    className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
-                      mode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    className={`flex-1 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      mode === key ? MODE_COLOR[key].active : MODE_COLOR[key].idle
                     }`}
                   >
                     <T>{key === "ubah" ? "Ubah Data" : EVENT_LABEL[key]}</T>

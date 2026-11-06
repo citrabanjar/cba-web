@@ -55,7 +55,7 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
       items: [
         { href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network },
         ...(isSuperAdmin(role)
-          ? [{ href: "/portal/admin/setup", label: "Setup Perusahaan", icon: Building2 }]
+          ? [{ href: "/portal/admin/setup", label: "Setup Organisasi", icon: Building2 }]
           : []),
       ],
     });

@@ -43,7 +43,7 @@ export type EmployeeInput = {
 
 export type EmployeeUpdate = Record<string, string | undefined>;
 
-// Cabang, Departemen, dan Jabatan harus dipilih dari daftar di Setup Perusahaan.
+// Cabang, Departemen, dan Jabatan harus dipilih dari daftar di Setup Organisasi.
 async function assertInMaster(data: { branch?: string; departmentName?: string; position?: string }) {
   const name = (value?: string) => ({ where: { name: value?.trim() ?? "" } });
   const missing = await Promise.all([
@@ -51,7 +51,7 @@ async function assertInMaster(data: { branch?: string; departmentName?: string; 
     data.departmentName?.trim() ? prisma.department.findUnique(name(data.departmentName)) : true,
     data.position?.trim() ? prisma.position.findUnique(name(data.position)) : true,
   ]);
-  if (missing.some((row) => !row)) throw new Error("Pilihan belum ada di Setup Perusahaan");
+  if (missing.some((row) => !row)) throw new Error("Pilihan belum ada di Setup Organisasi");
 }
 
 async function findDeptId(name?: string) {
@@ -460,7 +460,7 @@ export async function importEmployees(rows: ImportRow[]) {
     const dept = await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
     deptMap.set(name, dept.id);
   }
-  // Import juga mengisi daftar Setup Perusahaan, supaya data awal langsung bisa dipilih.
+  // Import juga mengisi daftar Setup Organisasi, supaya data awal langsung bisa dipilih.
   const uniqueNames = (values: (string | undefined)[]) => [...new Set(values.filter(Boolean) as string[])];
   await prisma.branch.createMany({
     data: uniqueNames(rows.map((r) => r.branch)).map((name) => ({ name })),

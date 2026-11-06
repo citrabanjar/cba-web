@@ -56,7 +56,7 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
         {items.length === 0 ? (
           <p className="py-4 text-center text-sm text-gray-400"><T>Belum ada data.</T></p>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="max-h-72 overflow-y-auto pr-1 divide-y divide-gray-100">
             {items.map((item) => (
               <li key={item.id} className="flex items-center gap-2 py-2">
                 {editing?.id === item.id ? (
@@ -113,12 +113,12 @@ export default function SetupClient({
   return (
     <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h2 className="font-bold text-gray-800"><T>Setup Perusahaan</T></h2>
+        <h2 className="font-bold text-gray-800"><T>Setup Organisasi</T></h2>
         <p className="text-xs text-gray-400 mt-0.5">
           <T>Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.</T>
         </p>
       </div>
-      <main className="section-stack px-4 sm:px-6 py-5 grid gap-5 items-start lg:grid-cols-3">
+      <main className="section-stack px-4 sm:px-6 py-5 space-y-5">
         <MasterCard kind="branch" title="Cabang" items={branches} />
         <MasterCard kind="department" title="Departemen" items={departments} />
         <MasterCard kind="position" title="Jabatan" items={positions} />
