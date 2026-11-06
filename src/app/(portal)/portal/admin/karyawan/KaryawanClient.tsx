@@ -413,9 +413,9 @@ export default function KaryawanClient({
 
           <div className="space-y-4 py-1">
             <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
-              <p>• Pakai template portal, atau langsung file ekspor KantorKu.</p>
+              <p>• Pakai template portal, atau langsung file ekspor KantorKu. Aturan isian ada di sheet Petunjuk.</p>
               <p>• No. Urut dibuat otomatis, karyawan terlama dapat nomor terkecil.</p>
-              <p>• ID Karyawan yang sudah ada akan dilewati, datanya tidak diubah.</p>
+              <p>• ID Karyawan yang sudah ada dilewati, dan baris yang salah tidak ikut masuk.</p>
               <p>• Gaji awal dicatat berlaku sejak Tanggal Masuk.</p>
             </div>
 
