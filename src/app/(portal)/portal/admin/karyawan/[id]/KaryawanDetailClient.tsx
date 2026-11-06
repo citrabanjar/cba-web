@@ -13,10 +13,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
+import ActionMenu, { QUICK_ACTIONS as ACTION_ITEMS } from "@/components/portal/ActionMenu";
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
 import type { MasterOptions } from "@/lib/master-data";
-import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
+import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
 import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
 } from "../actions";
@@ -642,7 +643,10 @@ export default function KaryawanDetailClient({
       },
     ],
     bank: [
-      { key: "bankName", label: "Nama Bank" },
+      {
+        key: "bankName", label: "Nama Bank", type: "suggest", options: BANK_OPTIONS,
+        hint: "Pilih dari daftar, atau ketik sendiri kalau tidak ada.",
+      },
       { key: "bankAccount", label: "No Rekening" },
       { key: "bankHolder", label: "Nama Pemilik Rekening" },
     ],
@@ -706,6 +710,16 @@ export default function KaryawanDetailClient({
     setEventForm({});
     setError(null);
     setEditing(section);
+  }
+
+  function openQuick(key: string) {
+    const action = QUICK_ACTIONS[key];
+    setTab("pekerjaan");
+    setForm(sectionValues(action.section));
+    setMode(action.mode);
+    setEventForm({});
+    setError(null);
+    setEditing(action.section);
   }
 
   function handleSave() {
@@ -783,14 +797,10 @@ export default function KaryawanDetailClient({
                 </Pill>
               </div>
             </div>
-            {canEdit && (
-              <Button variant="outline" size="sm" onClick={handleToggle} disabled={isPending} className="self-start sm:self-center">
-                {emp.isActive ? <T>{"Nonaktifkan"}</T> : <T>{"Aktifkan"}</T>}
-              </Button>
-            )}
           </div>
 
-          <div role="tablist" className="flex gap-6 px-5 border-t border-gray-100 overflow-x-auto">
+          <div className="flex items-center gap-4 pr-5 border-t border-gray-100">
+          <div role="tablist" className="flex flex-1 min-w-0 gap-6 px-5 overflow-x-auto">
             {tabs.map((t) => (
               <button
                 key={t.key}
@@ -806,6 +816,18 @@ export default function KaryawanDetailClient({
                 <T>{t.label}</T>
               </button>
             ))}
+          </div>
+          {canEdit && (
+            <ActionMenu items={[
+              ...ACTION_ITEMS.map((item) => ({ label: item.label, onClick: () => openQuick(item.key) })),
+              {
+                label: emp.isActive ? "Nonaktifkan" : "Aktifkan",
+                onClick: handleToggle,
+                disabled: isPending,
+                separated: true,
+              },
+            ]} />
+          )}
           </div>
         </div>
 

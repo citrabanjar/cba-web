@@ -230,6 +230,7 @@ export const en: Record<string, string> = {
   "Pekerjaan": "Employment",
   "Gaji & Tunjangan": "Salary & Allowances",
   "Saat ini": "Current",
+  "Pilih dari daftar, atau ketik sendiri kalau tidak ada.": "Choose from the list, or type it in if it is not listed.",
   "Status Aktif": "Active Status",
   "Setup Organisasi": "Organization Setup",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",

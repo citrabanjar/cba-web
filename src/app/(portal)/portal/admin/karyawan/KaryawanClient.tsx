@@ -3,8 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu } from "@base-ui/react/menu";
-import { ChevronDown, Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
+import { Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -25,6 +24,9 @@ import {
   downloadTemplate, parseEmployeeFile, type ParsedFile,
 } from "@/lib/employee-import";
 import type { MasterOptions } from "@/lib/master-data";
+import { BANK_OPTIONS } from "@/lib/personal-info";
+import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
+import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
 import { T } from "@/components/i18n";
 
 type Dept = { id: string; name: string };
@@ -37,14 +39,6 @@ type Employee = {
 };
 
 const STATUSES = ["KONTRAK", "TETAP"];
-
-const MENU_ITEM = "block w-full cursor-pointer rounded-md px-3 py-1.5 text-left text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100 data-[disabled]:opacity-50";
-const QUICK_MENU = [
-  { key: "promosi", label: "Promosi" },
-  { key: "demosi", label: "Demosi" },
-  { key: "mutasi", label: "Mutasi" },
-  { key: "resign", label: "Resign" },
-];
 
 const ROLE_BADGE: Record<string, string> = {
   KARYAWAN: "bg-gray-100 text-gray-600 border-gray-200",
@@ -316,38 +310,22 @@ export default function KaryawanClient({
                     </span>
                   </TableCell>
                   <TableCell className="px-4 text-right whitespace-nowrap">
-                    <Menu.Root>
-                      <Menu.Trigger className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                        <T>Aksi</T> <ChevronDown size={13} />
-                      </Menu.Trigger>
-                      <Menu.Portal>
-                        <Menu.Positioner align="end" sideOffset={4} className="z-50">
-                          <Menu.Popup className="min-w-40 rounded-lg border border-gray-200 bg-white p-1 shadow-lg outline-none">
-                            {!emp.id.startsWith("tmp-") && (
-                              <Menu.Item className={MENU_ITEM} onClick={() => router.push(`/portal/admin/karyawan/${emp.id}`)}>
-                                <T>Detail</T>
-                              </Menu.Item>
-                            )}
-                            <Menu.Item className={MENU_ITEM} onClick={() => openEdit(emp)}>
-                              <T>Edit</T>
-                            </Menu.Item>
-                            {!emp.id.startsWith("tmp-") && QUICK_MENU.map((item) => (
-                              <Menu.Item
-                                key={item.key}
-                                className={MENU_ITEM}
-                                onClick={() => router.push(`/portal/admin/karyawan/${emp.id}?aksi=${item.key}`)}
-                              >
-                                <T>{item.label}</T>
-                              </Menu.Item>
-                            ))}
-                            <Menu.Separator className="my-1 border-t border-gray-100" />
-                            <Menu.Item className={MENU_ITEM} disabled={isPending} onClick={() => handleToggle(emp)}>
-                              {emp.isActive ? <T>{"Nonaktifkan"}</T> : <T>{"Aktifkan"}</T>}
-                            </Menu.Item>
-                          </Menu.Popup>
-                        </Menu.Positioner>
-                      </Menu.Portal>
-                    </Menu.Root>
+                    <ActionMenu items={[
+                      ...(emp.id.startsWith("tmp-") ? [] : [
+                        { label: "Detail", onClick: () => router.push(`/portal/admin/karyawan/${emp.id}`) },
+                      ]),
+                      { label: "Edit", onClick: () => openEdit(emp) },
+                      ...(emp.id.startsWith("tmp-") ? [] : QUICK_ACTIONS.map((item) => ({
+                        label: item.label,
+                        onClick: () => router.push(`/portal/admin/karyawan/${emp.id}?aksi=${item.key}`),
+                      }))),
+                      {
+                        label: emp.isActive ? "Nonaktifkan" : "Aktifkan",
+                        onClick: () => handleToggle(emp),
+                        disabled: isPending,
+                        separated: true,
+                      },
+                    ]} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -427,7 +405,8 @@ export default function KaryawanClient({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs"><T>Nama Bank</T></Label>
-                <Input value={form.bankName ?? ""} onChange={e => setForm(f => ({ ...f, bankName: e.target.value }))} />
+                <EmployeeCombobox id="bankName" value={form.bankName ?? ""} options={BANK_OPTIONS}
+                  onChange={(value) => setForm(f => ({ ...f, bankName: value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs"><T>No Rekening</T></Label>

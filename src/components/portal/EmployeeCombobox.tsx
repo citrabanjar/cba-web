@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 export type ComboboxOption = { value: string; label: string };
 
 // Daftar ikut alur halaman di bawah isian, jadi selalu membuka ke bawah dan tidak
-// terpotong oleh dialog. Pencarian mencocokkan ID maupun nama.
+// terpotong oleh dialog. Pencarian mencocokkan nilai maupun nama, dan isian tetap
+// boleh berisi teks di luar daftar.
 export default function EmployeeCombobox({
   id, value, options, onChange,
 }: {
@@ -19,8 +20,10 @@ export default function EmployeeCombobox({
   const [active, setActive] = useState(0);
 
   const query = value.trim().toLowerCase();
+  // Isian yang sudah cocok dengan satu pilihan tetap menampilkan seluruh daftar.
+  const picked = options.some((o) => o.value.toLowerCase() === query);
   const matches = options
-    .filter((o) => o.value.toLowerCase().includes(query) || o.label.toLowerCase().includes(query))
+    .filter((o) => picked || o.value.toLowerCase().includes(query) || o.label.toLowerCase().includes(query))
     .slice(0, 30);
 
   function choose(option: ComboboxOption) {
@@ -59,6 +62,8 @@ export default function EmployeeCombobox({
         value={value}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
         onFocus={() => setOpen(true)}
+        // Dialog memfokuskan isian pertama saat dibuka, jadi klik juga harus membuka daftar.
+        onClick={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={handleKey}
       />
@@ -80,8 +85,14 @@ export default function EmployeeCombobox({
                 index === active ? "bg-gray-100" : ""
               }`}
             >
-              <span className="font-mono text-xs text-gray-500 w-14 shrink-0">{option.value}</span>
-              <span className="text-gray-800 truncate">{option.label}</span>
+              {option.label ? (
+                <>
+                  <span className="font-mono text-xs text-gray-500 w-14 shrink-0">{option.value}</span>
+                  <span className="text-gray-800 truncate">{option.label}</span>
+                </>
+              ) : (
+                <span className="text-gray-800 truncate">{option.value}</span>
+              )}
             </li>
           ))}
         </ul>

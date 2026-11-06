@@ -1,6 +1,13 @@
 export const ID_TYPES = ["KTP", "NIK", "Paspor"];
 export const FAMILY_RELATIONS = ["Suami", "Istri", "Anak", "Orang Tua"];
 
+// Saran saja: bank di luar daftar tetap bisa diketik sendiri.
+export const BANK_OPTIONS = [
+  "Mandiri", "BCA", "BNI", "BRI", "BSI", "BTN", "CIMB Niaga", "Danamon", "Permata",
+  "OCBC", "Panin", "Maybank", "UOB", "BTPN", "Mega", "Muamalat", "Bank Jago", "SeaBank",
+  "Bank DKI", "BJB", "Bank Jateng", "Bank Jatim", "Bank Kalsel",
+].map((value) => ({ value, label: "" }));
+
 // Catatan perubahan yang tampil di tab Personal Info.
 export const PERSONAL_LOG_LABELS: Record<string, string> = {
   name: "Nama Lengkap",
