@@ -77,7 +77,7 @@ type FormField = {
   type?: "date" | "email" | "select" | "suggest" | "check"; options?: Option[];
 };
 type Section = "detail" | "unit" | "bank" | "payroll" | "pribadi" | "alamat" | "pajak" | "bpjs";
-type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "MUTASI" | "PROMOSI";
+type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "MUTASI" | "PROMOSI" | "DEMOSI";
 type Component = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number };
 type FamilyRow = { name: string; idNumber: string; relation: string };
 
@@ -108,11 +108,11 @@ const SECTION_TITLE: Record<Section, string> = {
 
 const EVENT_LABEL: Record<string, string> = {
   PERPANJANGAN: "Perpanjangan Kontrak", PEMBERHENTIAN: "Pemberhentian",
-  MUTASI: "Mutasi", PROMOSI: "Promosi",
+  MUTASI: "Mutasi", PROMOSI: "Promosi", DEMOSI: "Demosi",
 };
 const EDIT_MODES: Partial<Record<Section, EditMode[]>> = {
   detail: ["ubah", "PERPANJANGAN", "PEMBERHENTIAN"],
-  unit: ["ubah", "MUTASI", "PROMOSI"],
+  unit: ["ubah", "MUTASI", "PROMOSI", "DEMOSI"],
 };
 const MODE_COLOR: Record<EditMode, { active: string; idle: string }> = {
   ubah: { active: "bg-ink text-white border-ink", idle: "bg-gray-100 text-gray-700 border-gray-300" },
@@ -120,6 +120,7 @@ const MODE_COLOR: Record<EditMode, { active: string; idle: string }> = {
   PEMBERHENTIAN: { active: "bg-brand text-white border-brand", idle: "bg-red-50 text-brand border-red-300" },
   MUTASI: { active: "bg-amber-600 text-white border-amber-600", idle: "bg-amber-50 text-amber-800 border-amber-300" },
   PROMOSI: { active: "bg-green-700 text-white border-green-700", idle: "bg-green-50 text-green-700 border-green-300" },
+  DEMOSI: { active: "bg-purple-700 text-white border-purple-700", idle: "bg-purple-50 text-purple-700 border-purple-300" },
 };
 const STOP_TYPES = ["Resign", "Diberhentikan", "Kontrak Berakhir"];
 type EventField = { key: string; label: string; type: string; options?: string[] };
@@ -141,7 +142,17 @@ const EVENT_FIELDS: Partial<Record<EditMode, EventField[]>> = {
   ],
   MUTASI: JOB_CHANGE_FIELDS,
   PROMOSI: JOB_CHANGE_FIELDS,
+  DEMOSI: JOB_CHANGE_FIELDS,
 };
+// Shortcut dari menu Aksi di daftar karyawan.
+const QUICK_ACTIONS: Record<string, { section: Section; mode: EditMode }> = {
+  promosi: { section: "unit", mode: "PROMOSI" },
+  demosi: { section: "unit", mode: "DEMOSI" },
+  mutasi: { section: "unit", mode: "MUTASI" },
+  resign: { section: "detail", mode: "PEMBERHENTIAN" },
+};
+const isJobChange = (mode: EditMode): mode is "MUTASI" | "PROMOSI" | "DEMOSI" =>
+  mode === "MUTASI" || mode === "PROMOSI" || mode === "DEMOSI";
 
 const LEAVE_LABEL: Record<string, string> = {
   TAHUNAN: "Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan",
@@ -534,21 +545,22 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, master, canSeePay, isSuper, canEdit,
+  employee: emp, tenure, managers, initialAction, master, canSeePay, isSuper, canEdit,
 }: {
   employee: Employee;
   tenure: string | null;
   managers: { id: string; name: string; employeeId: string | null }[];
+  initialAction?: string;
   master: MasterOptions;
   canSeePay: boolean;
   isSuper: boolean;
   canEdit: boolean;
 }) {
   const t = useT();
-  const [tab, setTab] = useState("pribadi");
-  const [editing, setEditing] = useState<Section | null>(null);
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [mode, setMode] = useState<EditMode>("ubah");
+  const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
+  const [tab, setTab] = useState(quick ? "pekerjaan" : "pribadi");
+  const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
+  const [mode, setMode] = useState<EditMode>(quick?.mode ?? "ubah");
   const [eventForm, setEventForm] = useState<Record<string, string>>({});
   const [salaryOpen, setSalaryOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
@@ -635,12 +647,14 @@ export default function KaryawanDetailClient({
     ],
   }), [managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule]);
 
+  const [form, setForm] = useState<Record<string, string>>(() => (quick ? sectionValues(quick.section) : {}));
+
   const initials = emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const today = new Date().toISOString().split("T")[0];
   const currentSalary = emp.salaries.find((s) => toInputDate(s.effectiveDate) <= today) ?? emp.salaries[0];
   const edit = (section: Section) => (canEdit ? () => openEdit(section) : undefined);
 
-  function openEdit(section: Section) {
+  function sectionValues(section: Section) {
     const record = emp as unknown as Record<string, unknown>;
     const values: Record<string, string> = {};
     for (const field of fields[section]) {
@@ -649,7 +663,11 @@ export default function KaryawanDetailClient({
       else if (field.type === "date") values[field.key] = toInputDate(record[field.key] as Date | null);
       else values[field.key] = String(record[field.key] ?? "");
     }
-    setForm(values);
+    return values;
+  }
+
+  function openEdit(section: Section) {
+    setForm(sectionValues(section));
     setMode("ubah");
     setEventForm({});
     setError(null);
@@ -661,7 +679,7 @@ export default function KaryawanDetailClient({
       try {
         const { effectiveDate = "", note } = eventForm;
         if (mode === "ubah") await updateEmployee(emp.id, form);
-        else if (mode === "MUTASI" || mode === "PROMOSI") {
+        else if (isJobChange(mode)) {
           await addJobChange(emp.id, { type: mode, effectiveDate, note }, form);
         } else if (mode === "PEMBERHENTIAN") {
           const reason = [eventForm.stopType ?? STOP_TYPES[0], note?.trim()].filter(Boolean).join(": ");
@@ -673,7 +691,7 @@ export default function KaryawanDetailClient({
       } catch {
         setError(mode === "ubah"
           ? "Gagal menyimpan. ID Karyawan, email, atau No KTP mungkin sudah dipakai, atau ID atasan tidak ditemukan atau merupakan anak buahnya sendiri."
-          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Mutasi dan promosi harus mengubah isian; tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
+          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Mutasi, promosi, dan demosi harus mengubah isian; tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
       }
     });
   }
@@ -1097,7 +1115,7 @@ export default function KaryawanDetailClient({
             )}
             {editing === "unit" && mode === "ubah" && (
               <p className="text-xs text-gray-500">
-                <T>Pilih Mutasi atau Promosi lalu ubah isian di bawah supaya tercatat di Riwayat Pekerjaan.</T>
+                <T>Pilih Mutasi, Promosi, atau Demosi lalu ubah isian di bawah supaya tercatat di Riwayat Pekerjaan.</T>
               </p>
             )}
             {EVENT_FIELDS[mode]?.map((field) => (
@@ -1127,7 +1145,7 @@ export default function KaryawanDetailClient({
                 <T>Karyawan dinonaktifkan dan tidak bisa login jika tanggal berhenti hari ini atau sudah lewat.</T>
               </p>
             )}
-            {(mode === "ubah" || mode === "MUTASI" || mode === "PROMOSI") && editing && fields[editing].map((field) => field.type === "check" ? (
+            {(mode === "ubah" || isJobChange(mode)) && editing && fields[editing].map((field) => field.type === "check" ? (
               <label key={field.key} className="flex items-center gap-2 text-sm text-gray-800">
                 <input
                   type="checkbox"

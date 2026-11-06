@@ -2,7 +2,9 @@
 
 import { useState, useTransition, useRef } from "react";
 import Link from "next/link";
-import { Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Menu } from "@base-ui/react/menu";
+import { ChevronDown, Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -35,6 +37,14 @@ type Employee = {
 };
 
 const STATUSES = ["KONTRAK", "TETAP"];
+
+const MENU_ITEM = "block w-full cursor-pointer rounded-md px-3 py-1.5 text-left text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100 data-[disabled]:opacity-50";
+const QUICK_MENU = [
+  { key: "promosi", label: "Promosi" },
+  { key: "demosi", label: "Demosi" },
+  { key: "mutasi", label: "Mutasi" },
+  { key: "resign", label: "Resign" },
+];
 
 const ROLE_BADGE: Record<string, string> = {
   KARYAWAN: "bg-gray-100 text-gray-600 border-gray-200",
@@ -88,6 +98,7 @@ export default function KaryawanClient({
 }: {
   employees: Employee[]; master: MasterOptions; canImport: boolean;
 }) {
+  const router = useRouter();
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"none" | "add" | "edit" | "upload">("none");
@@ -248,7 +259,6 @@ export default function KaryawanClient({
             <TableHeader>
               <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
                 <TableHead className="w-[70px] px-4"><T>No.</T></TableHead>
-                <TableHead className="w-[110px] px-4"><T>ID Karyawan</T></TableHead>
                 <TableHead className="px-4"><T>Nama</T></TableHead>
                 <TableHead className="hidden md:table-cell px-4"><T>Departemen</T></TableHead>
                 <TableHead className="hidden lg:table-cell px-4"><T>Status Kerja</T></TableHead>
@@ -260,7 +270,7 @@ export default function KaryawanClient({
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={8} className="text-center py-12 text-gray-400 text-sm">
+                  <TableCell colSpan={7} className="text-center py-12 text-gray-400 text-sm">
                     {search ? <T>{"Tidak ada karyawan yang cocok."}</T> : <T>{"Belum ada karyawan. Tambah atau import dari Excel."}</T>}
                   </TableCell>
                 </TableRow>
@@ -268,9 +278,6 @@ export default function KaryawanClient({
               {filtered.map(emp => (
                 <TableRow key={emp.id} className={!emp.isActive ? "opacity-50" : ""}>
                   <TableCell className="px-4 text-xs text-gray-500">{emp.employeeNo ?? "—"}</TableCell>
-                  <TableCell className="px-4 font-mono text-xs text-gray-500 whitespace-nowrap">
-                    {emp.employeeId}
-                  </TableCell>
                   <TableCell className="px-4">
                     <div>
                       {/* Baris baru masih ber-id sementara sampai halaman dimuat ulang */}
@@ -284,7 +291,7 @@ export default function KaryawanClient({
                           {emp.name}
                         </Link>
                       )}
-                      <p className="text-xs text-gray-400">{emp.email ?? "—"}</p>
+                      <p className="font-mono text-xs text-gray-500">{emp.employeeId}</p>
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell px-4 text-sm text-gray-600">
@@ -309,20 +316,38 @@ export default function KaryawanClient({
                     </span>
                   </TableCell>
                   <TableCell className="px-4 text-right whitespace-nowrap">
-                    <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="sm"
-                        onClick={() => openEdit(emp)}
-                        className="h-7 px-2 text-xs text-brand hover:text-brand hover:bg-red-50">
-                        <T>Edit</T>
-                      </Button>
-                      <Button variant="ghost" size="sm"
-                        onClick={() => handleToggle(emp)} disabled={isPending}
-                        className={`h-7 px-2 text-xs ${emp.isActive
-                          ? "text-gray-500 hover:text-red-600 hover:bg-red-50"
-                          : "text-gray-500 hover:text-green-600 hover:bg-green-50"}`}>
-                        {emp.isActive ? <T>{"Nonaktifkan"}</T> : <T>{"Aktifkan"}</T>}
-                      </Button>
-                    </div>
+                    <Menu.Root>
+                      <Menu.Trigger className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                        <T>Aksi</T> <ChevronDown size={13} />
+                      </Menu.Trigger>
+                      <Menu.Portal>
+                        <Menu.Positioner align="end" sideOffset={4} className="z-50">
+                          <Menu.Popup className="min-w-40 rounded-lg border border-gray-200 bg-white p-1 shadow-lg outline-none">
+                            {!emp.id.startsWith("tmp-") && (
+                              <Menu.Item className={MENU_ITEM} onClick={() => router.push(`/portal/admin/karyawan/${emp.id}`)}>
+                                <T>Detail</T>
+                              </Menu.Item>
+                            )}
+                            <Menu.Item className={MENU_ITEM} onClick={() => openEdit(emp)}>
+                              <T>Edit</T>
+                            </Menu.Item>
+                            {!emp.id.startsWith("tmp-") && QUICK_MENU.map((item) => (
+                              <Menu.Item
+                                key={item.key}
+                                className={MENU_ITEM}
+                                onClick={() => router.push(`/portal/admin/karyawan/${emp.id}?aksi=${item.key}`)}
+                              >
+                                <T>{item.label}</T>
+                              </Menu.Item>
+                            ))}
+                            <Menu.Separator className="my-1 border-t border-gray-100" />
+                            <Menu.Item className={MENU_ITEM} disabled={isPending} onClick={() => handleToggle(emp)}>
+                              {emp.isActive ? <T>{"Nonaktifkan"}</T> : <T>{"Aktifkan"}</T>}
+                            </Menu.Item>
+                          </Menu.Popup>
+                        </Menu.Positioner>
+                      </Menu.Portal>
+                    </Menu.Root>
                   </TableCell>
                 </TableRow>
               ))}

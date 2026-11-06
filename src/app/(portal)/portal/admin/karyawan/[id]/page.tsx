@@ -22,9 +22,10 @@ function tenure(joinDate: Date | null): string | null {
 }
 
 export default async function KaryawanDetailPage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ aksi?: string }>;
 }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
@@ -136,6 +137,7 @@ export default async function KaryawanDetailPage({
       }}
       tenure={tenure(employee.joinDate)}
       managers={managers}
+      initialAction={(await searchParams).aksi}
       master={await getMasterOptions()}
       canSeePay={canSeePay}
       isSuper={isSuperAdmin(access.role)}

@@ -281,12 +281,12 @@ export async function addEmploymentEvent(id: string, input: EmploymentEventInput
 }
 
 export type JobChangeInput = {
-  type: "MUTASI" | "PROMOSI";
+  type: "MUTASI" | "PROMOSI" | "DEMOSI";
   effectiveDate: string;
   note?: string;
 };
 
-// Mutasi dan promosi mengubah Unit Perusahaan sekaligus mencatat perubahannya di Riwayat Pekerjaan.
+// Mutasi, promosi, dan demosi mengubah Unit Perusahaan sekaligus mencatat perubahannya di Riwayat Pekerjaan.
 export async function addJobChange(id: string, input: JobChangeInput, data: EmployeeUpdate) {
   const actor = await requireMenu("karyawan");
   if (!input.effectiveDate) throw new Error("Tanggal berlaku wajib diisi");
