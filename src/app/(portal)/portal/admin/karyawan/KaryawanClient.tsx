@@ -40,10 +40,6 @@ type Employee = {
 
 const STATUSES = ["KONTRAK", "TETAP"];
 
-const ROLE_BADGE: Record<string, string> = {
-  KARYAWAN: "bg-gray-100 text-gray-600 border-gray-200",
-  ADMIN: "bg-red-100 text-brand border-red-200",
-};
 const STATUS_BADGE: Record<string, string> = {
   TETAP: "bg-emerald-100 text-emerald-700 border-emerald-200",
   KONTRAK: "bg-amber-100 text-amber-700 border-amber-200",
@@ -256,7 +252,6 @@ export default function KaryawanClient({
                 <TableHead className="px-4"><T>Nama</T></TableHead>
                 <TableHead className="hidden md:table-cell px-4"><T>Departemen</T></TableHead>
                 <TableHead className="hidden lg:table-cell px-4"><T>Status Kerja</T></TableHead>
-                <TableHead className="hidden lg:table-cell px-4"><T>Role</T></TableHead>
                 <TableHead className="hidden sm:table-cell px-4"><T>Status</T></TableHead>
                 <TableHead className="text-right px-4"><T>Aksi</T></TableHead>
               </TableRow>
@@ -264,7 +259,7 @@ export default function KaryawanClient({
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={7} className="text-center py-12 text-gray-400 text-sm">
+                  <TableCell colSpan={6} className="text-center py-12 text-gray-400 text-sm">
                     {search ? <T>{"Tidak ada karyawan yang cocok."}</T> : <T>{"Belum ada karyawan. Tambah atau import dari Excel."}</T>}
                   </TableCell>
                 </TableRow>
@@ -296,9 +291,6 @@ export default function KaryawanClient({
                   </TableCell>
                   <TableCell className="hidden lg:table-cell px-4">
                     <StatusBadge value={emp.employmentStatus} map={STATUS_BADGE} />
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell px-4">
-                    <StatusBadge value={emp.role} map={ROLE_BADGE} />
                   </TableCell>
                   <TableCell className="hidden sm:table-cell px-4">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
