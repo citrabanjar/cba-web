@@ -22,18 +22,19 @@ import {
 import {
   downloadTemplate, parseEmployeeFile, type ParsedFile,
 } from "@/lib/employee-import";
+import type { MasterOptions } from "@/lib/master-data";
 import { T } from "@/components/i18n";
 
 type Dept = { id: string; name: string };
 type Employee = {
   id: string; employeeNo: number | null; employeeId: string; name: string; email: string | null;
   phone: string | null; role: string; employmentStatus: string;
-  position: string | null; isActive: boolean; joinDate: Date | null;
+  branch: string | null; position: string | null; isActive: boolean; joinDate: Date | null;
   bankName: string | null; bankAccount: string | null; bankHolder: string | null;
   department: Dept | null;
 };
 
-const STATUSES = ["KONTRAK", "TETAP", "PROBATION"];
+const STATUSES = ["KONTRAK", "TETAP"];
 
 const ROLE_BADGE: Record<string, string> = {
   KARYAWAN: "bg-gray-100 text-gray-600 border-gray-200",
@@ -47,7 +48,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 const EMPTY: Partial<EmployeeInput> = {
   employeeId: "", name: "", email: "", phone: "",
-  departmentName: "", position: "", employmentStatus: "KONTRAK",
+  branch: "", departmentName: "", position: "", employmentStatus: "KONTRAK",
   joinDate: "", password: "",
   bankName: "", bankAccount: "", bankHolder: "",
 };
@@ -61,10 +62,31 @@ function StatusBadge({ value, map }: { value: string; map: Record<string, string
   );
 }
 
-export default function KaryawanClient({
-  employees: initial, canImport,
+function MasterSelect({
+  label, value, options, onChange,
 }: {
-  employees: Employee[]; depts: Dept[]; canImport: boolean;
+  label: string; value: string; options: string[]; onChange: (value: string) => void;
+}) {
+  const choices = value && !options.includes(value) ? [value, ...options] : options;
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs"><T>{label}</T></Label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
+      >
+        <option value="">—</option>
+        {choices.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+export default function KaryawanClient({
+  employees: initial, master, canImport,
+}: {
+  employees: Employee[]; master: MasterOptions; canImport: boolean;
 }) {
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
@@ -96,7 +118,7 @@ export default function KaryawanClient({
     setEditTarget(emp);
     setForm({
       employeeId: emp.employeeId, name: emp.name, email: emp.email ?? "",
-      phone: emp.phone ?? "", departmentName: emp.department?.name ?? "",
+      phone: emp.phone ?? "", branch: emp.branch ?? "", departmentName: emp.department?.name ?? "",
       position: emp.position ?? "", employmentStatus: emp.employmentStatus,
       joinDate: emp.joinDate ? new Date(emp.joinDate).toISOString().split("T")[0] : "",
       password: "", bankName: emp.bankName ?? "",
@@ -120,7 +142,7 @@ export default function KaryawanClient({
             employeeId: form.employeeId!, name: form.name!,
             email: form.email || null, phone: form.phone || null,
             role: "KARYAWAN", employmentStatus: form.employmentStatus ?? "KONTRAK",
-            position: form.position || null, isActive: true, joinDate: null,
+            branch: form.branch || null, position: form.position || null, isActive: true, joinDate: null,
             bankName: form.bankName || null, bankAccount: form.bankAccount || null,
             bankHolder: form.bankHolder || null,
             department: form.departmentName ? { id: "", name: form.departmentName } : null,
@@ -134,7 +156,7 @@ export default function KaryawanClient({
             ...e,
             employeeId: form.employeeId ?? e.employeeId,
             name: form.name ?? e.name,
-            email: form.email || null, phone: form.phone || null,
+            email: form.email || null, phone: form.phone || null, branch: form.branch || null,
             position: form.position || null, bankName: form.bankName || null,
             bankAccount: form.bankAccount || null, bankHolder: form.bankHolder || null,
             employmentStatus: form.employmentStatus ?? e.employmentStatus,
@@ -144,7 +166,7 @@ export default function KaryawanClient({
         }
         setModal("none");
       } catch {
-        setMsg({ type: "err", text: "Gagal menyimpan. Periksa ID Karyawan dan email, mungkin sudah dipakai." });
+        setMsg({ type: "err", text: "Gagal menyimpan. ID Karyawan atau email mungkin sudah dipakai." });
       }
     });
   }
@@ -343,16 +365,14 @@ export default function KaryawanClient({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs"><T>Departemen</T></Label>
-                <Input value={form.departmentName ?? ""} onChange={e => setForm(f => ({ ...f, departmentName: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs"><T>Jabatan</T></Label>
-                <Input value={form.position ?? ""} onChange={e => setForm(f => ({ ...f, position: e.target.value }))} />
-              </div>
+              <MasterSelect label="Departemen" value={form.departmentName ?? ""} options={master.departments}
+                onChange={(value) => setForm(f => ({ ...f, departmentName: value }))} />
+              <MasterSelect label="Jabatan" value={form.position ?? ""} options={master.positions}
+                onChange={(value) => setForm(f => ({ ...f, position: value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <MasterSelect label="Cabang" value={form.branch ?? ""} options={master.branches}
+                onChange={(value) => setForm(f => ({ ...f, branch: value }))} />
               <div className="space-y-1.5">
                 <Label className="text-xs"><T>Status Kerja</T></Label>
                 <Select

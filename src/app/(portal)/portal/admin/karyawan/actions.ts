@@ -30,6 +30,7 @@ export type EmployeeInput = {
   name: string;
   email?: string;
   phone?: string;
+  branch?: string;
   departmentName?: string;
   position?: string;
   employmentStatus?: string;
@@ -42,14 +43,21 @@ export type EmployeeInput = {
 
 export type EmployeeUpdate = Record<string, string | undefined>;
 
-async function upsertDept(name?: string) {
+// Cabang, Departemen, dan Jabatan harus dipilih dari daftar di Setup Perusahaan.
+async function assertInMaster(data: { branch?: string; departmentName?: string; position?: string }) {
+  const name = (value?: string) => ({ where: { name: value?.trim() ?? "" } });
+  const missing = await Promise.all([
+    data.branch?.trim() ? prisma.branch.findUnique(name(data.branch)) : true,
+    data.departmentName?.trim() ? prisma.department.findUnique(name(data.departmentName)) : true,
+    data.position?.trim() ? prisma.position.findUnique(name(data.position)) : true,
+  ]);
+  if (missing.some((row) => !row)) throw new Error("Pilihan belum ada di Setup Perusahaan");
+}
+
+async function findDeptId(name?: string) {
   if (!name) return undefined;
-  const dept = await prisma.department.upsert({
-    where: { name },
-    update: {},
-    create: { name },
-  });
-  return dept.id;
+  const dept = await prisma.department.findUnique({ where: { name }, select: { id: true } });
+  return dept?.id;
 }
 
 async function nextEmployeeNo(): Promise<number> {
@@ -67,7 +75,8 @@ function logValue(value: unknown): string | null {
 
 export async function createEmployee(data: EmployeeInput) {
   await requireMenu("karyawan");
-  const departmentId = await upsertDept(data.departmentName);
+  await assertInMaster(data);
+  const departmentId = await findDeptId(data.departmentName);
   await prisma.user.create({
     data: {
       employeeNo: await nextEmployeeNo(),
@@ -76,6 +85,7 @@ export async function createEmployee(data: EmployeeInput) {
       email: data.email || null,
       phone: data.phone || null,
       departmentId,
+      branch: data.branch || null,
       position: data.position || null,
       employmentStatus: STATUS_MAP[data.employmentStatus?.toUpperCase() ?? ""] ?? "KONTRAK",
       joinDate: toDate(data.joinDate),
@@ -131,6 +141,7 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
     include: { department: { select: { name: true } } },
   });
   if (!current) throw new Error("Not found");
+  await assertInMaster(data);
 
   const changes: Prisma.UserUncheckedUpdateInput = {};
   const logs: { field: string; oldValue: string | null; newValue: string | null }[] = [];
@@ -177,7 +188,7 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
   }
   if (data.departmentName !== undefined) {
     if (track("department", current.department?.name, data.departmentName.trim())) {
-      changes.departmentId = (await upsertDept(data.departmentName.trim())) ?? null;
+      changes.departmentId = (await findDeptId(data.departmentName.trim())) ?? null;
     }
   }
   if (data.managerEmployeeId !== undefined) {
@@ -449,6 +460,16 @@ export async function importEmployees(rows: ImportRow[]) {
     const dept = await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
     deptMap.set(name, dept.id);
   }
+  // Import juga mengisi daftar Setup Perusahaan, supaya data awal langsung bisa dipilih.
+  const uniqueNames = (values: (string | undefined)[]) => [...new Set(values.filter(Boolean) as string[])];
+  await prisma.branch.createMany({
+    data: uniqueNames(rows.map((r) => r.branch)).map((name) => ({ name })),
+    skipDuplicates: true,
+  });
+  await prisma.position.createMany({
+    data: uniqueNames(rows.map((r) => r.position)).map((name) => ({ name })),
+    skipDuplicates: true,
+  });
 
   // No. Urut mengikuti tanggal masuk: karyawan terlama dapat nomor terkecil.
   const ordered = [...rows].sort((a, b) =>

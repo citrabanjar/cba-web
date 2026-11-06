@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Home, Clock, Calendar, Briefcase, FileText,
-  Receipt, Users, LogOut, Menu, X, Settings, Network,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T } from "@/components/i18n";
@@ -52,7 +52,12 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
   if (hasMenu({ role, menuAccess }, "perusahaan")) {
     sections.push({
       section: "COMPANY",
-      items: [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }],
+      items: [
+        { href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network },
+        ...(isSuperAdmin(role)
+          ? [{ href: "/portal/admin/setup", label: "Setup Perusahaan", icon: Building2 }]
+          : []),
+      ],
     });
   }
 

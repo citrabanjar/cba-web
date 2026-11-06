@@ -15,6 +15,7 @@ import {
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
+import type { MasterOptions } from "@/lib/master-data";
 import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS } from "@/lib/personal-info";
 import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
@@ -175,6 +176,11 @@ function fmtDateTime(d: Date): string {
   });
 }
 const toInputDate = (d: Date | null) => (d ? new Date(d).toISOString().split("T")[0] : "");
+
+function masterOptions(names: string[], current?: string | null): Option[] {
+  const list = current && !names.includes(current) ? [current, ...names] : names;
+  return [{ value: "", label: "—" }, ...list.map((value) => ({ value, label: value }))];
+}
 
 function Pill({ cls, children }: { cls: string; children: React.ReactNode }) {
   return (
@@ -529,11 +535,12 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, canSeePay, isSuper, canEdit,
+  employee: emp, tenure, managers, master, canSeePay, isSuper, canEdit,
 }: {
   employee: Employee;
   tenure: string | null;
   managers: { id: string; name: string; employeeId: string | null }[];
+  master: MasterOptions;
   canSeePay: boolean;
   isSuper: boolean;
   canEdit: boolean;
@@ -569,9 +576,9 @@ export default function KaryawanDetailClient({
       { key: "spkDate", label: "Tanggal SPK", type: "date" },
     ],
     unit: [
-      { key: "branch", label: "Cabang" },
-      { key: "departmentName", label: "Departemen" },
-      { key: "position", label: "Jabatan" },
+      { key: "branch", label: "Cabang", type: "select", options: masterOptions(master.branches, emp.branch) },
+      { key: "departmentName", label: "Departemen", type: "select", options: masterOptions(master.departments, emp.department?.name) },
+      { key: "position", label: "Jabatan", type: "select", options: masterOptions(master.positions, emp.position) },
       {
         key: "managerEmployeeId", label: "Atasan Langsung (ID Karyawan)", type: "suggest",
         hint: "Isi ID Karyawan atasan langsung. Kosongkan kalau tidak punya atasan.",
@@ -627,7 +634,7 @@ export default function KaryawanDetailClient({
       { key: "bpjsKesNumber", label: "No BPJS Kesehatan" },
       { key: "bpjsKesActive", label: "Status BPJS Kesehatan", type: "select", options: FLAG_OPTIONS },
     ],
-  }), [managers, emp.employmentStatus, emp.paymentSchedule]);
+  }), [managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule]);
 
   const initials = emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const today = new Date().toISOString().split("T")[0];

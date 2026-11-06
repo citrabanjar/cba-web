@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { getMasterOptions } from "@/lib/master-data";
 import { PERSONAL_LOG_LABELS } from "@/lib/personal-info";
 import KaryawanDetailClient from "./KaryawanDetailClient";
 
@@ -135,6 +136,7 @@ export default async function KaryawanDetailPage({
       }}
       tenure={tenure(employee.joinDate)}
       managers={managers}
+      master={await getMasterOptions()}
       canSeePay={canSeePay}
       isSuper={isSuperAdmin(access.role)}
       canEdit={isSuperAdmin(access.role) || employee.role === "KARYAWAN"}

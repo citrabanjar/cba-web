@@ -63,6 +63,18 @@ enum SalaryComponentType {
   POTONGAN
 }
 
+model Branch {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Position {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
 model Department {
   id        String   @id @default(cuid())
   name      String   @unique

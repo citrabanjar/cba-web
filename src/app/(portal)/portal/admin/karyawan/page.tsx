@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { getMasterOptions } from "@/lib/master-data";
 import KaryawanClient from "./KaryawanClient";
 
 export default async function AdminKaryawanPage() {
@@ -22,6 +23,7 @@ export default async function AdminKaryawanPage() {
       phone: true,
       role: true,
       employmentStatus: true,
+      branch: true,
       position: true,
       isActive: true,
       joinDate: true,
@@ -33,12 +35,10 @@ export default async function AdminKaryawanPage() {
     orderBy: [{ employeeNo: "asc" }, { employeeId: "asc" }],
   });
 
-  const depts = await prisma.department.findMany({ orderBy: { name: "asc" } });
-
   return (
     <KaryawanClient
       employees={employees.map((e) => ({ ...e, employeeId: e.employeeId ?? "" }))}
-      depts={depts}
+      master={await getMasterOptions()}
       canImport={hasMenu(access, "import")}
     />
   );
