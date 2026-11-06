@@ -17,7 +17,7 @@ import { formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
 import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS } from "@/lib/personal-info";
 import {
-  addEmploymentEvent, addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
+  addEmploymentEvent, addJobChange, addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
 
@@ -76,7 +76,7 @@ type FormField = {
   type?: "date" | "email" | "select" | "suggest" | "check"; options?: Option[];
 };
 type Section = "detail" | "unit" | "bank" | "payroll" | "pribadi" | "alamat" | "pajak" | "bpjs";
-type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN";
+type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "MUTASI" | "PROMOSI";
 type Component = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number };
 type FamilyRow = { name: string; idNumber: string; relation: string };
 
@@ -107,12 +107,33 @@ const SECTION_TITLE: Record<Section, string> = {
 
 const EVENT_LABEL: Record<string, string> = {
   PERPANJANGAN: "Perpanjangan Kontrak", PEMBERHENTIAN: "Pemberhentian",
+  MUTASI: "Mutasi", PROMOSI: "Promosi",
 };
-const EDIT_MODES: { key: EditMode; label: string }[] = [
-  { key: "ubah", label: "Ubah Data" },
-  { key: "PERPANJANGAN", label: "Perpanjangan Kontrak" },
-  { key: "PEMBERHENTIAN", label: "Pemberhentian" },
+const EDIT_MODES: Partial<Record<Section, EditMode[]>> = {
+  detail: ["ubah", "PERPANJANGAN", "PEMBERHENTIAN"],
+  unit: ["ubah", "MUTASI", "PROMOSI"],
+};
+const STOP_TYPES = ["Resign", "Diberhentikan", "Kontrak Berakhir"];
+type EventField = { key: string; label: string; type: string; options?: string[] };
+const JOB_CHANGE_FIELDS: EventField[] = [
+  { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
+  { key: "note", label: "Catatan", type: "text" },
 ];
+const EVENT_FIELDS: Partial<Record<EditMode, EventField[]>> = {
+  PERPANJANGAN: [
+    { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
+    { key: "contractEndDate", label: "Tanggal Akhir Kontrak Baru *", type: "date" },
+    { key: "spkNumber", label: "No SPK", type: "text" },
+    { key: "spkDate", label: "Tanggal SPK", type: "date" },
+  ],
+  PEMBERHENTIAN: [
+    { key: "stopType", label: "Jenis Pemberhentian", type: "select", options: STOP_TYPES },
+    { key: "effectiveDate", label: "Tanggal Berhenti *", type: "date" },
+    { key: "note", label: "Catatan", type: "text" },
+  ],
+  MUTASI: JOB_CHANGE_FIELDS,
+  PROMOSI: JOB_CHANGE_FIELDS,
+};
 
 const LEAVE_LABEL: Record<string, string> = {
   TAHUNAN: "Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan",
@@ -170,8 +191,8 @@ function SectionCard({
 }) {
   return (
     <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-5 py-3 bg-gray-50 border-b border-gray-200">
-        <h3 className="font-semibold text-sm text-gray-800"><T>{title}</T></h3>
+      <div className="section-head flex items-center justify-between gap-3 px-5 py-3">
+        <h3 className="font-semibold text-sm"><T>{title}</T></h3>
         {action}
         {onEdit && <Button size="sm" onClick={onEdit} className="h-7 px-4 text-xs"><T>Edit</T></Button>}
       </div>
@@ -233,9 +254,9 @@ function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <h3 className="font-semibold text-sm text-gray-800 px-5 py-3 bg-gray-50 border-b border-gray-200">
-        <T>Riwayat Gaji</T>
-      </h3>
+      <div className="section-head px-5 py-3">
+        <h3 className="font-semibold text-sm"><T>Riwayat Gaji</T></h3>
+      </div>
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -632,13 +653,21 @@ export default function KaryawanDetailClient({
   function handleSave() {
     startTransition(async () => {
       try {
+        const { effectiveDate = "", note } = eventForm;
         if (mode === "ubah") await updateEmployee(emp.id, form);
-        else await addEmploymentEvent(emp.id, { type: mode, effectiveDate: "", ...eventForm });
+        else if (mode === "MUTASI" || mode === "PROMOSI") {
+          await addJobChange(emp.id, { type: mode, effectiveDate, note }, form);
+        } else if (mode === "PEMBERHENTIAN") {
+          const reason = [eventForm.stopType ?? STOP_TYPES[0], note?.trim()].filter(Boolean).join(": ");
+          await addEmploymentEvent(emp.id, { type: mode, effectiveDate, reason });
+        } else {
+          await addEmploymentEvent(emp.id, { type: mode, effectiveDate, ...eventForm });
+        }
         setEditing(null);
       } catch {
         setError(mode === "ubah"
           ? "Gagal menyimpan. ID Karyawan, email, atau No KTP mungkin sudah dipakai, atau ID atasan tidak ditemukan atau merupakan anak buahnya sendiri."
-          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
+          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Mutasi dan promosi harus mengubah isian; tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
       }
     });
   }
@@ -723,7 +752,7 @@ export default function KaryawanDetailClient({
         </div>
 
         {tab === "pekerjaan" && (
-          <div className="space-y-5">
+          <div className="section-stack space-y-5">
             <SectionCard title="Detail Pekerjaan" onEdit={edit("detail")}>
               <Field label="Employee ID">{emp.employeeId}</Field>
               <Field label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</Field>
@@ -746,9 +775,9 @@ export default function KaryawanDetailClient({
               </Field>
             </SectionCard>
 
-            <SectionCard title="Riwayat Kontrak">
+            <SectionCard title="Riwayat Pekerjaan">
               {emp.employmentEvents.length === 0 ? (
-                <p className="py-4 text-sm text-gray-400"><T>Belum ada riwayat kontrak.</T></p>
+                <p className="py-4 text-sm text-gray-400"><T>Belum ada riwayat pekerjaan.</T></p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -780,7 +809,7 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "gaji" && canSeePay && (
-          <div className="space-y-5">
+          <div className="section-stack space-y-5">
             <SectionCard title="Payroll" onEdit={edit("payroll")}>
               <Field label="Payroll">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
             </SectionCard>
@@ -803,7 +832,7 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "pribadi" && (
-          <div className="space-y-5">
+          <div className="section-stack space-y-5">
             <SectionCard title="Data Pribadi" onEdit={edit("pribadi")}>
               <Field label="Nama Lengkap">{emp.name}</Field>
               <Field label="Phone Number">{emp.phone}</Field>
@@ -881,7 +910,7 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "pajak" && (
-          <div className="space-y-5">
+          <div className="section-stack space-y-5">
             <SectionCard title="Pajak" onEdit={edit("pajak")}>
               <Field label="NPWP">{emp.npwp}</Field>
               <Field label="Status PTKP">{emp.ptkpStatus}</Field>
@@ -1042,41 +1071,49 @@ export default function KaryawanDetailClient({
 
           <div className="space-y-3 py-1">
             {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
-            {editing === "detail" && canEdit && (
+            {editing && canEdit && EDIT_MODES[editing] && (
               <div className="flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
-                {EDIT_MODES.map((m) => (
+                {EDIT_MODES[editing].map((key) => (
                   <button
-                    key={m.key}
+                    key={key}
                     type="button"
-                    aria-pressed={mode === m.key}
-                    disabled={m.key === "PERPANJANGAN" && emp.employmentStatus !== "KONTRAK"}
-                    onClick={() => { setMode(m.key); setEventForm({}); setError(null); }}
+                    aria-pressed={mode === key}
+                    disabled={key === "PERPANJANGAN" && emp.employmentStatus !== "KONTRAK"}
+                    onClick={() => { setMode(key); setEventForm({}); setError(null); }}
                     className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
-                      mode === m.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                      mode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
                     }`}
                   >
-                    <T>{m.label}</T>
+                    <T>{key === "ubah" ? "Ubah Data" : EVENT_LABEL[key]}</T>
                   </button>
                 ))}
               </div>
             )}
-            {mode !== "ubah" && (mode === "PERPANJANGAN" ? [
-              { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
-              { key: "contractEndDate", label: "Tanggal Akhir Kontrak Baru *", type: "date" },
-              { key: "spkNumber", label: "No SPK", type: "text" },
-              { key: "spkDate", label: "Tanggal SPK", type: "date" },
-            ] : [
-              { key: "effectiveDate", label: "Tanggal Berhenti *", type: "date" },
-              { key: "reason", label: "Alasan *", type: "text" },
-            ]).map((field) => (
+            {editing === "unit" && mode === "ubah" && (
+              <p className="text-xs text-gray-500">
+                <T>Pilih Mutasi atau Promosi lalu ubah isian di bawah supaya tercatat di Riwayat Pekerjaan.</T>
+              </p>
+            )}
+            {EVENT_FIELDS[mode]?.map((field) => (
               <div key={field.key} className="space-y-1.5">
                 <Label htmlFor={`event-${field.key}`} className="text-xs"><T>{field.label}</T></Label>
-                <Input
-                  id={`event-${field.key}`}
-                  type={field.type}
-                  value={eventForm[field.key] ?? ""}
-                  onChange={(e) => setEventForm((f) => ({ ...f, [field.key]: e.target.value }))}
-                />
+                {field.options ? (
+                  <select
+                    id={`event-${field.key}`}
+                    value={eventForm[field.key] ?? field.options[0]}
+                    onChange={(e) => setEventForm((f) => ({ ...f, [field.key]: e.target.value }))}
+                    className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
+                  >
+                    {field.options.map((o) => <option key={o} value={o}><T>{o}</T></option>)}
+                  </select>
+                ) : (
+                  <Input
+                    id={`event-${field.key}`}
+                    type={field.type}
+                    value={eventForm[field.key] ?? ""}
+                    onChange={(e) => setEventForm((f) => ({ ...f, [field.key]: e.target.value }))}
+                  />
+                )}
               </div>
             ))}
             {mode === "PEMBERHENTIAN" && (
@@ -1084,7 +1121,7 @@ export default function KaryawanDetailClient({
                 <T>Karyawan dinonaktifkan dan tidak bisa login jika tanggal berhenti hari ini atau sudah lewat.</T>
               </p>
             )}
-            {mode === "ubah" && editing && fields[editing].map((field) => field.type === "check" ? (
+            {(mode === "ubah" || mode === "MUTASI" || mode === "PROMOSI") && editing && fields[editing].map((field) => field.type === "check" ? (
               <label key={field.key} className="flex items-center gap-2 text-sm text-gray-800">
                 <input
                   type="checkbox"

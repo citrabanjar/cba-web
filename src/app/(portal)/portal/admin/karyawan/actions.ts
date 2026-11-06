@@ -269,6 +269,53 @@ export async function addEmploymentEvent(id: string, input: EmploymentEventInput
   return { success: true };
 }
 
+export type JobChangeInput = {
+  type: "MUTASI" | "PROMOSI";
+  effectiveDate: string;
+  note?: string;
+};
+
+// Mutasi dan promosi mengubah Unit Perusahaan sekaligus mencatat perubahannya di Riwayat Pekerjaan.
+export async function addJobChange(id: string, input: JobChangeInput, data: EmployeeUpdate) {
+  const actor = await requireMenu("karyawan");
+  if (!input.effectiveDate) throw new Error("Tanggal berlaku wajib diisi");
+  const before = await prisma.user.findFirst({
+    where: { id, ...editableTarget(actor.role) },
+    select: {
+      branch: true, position: true,
+      department: { select: { name: true } },
+      manager: { select: { employeeId: true } },
+    },
+  });
+  if (!before) throw new Error("Not found");
+
+  const parts = [
+    { label: "Cabang", from: before.branch, to: data.branch },
+    { label: "Departemen", from: before.department?.name, to: data.departmentName },
+    { label: "Jabatan", from: before.position, to: data.position },
+    { label: "Atasan", from: before.manager?.employeeId, to: data.managerEmployeeId },
+  ].flatMap(({ label, from, to }) => {
+    const oldValue = from?.trim() || "—";
+    const newValue = to?.trim() || "—";
+    return to === undefined || oldValue === newValue ? [] : [`${label}: ${oldValue} → ${newValue}`];
+  });
+  if (parts.length === 0) throw new Error("Tidak ada perubahan");
+
+  await updateEmployee(id, data);
+  const note = input.note?.trim();
+  await prisma.employmentEvent.create({
+    data: {
+      userId: id,
+      type: input.type,
+      effectiveDate: new Date(input.effectiveDate),
+      reason: [parts.join("; "), note].filter(Boolean).join(". "),
+      createdBy: actor.name,
+    },
+  });
+  revalidatePath(`${LIST_PATH}/${id}`);
+  return { success: true };
+}
+
 export type FamilyInput = { name: string; idNumber: string; relation: string };
 
 // Daftar keluarga disimpan sekaligus, jadi tambah, ubah, dan hapus baris cukup satu aksi.

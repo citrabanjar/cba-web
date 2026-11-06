@@ -251,6 +251,26 @@ body {
   border-top: 1px solid var(--color-gray-300);
 }
 
+/* Judul kartu di profil karyawan: warnanya bergantian dalam satu tab */
+.section-head {
+  --tone: var(--color-brand);
+  background: color-mix(in srgb, var(--tone) 9%, white);
+  border-left: 4px solid var(--tone);
+  border-bottom: 1px solid color-mix(in srgb, var(--tone) 22%, white);
+}
+.section-head h3 {
+  color: color-mix(in srgb, var(--tone) 82%, black);
+}
+.section-stack > :nth-child(4n + 2) .section-head {
+  --tone: #1d6fa5;
+}
+.section-stack > :nth-child(4n + 3) .section-head {
+  --tone: #2e7d5b;
+}
+.section-stack > :nth-child(4n) .section-head {
+  --tone: #b7791f;
+}
+
 /* Cetak bagan: warna tetap ikut, dan bagan dikecilkan agar muat satu halaman */
 @media print {
   .org-tree {
