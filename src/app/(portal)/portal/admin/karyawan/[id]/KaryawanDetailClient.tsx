@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChevronRight, Loader2, Mail, Phone, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,7 +200,6 @@ function SalaryCard({ salary }: { salary: Salary }) {
 }
 
 function AccessPanel({ employee }: { employee: Employee }) {
-  const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(employee.role === "ADMIN");
   const [menus, setMenus] = useState<string[]>(employee.menuAccess);
   const [message, setMessage] = useState<string | null>(null);
@@ -211,7 +209,6 @@ function AccessPanel({ employee }: { employee: Employee }) {
     startTransition(async () => {
       await setEmployeeAccess(employee.id, isAdmin ? "ADMIN" : "KARYAWAN", menus);
       setMessage("Akses tersimpan dan langsung berlaku.");
-      router.refresh();
     });
   }
 
@@ -259,7 +256,6 @@ function SalaryDialog({
 }: {
   employee: Employee; current?: Salary; open: boolean; onClose: () => void;
 }) {
-  const router = useRouter();
   const [effectiveDate, setEffectiveDate] = useState("");
   const [basicSalary, setBasicSalary] = useState(String(current?.basicSalary ?? ""));
   const [note, setNote] = useState("");
@@ -286,7 +282,6 @@ function SalaryDialog({
           components: components.filter((c) => c.name.trim() && c.amount > 0),
         });
         onClose();
-        router.refresh();
       } catch {
         setError("Gagal menyimpan. Periksa isian; tanggal berlaku tidak boleh sama dengan riwayat yang ada.");
       }
@@ -365,7 +360,6 @@ export default function KaryawanDetailClient({
   canEdit: boolean;
 }) {
   const t = useT();
-  const router = useRouter();
   const [tab, setTab] = useState("pekerjaan");
   const [editing, setEditing] = useState<Section | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -463,7 +457,6 @@ export default function KaryawanDetailClient({
       try {
         await updateEmployee(emp.id, form);
         setEditing(null);
-        router.refresh();
       } catch {
         setError("Gagal menyimpan. ID Karyawan, email, atau No KTP mungkin sudah dipakai, atau ID atasan tidak ditemukan atau merupakan anak buahnya sendiri.");
       }
@@ -473,7 +466,6 @@ export default function KaryawanDetailClient({
   function handleToggle() {
     startTransition(async () => {
       await toggleEmployeeActive(emp.id);
-      router.refresh();
     });
   }
 
