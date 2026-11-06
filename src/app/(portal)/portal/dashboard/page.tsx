@@ -4,10 +4,11 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, AlertCircle, ShieldCheck,
+  Receipt, TrendingUp, AlertCircle, ShieldCheck, Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { canManage, isSuperAdmin, roleLabel } from "@/lib/roles";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -15,9 +16,11 @@ export default async function DashboardPage() {
 
   const user = session.user;
   const greeting = getGreeting();
-  const isAdmin = user.role === "ADMIN" || user.role === "HRD" || user.role === "MANAGER";
+  const isAdmin = canManage(user.role) || user.role === "HRD" || user.role === "MANAGER";
+  const superAdmin = isSuperAdmin(user.role);
 
   const menuItems = [
+    ...(superAdmin ? [] : [
     {
       href: "/portal/absensi",
       icon: Clock,
@@ -48,6 +51,7 @@ export default async function DashboardPage() {
       label: "PPh 21",
       desc: "Bukti potong pajak",
     },
+    ]),
     ...(isAdmin
       ? [
           {
@@ -55,6 +59,16 @@ export default async function DashboardPage() {
             icon: ShieldCheck,
             label: "Data Karyawan",
             desc: "Kelola data karyawan",
+          },
+        ]
+      : []),
+    ...(superAdmin
+      ? [
+          {
+            href: "/portal/admin/settings",
+            icon: Settings,
+            label: "Pengaturan",
+            desc: "Pengaturan akun",
           },
         ]
       : []),
@@ -67,12 +81,14 @@ export default async function DashboardPage() {
         <p className="text-sm text-gray-400">{greeting}</p>
         <h1 className="text-xl font-bold text-gray-800 mt-0.5">{user.name}</h1>
         <p className="text-xs text-gray-400 mt-0.5">
-          {user.employeeId} &middot; {user.role} &middot; {user.employmentStatus}
+          {[user.employeeId, roleLabel(user.role), superAdmin ? null : user.employmentStatus]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
 
       {/* Status hari ini */}
-      <Card className="mb-6 border-gray-200">
+      {!superAdmin && <Card className="mb-6 border-gray-200">
         <CardContent className="pt-4 pb-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
             Status Hari Ini
@@ -93,7 +109,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Menu */}
       <div>
@@ -116,12 +132,12 @@ export default async function DashboardPage() {
       </div>
 
       {/* Info */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
+      {!superAdmin && <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
         <AlertCircle size={18} className="text-brand mt-0.5 shrink-0" />
         <p className="text-xs text-gray-600">
           Butuh bantuan? Hubungi HRD melalui email atau datang langsung ke kantor.
         </p>
-      </div>
+      </div>}
     </div>
   );
 }

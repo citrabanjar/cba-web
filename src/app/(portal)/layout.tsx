@@ -18,7 +18,7 @@ export default async function PortalLayout({
     <PortalShell
       user={{
         name: session.user.name ?? "Karyawan",
-        employeeId: session.user.employeeId ?? "",
+        employeeId: session.user.employeeId,
         role: session.user.role ?? "KARYAWAN",
       }}
     >

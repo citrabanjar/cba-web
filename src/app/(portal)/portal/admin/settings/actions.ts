@@ -1,6 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { canManage } from "@/lib/roles";
 import bcrypt from "bcryptjs";
 
 export async function changeAdminPassword(
@@ -8,7 +9,7 @@ export async function changeAdminPassword(
   newPassword: string,
 ) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !canManage(session.user.role)) {
     return { error: "Unauthorized" };
   }
 

@@ -57,6 +57,7 @@ enum UserRole {
   ADMIN
   HRD
   MANAGER
+  SUPER_ADMIN
 }
 
 model Department {
@@ -68,7 +69,7 @@ model Department {
 
 model User {
   id               String           @id @default(cuid())
-  employeeId       String           @unique
+  employeeId       String?          @unique // kosong untuk SUPER_ADMIN (bukan karyawan)
   name             String
   email            String?          @unique
   emailVerified    DateTime?

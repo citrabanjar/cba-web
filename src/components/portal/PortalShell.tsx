@@ -9,6 +9,7 @@ import {
   Receipt, Users, LogOut, Menu, X, Settings,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
+import { canManage, isSuperAdmin, roleLabel } from "@/lib/roles";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavSection = { section: string; items: NavItem[] };
@@ -19,6 +20,10 @@ function getNavSections(role: string): NavSection[] {
       section: "MENU UTAMA",
       items: [{ href: "/portal/dashboard", label: "Beranda", icon: Home }],
     },
+  ];
+
+  // Menu pribadi hanya untuk karyawan; SUPER_ADMIN bukan karyawan.
+  if (!isSuperAdmin(role)) sections.push(
     {
       section: "TIME",
       items: [
@@ -34,16 +39,16 @@ function getNavSections(role: string): NavSection[] {
         { href: "/portal/pph21", label: "PPh 21", icon: Receipt },
       ],
     },
-  ];
+  );
 
-  if (role === "ADMIN" || role === "HRD" || role === "MANAGER") {
+  if (canManage(role) || role === "HRD" || role === "MANAGER") {
     sections.push({
       section: "EMPLOYEE",
       items: [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }],
     });
   }
 
-  if (role === "ADMIN") {
+  if (canManage(role)) {
     sections.push({
       section: "ADMIN",
       items: [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }],
@@ -54,7 +59,7 @@ function getNavSections(role: string): NavSection[] {
 }
 
 type Props = {
-  user: { name: string; employeeId: string; role: string };
+  user: { name: string; employeeId: string | null; role: string };
   children: React.ReactNode;
 };
 
@@ -131,6 +136,7 @@ export default function PortalShell({ user, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const sections = getNavSections(user.role);
+  const userInfo = [user.employeeId, roleLabel(user.role)].filter(Boolean).join(" · ");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -148,7 +154,7 @@ export default function PortalShell({ user, children }: Props) {
           <div className="text-right">
             <p className="text-sm font-bold text-ink uppercase leading-tight">{user.name}</p>
             <p className="text-xs text-gray-500">
-              {user.employeeId} · {user.role}
+              {userInfo}
             </p>
           </div>
           <LogoutButton />
@@ -188,7 +194,7 @@ export default function PortalShell({ user, children }: Props) {
             <div className="border-t border-gray-100 p-4 shrink-0">
               <p className="text-sm font-bold text-ink uppercase truncate">{user.name}</p>
               <p className="text-xs text-gray-500 mb-3">
-                {user.employeeId} · {user.role}
+                {userInfo}
               </p>
               <LogoutButton className="w-full" />
             </div>

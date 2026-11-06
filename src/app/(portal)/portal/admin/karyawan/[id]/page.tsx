@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
+import { canManage } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import KaryawanDetailClient from "./KaryawanDetailClient";
 
@@ -25,13 +26,13 @@ export default async function KaryawanDetailPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/portal");
-  if (session.user.role !== "ADMIN") redirect("/portal/dashboard");
+  if (!canManage(session.user.role)) redirect("/portal/dashboard");
 
   const { id } = await params;
 
   // Pakai select eksplisit supaya passwordHash tidak ikut terkirim ke client.
-  const employee = await prisma.user.findUnique({
-    where: { id },
+  const employee = await prisma.user.findFirst({
+    where: { id, role: { not: "SUPER_ADMIN" } },
     select: {
       id: true,
       employeeId: true,
@@ -87,5 +88,5 @@ export default async function KaryawanDetailPage({
 
   if (!employee) notFound();
 
-  return <KaryawanDetailClient employee={employee} tenure={tenure(employee.joinDate)} />;
+  return <KaryawanDetailClient employee={{ ...employee, employeeId: employee.employeeId ?? "" }} tenure={tenure(employee.joinDate)} />;
 }

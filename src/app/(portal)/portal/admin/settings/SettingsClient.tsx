@@ -48,7 +48,7 @@ function PasswordField({
   );
 }
 
-export default function SettingsClient({ name, employeeId }: { name: string; employeeId: string }) {
+export default function SettingsClient({ name, employeeId, role }: { name: string; employeeId: string; role: string }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
 
   return (
@@ -71,12 +71,12 @@ export default function SettingsClient({ name, employeeId }: { name: string; emp
             <p className="text-sm font-medium text-gray-800">{name}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400">ID Karyawan</p>
+            <p className="text-xs text-gray-400">{role === "SUPER_ADMIN" ? "Email" : "ID Karyawan"}</p>
             <p className="text-sm font-medium text-gray-800">{employeeId}</p>
           </div>
           <div>
             <p className="text-xs text-gray-400">Role</p>
-            <p className="text-sm font-medium text-gray-800">Super Admin</p>
+            <p className="text-sm font-medium text-gray-800">{role.replace("_", " ")}</p>
           </div>
         </CardContent>
       </Card>

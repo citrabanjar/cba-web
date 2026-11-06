@@ -8,7 +8,7 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      employeeId: string;
+      employeeId: string | null;
       role: string;
       employmentStatus: string;
     } & DefaultSession["user"];
@@ -72,7 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.employeeId = token.employeeId as string;
+        session.user.employeeId = (token.employeeId as string | null) ?? null;
         session.user.role = token.role as string;
         session.user.employmentStatus = token.employmentStatus as string;
       }

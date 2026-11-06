@@ -1,13 +1,14 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { canManage } from "@/lib/roles";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import type { UserRole, EmploymentStatus } from "@prisma/client";
 
 async function requireAdmin() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") throw new Error("Unauthorized");
+  if (!session?.user || !canManage(session.user.role)) throw new Error("Unauthorized");
 }
 
 const ROLE_MAP: Record<string, UserRole> = {
@@ -72,8 +73,9 @@ export async function updateEmployee(id: string, data: Partial<Omit<EmployeeInpu
   await requireAdmin();
   const departmentId = data.departmentName === "" ? null : await upsertDept(data.departmentName);
   const extra = data.password ? { passwordHash: await bcrypt.hash(data.password, 12) } : {};
+  // Akun SUPER_ADMIN tidak boleh diubah lewat modul karyawan.
   await prisma.user.update({
-    where: { id },
+    where: { id, role: { not: "SUPER_ADMIN" } },
     data: {
       name: data.name,
       // Email unik: string kosong harus jadi null supaya tidak bentrok antar karyawan.
@@ -99,7 +101,10 @@ export async function updateEmployee(id: string, data: Partial<Omit<EmployeeInpu
 
 export async function toggleEmployeeActive(id: string) {
   await requireAdmin();
-  const user = await prisma.user.findUnique({ where: { id }, select: { isActive: true } });
+  const user = await prisma.user.findFirst({
+    where: { id, role: { not: "SUPER_ADMIN" } },
+    select: { isActive: true },
+  });
   if (!user) throw new Error("Not found");
   await prisma.user.update({ where: { id }, data: { isActive: !user.isActive } });
   revalidatePath("/portal/admin/karyawan");
