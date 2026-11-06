@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import { T } from "@/components/i18n";
 
 export const metadata: Metadata = {
   title: "PT. Citra Banjar Abadi",
@@ -71,28 +72,28 @@ export default function HomePage() {
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium mb-6">
                 <MapPin size={14} className="text-red-300" />
-                Banjarmasin, Kalimantan Selatan
+                <T>Banjarmasin, Kalimantan Selatan</T>
               </div>
               <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
-                Membangun Masa Depan<br />
-                <span className="text-red-300">Bersama Kepercayaan</span>
+                <T>Membangun Masa Depan</T><br />
+                <span className="text-red-300"><T>Bersama Kepercayaan</T></span>
               </h1>
               <p className="text-gray-200 text-lg mb-8 leading-relaxed">
-                PT. Citra Banjar Abadi hadir sebagai mitra konstruksi dan teknik terpercaya,
-                menghadirkan solusi berkualitas tinggi untuk setiap proyek Anda.
+                <T>PT. Citra Banjar Abadi hadir sebagai mitra konstruksi dan teknik terpercaya,
+                menghadirkan solusi berkualitas tinggi untuk setiap proyek Anda.</T>
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   href="#kontak"
                   className="inline-flex items-center justify-center gap-2 bg-brand text-white font-semibold px-6 py-3 rounded-xl hover:bg-brand-dark transition-colors"
                 >
-                  Hubungi Kami <ArrowRight size={18} />
+                  <T>Hubungi Kami</T> <ArrowRight size={18} />
                 </Link>
                 <Link
                   href="/progress"
                   className="inline-flex items-center justify-center gap-2 bg-white/10 backdrop-blur-sm text-white font-semibold px-6 py-3 rounded-xl hover:bg-white/20 transition-colors border border-white/20"
                 >
-                  Cek Progress Proyek
+                  <T>Cek Progress Proyek</T>
                 </Link>
               </div>
             </div>
@@ -106,7 +107,7 @@ export default function HomePage() {
               {stats.map((s) => (
                 <div key={s.label} className="text-center">
                   <p className="text-3xl font-bold text-ink">{s.value}</p>
-                  <p className="text-sm text-gray-500 mt-1">{s.label}</p>
+                  <p className="text-sm text-gray-500 mt-1"><T>{s.label}</T></p>
                 </div>
               ))}
             </div>
@@ -117,10 +118,10 @@ export default function HomePage() {
         <section id="layanan" className="py-20 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <span className="text-amber-600 font-semibold text-sm uppercase tracking-wide">Layanan Kami</span>
-              <h2 className="text-3xl font-bold text-ink mt-2">Solusi Teknik Terpadu</h2>
+              <span className="text-brand font-semibold text-sm uppercase tracking-wide"><T>Layanan Kami</T></span>
+              <h2 className="text-3xl font-bold text-ink mt-2"><T>Solusi Teknik Terpadu</T></h2>
               <p className="text-gray-500 mt-3 max-w-xl mx-auto">
-                Kami menyediakan layanan konstruksi dan teknik komprehensif untuk memenuhi kebutuhan proyek Anda.
+                <T>Kami menyediakan layanan konstruksi dan teknik komprehensif untuk memenuhi kebutuhan proyek Anda.</T>
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -132,8 +133,8 @@ export default function HomePage() {
                   <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mb-4">
                     <s.icon size={24} className="text-ink" />
                   </div>
-                  <h3 className="font-bold text-ink text-lg mb-2">{s.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
+                  <h3 className="font-bold text-ink text-lg mb-2"><T>{s.title}</T></h3>
+                  <p className="text-gray-500 text-sm leading-relaxed"><T>{s.desc}</T></p>
                 </div>
               ))}
             </div>
@@ -145,18 +146,18 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div>
-                <span className="text-amber-600 font-semibold text-sm uppercase tracking-wide">Tentang Kami</span>
-                <h2 className="text-3xl font-bold text-ink mt-2 mb-4">Mitra Terpercaya Sejak Bertahun-tahun</h2>
+                <span className="text-brand font-semibold text-sm uppercase tracking-wide"><T>Tentang Kami</T></span>
+                <h2 className="text-3xl font-bold text-ink mt-2 mb-4"><T>Mitra Terpercaya Sejak Bertahun-tahun</T></h2>
                 <p className="text-gray-600 leading-relaxed mb-6">
-                  PT. Citra Banjar Abadi adalah perusahaan yang bergerak di bidang konstruksi dan pelayanan teknik di
+                  <T>PT. Citra Banjar Abadi adalah perusahaan yang bergerak di bidang konstruksi dan pelayanan teknik di
                   Kalimantan Selatan. Didukung oleh tim profesional berpengalaman, kami berkomitmen menghadirkan hasil
-                  terbaik untuk setiap proyek.
+                  terbaik untuk setiap proyek.</T>
                 </p>
                 <ul className="space-y-3">
                   {features.map((f) => (
                     <li key={f} className="flex items-start gap-3 text-sm text-gray-600">
                       <CheckCircle2 size={18} className="text-green-500 mt-0.5 shrink-0" />
-                      {f}
+                      <T>{f}</T>
                     </li>
                   ))}
                 </ul>
@@ -172,8 +173,8 @@ export default function HomePage() {
                     <div className="w-10 h-10 bg-ink/10 rounded-lg flex items-center justify-center mb-3">
                       <card.icon size={20} className="text-ink" />
                     </div>
-                    <p className="font-semibold text-ink text-sm">{card.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">{card.desc}</p>
+                    <p className="font-semibold text-ink text-sm"><T>{card.title}</T></p>
+                    <p className="text-xs text-gray-500 mt-1"><T>{card.desc}</T></p>
                   </div>
                 ))}
               </div>
@@ -186,13 +187,13 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div>
-                <h2 className="text-2xl font-bold mb-3">Portal Karyawan</h2>
+                <h2 className="text-2xl font-bold mb-3"><T>Portal Karyawan</T></h2>
                 <p className="text-gray-200 text-sm leading-relaxed mb-6">
-                  Akses absensi GPS, pengajuan cuti, dinas luar, slip gaji, dan PPh 21 dalam satu platform.
+                  <T>Akses absensi GPS, pengajuan cuti, dinas luar, slip gaji, dan PPh 21 dalam satu platform.</T>
                 </p>
                 <div className="flex flex-wrap gap-3">
                   {["Absensi GPS", "Pengajuan Cuti", "Slip Gaji", "PPh 21"].map((f) => (
-                    <span key={f} className="text-xs bg-white/10 px-3 py-1.5 rounded-full">{f}</span>
+                    <span key={f} className="text-xs bg-white/10 px-3 py-1.5 rounded-full"><T>{f}</T></span>
                   ))}
                 </div>
               </div>
@@ -202,7 +203,7 @@ export default function HomePage() {
                   className="inline-flex items-center gap-2 bg-white text-ink font-bold px-8 py-3 rounded-xl hover:bg-gray-100 transition-colors"
                 >
                   <Users size={18} />
-                  Masuk Portal
+                  <T>Masuk Portal</T>
                   <ArrowRight size={18} />
                 </Link>
               </div>
@@ -214,8 +215,8 @@ export default function HomePage() {
         <section id="kontak" className="py-20 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <span className="text-amber-600 font-semibold text-sm uppercase tracking-wide">Kontak</span>
-              <h2 className="text-3xl font-bold text-ink mt-2">Hubungi Kami</h2>
+              <span className="text-brand font-semibold text-sm uppercase tracking-wide"><T>Kontak</T></span>
+              <h2 className="text-3xl font-bold text-ink mt-2"><T>Hubungi Kami</T></h2>
             </div>
             <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
               <div className="space-y-5">
@@ -229,7 +230,7 @@ export default function HomePage() {
                       <Icon size={18} className="text-ink" />
                     </div>
                     <div>
-                      <p className="font-semibold text-ink text-sm">{label}</p>
+                      <p className="font-semibold text-ink text-sm"><T>{label}</T></p>
                       <p className="text-gray-500 text-sm mt-1">{value}</p>
                     </div>
                   </div>
@@ -239,10 +240,10 @@ export default function HomePage() {
                     <ClipboardList size={18} className="text-ink" />
                   </div>
                   <div>
-                    <p className="font-semibold text-ink text-sm">Progress Proyek</p>
+                    <p className="font-semibold text-ink text-sm"><T>Progress Proyek</T></p>
                     <p className="text-gray-500 text-sm mt-1">
                       <Link href="/progress" className="text-brand hover:underline">
-                        Cek status proyek Anda →
+                        <T>Cek status proyek Anda →</T>
                       </Link>
                     </p>
                   </div>

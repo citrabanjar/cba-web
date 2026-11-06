@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { T } from "@/components/i18n";
 
 type State = { error?: string; success?: boolean } | undefined;
 
@@ -54,28 +55,28 @@ export default function SettingsClient({ name, employeeId, role }: { name: strin
   return (
     <div className="p-6 max-w-xl space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-800">Pengaturan Akun</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Kelola informasi akun super admin</p>
+        <h1 className="text-xl font-bold text-gray-800"><T>Pengaturan Akun</T></h1>
+        <p className="text-sm text-gray-400 mt-0.5"><T>Kelola informasi akun super admin</T></p>
       </div>
 
       {/* Info akun */}
       <Card className="border-gray-100">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-            Info Akun
+            <T>Info Akun</T>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <p className="text-xs text-gray-400">Nama</p>
+            <p className="text-xs text-gray-400"><T>Nama</T></p>
             <p className="text-sm font-medium text-gray-800">{name}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400">{role === "SUPER_ADMIN" ? "Email" : "ID Karyawan"}</p>
+            <p className="text-xs text-gray-400">{role === "SUPER_ADMIN" ? <T>{"Email"}</T> : <T>{"ID Karyawan"}</T>}</p>
             <p className="text-sm font-medium text-gray-800">{employeeId}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400">Role</p>
+            <p className="text-xs text-gray-400"><T>Role</T></p>
             <p className="text-sm font-medium text-gray-800">{role.replace("_", " ")}</p>
           </div>
         </CardContent>
@@ -85,7 +86,7 @@ export default function SettingsClient({ name, employeeId, role }: { name: strin
       <Card className="border-gray-100">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-            Ganti Password
+            <T>Ganti Password</T>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -93,13 +94,13 @@ export default function SettingsClient({ name, employeeId, role }: { name: strin
             {state?.error && (
               <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">
                 <AlertCircle size={15} className="shrink-0" />
-                {state.error}
+                <T>{state.error}</T>
               </div>
             )}
             {state?.success && (
               <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-xl">
                 <CheckCircle2 size={15} className="shrink-0" />
-                Password berhasil diubah
+                <T>Password berhasil diubah</T>
               </div>
             )}
 
@@ -113,9 +114,9 @@ export default function SettingsClient({ name, employeeId, role }: { name: strin
               className="w-full gap-2 bg-ink hover:bg-ink/85"
             >
               {isPending ? (
-                <><Loader2 size={16} className="animate-spin" /> Menyimpan...</>
+                <><Loader2 size={16} className="animate-spin" /> <T>Menyimpan...</T></>
               ) : (
-                <><Lock size={16} /> Simpan Password</>
+                <><Lock size={16} /> <T>Simpan Password</T></>
               )}
             </Button>
           </form>

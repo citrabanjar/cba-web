@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
+import { cookies } from "next/headers";
 import { cn } from "@/lib/utils";
+import { LangProvider } from "@/components/i18n";
+import { LANG_COOKIE, toLang } from "@/lib/i18n";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -16,11 +19,13 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.ico" },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const lang = toLang((await cookies()).get(LANG_COOKIE)?.value);
+
   return (
-    <html lang="id" className={cn("h-full", "scroll-smooth", inter.variable, "font-sans", geist.variable)}>
+    <html lang={lang} className={cn("h-full", "scroll-smooth", inter.variable, "font-sans", geist.variable)}>
       <body className="min-h-full flex flex-col antialiased bg-white text-gray-900">
-        {children}
+        <LangProvider lang={lang}>{children}</LangProvider>
       </body>
     </html>
   );

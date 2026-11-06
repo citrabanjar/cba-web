@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { CalendarDays, Loader2, CheckCircle2, AlertTriangle, X } from "lucide-react";
 import { submitLeave, cancelLeave } from "./actions";
 import type { LeaveRequest } from "@prisma/client";
+import { T, useT } from "@/components/i18n";
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
   TAHUNAN: "Cuti Tahunan",
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export default function CutiForm({ requests }: Props) {
+  const t = useT();
   const [state, formAction, isPending] = useActionState(submitLeave, undefined);
   const [showForm, setShowForm] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -48,36 +50,36 @@ export default function CutiForm({ requests }: Props) {
         className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2"
       >
         <CalendarDays size={18} />
-        {showForm ? "Tutup Form" : "Ajukan Cuti"}
+        {showForm ? <T>{"Tutup Form"}</T> : <T>{"Ajukan Cuti"}</T>}
       </button>
 
       {/* Form pengajuan */}
       {showForm && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700">Pengajuan Cuti</h2>
+          <h2 className="font-semibold text-gray-700"><T>Pengajuan Cuti</T></h2>
 
           {state && "ok" in state && (
             <div className="bg-green-50 text-green-700 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
               <CheckCircle2 size={16} />
-              Pengajuan cuti {state.days} hari berhasil disubmit. Menunggu persetujuan HRD.
+              <T>Pengajuan cuti</T> {state.days} <T>hari berhasil disubmit. Menunggu persetujuan HRD.</T>
             </div>
           )}
           {state && "error" in state && (
             <div className="bg-red-50 text-red-700 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
               <AlertTriangle size={16} />
-              {state.error}
+              <T>{state.error}</T>
             </div>
           )}
 
           <form action={formAction} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Jenis Cuti</label>
+              <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Jenis Cuti</T></label>
               <select
                 name="leaveType"
                 required
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white"
               >
-                <option value="">-- Pilih Jenis --</option>
+                <option value=""><T>-- Pilih Jenis --</T></option>
                 {Object.entries(LEAVE_TYPE_LABELS).map(([val, label]) => (
                   <option key={val} value={val}>{label}</option>
                 ))}
@@ -86,7 +88,7 @@ export default function CutiForm({ requests }: Props) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Tanggal Mulai</label>
+                <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Tanggal Mulai</T></label>
                 <input
                   type="date"
                   name="startDate"
@@ -95,7 +97,7 @@ export default function CutiForm({ requests }: Props) {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Tanggal Akhir</label>
+                <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Tanggal Akhir</T></label>
                 <input
                   type="date"
                   name="endDate"
@@ -106,12 +108,12 @@ export default function CutiForm({ requests }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Alasan</label>
+              <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Alasan</T></label>
               <textarea
                 name="reason"
                 required
                 rows={3}
-                placeholder="Tuliskan alasan pengajuan cuti..."
+                placeholder={t("Tuliskan alasan pengajuan cuti...")}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
               />
             </div>
@@ -122,7 +124,7 @@ export default function CutiForm({ requests }: Props) {
               className="w-full bg-green-600 text-white font-semibold py-3 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              {isPending ? "Memproses..." : "Kirim Pengajuan"}
+              {isPending ? <T>{"Memproses..."}</T> : <T>{"Kirim Pengajuan"}</T>}
             </button>
           </form>
         </div>
@@ -130,12 +132,12 @@ export default function CutiForm({ requests }: Props) {
 
       {/* Riwayat cuti */}
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Riwayat Pengajuan</p>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3"><T>Riwayat Pengajuan</T></p>
 
         {requests.length === 0 ? (
           <div className="bg-gray-50 rounded-2xl p-8 text-center">
             <CalendarDays size={32} className="text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">Belum ada pengajuan cuti</p>
+            <p className="text-sm text-gray-400"><T>Belum ada pengajuan cuti</T></p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -144,14 +146,14 @@ export default function CutiForm({ requests }: Props) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-gray-800">
-                      {LEAVE_TYPE_LABELS[req.type] ?? req.type}
+                      <T>{LEAVE_TYPE_LABELS[req.type] ?? req.type}</T>
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {formatDateID(req.startDate)}
                       {req.totalDays > 1 ? ` – ${formatDateID(req.endDate)}` : ""}
-                      {" · "}{req.totalDays} hari
+                      {" · "}{req.totalDays} <T>hari</T>
                     </p>
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{req.reason}</p>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2"><T>{req.reason}</T></p>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[req.status] ?? "bg-gray-100 text-gray-500"}`}>
@@ -164,7 +166,7 @@ export default function CutiForm({ requests }: Props) {
                         className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
                       >
                         {cancellingId === req.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-                        Batalkan
+                        <T>Batalkan</T>
                       </button>
                     )}
                   </div>

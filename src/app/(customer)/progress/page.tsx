@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { T } from "@/components/i18n";
 
 export const metadata: Metadata = { title: "Cek Progress Proyek" };
 
@@ -13,16 +14,16 @@ export default function CustomerProgressPage() {
           <div className="relative w-56 h-8 mx-auto mb-4">
             <Image src="/logo.jpg" alt="PT. Citra Banjar Abadi" fill className="object-contain" />
           </div>
-          <h1 className="text-2xl font-bold text-ink">Cek Progress Proyek</h1>
+          <h1 className="text-2xl font-bold text-ink"><T>Cek Progress Proyek</T></h1>
           <p className="text-sm text-gray-500 mt-2">
-            Masukkan kode proyek Anda untuk melihat status terkini
+            <T>Masukkan kode proyek Anda untuk melihat status terkini</T>
           </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <form className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Kode Proyek</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block"><T>Kode Proyek</T></label>
               <input
                 type="text"
                 placeholder="Contoh: CBA-2026-001"
@@ -34,18 +35,18 @@ export default function CustomerProgressPage() {
               className="w-full bg-ink text-white font-semibold py-2.5 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2"
             >
               <Search size={16} />
-              Cek Status
+              <T>Cek Status</T>
             </button>
           </form>
 
           <div className="mt-6 p-4 bg-gray-100 rounded-xl text-xs text-gray-700">
-            <p className="font-medium mb-1">Belum punya kode proyek?</p>
-            <p>Kode proyek dikirimkan ke email Anda setelah kontrak ditandatangani. Hubungi kami untuk bantuan.</p>
+            <p className="font-medium mb-1"><T>Belum punya kode proyek?</T></p>
+            <p><T>Kode proyek dikirimkan ke email Anda setelah kontrak ditandatangani. Hubungi kami untuk bantuan.</T></p>
           </div>
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-4">
-          <Link href="/" className="hover:text-ink transition-colors">← Kembali ke Website</Link>
+          <Link href="/" className="hover:text-ink transition-colors"><T>← Kembali ke Website</T></Link>
         </p>
       </div>
     </div>

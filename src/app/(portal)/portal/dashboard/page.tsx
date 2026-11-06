@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
+import { T } from "@/components/i18n";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
     <div className="p-6 max-w-4xl">
       {/* Welcome */}
       <div className="mb-6">
-        <p className="text-sm text-gray-400">{greeting}</p>
+        <p className="text-sm text-gray-400"><T>{greeting}</T></p>
         <h1 className="text-xl font-bold text-gray-800 mt-0.5">{user.name}</h1>
         <p className="text-xs text-gray-400 mt-0.5">
           {[user.employeeId, roleLabel(user.role), superAdmin ? null : user.employmentStatus]
@@ -103,21 +104,21 @@ export default async function DashboardPage() {
       {!superAdmin && <Card className="mb-6 border-gray-200">
         <CardContent className="pt-4 pb-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-            Status Hari Ini
+            <T>Status Hari Ini</T>
           </p>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
               <TrendingUp size={18} className="text-gray-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-700">Belum Check-in</p>
-              <p className="text-xs text-gray-400">Lakukan absensi sekarang</p>
+              <p className="text-sm font-semibold text-gray-700"><T>Belum Check-in</T></p>
+              <p className="text-xs text-gray-400"><T>Lakukan absensi sekarang</T></p>
             </div>
             <Link
               href="/portal/absensi"
               className="ml-auto text-xs font-semibold text-brand bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
             >
-              Absen →
+              <T>Absen →</T>
             </Link>
           </div>
         </CardContent>
@@ -126,7 +127,7 @@ export default async function DashboardPage() {
       {/* Menu */}
       <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-          Menu
+          <T>Menu</T>
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {menuItems.map((item) => (
@@ -134,8 +135,8 @@ export default async function DashboardPage() {
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-gray-200 border-l-4 border-l-brand">
                 <CardContent className="pt-4 pb-4">
                   <item.icon size={24} className="text-brand mb-3" />
-                  <p className="font-semibold text-gray-800 text-sm">{item.label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                  <p className="font-semibold text-gray-800 text-sm"><T>{item.label}</T></p>
+                  <p className="text-xs text-gray-400 mt-0.5"><T>{item.desc}</T></p>
                 </CardContent>
               </Card>
             </Link>
@@ -147,7 +148,7 @@ export default async function DashboardPage() {
       {!superAdmin && <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
         <AlertCircle size={18} className="text-brand mt-0.5 shrink-0" />
         <p className="text-xs text-gray-600">
-          Butuh bantuan? Hubungi HRD melalui email atau datang langsung ke kantor.
+          <T>Butuh bantuan? Hubungi HRD melalui email atau datang langsung ke kantor.</T>
         </p>
       </div>}
     </div>

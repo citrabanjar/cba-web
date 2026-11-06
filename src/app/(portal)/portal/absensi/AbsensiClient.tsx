@@ -6,6 +6,7 @@ import { MapPin, Clock, LogIn, LogOut, Loader2, AlertTriangle, CheckCircle2, Nav
 import { checkIn, checkOut } from "./actions";
 import { getDistanceMeters, formatDateTime } from "@/lib/utils";
 import type { Attendance } from "@prisma/client";
+import { T } from "@/components/i18n";
 
 const OFFICE_LAT = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LAT ?? "-3.3186");
 const OFFICE_LNG = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LNG ?? "114.5944");
@@ -185,7 +186,7 @@ export default function AbsensiClient({ today, week }: Props) {
           ) : (
             <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
               <Loader2 size={14} className="animate-spin shrink-0" />
-              Mendeteksi lokasi GPS...
+              <T>Mendeteksi lokasi GPS...</T>
             </div>
           )}
         </div>
@@ -203,17 +204,17 @@ export default function AbsensiClient({ today, week }: Props) {
           }`}>
             {message.type === "ok" ? <CheckCircle2 size={15} className="shrink-0 mt-0.5" /> :
              <AlertTriangle size={15} className="shrink-0 mt-0.5" />}
-            {message.text}
+            <T>{message.text}</T>
           </div>
         )}
 
         {/* Status hari ini */}
         <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Status Hari Ini</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide"><T>Status Hari Ini</T></p>
           <div className="grid grid-cols-2 gap-3">
             <div className="text-center">
               <p className="text-xs text-gray-400 mb-1 flex items-center justify-center gap-1">
-                <LogIn size={12} /> Check-in
+                <LogIn size={12} /> <T>Check-in</T>
               </p>
               <p className={`font-bold text-sm ${hasCheckIn ? "text-green-600" : "text-gray-300"}`}>
                 {hasCheckIn ? new Date(today!.checkIn!).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "--:--"}
@@ -221,7 +222,7 @@ export default function AbsensiClient({ today, week }: Props) {
             </div>
             <div className="text-center">
               <p className="text-xs text-gray-400 mb-1 flex items-center justify-center gap-1">
-                <LogOut size={12} /> Check-out
+                <LogOut size={12} /> <T>Check-out</T>
               </p>
               <p className={`font-bold text-sm ${hasCheckOut ? "text-blue-600" : "text-gray-300"}`}>
                 {hasCheckOut ? new Date(today!.checkOut!).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "--:--"}
@@ -230,10 +231,10 @@ export default function AbsensiClient({ today, week }: Props) {
           </div>
           {hasCheckIn && (
             <div className="text-center border-t border-gray-200 pt-2">
-              <p className="text-xs text-gray-400">Durasi kerja</p>
+              <p className="text-xs text-gray-400"><T>Durasi kerja</T></p>
               <p className="font-semibold text-ink text-sm mt-0.5">
                 {getDurationStr(today!.checkIn!, today?.checkOut)}
-                {!hasCheckOut && <span className="text-xs text-green-500 ml-1">(sedang berjalan)</span>}
+                {!hasCheckOut && <span className="text-xs text-green-500 ml-1"><T>(sedang berjalan)</T></span>}
               </p>
             </div>
           )}
@@ -253,7 +254,7 @@ export default function AbsensiClient({ today, week }: Props) {
             className="w-full bg-green-600 text-white font-semibold py-3 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isPending ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
-            {isPending ? "Memproses..." : "Check-in Sekarang"}
+            {isPending ? <T>{"Memproses..."}</T> : <T>{"Check-in Sekarang"}</T>}
           </button>
         ) : !hasCheckOut ? (
           <button
@@ -262,18 +263,18 @@ export default function AbsensiClient({ today, week }: Props) {
             className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isPending ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
-            {isPending ? "Memproses..." : "Check-out Sekarang"}
+            {isPending ? <T>{"Memproses..."}</T> : <T>{"Check-out Sekarang"}</T>}
           </button>
         ) : (
           <div className="bg-gray-100 text-gray-700 text-sm text-center py-3 rounded-xl font-medium">
-            ✓ Absensi hari ini selesai
+            <T>✓ Absensi hari ini selesai</T>
           </div>
         )}
 
         {/* Rekap minggu ini */}
         {week.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Minggu Ini</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3"><T>Minggu Ini</T></p>
             <div className="space-y-2">
               {week.map((rec) => {
                 const d = new Date(rec.date);

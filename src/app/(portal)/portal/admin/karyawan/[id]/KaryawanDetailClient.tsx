@@ -13,11 +13,13 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
 import {
   addSalaryAdjustment, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
 } from "../actions";
+import { T, useT } from "@/components/i18n";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; bpjsTkBase: number | null;
@@ -144,9 +146,9 @@ function SectionCard({
   return (
     <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-3 bg-gray-50 border-b border-gray-200">
-        <h3 className="font-semibold text-sm text-gray-800">{title}</h3>
+        <h3 className="font-semibold text-sm text-gray-800"><T>{title}</T></h3>
         {action}
-        {onEdit && <Button size="sm" onClick={onEdit} className="h-7 px-4 text-xs">Edit</Button>}
+        {onEdit && <Button size="sm" onClick={onEdit} className="h-7 px-4 text-xs"><T>Edit</T></Button>}
       </div>
       <dl className="px-5 py-3">{children}</dl>
     </section>
@@ -156,7 +158,7 @@ function SectionCard({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-0.5 sm:gap-4 py-2">
-      <dt className="text-sm font-medium text-gray-700">{label}</dt>
+      <dt className="text-sm font-medium text-gray-700"><T>{label}</T></dt>
       <dd className="text-sm text-gray-600 break-words">{children || "—"}</dd>
     </div>
   );
@@ -165,7 +167,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Empty({ text }: { text: string }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 py-12 text-center text-sm text-gray-400">
-      {text}
+      <T>{text}</T>
     </div>
   );
 }
@@ -186,12 +188,12 @@ function SalaryCard({ salary }: { salary: Salary }) {
     <div className="py-1">
       {rows.map((r) => (
         <div key={r.label} className="flex justify-between gap-4 py-1 text-sm">
-          <span className="text-gray-600">{r.label}</span>
+          <span className="text-gray-600"><T>{r.label}</T></span>
           <span className="text-gray-800 tabular-nums">{formatRupiah(r.value)}</span>
         </div>
       ))}
       <div className="flex justify-between gap-4 pt-2 mt-1 border-t border-gray-100 text-sm font-semibold text-gray-900">
-        <span>Total Gaji</span>
+        <span><T>Total Gaji</T></span>
         <span className="tabular-nums">{formatRupiah(total)}</span>
       </div>
     </div>
@@ -219,11 +221,11 @@ function AccessPanel({ employee }: { employee: Employee }) {
         <label className="flex items-center gap-3 text-sm text-gray-800">
           <input type="checkbox" checked={isAdmin} className="accent-[var(--color-brand)] w-4 h-4"
             onChange={(e) => { setIsAdmin(e.target.checked); setMessage(null); }} />
-          Jadikan Admin
+          <T>Jadikan Admin</T>
         </label>
         {isAdmin && (
           <div className="space-y-2 pl-7">
-            <p className="text-xs text-gray-500">Pilih menu yang boleh dibuka:</p>
+            <p className="text-xs text-gray-500"><T>Pilih menu yang boleh dibuka:</T></p>
             {MENUS.map((menu) => (
               <label key={menu.key} className="flex items-start gap-3 text-sm text-gray-800">
                 <input type="checkbox" className="accent-[var(--color-brand)] w-4 h-4 mt-0.5"
@@ -235,8 +237,8 @@ function AccessPanel({ employee }: { employee: Employee }) {
                       : prev.filter((m) => m !== menu.key));
                   }} />
                 <span>
-                  {menu.label}
-                  <span className="block text-xs text-gray-500">{menu.desc}</span>
+                  <T>{menu.label}</T>
+                  <span className="block text-xs text-gray-500"><T>{menu.desc}</T></span>
                 </span>
               </label>
             ))}
@@ -245,7 +247,7 @@ function AccessPanel({ employee }: { employee: Employee }) {
         {message && <p className="text-sm text-green-700">{message}</p>}
         <Button size="sm" onClick={save} disabled={isPending} className="gap-2">
           {isPending && <Loader2 size={14} className="animate-spin" />}
-          Simpan Akses
+          <T>Simpan Akses</T>
         </Button>
       </div>
     </SectionCard>
@@ -294,31 +296,31 @@ function SalaryDialog({
   return (
     <Dialog open={open} onOpenChange={(value: boolean) => { if (!value) onClose(); }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>Penyesuaian Gaji</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle><T>Penyesuaian Gaji</T></DialogTitle></DialogHeader>
         <div className="space-y-3 py-1">
           {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
           <p className="text-xs text-gray-500">
-            Penyesuaian dicatat sebagai riwayat baru. Data gaji sebelumnya tidak berubah.
+            <T>Penyesuaian dicatat sebagai riwayat baru. Data gaji sebelumnya tidak berubah.</T>
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Tanggal Berlaku *</Label>
+              <Label className="text-xs"><T>Tanggal Berlaku *</T></Label>
               <Input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Gaji Pokok *</Label>
+              <Label className="text-xs"><T>Gaji Pokok *</T></Label>
               <Input type="number" value={basicSalary} onChange={(e) => setBasicSalary(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">Tunjangan dan Potongan</Label>
+            <Label className="text-xs"><T>Tunjangan dan Potongan</T></Label>
             {components.map((c, i) => (
               <div key={i} className="grid grid-cols-[100px_1fr_110px_auto] gap-2 items-center">
                 <select value={c.type} aria-label="Jenis"
                   onChange={(e) => patch(i, { type: e.target.value as Component["type"] })}
                   className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
-                  <option value="TUNJANGAN">Tunjangan</option>
-                  <option value="POTONGAN">Potongan</option>
+                  <option value="TUNJANGAN"><T>Tunjangan</T></option>
+                  <option value="POTONGAN"><T>Potongan</T></option>
                 </select>
                 <Input value={c.name} placeholder="Nama" onChange={(e) => patch(i, { name: e.target.value })} />
                 <Input type="number" value={c.amount || ""} placeholder="Nominal"
@@ -332,19 +334,19 @@ function SalaryDialog({
             ))}
             <Button variant="outline" size="sm" className="gap-1.5"
               onClick={() => setComponents((prev) => [...prev, { type: "TUNJANGAN", name: "", amount: 0 }])}>
-              <Plus size={14} /> Tambah Baris
+              <Plus size={14} /> <T>Tambah Baris</T>
             </Button>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Catatan</Label>
+            <Label className="text-xs"><T>Catatan</T></Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Misalnya kenaikan tahunan" />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>Batal</Button>
+          <Button variant="outline" size="sm" onClick={onClose}><T>Batal</T></Button>
           <Button size="sm" onClick={save} disabled={isPending} className="gap-2">
             {isPending && <Loader2 size={14} className="animate-spin" />}
-            Simpan Penyesuaian
+            <T>Simpan Penyesuaian</T>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -362,6 +364,7 @@ export default function KaryawanDetailClient({
   isSuper: boolean;
   canEdit: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const [tab, setTab] = useState("pekerjaan");
   const [editing, setEditing] = useState<Section | null>(null);
@@ -478,7 +481,7 @@ export default function KaryawanDetailClient({
     <div className="bg-gray-50 min-h-full">
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
         <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
-          <Link href="/portal/admin/karyawan" className="hover:text-brand">Data Karyawan</Link>
+          <Link href="/portal/admin/karyawan" className="hover:text-brand"><T>Data Karyawan</T></Link>
           <ChevronRight size={15} className="text-gray-400" />
           <span className="text-gray-800 truncate">{emp.name}</span>
         </nav>
@@ -514,16 +517,16 @@ export default function KaryawanDetailClient({
                 <Pill cls={emp.isActive
                   ? "bg-green-50 text-green-700 border-green-200"
                   : "bg-red-50 text-red-700 border-red-200"}>
-                  {emp.isActive ? "Aktif" : "Nonaktif"}
+                  {emp.isActive ? <T>{"Aktif"}</T> : <T>{"Nonaktif"}</T>}
                 </Pill>
                 <Pill cls="bg-gray-100 text-gray-700 border-gray-200">
-                  {STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}
+                  <T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T>
                 </Pill>
               </div>
             </div>
             {canEdit && (
               <Button variant="outline" size="sm" onClick={handleToggle} disabled={isPending} className="self-start sm:self-center">
-                {emp.isActive ? "Nonaktifkan" : "Aktifkan"}
+                {emp.isActive ? <T>{"Nonaktifkan"}</T> : <T>{"Aktifkan"}</T>}
               </Button>
             )}
           </div>
@@ -541,7 +544,7 @@ export default function KaryawanDetailClient({
                     : "border-transparent text-gray-500 hover:text-gray-800"
                 }`}
               >
-                {t.label}
+                <T>{t.label}</T>
               </button>
             ))}
           </div>
@@ -566,7 +569,7 @@ export default function KaryawanDetailClient({
             </SectionCard>
 
             <SectionCard title="Kontrak" onEdit={edit("kontrak")}>
-              <Field label="Status Kerja">{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</Field>
+              <Field label="Status Kerja"><T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T></Field>
               <Field label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</Field>
               <Field label="Masa Kerja">{tenure}</Field>
               <Field label="Tanggal Akhir Kontrak">{emp.contractEndDate ? fmtDate(emp.contractEndDate) : null}</Field>
@@ -583,30 +586,30 @@ export default function KaryawanDetailClient({
             {canSeePay && (
               <>
                 <SectionCard
-                  title={currentSalary ? `Gaji Saat Ini (berlaku ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
+                  title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
                   action={
                     <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-7 px-3 text-xs">
-                      Penyesuaian Gaji
+                      <T>Penyesuaian Gaji</T>
                     </Button>
                   }
                 >
                   {currentSalary
                     ? <SalaryCard salary={currentSalary} />
-                    : <p className="py-4 text-sm text-gray-400">Belum ada data gaji.</p>}
+                    : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
                 </SectionCard>
 
                 {emp.salaries.length > 0 && (
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <h3 className="font-semibold text-sm text-gray-800 px-5 py-3 bg-gray-50 border-b border-gray-200">
-                      Riwayat Gaji
+                      <T>Riwayat Gaji</T>
                     </h3>
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="px-4">Berlaku</TableHead>
-                          <TableHead className="px-4 text-right">Gaji Pokok</TableHead>
-                          <TableHead className="px-4">Catatan</TableHead>
-                          <TableHead className="hidden sm:table-cell px-4">Oleh</TableHead>
+                          <TableHead className="px-4"><T>Berlaku</T></TableHead>
+                          <TableHead className="px-4 text-right"><T>Gaji Pokok</T></TableHead>
+                          <TableHead className="px-4"><T>Catatan</T></TableHead>
+                          <TableHead className="hidden sm:table-cell px-4"><T>Oleh</T></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -659,14 +662,14 @@ export default function KaryawanDetailClient({
             </SectionCard>
             <SectionCard title="BPJS" onEdit={edit("bpjs")}>
               <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
-              <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? "Ikut" : "Tidak Ikut"}</Field>
+              <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
               {canSeePay && (
                 <Field label="Dasar Upah BPJS Ketenagakerjaan">
                   {currentSalary?.bpjsTkBase ? formatRupiah(currentSalary.bpjsTkBase) : null}
                 </Field>
               )}
               <Field label="No BPJS Kesehatan">{emp.bpjsKesNumber}</Field>
-              <Field label="Status BPJS Kesehatan">{emp.bpjsKesActive ? "Ikut" : "Tidak Ikut"}</Field>
+              <Field label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
             </SectionCard>
           </div>
         )}
@@ -677,11 +680,11 @@ export default function KaryawanDetailClient({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4">Tanggal</TableHead>
-                    <TableHead className="px-4">Masuk</TableHead>
-                    <TableHead className="px-4">Pulang</TableHead>
-                    <TableHead className="px-4">Status</TableHead>
-                    <TableHead className="hidden md:table-cell px-4">Lokasi</TableHead>
+                    <TableHead className="px-4"><T>Tanggal</T></TableHead>
+                    <TableHead className="px-4"><T>Masuk</T></TableHead>
+                    <TableHead className="px-4"><T>Pulang</T></TableHead>
+                    <TableHead className="px-4"><T>Status</T></TableHead>
+                    <TableHead className="hidden md:table-cell px-4"><T>Lokasi</T></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -710,22 +713,22 @@ export default function KaryawanDetailClient({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4">Periode</TableHead>
-                    <TableHead className="px-4">Jenis</TableHead>
-                    <TableHead className="px-4">Hari</TableHead>
-                    <TableHead className="hidden md:table-cell px-4">Alasan</TableHead>
-                    <TableHead className="px-4">Status</TableHead>
+                    <TableHead className="px-4"><T>Periode</T></TableHead>
+                    <TableHead className="px-4"><T>Jenis</T></TableHead>
+                    <TableHead className="px-4"><T>Hari</T></TableHead>
+                    <TableHead className="hidden md:table-cell px-4"><T>Alasan</T></TableHead>
+                    <TableHead className="px-4"><T>Status</T></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {emp.leaves.map((l) => (
                     <TableRow key={l.id}>
                       <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(l.startDate)} – {fmtDate(l.endDate)}</TableCell>
-                      <TableCell className="px-4 text-sm">{LEAVE_LABEL[l.type] ?? l.type}</TableCell>
+                      <TableCell className="px-4 text-sm"><T>{LEAVE_LABEL[l.type] ?? l.type}</T></TableCell>
                       <TableCell className="px-4 text-sm">{l.totalDays}</TableCell>
-                      <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate">{l.reason}</TableCell>
+                      <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate"><T>{l.reason}</T></TableCell>
                       <TableCell className="px-4">
-                        <Pill cls={APPROVAL[l.status]?.cls ?? ""}>{APPROVAL[l.status]?.label ?? l.status}</Pill>
+                        <Pill cls={APPROVAL[l.status]?.cls ?? ""}><T>{APPROVAL[l.status]?.label ?? l.status}</T></Pill>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -741,11 +744,11 @@ export default function KaryawanDetailClient({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4">Periode</TableHead>
-                    <TableHead className="px-4">Tujuan</TableHead>
-                    <TableHead className="px-4">Hari</TableHead>
-                    <TableHead className="hidden md:table-cell px-4">Keperluan</TableHead>
-                    <TableHead className="px-4">Status</TableHead>
+                    <TableHead className="px-4"><T>Periode</T></TableHead>
+                    <TableHead className="px-4"><T>Tujuan</T></TableHead>
+                    <TableHead className="px-4"><T>Hari</T></TableHead>
+                    <TableHead className="hidden md:table-cell px-4"><T>Keperluan</T></TableHead>
+                    <TableHead className="px-4"><T>Status</T></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -756,7 +759,7 @@ export default function KaryawanDetailClient({
                       <TableCell className="px-4 text-sm">{t.totalDays}</TableCell>
                       <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate">{t.purpose}</TableCell>
                       <TableCell className="px-4">
-                        <Pill cls={APPROVAL[t.status]?.cls ?? ""}>{APPROVAL[t.status]?.label ?? t.status}</Pill>
+                        <Pill cls={APPROVAL[t.status]?.cls ?? ""}><T>{APPROVAL[t.status]?.label ?? t.status}</T></Pill>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -772,10 +775,10 @@ export default function KaryawanDetailClient({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4">Periode</TableHead>
-                    <TableHead className="px-4 text-right">Gaji Bersih</TableHead>
-                    <TableHead className="hidden sm:table-cell px-4">Dibayar</TableHead>
-                    <TableHead className="hidden md:table-cell px-4">Via</TableHead>
+                    <TableHead className="px-4"><T>Periode</T></TableHead>
+                    <TableHead className="px-4 text-right"><T>Gaji Bersih</T></TableHead>
+                    <TableHead className="hidden sm:table-cell px-4"><T>Dibayar</T></TableHead>
+                    <TableHead className="hidden md:table-cell px-4"><T>Via</T></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -803,14 +806,14 @@ export default function KaryawanDetailClient({
       <Dialog open={editing !== null} onOpenChange={(open: boolean) => { if (!open) setEditing(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? `Edit ${SECTION_TITLE[editing]}` : ""}</DialogTitle>
+            <DialogTitle>{editing ? `${t("Edit")} ${t(SECTION_TITLE[editing])}` : ""}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-1">
             {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
             {editing && fields[editing].map((field) => (
               <div key={field.key} className="space-y-1.5">
-                <Label htmlFor={field.key} className="text-xs">{field.label}</Label>
+                <Label htmlFor={field.key} className="text-xs"><T>{field.label}</T></Label>
                 {field.type === "select" ? (
                   <select
                     id={field.key}
@@ -818,32 +821,33 @@ export default function KaryawanDetailClient({
                     onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
                     className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
                   >
-                    {field.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {field.options?.map((o) => <option key={o.value} value={o.value}><T>{o.label}</T></option>)}
                   </select>
+                ) : field.type === "suggest" ? (
+                  <EmployeeCombobox
+                    id={field.key}
+                    value={form[field.key] ?? ""}
+                    options={field.options ?? []}
+                    onChange={(value) => setForm((f) => ({ ...f, [field.key]: value }))}
+                  />
                 ) : (
                   <Input
                     id={field.key}
-                    type={field.type === "suggest" ? "text" : field.type ?? "text"}
-                    list={field.type === "suggest" ? `${field.key}-list` : undefined}
+                    type={field.type ?? "text"}
                     value={form[field.key] ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
                   />
                 )}
-                {field.type === "suggest" && (
-                  <datalist id={`${field.key}-list`}>
-                    {field.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </datalist>
-                )}
-                {field.hint && <p className="text-xs text-gray-500">{field.hint}</p>}
+                {field.hint && <p className="text-xs text-gray-500"><T>{field.hint}</T></p>}
               </div>
             ))}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditing(null)}>Batal</Button>
+            <Button variant="outline" size="sm" onClick={() => setEditing(null)}><T>Batal</T></Button>
             <Button size="sm" onClick={handleSave} disabled={isPending} className="gap-2">
               {isPending && <Loader2 size={14} className="animate-spin" />}
-              Simpan Perubahan
+              <T>Simpan Perubahan</T>
             </Button>
           </DialogFooter>
         </DialogContent>

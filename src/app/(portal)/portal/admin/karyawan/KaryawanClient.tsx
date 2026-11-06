@@ -22,6 +22,7 @@ import {
 import {
   downloadTemplate, parseEmployeeFile, type ParsedFile,
 } from "@/lib/employee-import";
+import { T } from "@/components/i18n";
 
 type Dept = { id: string; name: string };
 type Employee = {
@@ -186,25 +187,25 @@ export default function KaryawanClient({
   return (
     <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h2 className="font-bold text-gray-800">Data Karyawan</h2>
-        <p className="text-xs text-gray-400 mt-0.5">{employees.length} karyawan terdaftar</p>
+        <h2 className="font-bold text-gray-800"><T>Data Karyawan</T></h2>
+        <p className="text-xs text-gray-400 mt-0.5">{employees.length} <T>karyawan terdaftar</T></p>
       </div>
 
       <main className="px-6 py-5 max-w-6xl space-y-4">
         {/* Action bar */}
         <div className="flex gap-2 flex-wrap items-center">
           <Button onClick={openAdd} size="sm" className="gap-1.5">
-            <Plus size={15} /> Tambah Karyawan
+            <Plus size={15} /> <T>Tambah Karyawan</T>
           </Button>
           {canImport && (
             <>
               <Button variant="outline" size="sm"
                 onClick={() => { setModal("upload"); setParsed(null); setImportResult(null); }}
                 className="gap-1.5">
-                <Upload size={15} /> Import Excel
+                <Upload size={15} /> <T>Import Excel</T>
               </Button>
               <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-1.5">
-                <Download size={15} /> Template .xlsx
+                <Download size={15} /> <T>Template .xlsx</T>
               </Button>
             </>
           )}
@@ -224,21 +225,21 @@ export default function KaryawanClient({
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                <TableHead className="w-[70px] px-4">No.</TableHead>
-                <TableHead className="w-[110px] px-4">ID Karyawan</TableHead>
-                <TableHead className="px-4">Nama</TableHead>
-                <TableHead className="hidden md:table-cell px-4">Departemen</TableHead>
-                <TableHead className="hidden lg:table-cell px-4">Status Kerja</TableHead>
-                <TableHead className="hidden lg:table-cell px-4">Role</TableHead>
-                <TableHead className="hidden sm:table-cell px-4">Status</TableHead>
-                <TableHead className="text-right px-4">Aksi</TableHead>
+                <TableHead className="w-[70px] px-4"><T>No.</T></TableHead>
+                <TableHead className="w-[110px] px-4"><T>ID Karyawan</T></TableHead>
+                <TableHead className="px-4"><T>Nama</T></TableHead>
+                <TableHead className="hidden md:table-cell px-4"><T>Departemen</T></TableHead>
+                <TableHead className="hidden lg:table-cell px-4"><T>Status Kerja</T></TableHead>
+                <TableHead className="hidden lg:table-cell px-4"><T>Role</T></TableHead>
+                <TableHead className="hidden sm:table-cell px-4"><T>Status</T></TableHead>
+                <TableHead className="text-right px-4"><T>Aksi</T></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={8} className="text-center py-12 text-gray-400 text-sm">
-                    {search ? "Tidak ada karyawan yang cocok." : "Belum ada karyawan. Tambah atau import dari Excel."}
+                    {search ? <T>{"Tidak ada karyawan yang cocok."}</T> : <T>{"Belum ada karyawan. Tambah atau import dari Excel."}</T>}
                   </TableCell>
                 </TableRow>
               )}
@@ -282,7 +283,7 @@ export default function KaryawanClient({
                         ? "bg-green-50 text-green-700 border-green-200"
                         : "bg-red-50 text-red-700 border-red-200"
                     }`}>
-                      {emp.isActive ? "Aktif" : "Nonaktif"}
+                      {emp.isActive ? <T>{"Aktif"}</T> : <T>{"Nonaktif"}</T>}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 text-right whitespace-nowrap">
@@ -290,14 +291,14 @@ export default function KaryawanClient({
                       <Button variant="ghost" size="sm"
                         onClick={() => openEdit(emp)}
                         className="h-7 px-2 text-xs text-brand hover:text-brand hover:bg-red-50">
-                        Edit
+                        <T>Edit</T>
                       </Button>
                       <Button variant="ghost" size="sm"
                         onClick={() => handleToggle(emp)} disabled={isPending}
                         className={`h-7 px-2 text-xs ${emp.isActive
                           ? "text-gray-500 hover:text-red-600 hover:bg-red-50"
                           : "text-gray-500 hover:text-green-600 hover:bg-green-50"}`}>
-                        {emp.isActive ? "Nonaktifkan" : "Aktifkan"}
+                        {emp.isActive ? <T>{"Nonaktifkan"}</T> : <T>{"Aktifkan"}</T>}
                       </Button>
                     </div>
                   </TableCell>
@@ -312,48 +313,48 @@ export default function KaryawanClient({
       <Dialog open={isFormOpen} onOpenChange={(open: boolean) => { if (!open) setModal("none"); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{modal === "add" ? "Tambah Karyawan" : "Edit Karyawan"}</DialogTitle>
+            <DialogTitle>{modal === "add" ? <T>{"Tambah Karyawan"}</T> : <T>{"Edit Karyawan"}</T>}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-1">
             {msg && (
               <div className={`text-sm px-4 py-3 rounded-lg ${msg.type === "err" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
-                {msg.text}
+                <T>{msg.text}</T>
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">ID Karyawan *</Label>
+                <Label className="text-xs"><T>ID Karyawan *</T></Label>
                 <Input value={form.employeeId ?? ""} onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Nama Lengkap *</Label>
+                <Label className="text-xs"><T>Nama Lengkap *</T></Label>
                 <Input value={form.name ?? ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Email</Label>
+                <Label className="text-xs"><T>Email</T></Label>
                 <Input type="email" value={form.email ?? ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">No HP</Label>
+                <Label className="text-xs"><T>No HP</T></Label>
                 <Input value={form.phone ?? ""} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Departemen</Label>
+                <Label className="text-xs"><T>Departemen</T></Label>
                 <Input value={form.departmentName ?? ""} onChange={e => setForm(f => ({ ...f, departmentName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Jabatan</Label>
+                <Label className="text-xs"><T>Jabatan</T></Label>
                 <Input value={form.position ?? ""} onChange={e => setForm(f => ({ ...f, position: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Status Kerja</Label>
+                <Label className="text-xs"><T>Status Kerja</T></Label>
                 <Select
                   value={form.employmentStatus ?? "KONTRAK"}
                   onValueChange={(v: string | null) => setForm(f => ({ ...f, employmentStatus: v ?? f.employmentStatus }))}
@@ -368,37 +369,37 @@ export default function KaryawanClient({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Tanggal Masuk</Label>
+              <Label className="text-xs"><T>Tanggal Masuk</T></Label>
               <Input type="date" value={form.joinDate ?? ""} onChange={e => setForm(f => ({ ...f, joinDate: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">
-                {modal === "add" ? "Password (opsional)" : "Password Baru (kosongkan jika tidak diganti)"}
+                {modal === "add" ? <T>{"Password (opsional)"}</T> : <T>{"Password Baru (kosongkan jika tidak diganti)"}</T>}
               </Label>
               <Input type="password" value={form.password ?? ""} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Info Bank</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1"><T>Info Bank</T></p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Nama Bank</Label>
+                <Label className="text-xs"><T>Nama Bank</T></Label>
                 <Input value={form.bankName ?? ""} onChange={e => setForm(f => ({ ...f, bankName: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">No Rekening</Label>
+                <Label className="text-xs"><T>No Rekening</T></Label>
                 <Input value={form.bankAccount ?? ""} onChange={e => setForm(f => ({ ...f, bankAccount: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Nama Pemilik Rekening</Label>
+              <Label className="text-xs"><T>Nama Pemilik Rekening</T></Label>
               <Input value={form.bankHolder ?? ""} onChange={e => setForm(f => ({ ...f, bankHolder: e.target.value }))} />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setModal("none")}>Batal</Button>
+            <Button variant="outline" size="sm" onClick={() => setModal("none")}><T>Batal</T></Button>
             <Button size="sm" onClick={handleSave} disabled={isPending} className="gap-2">
               {isPending && <Loader2 size={14} className="animate-spin" />}
-              {modal === "add" ? "Simpan Karyawan" : "Simpan Perubahan"}
+              {modal === "add" ? <T>{"Simpan Karyawan"}</T> : <T>{"Simpan Perubahan"}</T>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -408,23 +409,23 @@ export default function KaryawanClient({
       <Dialog open={modal === "upload"} onOpenChange={(open: boolean) => { if (!open) closeImport(); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Import Data Karyawan</DialogTitle>
+            <DialogTitle><T>Import Data Karyawan</T></DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-1">
             <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
-              <p>• Pakai template portal, atau langsung file ekspor KantorKu. Aturan isian ada di sheet Petunjuk.</p>
-              <p>• No. Urut dibuat otomatis, karyawan terlama dapat nomor terkecil.</p>
-              <p>• ID Karyawan yang sudah ada dilewati, dan baris yang salah tidak ikut masuk.</p>
-              <p>• Gaji awal dicatat berlaku sejak Tanggal Masuk.</p>
+              <p><T>• Pakai template portal, atau langsung file ekspor KantorKu. Aturan isian ada di sheet Petunjuk.</T></p>
+              <p><T>• No. Urut dibuat otomatis, karyawan terlama dapat nomor terkecil.</T></p>
+              <p><T>• ID Karyawan yang sudah ada dilewati, dan baris yang salah tidak ikut masuk.</T></p>
+              <p><T>• Gaji awal dicatat berlaku sejak Tanggal Masuk.</T></p>
             </div>
 
             <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
-              <Download size={15} /> Download Template Excel (.xlsx)
+              <Download size={15} /> <T>Download Template Excel (.xlsx)</T>
             </Button>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Pilih File Excel</Label>
+              <Label className="text-xs"><T>Pilih File Excel</T></Label>
               <input ref={fileRef} type="file"
                 accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 onChange={handleFileChange}
@@ -435,9 +436,9 @@ export default function KaryawanClient({
               <div className="space-y-2 text-xs">
                 {parsed.sheet && (
                   <p className="text-gray-600">
-                    Sheet <span className="font-semibold">{parsed.sheet}</span>:{" "}
-                    {parsed.rows.length} karyawan siap diimport,{" "}
-                    {parsed.rows.filter((r) => !r.isActive).length} berstatus nonaktif.
+                    <T>Sheet</T> <span className="font-semibold">{parsed.sheet}</span>:{" "}
+                    {parsed.rows.length} <T>karyawan siap diimport,</T>{" "}
+                    {parsed.rows.filter((r) => !r.isActive).length} <T>berstatus nonaktif.</T>
                   </p>
                 )}
                 {parsed.errors.length > 0 && (
@@ -447,7 +448,7 @@ export default function KaryawanClient({
                 )}
                 {parsed.unknown.length > 0 && (
                   <p className="text-gray-500">
-                    Kolom yang tidak dipakai: {parsed.unknown.join(", ")}
+                    <T>Kolom yang tidak dipakai:</T> {parsed.unknown.join(", ")}
                   </p>
                 )}
                 {parsed.rows.length > 0 && (
@@ -460,7 +461,7 @@ export default function KaryawanClient({
                       </div>
                     ))}
                     {parsed.rows.length > 10 && (
-                      <p className="text-gray-400 text-center">... dan {parsed.rows.length - 10} lainnya</p>
+                      <p className="text-gray-400 text-center"><T>... dan</T> {parsed.rows.length - 10} <T>lainnya</T></p>
                     )}
                   </div>
                 )}
@@ -470,14 +471,14 @@ export default function KaryawanClient({
             {importResult && (
               <div className="bg-green-50 rounded-lg p-3 space-y-1">
                 <div className="flex items-center gap-2 text-green-700 text-sm font-semibold">
-                  <CheckCircle2 size={16} /> Import selesai
+                  <CheckCircle2 size={16} /> <T>Import selesai</T>
                 </div>
                 <p className="text-xs text-green-600">
-                  {importResult.filter((r) => r.status === "ok").length} karyawan berhasil diimport
+                  {importResult.filter((r) => r.status === "ok").length} <T>karyawan berhasil diimport</T>
                 </p>
                 {importResult.filter((r) => r.status === "skip" || r.warning).map((r) => (
                   <p key={r.employeeId} className="text-xs text-amber-700">
-                    {r.employeeId}: {r.reason ?? r.warning}
+                    {r.employeeId}: <T>{r.reason ?? r.warning}</T>
                   </p>
                 ))}
               </div>
@@ -485,10 +486,10 @@ export default function KaryawanClient({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeImport}>Tutup</Button>
+            <Button variant="outline" size="sm" onClick={closeImport}><T>Tutup</T></Button>
             <Button size="sm" onClick={handleImport} disabled={isPending || !parsed?.rows.length} className="gap-2">
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {isPending ? "Mengimport..." : `Import ${parsed?.rows.length ?? 0} Karyawan`}
+              {isPending ? <T>{"Mengimport..."}</T> : `Import ${parsed?.rows.length ?? 0} Karyawan`}
             </Button>
           </DialogFooter>
         </DialogContent>

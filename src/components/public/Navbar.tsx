@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { LanguageSwitcher, T } from "@/components/i18n";
 
 const links = [
   { href: "/#tentang", label: "Tentang Kami" },
@@ -35,24 +36,25 @@ export default function Navbar() {
                 href={l.href}
                 className="text-sm text-gray-600 hover:text-ink font-medium transition-colors"
               >
-                {l.label}
+                <T>{l.label}</T>
               </Link>
             ))}
           </nav>
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
+            <LanguageSwitcher />
             <Link
               href="/portal"
               className="text-sm font-medium text-ink border border-ink px-4 py-2 rounded-lg hover:bg-ink hover:text-white transition-colors"
             >
-              Portal Karyawan
+              <T>Portal Karyawan</T>
             </Link>
             <Link
               href="/progress"
               className="text-sm font-medium bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark transition-colors"
             >
-              Cek Progress
+              <T>Cek Progress</T>
             </Link>
           </div>
 
@@ -69,6 +71,7 @@ export default function Navbar() {
       {/* Mobile menu */}
       {open && (
         <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 flex flex-col gap-3">
+          <LanguageSwitcher className="self-start" />
           {links.map((l) => (
             <Link
               key={l.href}
@@ -76,7 +79,7 @@ export default function Navbar() {
               onClick={() => setOpen(false)}
               className="text-sm text-gray-700 font-medium py-2"
             >
-              {l.label}
+              <T>{l.label}</T>
             </Link>
           ))}
           <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
@@ -85,14 +88,14 @@ export default function Navbar() {
               onClick={() => setOpen(false)}
               className="text-sm font-medium text-center text-ink border border-ink px-4 py-2 rounded-lg"
             >
-              Portal Karyawan
+              <T>Portal Karyawan</T>
             </Link>
             <Link
               href="/progress"
               onClick={() => setOpen(false)}
               className="text-sm font-medium text-center bg-brand text-white px-4 py-2 rounded-lg"
             >
-              Cek Progress
+              <T>Cek Progress</T>
             </Link>
           </div>
         </div>

@@ -1,8 +1,12 @@
+"use client"
+
 import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 import { cn } from "cn"
+import { useT } from "@/components/i18n"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, placeholder, ...props }: React.ComponentProps<"input">) {
+  const t = useT()
   return (
     <InputPrimitive
       type={type}
@@ -12,6 +16,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         className
       )}
       {...props}
+      placeholder={placeholder === undefined ? undefined : t(placeholder)}
     />
   )
 }

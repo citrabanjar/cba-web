@@ -9,6 +9,7 @@ import {
   Receipt, Users, LogOut, Menu, X, Settings, Network,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
+import { LanguageSwitcher, T } from "@/components/i18n";
 import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
@@ -84,7 +85,7 @@ function NavLinks({
       {sections.map((sec) => (
         <div key={sec.section} className="mb-2">
           <p className="px-5 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-            {sec.section}
+            <T>{sec.section}</T>
           </p>
           {sec.items.map((item) => {
             const isActive =
@@ -102,7 +103,7 @@ function NavLinks({
                 ].join(" ")}
               >
                 <item.icon size={17} />
-                {item.label}
+                <T>{item.label}</T>
               </Link>
             );
           })}
@@ -133,7 +134,7 @@ function LogoutButton({ className = "" }: { className?: string }) {
         className={`flex items-center justify-center gap-2 px-3 py-1.5 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors ${className}`}
       >
         <LogOut size={15} />
-        Keluar
+        <T>Keluar</T>
       </button>
     </form>
   );
@@ -148,7 +149,7 @@ export default function PortalShell({ user, children }: Props) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header atas, sama dengan form.citrabanjar.com */}
-      <header className="fixed top-0 inset-x-0 z-40 h-[68px] bg-white border-b-4 border-brand flex items-center gap-3 px-4 lg:px-5">
+      <header className="print:hidden fixed top-0 inset-x-0 z-40 h-[68px] bg-white border-b-4 border-brand flex items-center gap-3 px-4 lg:px-5">
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Buka menu"
@@ -157,7 +158,8 @@ export default function PortalShell({ user, children }: Props) {
           <Menu size={22} />
         </button>
         <Logo width={230} />
-        <div className="ml-auto hidden sm:flex items-center gap-4">
+        <LanguageSwitcher className="ml-auto" />
+        <div className="hidden sm:flex items-center gap-4">
           <div className="text-right">
             <p className="text-sm font-bold text-ink uppercase leading-tight">{user.name}</p>
             <p className="text-xs text-gray-500">
@@ -169,7 +171,7 @@ export default function PortalShell({ user, children }: Props) {
       </header>
 
       {/* Sidebar desktop */}
-      <aside className="hidden lg:flex w-60 bg-white border-r border-gray-200 flex-col fixed top-[68px] bottom-0 left-0 z-30">
+      <aside className="print:hidden hidden lg:flex w-60 bg-white border-r border-gray-200 flex-col fixed top-[68px] bottom-0 left-0 z-30">
         <NavLinks sections={sections} pathname={pathname} />
       </aside>
 
@@ -210,7 +212,7 @@ export default function PortalShell({ user, children }: Props) {
       )}
 
       {/* Konten */}
-      <main className="pt-[68px] lg:ml-60 min-w-0">{children}</main>
+      <main className="pt-[68px] lg:ml-60 min-w-0 print:p-0 print:ml-0">{children}</main>
     </div>
   );
 }

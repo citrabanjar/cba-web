@@ -6,6 +6,7 @@ import { Lock, Loader2, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { T } from "@/components/i18n";
 
 export default function LoginForm() {
   const [state, formAction, isPending] = useActionState(loginAction, undefined);
@@ -15,12 +16,12 @@ export default function LoginForm() {
       {state?.error && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">
           <AlertCircle size={15} className="shrink-0" />
-          {state.error}
+          <T>{state.error}</T>
         </div>
       )}
 
       <div className="space-y-1.5">
-        <Label htmlFor="login" className="text-gray-700">ID Karyawan / Email</Label>
+        <Label htmlFor="login" className="text-gray-700"><T>ID Karyawan / Email</T></Label>
         <Input
           id="login"
           name="login"
@@ -32,7 +33,7 @@ export default function LoginForm() {
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-gray-700">Password</Label>
+        <Label htmlFor="password" className="text-gray-700"><T>Password</T></Label>
         <Input
           id="password"
           name="password"
@@ -49,9 +50,9 @@ export default function LoginForm() {
         className="w-full gap-2 bg-ink hover:bg-ink/85"
       >
         {isPending ? (
-          <><Loader2 size={16} className="animate-spin" /> Memverifikasi...</>
+          <><Loader2 size={16} className="animate-spin" /> <T>Memverifikasi...</T></>
         ) : (
-          <><Lock size={16} /> Masuk</>
+          <><Lock size={16} /> <T en="Log in">Masuk</T></>
         )}
       </Button>
     </form>

@@ -208,3 +208,12 @@ body {
   display: flex;
   justify-content: center;
 }
+
+/* Cetak bagan: warna tetap ikut, dan bagan dikecilkan agar muat satu halaman */
+@media print {
+  .org-tree {
+    zoom: var(--org-print-zoom, 1);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
