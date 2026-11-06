@@ -33,7 +33,7 @@ export default function Navbar() {
               <Link
                 key={l.href}
                 href={l.href}
-                className="text-sm text-gray-600 hover:text-navy font-medium transition-colors"
+                className="text-sm text-gray-600 hover:text-ink font-medium transition-colors"
               >
                 {l.label}
               </Link>
@@ -44,13 +44,13 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             <Link
               href="/portal"
-              className="text-sm font-medium text-navy border border-navy px-4 py-2 rounded-lg hover:bg-navy hover:text-white transition-colors"
+              className="text-sm font-medium text-ink border border-ink px-4 py-2 rounded-lg hover:bg-ink hover:text-white transition-colors"
             >
               Portal Karyawan
             </Link>
             <Link
               href="/progress"
-              className="text-sm font-medium bg-gold text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition-colors"
+              className="text-sm font-medium bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark transition-colors"
             >
               Cek Progress
             </Link>
@@ -59,7 +59,7 @@ export default function Navbar() {
           {/* Mobile toggle */}
           <button
             onClick={() => setOpen(!open)}
-            className="md:hidden p-2 rounded-md text-gray-600 hover:text-navy"
+            className="md:hidden p-2 rounded-md text-gray-600 hover:text-ink"
           >
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -83,14 +83,14 @@ export default function Navbar() {
             <Link
               href="/portal"
               onClick={() => setOpen(false)}
-              className="text-sm font-medium text-center text-navy border border-navy px-4 py-2 rounded-lg"
+              className="text-sm font-medium text-center text-ink border border-ink px-4 py-2 rounded-lg"
             >
               Portal Karyawan
             </Link>
             <Link
               href="/progress"
               onClick={() => setOpen(false)}
-              className="text-sm font-medium text-center bg-gold text-white px-4 py-2 rounded-lg"
+              className="text-sm font-medium text-center bg-brand text-white px-4 py-2 rounded-lg"
             >
               Cek Progress
             </Link>

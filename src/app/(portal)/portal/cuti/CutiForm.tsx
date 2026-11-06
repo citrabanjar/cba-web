@@ -45,7 +45,7 @@ export default function CutiForm({ requests }: Props) {
       {/* Tombol ajukan baru */}
       <button
         onClick={() => setShowForm(!showForm)}
-        className="w-full bg-[#1e3a5f] text-white font-semibold py-3 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
+        className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2"
       >
         <CalendarDays size={18} />
         {showForm ? "Tutup Form" : "Ajukan Cuti"}
@@ -75,7 +75,7 @@ export default function CutiForm({ requests }: Props) {
               <select
                 name="leaveType"
                 required
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white"
               >
                 <option value="">-- Pilih Jenis --</option>
                 {Object.entries(LEAVE_TYPE_LABELS).map(([val, label]) => (
@@ -91,7 +91,7 @@ export default function CutiForm({ requests }: Props) {
                   type="date"
                   name="startDate"
                   required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
               <div>
@@ -100,7 +100,7 @@ export default function CutiForm({ requests }: Props) {
                   type="date"
                   name="endDate"
                   required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
             </div>
@@ -112,7 +112,7 @@ export default function CutiForm({ requests }: Props) {
                 required
                 rows={3}
                 placeholder="Tuliskan alasan pengajuan cuti..."
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
               />
             </div>
 

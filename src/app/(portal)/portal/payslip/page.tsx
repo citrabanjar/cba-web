@@ -40,7 +40,7 @@ export default async function PayslipPage() {
                   <div>
                     <p className="font-semibold text-gray-800 text-sm">{slip.periodLabel}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      Take Home Pay: <span className="font-semibold text-[#1e3a5f]">{formatRupiah(slip.netPay)}</span>
+                      Take Home Pay: <span className="font-semibold text-ink">{formatRupiah(slip.netPay)}</span>
                     </p>
                   </div>
                   {slip.paidAt && (

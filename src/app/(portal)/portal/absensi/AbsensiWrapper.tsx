@@ -8,7 +8,7 @@ const AbsensiClient = dynamic(() => import("./AbsensiClient"), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex items-center justify-center">
-      <Loader2 className="animate-spin text-[#1e3a5f]" size={32} />
+      <Loader2 className="animate-spin text-ink" size={32} />
     </div>
   ),
 });

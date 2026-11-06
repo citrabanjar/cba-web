@@ -23,35 +23,30 @@ export default async function DashboardPage() {
       icon: Clock,
       label: "Absensi",
       desc: "Check-in & Check-out",
-      color: "bg-blue-50 text-blue-600",
     },
     {
       href: "/portal/cuti",
       icon: CalendarDays,
       label: "Cuti",
       desc: "Pengajuan cuti",
-      color: "bg-green-50 text-green-600",
     },
     {
       href: "/portal/dinas",
       icon: Briefcase,
       label: "Dinas Luar",
       desc: "Pengajuan dinas",
-      color: "bg-amber-50 text-amber-600",
     },
     {
       href: "/portal/payslip",
       icon: FileText,
       label: "Slip Gaji",
       desc: "Riwayat pembayaran",
-      color: "bg-purple-50 text-purple-600",
     },
     {
       href: "/portal/pph21",
       icon: Receipt,
       label: "PPh 21",
       desc: "Bukti potong pajak",
-      color: "bg-red-50 text-[#c42828]",
     },
     ...(isAdmin
       ? [
@@ -60,7 +55,6 @@ export default async function DashboardPage() {
             icon: ShieldCheck,
             label: "Data Karyawan",
             desc: "Kelola data karyawan",
-            color: "bg-slate-100 text-slate-600",
           },
         ]
       : []),
@@ -78,7 +72,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Status hari ini */}
-      <Card className="mb-6 border-gray-100">
+      <Card className="mb-6 border-gray-200">
         <CardContent className="pt-4 pb-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
             Status Hari Ini
@@ -93,7 +87,7 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/portal/absensi"
-              className="ml-auto text-xs font-semibold text-[#c42828] bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+              className="ml-auto text-xs font-semibold text-brand bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
             >
               Absen →
             </Link>
@@ -109,11 +103,9 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {menuItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-gray-100">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-gray-200 border-l-4 border-l-brand">
                 <CardContent className="pt-4 pb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color} mb-3`}>
-                    <item.icon size={20} />
-                  </div>
+                  <item.icon size={24} className="text-brand mb-3" />
                   <p className="font-semibold text-gray-800 text-sm">{item.label}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
                 </CardContent>
@@ -124,9 +116,9 @@ export default async function DashboardPage() {
       </div>
 
       {/* Info */}
-      <div className="bg-blue-50 rounded-xl p-4 flex items-start gap-3 mt-6">
-        <AlertCircle size={18} className="text-blue-600 mt-0.5 shrink-0" />
-        <p className="text-xs text-blue-700">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
+        <AlertCircle size={18} className="text-brand mt-0.5 shrink-0" />
+        <p className="text-xs text-gray-600">
           Butuh bantuan? Hubungi HRD melalui email atau datang langsung ke kantor.
         </p>
       </div>

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function ComingSoonPage() {
   return (
-    <div className="min-h-screen bg-[#1e3a5f] flex flex-col items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-ink flex flex-col items-center justify-center px-4 relative overflow-hidden">
 
       {/* Background decoration */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -28,9 +28,9 @@ export default function ComingSoonPage() {
         <h1 className="text-5xl font-black text-white mb-4 tracking-tight">
           Segera Hadir
         </h1>
-        <div className="w-16 h-1 bg-amber-400 rounded-full mb-6" />
+        <div className="w-16 h-1 bg-brand rounded-full mb-6" />
 
-        <p className="text-blue-200 text-lg leading-relaxed mb-8">
+        <p className="text-gray-300 text-lg leading-relaxed mb-8">
           Website kami sedang dalam proses pembangunan.<br />
           Kami akan segera hadir untuk melayani Anda.
         </p>
@@ -38,18 +38,18 @@ export default function ComingSoonPage() {
         {/* Company info */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 w-full text-left space-y-4 mb-8">
           <div className="flex items-start gap-3">
-            <MapPin size={18} className="text-amber-400 mt-0.5 flex-shrink-0" />
+            <MapPin size={18} className="text-red-300 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-white text-sm font-medium">Banjarmasin, Kalimantan Selatan</p>
-              <p className="text-blue-200 text-xs">Fabricator · Contractor · Supplier</p>
+              <p className="text-gray-300 text-xs">Fabricator · Contractor · Supplier</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Phone size={18} className="text-amber-400 flex-shrink-0" />
+            <Phone size={18} className="text-red-300 flex-shrink-0" />
             <p className="text-white text-sm">+62 xxx-xxxx-xxxx</p>
           </div>
           <div className="flex items-center gap-3">
-            <Mail size={18} className="text-amber-400 flex-shrink-0" />
+            <Mail size={18} className="text-red-300 flex-shrink-0" />
             <p className="text-white text-sm">info@citrabanjar.com</p>
           </div>
         </div>
@@ -57,7 +57,7 @@ export default function ComingSoonPage() {
         {/* Portal link (subtle, for internal team) */}
         <Link
           href="/portal"
-          className="text-blue-300/50 text-xs hover:text-blue-200 transition-colors"
+          className="text-gray-400 text-xs hover:text-white transition-colors"
         >
           Portal Karyawan
         </Link>

@@ -59,7 +59,7 @@ export default function HomePage() {
       <Navbar />
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative bg-gradient-to-br from-[#1e3a5f] to-blue-800 text-white overflow-hidden">
+        <section className="relative bg-gradient-to-br from-ink to-brand-dark text-white overflow-hidden">
           <div
             className="absolute inset-0 opacity-10"
             style={{
@@ -70,21 +70,21 @@ export default function HomePage() {
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <MapPin size={14} className="text-amber-300" />
+                <MapPin size={14} className="text-red-300" />
                 Banjarmasin, Kalimantan Selatan
               </div>
               <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
                 Membangun Masa Depan<br />
-                <span className="text-amber-300">Bersama Kepercayaan</span>
+                <span className="text-red-300">Bersama Kepercayaan</span>
               </h1>
-              <p className="text-blue-100 text-lg mb-8 leading-relaxed">
+              <p className="text-gray-200 text-lg mb-8 leading-relaxed">
                 PT. Citra Banjar Abadi hadir sebagai mitra konstruksi dan teknik terpercaya,
                 menghadirkan solusi berkualitas tinggi untuk setiap proyek Anda.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   href="#kontak"
-                  className="inline-flex items-center justify-center gap-2 bg-amber-500 text-white font-semibold px-6 py-3 rounded-xl hover:bg-amber-600 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 bg-brand text-white font-semibold px-6 py-3 rounded-xl hover:bg-brand-dark transition-colors"
                 >
                   Hubungi Kami <ArrowRight size={18} />
                 </Link>
@@ -105,7 +105,7 @@ export default function HomePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {stats.map((s) => (
                 <div key={s.label} className="text-center">
-                  <p className="text-3xl font-bold text-[#1e3a5f]">{s.value}</p>
+                  <p className="text-3xl font-bold text-ink">{s.value}</p>
                   <p className="text-sm text-gray-500 mt-1">{s.label}</p>
                 </div>
               ))}
@@ -118,7 +118,7 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="text-amber-600 font-semibold text-sm uppercase tracking-wide">Layanan Kami</span>
-              <h2 className="text-3xl font-bold text-[#1e3a5f] mt-2">Solusi Teknik Terpadu</h2>
+              <h2 className="text-3xl font-bold text-ink mt-2">Solusi Teknik Terpadu</h2>
               <p className="text-gray-500 mt-3 max-w-xl mx-auto">
                 Kami menyediakan layanan konstruksi dan teknik komprehensif untuk memenuhi kebutuhan proyek Anda.
               </p>
@@ -129,10 +129,10 @@ export default function HomePage() {
                   key={s.title}
                   className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100"
                 >
-                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-                    <s.icon size={24} className="text-[#1e3a5f]" />
+                  <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mb-4">
+                    <s.icon size={24} className="text-ink" />
                   </div>
-                  <h3 className="font-bold text-[#1e3a5f] text-lg mb-2">{s.title}</h3>
+                  <h3 className="font-bold text-ink text-lg mb-2">{s.title}</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
                 </div>
               ))}
@@ -146,7 +146,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div>
                 <span className="text-amber-600 font-semibold text-sm uppercase tracking-wide">Tentang Kami</span>
-                <h2 className="text-3xl font-bold text-[#1e3a5f] mt-2 mb-4">Mitra Terpercaya Sejak Bertahun-tahun</h2>
+                <h2 className="text-3xl font-bold text-ink mt-2 mb-4">Mitra Terpercaya Sejak Bertahun-tahun</h2>
                 <p className="text-gray-600 leading-relaxed mb-6">
                   PT. Citra Banjar Abadi adalah perusahaan yang bergerak di bidang konstruksi dan pelayanan teknik di
                   Kalimantan Selatan. Didukung oleh tim profesional berpengalaman, kami berkomitmen menghadirkan hasil
@@ -169,10 +169,10 @@ export default function HomePage() {
                   { icon: Users, title: "Tim Ahli", desc: "Tenaga Bersertifikat" },
                 ].map((card) => (
                   <div key={card.title} className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
-                    <div className="w-10 h-10 bg-[#1e3a5f]/10 rounded-lg flex items-center justify-center mb-3">
-                      <card.icon size={20} className="text-[#1e3a5f]" />
+                    <div className="w-10 h-10 bg-ink/10 rounded-lg flex items-center justify-center mb-3">
+                      <card.icon size={20} className="text-ink" />
                     </div>
-                    <p className="font-semibold text-[#1e3a5f] text-sm">{card.title}</p>
+                    <p className="font-semibold text-ink text-sm">{card.title}</p>
                     <p className="text-xs text-gray-500 mt-1">{card.desc}</p>
                   </div>
                 ))}
@@ -182,12 +182,12 @@ export default function HomePage() {
         </section>
 
         {/* Portal Karyawan CTA */}
-        <section className="bg-gradient-to-r from-[#1e3a5f] to-blue-700 text-white py-16">
+        <section className="bg-gradient-to-r from-ink to-brand-dark text-white py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div>
                 <h2 className="text-2xl font-bold mb-3">Portal Karyawan</h2>
-                <p className="text-blue-100 text-sm leading-relaxed mb-6">
+                <p className="text-gray-200 text-sm leading-relaxed mb-6">
                   Akses absensi GPS, pengajuan cuti, dinas luar, slip gaji, dan PPh 21 dalam satu platform.
                 </p>
                 <div className="flex flex-wrap gap-3">
@@ -199,7 +199,7 @@ export default function HomePage() {
               <div className="flex justify-center md:justify-end">
                 <Link
                   href="/portal"
-                  className="inline-flex items-center gap-2 bg-white text-[#1e3a5f] font-bold px-8 py-3 rounded-xl hover:bg-blue-50 transition-colors"
+                  className="inline-flex items-center gap-2 bg-white text-ink font-bold px-8 py-3 rounded-xl hover:bg-gray-100 transition-colors"
                 >
                   <Users size={18} />
                   Masuk Portal
@@ -215,7 +215,7 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="text-amber-600 font-semibold text-sm uppercase tracking-wide">Kontak</span>
-              <h2 className="text-3xl font-bold text-[#1e3a5f] mt-2">Hubungi Kami</h2>
+              <h2 className="text-3xl font-bold text-ink mt-2">Hubungi Kami</h2>
             </div>
             <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
               <div className="space-y-5">
@@ -225,23 +225,23 @@ export default function HomePage() {
                   { icon: Mail, label: "Email", value: "info@citrabanjara.co.id" },
                 ].map(({ icon: Icon, label, value }) => (
                   <div key={label} className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                      <Icon size={18} className="text-[#1e3a5f]" />
+                    <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+                      <Icon size={18} className="text-ink" />
                     </div>
                     <div>
-                      <p className="font-semibold text-[#1e3a5f] text-sm">{label}</p>
+                      <p className="font-semibold text-ink text-sm">{label}</p>
                       <p className="text-gray-500 text-sm mt-1">{value}</p>
                     </div>
                   </div>
                 ))}
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                    <ClipboardList size={18} className="text-[#1e3a5f]" />
+                  <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
+                    <ClipboardList size={18} className="text-ink" />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1e3a5f] text-sm">Progress Proyek</p>
+                    <p className="font-semibold text-ink text-sm">Progress Proyek</p>
                     <p className="text-gray-500 text-sm mt-1">
-                      <Link href="/progress" className="text-blue-600 hover:underline">
+                      <Link href="/progress" className="text-brand hover:underline">
                         Cek status proyek Anda →
                       </Link>
                     </p>

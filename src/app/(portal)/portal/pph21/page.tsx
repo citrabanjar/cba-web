@@ -33,10 +33,10 @@ export default async function Pph21Page() {
       <div className="max-w-3xl px-6 py-6 space-y-4">
 
         {payslips.length > 0 && (
-          <div className="bg-[#1e3a5f] rounded-2xl p-5 text-white">
-            <p className="text-blue-200 text-xs">Total PPh 21 Tahun Ini</p>
+          <div className="bg-ink rounded-2xl p-5 text-white">
+            <p className="text-gray-300 text-xs">Total PPh 21 Tahun Ini</p>
             <p className="text-2xl font-bold mt-1">{formatRupiah(totalPph21)}</p>
-            <p className="text-blue-200 text-xs mt-1">{payslips.length} bulan terpotong</p>
+            <p className="text-gray-300 text-xs mt-1">{payslips.length} bulan terpotong</p>
           </div>
         )}
 
@@ -65,7 +65,7 @@ export default async function Pph21Page() {
           </div>
         )}
 
-        <div className="bg-blue-50 rounded-2xl p-4 text-xs text-blue-700">
+        <div className="bg-gray-100 rounded-2xl p-4 text-xs text-gray-700">
           <p className="font-semibold mb-1">Informasi PPh 21</p>
           <p>Pajak Penghasilan Pasal 21 (PPh 21) dipotong langsung dari gaji setiap bulan oleh perusahaan dan disetorkan ke kas negara. Simpan data ini untuk pelaporan SPT Tahunan Anda.</p>
         </div>

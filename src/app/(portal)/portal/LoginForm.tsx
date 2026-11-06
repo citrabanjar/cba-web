@@ -46,7 +46,7 @@ export default function LoginForm() {
       <Button
         type="submit"
         disabled={isPending}
-        className="w-full gap-2 bg-[#1e3a5f] hover:bg-[#1e3a5f]/85"
+        className="w-full gap-2 bg-ink hover:bg-ink/85"
       >
         {isPending ? (
           <><Loader2 size={16} className="animate-spin" /> Memverifikasi...</>

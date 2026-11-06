@@ -38,7 +38,7 @@ const ROLE_BADGE: Record<string, string> = {
   KARYAWAN: "bg-gray-100 text-gray-600 border-gray-200",
   HRD: "bg-green-100 text-green-700 border-green-200",
   MANAGER: "bg-blue-100 text-blue-700 border-blue-200",
-  ADMIN: "bg-red-100 text-[#c42828] border-red-200",
+  ADMIN: "bg-red-100 text-brand border-red-200",
 };
 const STATUS_BADGE: Record<string, string> = {
   TETAP: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -292,7 +292,7 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
                       ) : (
                         <Link
                           href={`/portal/admin/karyawan/${emp.id}`}
-                          className="font-medium text-sm text-gray-800 hover:text-[#c42828] hover:underline"
+                          className="font-medium text-sm text-gray-800 hover:text-brand hover:underline"
                         >
                           {emp.name}
                         </Link>
@@ -325,7 +325,7 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
                     <div className="flex gap-1 justify-end">
                       <Button variant="ghost" size="sm"
                         onClick={() => openEdit(emp)}
-                        className="h-7 px-2 text-xs text-[#c42828] hover:text-[#c42828] hover:bg-red-50">
+                        className="h-7 px-2 text-xs text-brand hover:text-brand hover:bg-red-50">
                         Edit
                       </Button>
                       <Button variant="ghost" size="sm"
@@ -462,13 +462,13 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
           </DialogHeader>
 
           <div className="space-y-4 py-1">
-            <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+            <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
               <p className="font-semibold">Format kolom Excel:</p>
-              <p className="text-blue-600">NIK, Nama, Email, No HP, Departemen, Jabatan, Status Kerja, Role, Tanggal Masuk, Password, No Rekening, Nama Bank, Nama Pemilik Rekening</p>
-              <p className="text-blue-500">• Status Kerja: TETAP / KONTRAK / PROBATION</p>
-              <p className="text-blue-500">• Role: KARYAWAN / HRD / MANAGER / ADMIN</p>
-              <p className="text-blue-500">• Tanggal: YYYY-MM-DD (mis. 2024-01-15)</p>
-              <p className="text-blue-500">• NIK yang sudah ada akan dilewati</p>
+              <p className="text-gray-600">NIK, Nama, Email, No HP, Departemen, Jabatan, Status Kerja, Role, Tanggal Masuk, Password, No Rekening, Nama Bank, Nama Pemilik Rekening</p>
+              <p className="text-gray-600">• Status Kerja: TETAP / KONTRAK / PROBATION</p>
+              <p className="text-gray-600">• Role: KARYAWAN / HRD / MANAGER / ADMIN</p>
+              <p className="text-gray-600">• Tanggal: YYYY-MM-DD (mis. 2024-01-15)</p>
+              <p className="text-gray-600">• NIK yang sudah ada akan dilewati</p>
             </div>
 
             <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
@@ -480,7 +480,7 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
               <input ref={fileRef} type="file"
                 accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 onChange={handleFileChange}
-                className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#c42828] file:text-white file:text-xs file:font-medium hover:file:bg-red-700 cursor-pointer" />
+                className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-brand file:text-white file:text-xs file:font-medium hover:file:bg-brand-dark cursor-pointer" />
             </div>
 
             {csvRows.length > 0 && (

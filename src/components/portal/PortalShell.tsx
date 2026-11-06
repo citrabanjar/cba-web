@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Home, Clock, Calendar, Briefcase, FileText,
-  Receipt, Users, LogOut, Menu, X, ChevronDown, Settings,
+  Receipt, Users, LogOut, Menu, X, Settings,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 
@@ -85,8 +85,8 @@ function NavLinks({
                 className={[
                   "flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-colors border-l-2",
                   isActive
-                    ? "text-[#c42828] bg-red-50 border-[#c42828]"
-                    : "text-gray-600 hover:bg-gray-50 border-transparent",
+                    ? "text-white bg-ink border-brand"
+                    : "text-gray-600 hover:bg-gray-100 border-transparent",
                 ].join(" ")}
               >
                 <item.icon size={17} />
@@ -100,78 +100,79 @@ function NavLinks({
   );
 }
 
+function Logo({ width }: { width: number }) {
+  // public/logo.jpg berukuran 2339x341
+  return (
+    <Image
+      src="/logo.jpg"
+      alt="PT. Citra Banjar Abadi"
+      width={width}
+      height={Math.round((width * 341) / 2339)}
+      priority
+    />
+  );
+}
+
+function LogoutButton({ className = "" }: { className?: string }) {
+  return (
+    <form action={logoutAction}>
+      <button
+        type="submit"
+        className={`flex items-center justify-center gap-2 px-3 py-1.5 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors ${className}`}
+      >
+        <LogOut size={15} />
+        Keluar
+      </button>
+    </form>
+  );
+}
+
 export default function PortalShell({ user, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const sections = getNavSections(user.role);
-  const initials = user.name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* ── Desktop sidebar ── */}
-      <aside className="hidden lg:flex w-60 bg-white border-r border-gray-200 flex-col fixed inset-y-0 left-0 z-30">
-        {/* Logo */}
-        <div className="px-5 py-5 border-b border-gray-100 shrink-0">
-          <Image
-            src="/logo.svg"
-            alt="PT Citra Banjar Abadi"
-            width={180}
-            height={28}
-            priority
-          />
-        </div>
-
-        <NavLinks sections={sections} pathname={pathname} />
-
-        {/* User + logout */}
-        <div className="border-t border-gray-100 p-4 shrink-0">
-          <div className="flex items-center gap-2.5 mb-2">
-            <div className="w-8 h-8 rounded-full bg-[#1e3a5f] flex items-center justify-center text-white text-xs font-bold shrink-0">
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-800 truncate">
-                {user.name}
-              </p>
-              <p className="text-[10px] text-gray-400">
-                {user.employeeId} · {user.role}
-              </p>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header atas, sama dengan form.citrabanjar.com */}
+      <header className="fixed top-0 inset-x-0 z-40 h-[68px] bg-white border-b-4 border-brand flex items-center gap-3 px-4 lg:px-5">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Buka menu"
+          className="lg:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-700"
+        >
+          <Menu size={22} />
+        </button>
+        <Logo width={230} />
+        <div className="ml-auto hidden sm:flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-sm font-bold text-ink uppercase leading-tight">{user.name}</p>
+            <p className="text-xs text-gray-500">
+              {user.employeeId} · {user.role}
+            </p>
           </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
-            >
-              <LogOut size={15} />
-              Keluar
-            </button>
-          </form>
+          <LogoutButton />
         </div>
+      </header>
+
+      {/* Sidebar desktop */}
+      <aside className="hidden lg:flex w-60 bg-white border-r border-gray-200 flex-col fixed top-[68px] bottom-0 left-0 z-30">
+        <NavLinks sections={sections} pathname={pathname} />
       </aside>
 
-      {/* ── Mobile sidebar overlay ── */}
+      {/* Sidebar mobile */}
       {sidebarOpen && (
         <>
           <div
-            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/40 z-50 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
           <aside className="fixed inset-y-0 left-0 w-72 bg-white z-50 flex flex-col lg:hidden shadow-xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-              <Image
-                src="/logo.svg"
-                alt="PT Citra Banjar Abadi"
-                width={160}
-                height={25}
-              />
+            <div className="flex items-center justify-between gap-3 px-4 py-4 border-b-4 border-brand shrink-0">
+              <Logo width={200} />
               <button
                 onClick={() => setSidebarOpen(false)}
+                aria-label="Tutup menu"
                 className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
               >
                 <X size={20} />
@@ -185,50 +186,18 @@ export default function PortalShell({ user, children }: Props) {
             />
 
             <div className="border-t border-gray-100 p-4 shrink-0">
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="w-8 h-8 rounded-full bg-[#1e3a5f] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  {initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-800 truncate">
-                    {user.name}
-                  </p>
-                  <p className="text-[10px] text-gray-400">
-                    {user.employeeId} · {user.role}
-                  </p>
-                </div>
-              </div>
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <LogOut size={15} />
-                  Keluar
-                </button>
-              </form>
+              <p className="text-sm font-bold text-ink uppercase truncate">{user.name}</p>
+              <p className="text-xs text-gray-500 mb-3">
+                {user.employeeId} · {user.role}
+              </p>
+              <LogoutButton className="w-full" />
             </div>
           </aside>
         </>
       )}
 
-      {/* ── Main area ── */}
-      <div className="flex-1 flex flex-col lg:ml-60 min-w-0">
-        {/* Mobile top bar */}
-        <div className="lg:hidden bg-[#1e3a5f] text-white px-4 py-3 flex items-center justify-between shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-1 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <Menu size={20} />
-          </button>
-          <span className="text-sm font-semibold">Portal Karyawan</span>
-          <div className="w-8" />
-        </div>
-
-        {/* Page content */}
-        <main className="flex-1">{children}</main>
-      </div>
+      {/* Konten */}
+      <main className="pt-[68px] lg:ml-60 min-w-0">{children}</main>
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function AbsensiClient({ today, week }: Props) {
 
       // Office marker
       const officeIcon = leafletRef.current.divIcon({
-        html: `<div style="background:#1e3a5f;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)">🏢</div>`,
+        html: `<div style="background:#BE353F;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)">🏢</div>`,
         iconSize: [36, 36],
         iconAnchor: [18, 18],
         className: "",
@@ -69,7 +69,7 @@ export default function AbsensiClient({ today, week }: Props) {
       // Office radius circle
       leafletRef.current.circle([OFFICE_LAT, OFFICE_LNG], {
         radius: OFFICE_RADIUS,
-        color: "#1e3a5f",
+        color: "#BE353F",
         fillColor: "#3b82f6",
         fillOpacity: 0.1,
         weight: 2,
@@ -231,7 +231,7 @@ export default function AbsensiClient({ today, week }: Props) {
           {hasCheckIn && (
             <div className="text-center border-t border-gray-200 pt-2">
               <p className="text-xs text-gray-400">Durasi kerja</p>
-              <p className="font-semibold text-[#1e3a5f] text-sm mt-0.5">
+              <p className="font-semibold text-ink text-sm mt-0.5">
                 {getDurationStr(today!.checkIn!, today?.checkOut)}
                 {!hasCheckOut && <span className="text-xs text-green-500 ml-1">(sedang berjalan)</span>}
               </p>
@@ -259,13 +259,13 @@ export default function AbsensiClient({ today, week }: Props) {
           <button
             onClick={handleCheckOut}
             disabled={isPending || !pos}
-            className="w-full bg-[#1e3a5f] text-white font-semibold py-3 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isPending ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
             {isPending ? "Memproses..." : "Check-out Sekarang"}
           </button>
         ) : (
-          <div className="bg-blue-50 text-blue-700 text-sm text-center py-3 rounded-xl font-medium">
+          <div className="bg-gray-100 text-gray-700 text-sm text-center py-3 rounded-xl font-medium">
             ✓ Absensi hari ini selesai
           </div>
         )}

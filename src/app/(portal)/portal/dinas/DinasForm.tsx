@@ -36,7 +36,7 @@ export default function DinasForm({ trips }: Props) {
 
       <button
         onClick={() => setShowForm(!showForm)}
-        className="w-full bg-[#1e3a5f] text-white font-semibold py-3 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
+        className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2"
       >
         <Briefcase size={18} />
         {showForm ? "Tutup Form" : "Ajukan Dinas Luar"}
@@ -67,7 +67,7 @@ export default function DinasForm({ trips }: Props) {
                 name="destination"
                 required
                 placeholder="Contoh: Banjarbaru, Kalimantan Selatan"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
 
@@ -78,7 +78,7 @@ export default function DinasForm({ trips }: Props) {
                 required
                 rows={3}
                 placeholder="Tuliskan keperluan dinas..."
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
               />
             </div>
 
@@ -89,7 +89,7 @@ export default function DinasForm({ trips }: Props) {
                   type="date"
                   name="startDate"
                   required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
               <div>
@@ -98,7 +98,7 @@ export default function DinasForm({ trips }: Props) {
                   type="date"
                   name="endDate"
                   required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
             </div>
@@ -106,7 +106,7 @@ export default function DinasForm({ trips }: Props) {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full bg-amber-500 text-white font-semibold py-3 rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              className="w-full bg-brand text-white font-semibold py-3 rounded-xl hover:bg-brand-dark transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
               {isPending ? "Memproses..." : "Kirim Pengajuan"}

@@ -7,7 +7,7 @@
   </defs>
 
   <!-- Red oval -->
-  <ellipse cx="47" cy="40" rx="44" ry="37" fill="#c42828"/>
+  <ellipse cx="47" cy="40" rx="44" ry="37" fill="#BE353F"/>
 
   <path
     d="M 6,26 A 44,37 0 0 1 69,8 L 69,33 L 56,33 L 56,47 L 69,47 L 47,72 Z"

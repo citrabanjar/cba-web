@@ -237,7 +237,7 @@ export default function KaryawanDetailClient({
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
-          <Link href="/portal/admin/karyawan" className="hover:text-[#c42828]">Data Karyawan</Link>
+          <Link href="/portal/admin/karyawan" className="hover:text-brand">Data Karyawan</Link>
           <ChevronRight size={15} className="text-gray-400" />
           <span className="text-gray-800 truncate">{emp.name}</span>
         </nav>
@@ -249,7 +249,7 @@ export default function KaryawanDetailClient({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={emp.image} alt={emp.name} className="w-20 h-20 rounded-full object-cover shrink-0" />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-[#1e3a5f] flex items-center justify-center text-white text-2xl font-bold shrink-0">
+              <div className="w-20 h-20 rounded-full bg-ink flex items-center justify-center text-white text-2xl font-bold shrink-0">
                 {initials}
               </div>
             )}
@@ -262,7 +262,7 @@ export default function KaryawanDetailClient({
                   </a>
                 )}
                 {emp.email && (
-                  <a href={`mailto:${emp.email}`} aria-label="Email" className="p-1 rounded-full bg-red-50 text-[#c42828] hover:bg-red-100">
+                  <a href={`mailto:${emp.email}`} aria-label="Email" className="p-1 rounded-full bg-red-50 text-brand hover:bg-red-100">
                     <Mail size={14} />
                   </a>
                 )}
@@ -296,7 +296,7 @@ export default function KaryawanDetailClient({
                 onClick={() => setTab(t.key)}
                 className={`py-3 text-sm whitespace-nowrap border-b-2 transition-colors ${
                   tab === t.key
-                    ? "border-[#c42828] text-gray-900 font-semibold"
+                    ? "border-brand text-gray-900 font-semibold"
                     : "border-transparent text-gray-500 hover:text-gray-800"
                 }`}
               >
