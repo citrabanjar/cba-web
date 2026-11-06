@@ -70,13 +70,14 @@ export async function createEmployee(data: EmployeeInput) {
 
 export async function updateEmployee(id: string, data: Partial<Omit<EmployeeInput, "password"> & { password?: string }>) {
   await requireAdmin();
-  const departmentId = await upsertDept(data.departmentName);
+  const departmentId = data.departmentName === "" ? null : await upsertDept(data.departmentName);
   const extra = data.password ? { passwordHash: await bcrypt.hash(data.password, 12) } : {};
   await prisma.user.update({
     where: { id },
     data: {
       name: data.name,
-      email: data.email ?? undefined,
+      // Email unik: string kosong harus jadi null supaya tidak bentrok antar karyawan.
+      email: data.email === undefined ? undefined : data.email || null,
       phone: data.phone ?? undefined,
       departmentId,
       position: data.position ?? undefined,
@@ -92,6 +93,7 @@ export async function updateEmployee(id: string, data: Partial<Omit<EmployeeInpu
     },
   });
   revalidatePath("/portal/admin/karyawan");
+  revalidatePath(`/portal/admin/karyawan/${id}`);
   return { success: true };
 }
 
@@ -101,6 +103,7 @@ export async function toggleEmployeeActive(id: string) {
   if (!user) throw new Error("Not found");
   await prisma.user.update({ where: { id }, data: { isActive: !user.isActive } });
   revalidatePath("/portal/admin/karyawan");
+  revalidatePath(`/portal/admin/karyawan/${id}`);
   return { success: true };
 }
 

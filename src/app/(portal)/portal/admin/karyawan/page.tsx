@@ -9,7 +9,23 @@ export default async function AdminKaryawanPage() {
   if (!session?.user) redirect("/portal");
 
   const employees = await prisma.user.findMany({
-    include: { department: true },
+    // Pakai select eksplisit supaya passwordHash tidak ikut terkirim ke client.
+    select: {
+      id: true,
+      employeeId: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      employmentStatus: true,
+      position: true,
+      isActive: true,
+      joinDate: true,
+      bankName: true,
+      bankAccount: true,
+      bankHolder: true,
+      department: { select: { id: true, name: true } },
+    },
     orderBy: { employeeId: "asc" },
   });
 

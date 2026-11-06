@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import Link from "next/link";
 import { Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -285,7 +286,17 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
                   </TableCell>
                   <TableCell className="px-4">
                     <div>
-                      <p className="font-medium text-sm text-gray-800">{emp.name}</p>
+                      {/* Baris baru masih ber-id sementara sampai halaman dimuat ulang */}
+                      {emp.id.startsWith("tmp-") ? (
+                        <p className="font-medium text-sm text-gray-800">{emp.name}</p>
+                      ) : (
+                        <Link
+                          href={`/portal/admin/karyawan/${emp.id}`}
+                          className="font-medium text-sm text-gray-800 hover:text-[#c42828] hover:underline"
+                        >
+                          {emp.name}
+                        </Link>
+                      )}
                       <p className="text-xs text-gray-400">{emp.email ?? "—"}</p>
                     </div>
                   </TableCell>
