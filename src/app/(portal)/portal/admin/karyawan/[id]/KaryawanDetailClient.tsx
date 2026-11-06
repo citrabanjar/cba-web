@@ -17,7 +17,7 @@ import { formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
 import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS } from "@/lib/personal-info";
 import {
-  addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
+  addEmploymentEvent, addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
 
@@ -33,6 +33,7 @@ type Employee = {
   menuAccess: string[]; employmentStatus: string; position: string | null;
   branch: string | null; joinDate: Date | null; contractEndDate: Date | null;
   resignDate: Date | null; paymentSchedule: string | null;
+  spkNumber: string | null; spkDate: Date | null;
   bankName: string | null; bankAccount: string | null; bankHolder: string | null;
   isActive: boolean; idType: string | null; ktpNumber: string | null; address: string | null;
   currentAddress: string | null; addressSameAsId: boolean;
@@ -44,6 +45,10 @@ type Employee = {
   bpjsKesActive: boolean; managerId: string | null;
   manager: { name: string; employeeId: string | null } | null;
   department: { id: string; name: string } | null;
+  employmentEvents: {
+    id: string; type: string; effectiveDate: Date; contractEndDate: Date | null;
+    spkNumber: string | null; reason: string | null; createdBy: string | null;
+  }[];
   family: { id: string; name: string; idNumber: string | null; relation: string }[];
   changeLogs: { id: string; field: string; changedBy: string | null; createdAt: Date }[];
   attendances: {
@@ -70,7 +75,8 @@ type FormField = {
   key: string; label: string; hint?: string;
   type?: "date" | "email" | "select" | "suggest" | "check"; options?: Option[];
 };
-type Section = "detail" | "unit" | "kontrak" | "bank" | "pribadi" | "alamat" | "pajak" | "bpjs";
+type Section = "detail" | "unit" | "bank" | "payroll" | "pribadi" | "alamat" | "pajak" | "bpjs";
+type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN";
 type Component = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number };
 type FamilyRow = { name: string; idNumber: string; relation: string };
 
@@ -94,10 +100,19 @@ const FLAG_OPTIONS: Option[] = [
 ];
 
 const SECTION_TITLE: Record<Section, string> = {
-  detail: "Detail Pekerjaan", unit: "Unit Perusahaan", kontrak: "Kontrak",
+  detail: "Detail Pekerjaan", unit: "Unit Perusahaan", payroll: "Payroll",
   bank: "Rekening Bank", pribadi: "Data Pribadi", alamat: "Tempat Tinggal",
   pajak: "Pajak", bpjs: "BPJS",
 };
+
+const EVENT_LABEL: Record<string, string> = {
+  PERPANJANGAN: "Perpanjangan Kontrak", PEMBERHENTIAN: "Pemberhentian",
+};
+const EDIT_MODES: { key: EditMode; label: string }[] = [
+  { key: "ubah", label: "Ubah Data" },
+  { key: "PERPANJANGAN", label: "Perpanjangan Kontrak" },
+  { key: "PEMBERHENTIAN", label: "Pemberhentian" },
+];
 
 const LEAVE_LABEL: Record<string, string> = {
   TAHUNAN: "Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan",
@@ -506,6 +521,8 @@ export default function KaryawanDetailClient({
   const [tab, setTab] = useState("pribadi");
   const [editing, setEditing] = useState<Section | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [mode, setMode] = useState<EditMode>("ubah");
+  const [eventForm, setEventForm] = useState<Record<string, string>>({});
   const [salaryOpen, setSalaryOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -517,27 +534,39 @@ export default function KaryawanDetailClient({
 
   const fields = useMemo<Record<Section, FormField[]>>(() => ({
     detail: [
-      { key: "employeeId", label: "ID Karyawan *" },
+      { key: "employeeId", label: "Employee ID *" },
+      { key: "joinDate", label: "Tanggal Masuk", type: "date" },
+      {
+        key: "employmentStatus", label: "Status", type: "select",
+        // Probation hanya muncul untuk data lama, supaya tidak berubah tanpa sengaja.
+        options: Object.entries(STATUS_LABEL)
+          .filter(([value]) => value !== "PROBATION" || emp.employmentStatus === "PROBATION")
+          .map(([value, label]) => ({ value, label })),
+      },
+      { key: "contractEndDate", label: "Tanggal Akhir Kontrak", type: "date" },
+      { key: "spkNumber", label: "No SPK" },
+      { key: "spkDate", label: "Tanggal SPK", type: "date" },
+    ],
+    unit: [
+      { key: "branch", label: "Cabang" },
+      { key: "departmentName", label: "Departemen" },
+      { key: "position", label: "Jabatan" },
       {
         key: "managerEmployeeId", label: "Atasan Langsung (ID Karyawan)", type: "suggest",
         hint: "Isi ID Karyawan atasan langsung. Kosongkan kalau tidak punya atasan.",
         options: managers.flatMap((m) => (m.employeeId ? [{ value: m.employeeId, label: m.name }] : [])),
       },
     ],
-    unit: [
-      { key: "branch", label: "Cabang" },
-      { key: "departmentName", label: "Departemen" },
-      { key: "position", label: "Jabatan" },
-    ],
-    kontrak: [
+    payroll: [
       {
-        key: "employmentStatus", label: "Status Kerja", type: "select",
-        options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
+        key: "paymentSchedule", label: "Payroll", type: "select",
+        options: [
+          { value: "", label: "—" },
+          ...["Bulanan", "Mingguan", emp.paymentSchedule]
+            .filter((value, i, all): value is string => !!value && all.indexOf(value) === i)
+            .map((value) => ({ value, label: value })),
+        ],
       },
-      { key: "joinDate", label: "Tanggal Masuk", type: "date" },
-      { key: "contractEndDate", label: "Tanggal Akhir Kontrak", type: "date" },
-      { key: "resignDate", label: "Tanggal Resign", type: "date" },
-      { key: "paymentSchedule", label: "Jadwal Bayar" },
     ],
     bank: [
       { key: "bankName", label: "Nama Bank" },
@@ -577,7 +606,7 @@ export default function KaryawanDetailClient({
       { key: "bpjsKesNumber", label: "No BPJS Kesehatan" },
       { key: "bpjsKesActive", label: "Status BPJS Kesehatan", type: "select", options: FLAG_OPTIONS },
     ],
-  }), [managers]);
+  }), [managers, emp.employmentStatus, emp.paymentSchedule]);
 
   const initials = emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const today = new Date().toISOString().split("T")[0];
@@ -594,6 +623,8 @@ export default function KaryawanDetailClient({
       else values[field.key] = String(record[field.key] ?? "");
     }
     setForm(values);
+    setMode("ubah");
+    setEventForm({});
     setError(null);
     setEditing(section);
   }
@@ -601,10 +632,13 @@ export default function KaryawanDetailClient({
   function handleSave() {
     startTransition(async () => {
       try {
-        await updateEmployee(emp.id, form);
+        if (mode === "ubah") await updateEmployee(emp.id, form);
+        else await addEmploymentEvent(emp.id, { type: mode, effectiveDate: "", ...eventForm });
         setEditing(null);
       } catch {
-        setError("Gagal menyimpan. ID Karyawan, email, atau No KTP mungkin sudah dipakai, atau ID atasan tidak ditemukan atau merupakan anak buahnya sendiri.");
+        setError(mode === "ubah"
+          ? "Gagal menyimpan. ID Karyawan, email, atau No KTP mungkin sudah dipakai, atau ID atasan tidak ditemukan atau merupakan anak buahnya sendiri."
+          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
       }
     });
   }
@@ -691,38 +725,66 @@ export default function KaryawanDetailClient({
         {tab === "pekerjaan" && (
           <div className="space-y-5">
             <SectionCard title="Detail Pekerjaan" onEdit={edit("detail")}>
-              <Field label="No. Urut">{emp.employeeNo}</Field>
-              <Field label="ID Karyawan">{emp.employeeId}</Field>
-              <Field label="Atasan Langsung">
-                {emp.manager ? `${emp.manager.name} (${emp.manager.employeeId ?? "-"})` : null}
-              </Field>
+              <Field label="Employee ID">{emp.employeeId}</Field>
+              <Field label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</Field>
+              <Field label="Status"><T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T></Field>
+              {emp.employmentStatus === "KONTRAK" && (
+                <Field label="Tanggal Akhir Kontrak">{emp.contractEndDate ? fmtDate(emp.contractEndDate) : null}</Field>
+              )}
+              <Field label="No SPK">{emp.spkNumber}</Field>
+              <Field label="Tanggal SPK">{emp.spkDate ? fmtDate(emp.spkDate) : null}</Field>
+              <Field label="Masa Kerja">{tenure}</Field>
+              {emp.resignDate && <Field label="Tanggal Berhenti">{fmtDate(emp.resignDate)}</Field>}
             </SectionCard>
 
             <SectionCard title="Unit Perusahaan" onEdit={edit("unit")}>
               <Field label="Cabang">{emp.branch}</Field>
               <Field label="Departemen">{emp.department?.name}</Field>
               <Field label="Jabatan">{emp.position}</Field>
+              <Field label="Atasan Langsung">
+                {emp.manager ? `${emp.manager.name} (${emp.manager.employeeId ?? "-"})` : null}
+              </Field>
             </SectionCard>
 
-            <SectionCard title="Kontrak" onEdit={edit("kontrak")}>
-              <Field label="Status Kerja"><T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T></Field>
-              <Field label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</Field>
-              <Field label="Masa Kerja">{tenure}</Field>
-              <Field label="Tanggal Akhir Kontrak">{emp.contractEndDate ? fmtDate(emp.contractEndDate) : null}</Field>
-              <Field label="Tanggal Resign">{emp.resignDate ? fmtDate(emp.resignDate) : null}</Field>
-              <Field label="Jadwal Bayar">{emp.paymentSchedule}</Field>
-            </SectionCard>
-
-            <SectionCard title="Rekening Bank" onEdit={edit("bank")}>
-              <Field label="Nama Bank">{emp.bankName}</Field>
-              <Field label="No Rekening">{emp.bankAccount}</Field>
-              <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
+            <SectionCard title="Riwayat Kontrak">
+              {emp.employmentEvents.length === 0 ? (
+                <p className="py-4 text-sm text-gray-400"><T>Belum ada riwayat kontrak.</T></p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead><T>Berlaku</T></TableHead>
+                      <TableHead><T>Jenis</T></TableHead>
+                      <TableHead><T>Keterangan</T></TableHead>
+                      <TableHead className="hidden sm:table-cell"><T>Oleh</T></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {emp.employmentEvents.map((ev) => (
+                      <TableRow key={ev.id}>
+                        <TableCell className="text-sm whitespace-nowrap">{fmtDate(ev.effectiveDate)}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap"><T>{EVENT_LABEL[ev.type] ?? ev.type}</T></TableCell>
+                        <TableCell className="text-sm whitespace-normal">
+                          {ev.type === "PERPANJANGAN"
+                            ? `${t("Kontrak sampai")} ${fmtDate(ev.contractEndDate)}${ev.spkNumber ? ` · ${t("No SPK")} ${ev.spkNumber}` : ""}`
+                            : ev.reason}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm">{ev.createdBy ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </SectionCard>
           </div>
         )}
 
         {tab === "gaji" && canSeePay && (
           <div className="space-y-5">
+            <SectionCard title="Payroll" onEdit={edit("payroll")}>
+              <Field label="Payroll">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
+            </SectionCard>
+
             <SectionCard
               title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
               action={
@@ -783,6 +845,12 @@ export default function KaryawanDetailClient({
                   </TableBody>
                 </Table>
               )}
+            </SectionCard>
+
+            <SectionCard title="Rekening Bank" onEdit={edit("bank")}>
+              <Field label="Nama Bank">{emp.bankName}</Field>
+              <Field label="No Rekening">{emp.bankAccount}</Field>
+              <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
             </SectionCard>
 
             <SectionCard title="History Perubahan">
@@ -974,7 +1042,49 @@ export default function KaryawanDetailClient({
 
           <div className="space-y-3 py-1">
             {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
-            {editing && fields[editing].map((field) => field.type === "check" ? (
+            {editing === "detail" && canEdit && (
+              <div className="flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
+                {EDIT_MODES.map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    aria-pressed={mode === m.key}
+                    disabled={m.key === "PERPANJANGAN" && emp.employmentStatus !== "KONTRAK"}
+                    onClick={() => { setMode(m.key); setEventForm({}); setError(null); }}
+                    className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
+                      mode === m.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                    }`}
+                  >
+                    <T>{m.label}</T>
+                  </button>
+                ))}
+              </div>
+            )}
+            {mode !== "ubah" && (mode === "PERPANJANGAN" ? [
+              { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
+              { key: "contractEndDate", label: "Tanggal Akhir Kontrak Baru *", type: "date" },
+              { key: "spkNumber", label: "No SPK", type: "text" },
+              { key: "spkDate", label: "Tanggal SPK", type: "date" },
+            ] : [
+              { key: "effectiveDate", label: "Tanggal Berhenti *", type: "date" },
+              { key: "reason", label: "Alasan *", type: "text" },
+            ]).map((field) => (
+              <div key={field.key} className="space-y-1.5">
+                <Label htmlFor={`event-${field.key}`} className="text-xs"><T>{field.label}</T></Label>
+                <Input
+                  id={`event-${field.key}`}
+                  type={field.type}
+                  value={eventForm[field.key] ?? ""}
+                  onChange={(e) => setEventForm((f) => ({ ...f, [field.key]: e.target.value }))}
+                />
+              </div>
+            ))}
+            {mode === "PEMBERHENTIAN" && (
+              <p className="text-xs text-gray-500">
+                <T>Karyawan dinonaktifkan dan tidak bisa login jika tanggal berhenti hari ini atau sudah lewat.</T>
+              </p>
+            )}
+            {mode === "ubah" && editing && fields[editing].map((field) => field.type === "check" ? (
               <label key={field.key} className="flex items-center gap-2 text-sm text-gray-800">
                 <input
                   type="checkbox"
@@ -984,7 +1094,8 @@ export default function KaryawanDetailClient({
                 />
                 <T>{field.label}</T>
               </label>
-            ) : field.key === "currentAddress" && form.addressSameAsId === "true" ? null : (
+            ) : (field.key === "currentAddress" && form.addressSameAsId === "true")
+              || (field.key === "contractEndDate" && form.employmentStatus !== "KONTRAK") ? null : (
               <div key={field.key} className="space-y-1.5">
                 <Label htmlFor={field.key} className="text-xs"><T>{field.label}</T></Label>
                 {field.type === "select" ? (

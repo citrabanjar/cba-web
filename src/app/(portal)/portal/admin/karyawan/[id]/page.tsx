@@ -40,6 +40,7 @@ export default async function KaryawanDetailPage({
       phone: true, image: true, role: true, menuAccess: true,
       employmentStatus: true, position: true, branch: true, joinDate: true,
       contractEndDate: true, resignDate: true, paymentSchedule: true,
+      spkNumber: true, spkDate: true,
       bankName: true, bankAccount: true, bankHolder: true, isActive: true,
       idType: true, ktpNumber: true, address: true, currentAddress: true,
       addressSameAsId: true, birthPlace: true, birthDate: true,
@@ -50,6 +51,13 @@ export default async function KaryawanDetailPage({
       bpjsKesNumber: true, bpjsKesActive: true, managerId: true,
       manager: { select: { name: true, employeeId: true } },
       department: { select: { id: true, name: true } },
+      employmentEvents: {
+        orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true, type: true, effectiveDate: true, contractEndDate: true,
+          spkNumber: true, reason: true, createdBy: true,
+        },
+      },
       family: {
         orderBy: { createdAt: "asc" },
         select: { id: true, name: true, idNumber: true, relation: true },

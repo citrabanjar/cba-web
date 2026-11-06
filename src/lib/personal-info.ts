@@ -17,4 +17,7 @@ export const PERSONAL_LOG_LABELS: Record<string, string> = {
   currentAddress: "Alamat Saat Ini",
   addressSameAsId: "Alamat Saat Ini",
   family: "Keluarga",
+  bankName: "Nama Bank",
+  bankAccount: "No Rekening",
+  bankHolder: "Nama Pemilik Rekening",
 };

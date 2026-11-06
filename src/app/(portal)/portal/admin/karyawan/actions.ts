@@ -15,14 +15,14 @@ const STATUS_MAP: Record<string, EmploymentStatus> = {
 };
 
 const TEXT_FIELDS = [
-  "employeeId", "email", "phone", "position", "branch", "paymentSchedule",
+  "employeeId", "email", "phone", "position", "branch", "paymentSchedule", "spkNumber",
   "bankName", "bankAccount", "bankHolder", "idType", "ktpNumber", "address",
   "currentAddress", "birthPlace",
   "gender", "religion", "maritalStatus", "nationality", "emergencyName",
   "emergencyPhone", "emergencyRelation", "npwp", "ptkpStatus", "taxability",
   "taxStatus", "taxObjectCode", "bpjsTkNumber", "bpjsKesNumber",
 ] as const;
-const DATE_FIELDS = ["joinDate", "contractEndDate", "resignDate", "birthDate"] as const;
+const DATE_FIELDS = ["joinDate", "contractEndDate", "spkDate", "birthDate"] as const;
 const FLAG_FIELDS = ["bpjsTkActive", "bpjsKesActive", "addressSameAsId"] as const;
 
 export type EmployeeInput = {
@@ -146,6 +146,8 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
 
   if (data.idType && !ID_TYPES.includes(data.idType)) throw new Error("Jenis ID tidak dikenal");
   if (data.addressSameAsId === "true") data = { ...data, currentAddress: "" };
+  // Tanggal akhir kontrak hanya berlaku untuk status Kontrak.
+  if (data.employmentStatus && data.employmentStatus !== "KONTRAK") data = { ...data, contractEndDate: "" };
 
   if (data.name !== undefined) {
     if (!data.name.trim()) throw new Error("Nama wajib diisi");
@@ -194,6 +196,73 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
       ...changes,
       changeLogs: { create: logs.map((log) => ({ ...log, changedBy: actor.name })) },
     },
+  });
+  revalidatePath(LIST_PATH);
+  revalidatePath(`${LIST_PATH}/${id}`);
+  return { success: true };
+}
+
+export type EmploymentEventInput = {
+  type: "PERPANJANGAN" | "PEMBERHENTIAN";
+  effectiveDate: string;
+  contractEndDate?: string;
+  spkNumber?: string;
+  spkDate?: string;
+  reason?: string;
+};
+
+export async function addEmploymentEvent(id: string, input: EmploymentEventInput) {
+  const actor = await requireMenu("karyawan");
+  const target = await prisma.user.findFirst({
+    where: { id, ...editableTarget(actor.role) },
+    select: {
+      employmentStatus: true, contractEndDate: true, spkNumber: true, spkDate: true,
+      resignDate: true, isActive: true,
+    },
+  });
+  if (!target) throw new Error("Not found");
+  if (!input.effectiveDate) throw new Error("Tanggal wajib diisi");
+
+  const effectiveDate = new Date(input.effectiveDate);
+  const changes: Prisma.UserUncheckedUpdateInput = {};
+  const logs: { field: string; oldValue: string | null; newValue: string | null; changedBy: string }[] = [];
+  const log = (field: string, oldValue: unknown, newValue: unknown) =>
+    logs.push({ field, oldValue: logValue(oldValue), newValue: logValue(newValue), changedBy: actor.name });
+
+  const event: Prisma.EmploymentEventUncheckedCreateWithoutUserInput = {
+    type: input.type, effectiveDate, createdBy: actor.name,
+  };
+
+  if (input.type === "PERPANJANGAN") {
+    if (target.employmentStatus !== "KONTRAK") throw new Error("Hanya karyawan kontrak yang bisa diperpanjang");
+    const contractEndDate = toDate(input.contractEndDate);
+    if (!contractEndDate || contractEndDate <= effectiveDate) throw new Error("Tanggal akhir kontrak tidak valid");
+    if (target.contractEndDate && contractEndDate <= target.contractEndDate) {
+      throw new Error("Tanggal akhir kontrak harus setelah kontrak lama");
+    }
+    const spkNumber = input.spkNumber?.trim() || null;
+    const spkDate = toDate(input.spkDate);
+    Object.assign(changes, { contractEndDate, spkNumber, spkDate });
+    Object.assign(event, { contractEndDate, spkNumber, spkDate });
+    log("contractEndDate", target.contractEndDate, contractEndDate);
+    log("spkNumber", target.spkNumber, spkNumber);
+    log("spkDate", target.spkDate, spkDate);
+  } else if (input.type === "PEMBERHENTIAN") {
+    const reason = input.reason?.trim();
+    if (!reason) throw new Error("Alasan wajib diisi");
+    // Tanggal berhenti di masa depan belum memutus akses karyawan.
+    const isActive = target.isActive && effectiveDate > new Date();
+    Object.assign(changes, { resignDate: effectiveDate, isActive });
+    event.reason = reason;
+    log("resignDate", target.resignDate, effectiveDate);
+    if (isActive !== target.isActive) log("isActive", target.isActive, isActive);
+  } else {
+    throw new Error("Jenis tidak dikenal");
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { ...changes, employmentEvents: { create: event }, changeLogs: { create: logs } },
   });
   revalidatePath(LIST_PATH);
   revalidatePath(`${LIST_PATH}/${id}`);

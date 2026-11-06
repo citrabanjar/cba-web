@@ -84,7 +84,7 @@ const COLUMNS: Column[] = [
   { field: "resignDate", names: ["Tanggal Resign", "Resign Date"], kind: "date", example: "2026-06-30" },
   { field: "isActive", names: ["Status Aktif", "Follow Company General Policy"], choices: FLAG, shown: "Aktif, Nonaktif", example: "Aktif", note: "Kalau kosong dianggap Aktif. Karyawan Nonaktif tidak bisa login." },
   { field: "basicSalary", names: ["Gaji Pokok", "Basic Salary"], kind: "money", required: true, example: "5000000", note: "Angka saja, tanpa Rp dan tanpa titik." },
-  { field: "paymentSchedule", names: ["Jadwal Bayar", "Payment Schedule"], choices: { bulanan: "Bulanan", monthly: "Bulanan" }, shown: "Bulanan", example: "Bulanan" },
+  { field: "paymentSchedule", names: ["Jadwal Bayar", "Payment Schedule"], choices: { bulanan: "Bulanan", monthly: "Bulanan", mingguan: "Mingguan", weekly: "Mingguan" }, shown: "Bulanan, Mingguan", example: "Bulanan" },
   { field: "bpjsTkNumber", names: ["No BPJS Ketenagakerjaan", "BPJS Ketenagakerjaan Number"], kind: "digits", example: "12345678901" },
   { field: "bpjsTkActive", names: ["Status BPJS Ketenagakerjaan", "BPJS Ketenagakerjaan"], choices: BPJS, shown: "Ikut, Tidak Ikut", example: "Ikut", note: "Kalau kosong dianggap Tidak Ikut." },
   { field: "bpjsTkBase", names: ["Dasar Upah BPJS Ketenagakerjaan", "BPJS Ketenagakerjaan Multiplier"], kind: "money", example: "5000000", note: "Angka saja." },

@@ -100,6 +100,8 @@ model User {
   paymentSchedule  String?
 
   // Data pribadi
+  spkNumber        String?
+  spkDate          DateTime?        @db.Date
   idType           String?
   ktpNumber        String?          @unique
   address          String?          @db.Text // alamat sesuai identitas
@@ -132,6 +134,7 @@ model User {
   salaries     EmployeeSalary[]
   changeLogs   EmployeeChangeLog[]
   family       FamilyMember[]
+  employmentEvents EmploymentEvent[]
   accounts     Account[]
   sessions     Session[]
   attendances  Attendance[]
@@ -332,6 +335,23 @@ model SalaryComponent {
   salary EmployeeSalary @relation(fields: [salaryId], references: [id], onDelete: Cascade)
 
   @@index([salaryId])
+}
+
+model EmploymentEvent {
+  id              String    @id @default(cuid())
+  userId          String
+  type            String // PERPANJANGAN atau PEMBERHENTIAN
+  effectiveDate   DateTime  @db.Date
+  contractEndDate DateTime? @db.Date
+  spkNumber       String?
+  spkDate         DateTime? @db.Date
+  reason          String?
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, effectiveDate])
 }
 
 model FamilyMember {
