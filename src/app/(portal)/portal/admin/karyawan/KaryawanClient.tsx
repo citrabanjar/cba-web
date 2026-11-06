@@ -3,12 +3,10 @@
 import { useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import { Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
-import * as XLSX from "xlsx";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,25 +17,25 @@ import {
 } from "@/components/ui/dialog";
 import {
   createEmployee, updateEmployee, toggleEmployeeActive,
-  bulkCreateEmployees, type EmployeeInput,
+  importEmployees, type EmployeeInput, type ImportResult,
 } from "./actions";
+import {
+  downloadTemplate, parseEmployeeFile, type ParsedFile,
+} from "@/lib/employee-import";
 
 type Dept = { id: string; name: string };
 type Employee = {
-  id: string; employeeId: string; name: string; email: string | null;
+  id: string; employeeNo: number | null; employeeId: string; name: string; email: string | null;
   phone: string | null; role: string; employmentStatus: string;
   position: string | null; isActive: boolean; joinDate: Date | null;
   bankName: string | null; bankAccount: string | null; bankHolder: string | null;
   department: Dept | null;
 };
 
-const ROLES = ["KARYAWAN", "HRD", "MANAGER", "ADMIN"];
 const STATUSES = ["KONTRAK", "TETAP", "PROBATION"];
 
 const ROLE_BADGE: Record<string, string> = {
   KARYAWAN: "bg-gray-100 text-gray-600 border-gray-200",
-  HRD: "bg-green-100 text-green-700 border-green-200",
-  MANAGER: "bg-blue-100 text-blue-700 border-blue-200",
   ADMIN: "bg-red-100 text-brand border-red-200",
 };
 const STATUS_BADGE: Record<string, string> = {
@@ -49,51 +47,9 @@ const STATUS_BADGE: Record<string, string> = {
 const EMPTY: Partial<EmployeeInput> = {
   employeeId: "", name: "", email: "", phone: "",
   departmentName: "", position: "", employmentStatus: "KONTRAK",
-  role: "KARYAWAN", joinDate: "", password: "",
+  joinDate: "", password: "",
   bankName: "", bankAccount: "", bankHolder: "",
 };
-
-function parseExcel(buffer: ArrayBuffer): Record<string, string>[] {
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
-}
-
-const CSV_HEADERS = [
-  "NIK", "Nama", "Email", "No HP", "Departemen", "Jabatan",
-  "Status Kerja", "Role", "Tanggal Masuk", "Password",
-  "No Rekening", "Nama Bank", "Nama Pemilik Rekening",
-];
-const CSV_EXAMPLE = [
-  "CBA001", "Ahmad Subarjo", "ahmad@email.com", "081234567890",
-  "Teknik", "Fabricator", "TETAP", "KARYAWAN", "2024-01-15", "CBA@2025",
-  "1234567890", "BCA", "Ahmad Subarjo",
-];
-
-function downloadTemplate() {
-  const ws = XLSX.utils.aoa_to_sheet([CSV_HEADERS, CSV_EXAMPLE]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Karyawan");
-  XLSX.writeFile(wb, "template_karyawan.xlsx");
-}
-
-function csvRowToInput(row: Record<string, string>): EmployeeInput {
-  return {
-    employeeId: row["NIK"] ?? "",
-    name: row["Nama"] ?? "",
-    email: row["Email"] || undefined,
-    phone: row["No HP"] || undefined,
-    departmentName: row["Departemen"] || undefined,
-    position: row["Jabatan"] || undefined,
-    employmentStatus: row["Status Kerja"] || "KONTRAK",
-    role: row["Role"] || "KARYAWAN",
-    joinDate: row["Tanggal Masuk"] || undefined,
-    password: row["Password"] || "CBA@2025",
-    bankName: row["Nama Bank"] || undefined,
-    bankAccount: row["No Rekening"] || undefined,
-    bankHolder: row["Nama Pemilik Rekening"] || undefined,
-  };
-}
 
 function StatusBadge({ value, map }: { value: string; map: Record<string, string> }) {
   const cls = map[value] ?? "bg-gray-100 text-gray-600 border-gray-200";
@@ -104,14 +60,18 @@ function StatusBadge({ value, map }: { value: string; map: Record<string, string
   );
 }
 
-export default function KaryawanClient({ employees: initial }: { employees: Employee[]; depts: Dept[] }) {
+export default function KaryawanClient({
+  employees: initial, canImport,
+}: {
+  employees: Employee[]; depts: Dept[]; canImport: boolean;
+}) {
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"none" | "add" | "edit" | "upload">("none");
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [form, setForm] = useState<Partial<EmployeeInput>>({ ...EMPTY });
-  const [csvRows, setCsvRows] = useState<EmployeeInput[]>([]);
-  const [importResult, setImportResult] = useState<{ ok: number; skip: number } | null>(null);
+  const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult[] | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -137,7 +97,6 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
       employeeId: emp.employeeId, name: emp.name, email: emp.email ?? "",
       phone: emp.phone ?? "", departmentName: emp.department?.name ?? "",
       position: emp.position ?? "", employmentStatus: emp.employmentStatus,
-      role: emp.role,
       joinDate: emp.joinDate ? new Date(emp.joinDate).toISOString().split("T")[0] : "",
       password: "", bankName: emp.bankName ?? "",
       bankAccount: emp.bankAccount ?? "", bankHolder: emp.bankHolder ?? "",
@@ -148,11 +107,7 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
 
   function handleSave() {
     if (!form.employeeId?.trim() || !form.name?.trim()) {
-      setMsg({ type: "err", text: "NIK dan Nama wajib diisi." });
-      return;
-    }
-    if (modal === "add" && !form.password?.trim()) {
-      setMsg({ type: "err", text: "Password wajib diisi." });
+      setMsg({ type: "err", text: "ID Karyawan dan Nama wajib diisi." });
       return;
     }
     startTransition(async () => {
@@ -160,32 +115,35 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
         if (modal === "add") {
           await createEmployee(form as EmployeeInput);
           setEmployees(prev => [...prev, {
-            id: "tmp-" + Date.now(),
+            id: "tmp-" + Date.now(), employeeNo: null,
             employeeId: form.employeeId!, name: form.name!,
             email: form.email || null, phone: form.phone || null,
-            role: form.role ?? "KARYAWAN", employmentStatus: form.employmentStatus ?? "KONTRAK",
+            role: "KARYAWAN", employmentStatus: form.employmentStatus ?? "KONTRAK",
             position: form.position || null, isActive: true, joinDate: null,
             bankName: form.bankName || null, bankAccount: form.bankAccount || null,
             bankHolder: form.bankHolder || null,
             department: form.departmentName ? { id: "", name: form.departmentName } : null,
           }]);
         } else if (editTarget) {
-          await updateEmployee(editTarget.id, form);
+          await updateEmployee(editTarget.id, {
+            ...form,
+            password: form.password || undefined,
+          });
           setEmployees(prev => prev.map(e => e.id === editTarget.id ? {
             ...e,
+            employeeId: form.employeeId ?? e.employeeId,
             name: form.name ?? e.name,
             email: form.email || null, phone: form.phone || null,
             position: form.position || null, bankName: form.bankName || null,
             bankAccount: form.bankAccount || null, bankHolder: form.bankHolder || null,
-            role: form.role ?? e.role,
             employmentStatus: form.employmentStatus ?? e.employmentStatus,
             joinDate: form.joinDate ? new Date(form.joinDate) : e.joinDate,
             department: form.departmentName ? { id: e.department?.id ?? "", name: form.departmentName } : null,
           } : e));
         }
         setModal("none");
-      } catch (e) {
-        setMsg({ type: "err", text: "Gagal menyimpan: " + String(e) });
+      } catch {
+        setMsg({ type: "err", text: "Gagal menyimpan. Periksa ID Karyawan dan email, mungkin sudah dipakai." });
       }
     });
   }
@@ -202,25 +160,25 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const buffer = ev.target?.result as ArrayBuffer;
-      const parsed = parseExcel(buffer);
-      setCsvRows(parsed.map(csvRowToInput).filter(r => r.employeeId && r.name));
+      setParsed(parseEmployeeFile(ev.target?.result as ArrayBuffer));
       setImportResult(null);
     };
     reader.readAsArrayBuffer(file);
   }
 
   function handleImport() {
-    if (!csvRows.length) return;
+    if (!parsed?.rows.length) return;
     startTransition(async () => {
-      const { results } = await bulkCreateEmployees(csvRows);
-      const ok = results.filter(r => r.status === "ok").length;
-      const skip = results.filter(r => r.status === "skip").length;
-      setImportResult({ ok, skip });
-      setCsvRows([]);
+      const { results } = await importEmployees(parsed.rows);
+      setImportResult(results);
+      setParsed(null);
       if (fileRef.current) fileRef.current.value = "";
-      window.location.reload();
     });
+  }
+
+  function closeImport() {
+    setModal("none");
+    if (importResult?.some((r) => r.status === "ok")) window.location.reload();
   }
 
   const isFormOpen = modal === "add" || modal === "edit";
@@ -238,20 +196,24 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
           <Button onClick={openAdd} size="sm" className="gap-1.5">
             <Plus size={15} /> Tambah Karyawan
           </Button>
-          <Button variant="outline" size="sm"
-            onClick={() => { setModal("upload"); setCsvRows([]); setImportResult(null); }}
-            className="gap-1.5">
-            <Upload size={15} /> Upload Excel
-          </Button>
-          <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-1.5">
-            <Download size={15} /> Template .xlsx
-          </Button>
+          {canImport && (
+            <>
+              <Button variant="outline" size="sm"
+                onClick={() => { setModal("upload"); setParsed(null); setImportResult(null); }}
+                className="gap-1.5">
+                <Upload size={15} /> Import Excel
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-1.5">
+                <Download size={15} /> Template .xlsx
+              </Button>
+            </>
+          )}
           <div className="relative ml-auto w-full sm:w-72 mt-2 sm:mt-0">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <Input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Cari NIK, nama, jabatan..."
+              placeholder="Cari ID, nama, jabatan..."
               className="pl-9"
             />
           </div>
@@ -262,7 +224,8 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                <TableHead className="w-[110px] px-4">NIK</TableHead>
+                <TableHead className="w-[70px] px-4">No.</TableHead>
+                <TableHead className="w-[110px] px-4">ID Karyawan</TableHead>
                 <TableHead className="px-4">Nama</TableHead>
                 <TableHead className="hidden md:table-cell px-4">Departemen</TableHead>
                 <TableHead className="hidden lg:table-cell px-4">Status Kerja</TableHead>
@@ -274,13 +237,14 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={7} className="text-center py-12 text-gray-400 text-sm">
-                    {search ? "Tidak ada karyawan yang cocok." : "Belum ada karyawan. Tambah atau upload CSV."}
+                  <TableCell colSpan={8} className="text-center py-12 text-gray-400 text-sm">
+                    {search ? "Tidak ada karyawan yang cocok." : "Belum ada karyawan. Tambah atau import dari Excel."}
                   </TableCell>
                 </TableRow>
               )}
               {filtered.map(emp => (
                 <TableRow key={emp.id} className={!emp.isActive ? "opacity-50" : ""}>
+                  <TableCell className="px-4 text-xs text-gray-500">{emp.employeeNo ?? "—"}</TableCell>
                   <TableCell className="px-4 font-mono text-xs text-gray-500 whitespace-nowrap">
                     {emp.employeeId}
                   </TableCell>
@@ -359,7 +323,7 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
             )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">NIK *</Label>
+                <Label className="text-xs">ID Karyawan *</Label>
                 <Input value={form.employeeId ?? ""} onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
@@ -402,20 +366,6 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Role</Label>
-                <Select
-                  value={form.role ?? "KARYAWAN"}
-                  onValueChange={(v: string | null) => setForm(f => ({ ...f, role: v ?? f.role }))}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Tanggal Masuk</Label>
@@ -423,7 +373,7 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">
-                {modal === "add" ? "Password *" : "Password Baru (kosongkan jika tidak diganti)"}
+                {modal === "add" ? "Password (opsional)" : "Password Baru (kosongkan jika tidak diganti)"}
               </Label>
               <Input type="password" value={form.password ?? ""} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
             </div>
@@ -454,21 +404,19 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
         </DialogContent>
       </Dialog>
 
-      {/* CSV Upload Dialog */}
-      <Dialog open={modal === "upload"} onOpenChange={(open: boolean) => { if (!open) setModal("none"); }}>
+      {/* Dialog import */}
+      <Dialog open={modal === "upload"} onOpenChange={(open: boolean) => { if (!open) closeImport(); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Upload Excel Karyawan</DialogTitle>
+            <DialogTitle>Import Data Karyawan</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-1">
             <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
-              <p className="font-semibold">Format kolom Excel:</p>
-              <p className="text-gray-600">NIK, Nama, Email, No HP, Departemen, Jabatan, Status Kerja, Role, Tanggal Masuk, Password, No Rekening, Nama Bank, Nama Pemilik Rekening</p>
-              <p className="text-gray-600">• Status Kerja: TETAP / KONTRAK / PROBATION</p>
-              <p className="text-gray-600">• Role: KARYAWAN / HRD / MANAGER / ADMIN</p>
-              <p className="text-gray-600">• Tanggal: YYYY-MM-DD (mis. 2024-01-15)</p>
-              <p className="text-gray-600">• NIK yang sudah ada akan dilewati</p>
+              <p>• Pakai template portal, atau langsung file ekspor KantorKu.</p>
+              <p>• No. Urut dibuat otomatis, karyawan terlama dapat nomor terkecil.</p>
+              <p>• ID Karyawan yang sudah ada akan dilewati, datanya tidak diubah.</p>
+              <p>• Gaji awal dicatat berlaku sejak Tanggal Masuk.</p>
             </div>
 
             <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
@@ -483,21 +431,39 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
                 className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-brand file:text-white file:text-xs file:font-medium hover:file:bg-brand-dark cursor-pointer" />
             </div>
 
-            {csvRows.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2">{csvRows.length} data siap diimport:</p>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {csvRows.slice(0, 10).map((r, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-gray-50 rounded px-3 py-1.5 text-xs">
-                      <span className="font-mono text-gray-500 w-16 shrink-0">{r.employeeId}</span>
-                      <span className="text-gray-700 flex-1 truncate">{r.name}</span>
-                      <span className="text-gray-400 shrink-0">{r.employmentStatus}</span>
-                    </div>
-                  ))}
-                  {csvRows.length > 10 && (
-                    <p className="text-xs text-gray-400 text-center">... dan {csvRows.length - 10} lainnya</p>
-                  )}
-                </div>
+            {parsed && (
+              <div className="space-y-2 text-xs">
+                {parsed.sheet && (
+                  <p className="text-gray-600">
+                    Sheet <span className="font-semibold">{parsed.sheet}</span>:{" "}
+                    {parsed.rows.length} karyawan siap diimport,{" "}
+                    {parsed.rows.filter((r) => !r.isActive).length} berstatus nonaktif.
+                  </p>
+                )}
+                {parsed.errors.length > 0 && (
+                  <div className="bg-red-50 text-red-700 rounded-lg p-3 space-y-1 max-h-32 overflow-y-auto">
+                    {parsed.errors.map((e) => <p key={e}>{e}</p>)}
+                  </div>
+                )}
+                {parsed.unknown.length > 0 && (
+                  <p className="text-gray-500">
+                    Kolom yang tidak dipakai: {parsed.unknown.join(", ")}
+                  </p>
+                )}
+                {parsed.rows.length > 0 && (
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {parsed.rows.slice(0, 10).map((r) => (
+                      <div key={r.employeeId} className="flex items-center gap-2 bg-gray-50 rounded px-3 py-1.5">
+                        <span className="font-mono text-gray-500 w-16 shrink-0">{r.employeeId}</span>
+                        <span className="text-gray-700 flex-1 truncate">{r.name}</span>
+                        <span className="text-gray-400 shrink-0">{r.employmentStatus}</span>
+                      </div>
+                    ))}
+                    {parsed.rows.length > 10 && (
+                      <p className="text-gray-400 text-center">... dan {parsed.rows.length - 10} lainnya</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -506,19 +472,23 @@ export default function KaryawanClient({ employees: initial }: { employees: Empl
                 <div className="flex items-center gap-2 text-green-700 text-sm font-semibold">
                   <CheckCircle2 size={16} /> Import selesai
                 </div>
-                <p className="text-xs text-green-600">✓ {importResult.ok} karyawan berhasil diimport</p>
-                {importResult.skip > 0 && (
-                  <p className="text-xs text-amber-600">⚠ {importResult.skip} dilewati (NIK sudah ada)</p>
-                )}
+                <p className="text-xs text-green-600">
+                  {importResult.filter((r) => r.status === "ok").length} karyawan berhasil diimport
+                </p>
+                {importResult.filter((r) => r.status === "skip" || r.warning).map((r) => (
+                  <p key={r.employeeId} className="text-xs text-amber-700">
+                    {r.employeeId}: {r.reason ?? r.warning}
+                  </p>
+                ))}
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setModal("none")}>Tutup</Button>
-            <Button size="sm" onClick={handleImport} disabled={isPending || csvRows.length === 0} className="gap-2">
+            <Button variant="outline" size="sm" onClick={closeImport}>Tutup</Button>
+            <Button size="sm" onClick={handleImport} disabled={isPending || !parsed?.rows.length} className="gap-2">
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {isPending ? "Mengimport..." : `Import ${csvRows.length} Karyawan`}
+              {isPending ? "Mengimport..." : `Import ${parsed?.rows.length ?? 0} Karyawan`}
             </Button>
           </DialogFooter>
         </DialogContent>

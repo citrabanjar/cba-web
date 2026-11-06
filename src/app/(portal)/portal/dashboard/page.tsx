@@ -4,11 +4,12 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, AlertCircle, ShieldCheck, Settings,
+  Receipt, TrendingUp, AlertCircle, ShieldCheck, Settings, Network,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { canManage, isSuperAdmin, roleLabel } from "@/lib/roles";
+import { getAccess } from "@/lib/access";
+import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -16,7 +17,8 @@ export default async function DashboardPage() {
 
   const user = session.user;
   const greeting = getGreeting();
-  const isAdmin = canManage(user.role) || user.role === "HRD" || user.role === "MANAGER";
+  const access = await getAccess();
+  const isAdmin = hasMenu(access, "karyawan");
   const superAdmin = isSuperAdmin(user.role);
 
   const menuItems = [
@@ -59,6 +61,16 @@ export default async function DashboardPage() {
             icon: ShieldCheck,
             label: "Data Karyawan",
             desc: "Kelola data karyawan",
+          },
+        ]
+      : []),
+    ...(hasMenu(access, "perusahaan")
+      ? [
+          {
+            href: "/portal/admin/perusahaan",
+            icon: Network,
+            label: "Struktur Organisasi",
+            desc: "Bagan organisasi perusahaan",
           },
         ]
       : []),

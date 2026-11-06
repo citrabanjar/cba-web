@@ -6,15 +6,15 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Home, Clock, Calendar, Briefcase, FileText,
-  Receipt, Users, LogOut, Menu, X, Settings,
+  Receipt, Users, LogOut, Menu, X, Settings, Network,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
-import { canManage, isSuperAdmin, roleLabel } from "@/lib/roles";
+import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavSection = { section: string; items: NavItem[] };
 
-function getNavSections(role: string): NavSection[] {
+function getNavSections(role: string, menuAccess: string[]): NavSection[] {
   const sections: NavSection[] = [
     {
       section: "MENU UTAMA",
@@ -41,14 +41,21 @@ function getNavSections(role: string): NavSection[] {
     },
   );
 
-  if (canManage(role) || role === "HRD" || role === "MANAGER") {
+  if (hasMenu({ role, menuAccess }, "karyawan")) {
     sections.push({
       section: "EMPLOYEE",
       items: [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }],
     });
   }
 
-  if (canManage(role)) {
+  if (hasMenu({ role, menuAccess }, "perusahaan")) {
+    sections.push({
+      section: "COMPANY",
+      items: [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }],
+    });
+  }
+
+  if (isManagement(role)) {
     sections.push({
       section: "ADMIN",
       items: [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }],
@@ -59,7 +66,7 @@ function getNavSections(role: string): NavSection[] {
 }
 
 type Props = {
-  user: { name: string; employeeId: string | null; role: string };
+  user: { name: string; employeeId: string | null; role: string; menuAccess: string[] };
   children: React.ReactNode;
 };
 
@@ -135,7 +142,7 @@ function LogoutButton({ className = "" }: { className?: string }) {
 export default function PortalShell({ user, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const sections = getNavSections(user.role);
+  const sections = getNavSections(user.role, user.menuAccess);
   const userInfo = [user.employeeId, roleLabel(user.role)].filter(Boolean).join(" · ");
 
   return (

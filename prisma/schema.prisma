@@ -55,9 +55,12 @@ enum EmploymentStatus {
 enum UserRole {
   KARYAWAN
   ADMIN
-  HRD
-  MANAGER
   SUPER_ADMIN
+}
+
+enum SalaryComponentType {
+  TUNJANGAN
+  POTONGAN
 }
 
 model Department {
@@ -69,6 +72,7 @@ model Department {
 
 model User {
   id               String           @id @default(cuid())
+  employeeNo       Int?             @unique // No. Urut: tetap selamanya, tidak dipakai ulang
   employeeId       String?          @unique // kosong untuk SUPER_ADMIN (bukan karyawan)
   name             String
   email            String?          @unique
@@ -86,8 +90,44 @@ model User {
   bankHolder       String?
   isActive         Boolean          @default(true)
   kantorkuId       String?
+  menuAccess       String[]         @default([]) // menu yang dibuka super admin untuk ADMIN
+
+  // Pekerjaan
+  branch           String?
+  managerId        String?
+  contractEndDate  DateTime?        @db.Date
+  resignDate       DateTime?        @db.Date
+  paymentSchedule  String?
+
+  // Data pribadi
+  ktpNumber        String?          @unique
+  address          String?          @db.Text // alamat sesuai KTP
+  birthPlace       String?
+  birthDate        DateTime?        @db.Date
+  gender           String?
+  religion         String?
+  maritalStatus    String?
+  nationality      String?
+  emergencyName    String?
+  emergencyPhone   String?
+  emergencyRelation String?
+
+  // Pajak dan BPJS
+  npwp             String?
+  ptkpStatus       String?
+  taxability       String?
+  taxStatus        String?
+  taxObjectCode    String?
+  bpjsTkNumber     String?
+  bpjsTkActive     Boolean          @default(false)
+  bpjsKesNumber    String?
+  bpjsKesActive    Boolean          @default(false)
 
   department   Department?   @relation(fields: [departmentId], references: [id])
+  manager      User?         @relation("Atasan", fields: [managerId], references: [id], onDelete: SetNull)
+  reports      User[]        @relation("Atasan")
+  salaries     EmployeeSalary[]
+  changeLogs   EmployeeChangeLog[]
   accounts     Account[]
   sessions     Session[]
   attendances  Attendance[]
@@ -255,4 +295,51 @@ model ProjectUpdate {
 
   project CustomerProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+}
+
+// ─── Riwayat gaji dan perubahan data ────────────────────────────────────────
+
+// Setiap penyesuaian gaji adalah baris baru. Baris lama tidak pernah diubah,
+// jadi riwayat beserta tanggal berlakunya selalu terjaga.
+model EmployeeSalary {
+  id            String   @id @default(cuid())
+  userId        String
+  effectiveDate DateTime @db.Date
+  basicSalary   Float
+  bpjsTkBase    Float?
+  bpjsKesBase   Float?
+  note          String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  components SalaryComponent[]
+
+  @@unique([userId, effectiveDate])
+}
+
+model SalaryComponent {
+  id       String              @id @default(cuid())
+  salaryId String
+  type     SalaryComponentType
+  name     String
+  amount   Float
+
+  salary EmployeeSalary @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+
+  @@index([salaryId])
+}
+
+model EmployeeChangeLog {
+  id        String   @id @default(cuid())
+  userId    String
+  field     String
+  oldValue  String?
+  newValue  String?
+  changedBy String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

@@ -1,20 +1,21 @@
 export const dynamic = "force-dynamic";
-import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { canManage } from "@/lib/roles";
+import { getAccess } from "@/lib/access";
+import { hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import KaryawanClient from "./KaryawanClient";
 
 export default async function AdminKaryawanPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/portal");
-  if (!canManage(session.user.role)) redirect("/portal/dashboard");
+  const access = await getAccess();
+  if (!access) redirect("/portal");
+  if (!hasMenu(access, "karyawan")) redirect("/portal/dashboard");
 
   const employees = await prisma.user.findMany({
     where: { role: { not: "SUPER_ADMIN" } },
     // Pakai select eksplisit supaya passwordHash tidak ikut terkirim ke client.
     select: {
       id: true,
+      employeeNo: true,
       employeeId: true,
       name: true,
       email: true,
@@ -29,7 +30,7 @@ export default async function AdminKaryawanPage() {
       bankHolder: true,
       department: { select: { id: true, name: true } },
     },
-    orderBy: { employeeId: "asc" },
+    orderBy: [{ employeeNo: "asc" }, { employeeId: "asc" }],
   });
 
   const depts = await prisma.department.findMany({ orderBy: { name: "asc" } });
@@ -38,6 +39,7 @@ export default async function AdminKaryawanPage() {
     <KaryawanClient
       employees={employees.map((e) => ({ ...e, employeeId: e.employeeId ?? "" }))}
       depts={depts}
+      canImport={hasMenu(access, "import")}
     />
   );
 }

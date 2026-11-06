@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
-import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
-import { canManage } from "@/lib/roles";
+import { getAccess } from "@/lib/access";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import KaryawanDetailClient from "./KaryawanDetailClient";
 
@@ -24,30 +24,29 @@ export default async function KaryawanDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/portal");
-  if (!canManage(session.user.role)) redirect("/portal/dashboard");
+  const access = await getAccess();
+  if (!access) redirect("/portal");
+  if (!hasMenu(access, "karyawan")) redirect("/portal/dashboard");
 
   const { id } = await params;
+  const canSeePay = hasMenu(access, "gaji");
 
   // Pakai select eksplisit supaya passwordHash tidak ikut terkirim ke client.
   const employee = await prisma.user.findFirst({
     where: { id, role: { not: "SUPER_ADMIN" } },
     select: {
-      id: true,
-      employeeId: true,
-      name: true,
-      email: true,
-      phone: true,
-      image: true,
-      role: true,
-      employmentStatus: true,
-      position: true,
-      joinDate: true,
-      bankName: true,
-      bankAccount: true,
-      bankHolder: true,
-      isActive: true,
+      id: true, employeeNo: true, employeeId: true, name: true, email: true,
+      phone: true, image: true, role: true, menuAccess: true,
+      employmentStatus: true, position: true, branch: true, joinDate: true,
+      contractEndDate: true, resignDate: true, paymentSchedule: true,
+      bankName: true, bankAccount: true, bankHolder: true, isActive: true,
+      ktpNumber: true, address: true, birthPlace: true, birthDate: true,
+      gender: true, religion: true, maritalStatus: true, nationality: true,
+      emergencyName: true, emergencyPhone: true, emergencyRelation: true,
+      npwp: true, ptkpStatus: true, taxability: true, taxStatus: true,
+      taxObjectCode: true, bpjsTkNumber: true, bpjsTkActive: true,
+      bpjsKesNumber: true, bpjsKesActive: true, managerId: true,
+      manager: { select: { name: true, employeeId: true } },
       department: { select: { id: true, name: true } },
       attendances: {
         orderBy: { date: "desc" },
@@ -73,20 +72,52 @@ export default async function KaryawanDetailPage({
           endDate: true, totalDays: true, status: true,
         },
       },
-      payslips: {
-        orderBy: { period: "desc" },
-        take: 12,
-        select: {
-          id: true, periodLabel: true, basicSalary: true, overtimePay: true,
-          mealAllowance: true, travelAllowance: true, otherBenefits: true,
-          pph21: true, bpjsKesehatan: true, bpjsKetenagakerjaan: true,
-          otherDeductions: true, netPay: true, paidAt: true, paidVia: true,
-        },
-      },
     },
   });
 
   if (!employee) notFound();
 
-  return <KaryawanDetailClient employee={{ ...employee, employeeId: employee.employeeId ?? "" }} tenure={tenure(employee.joinDate)} />;
+  // Data gaji hanya diambil kalau akun ini punya akses menu Gaji.
+  const salaries = canSeePay
+    ? await prisma.employeeSalary.findMany({
+        where: { userId: id },
+        orderBy: { effectiveDate: "desc" },
+        select: {
+          id: true, effectiveDate: true, basicSalary: true, bpjsTkBase: true,
+          bpjsKesBase: true, note: true, createdBy: true,
+          components: { select: { id: true, type: true, name: true, amount: true } },
+        },
+      })
+    : [];
+
+  const payslips = canSeePay
+    ? await prisma.payslip.findMany({
+        where: { userId: id },
+        orderBy: { period: "desc" },
+        take: 12,
+        select: { id: true, periodLabel: true, netPay: true, paidAt: true, paidVia: true },
+      })
+    : [];
+
+  const managers = await prisma.user.findMany({
+    where: { role: { not: "SUPER_ADMIN" }, isActive: true, id: { not: id } },
+    select: { id: true, name: true, employeeId: true },
+    orderBy: { name: "asc" },
+  });
+
+  return (
+    <KaryawanDetailClient
+      employee={{
+        ...employee,
+        employeeId: employee.employeeId ?? "",
+        salaries,
+        payslips,
+      }}
+      tenure={tenure(employee.joinDate)}
+      managers={managers}
+      canSeePay={canSeePay}
+      isSuper={isSuperAdmin(access.role)}
+      canEdit={isSuperAdmin(access.role) || employee.role === "KARYAWAN"}
+    />
+  );
 }

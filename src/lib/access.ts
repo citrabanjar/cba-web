@@ -1,0 +1,27 @@
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { hasMenu, type MenuKey } from "@/lib/roles";
+
+// Hak akses selalu dibaca dari database, bukan dari sesi login. Dengan begitu,
+// perubahan menu oleh super admin langsung berlaku tanpa harus login ulang.
+export async function getAccess() {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, name: true, role: true, menuAccess: true, isActive: true },
+  });
+  return user?.isActive ? user : null;
+}
+
+export async function requireMenu(menu: MenuKey) {
+  const user = await getAccess();
+  if (!user || !hasMenu(user, menu)) throw new Error("Unauthorized");
+  return user;
+}
+
+export async function requireSuperAdmin() {
+  const user = await getAccess();
+  if (user?.role !== "SUPER_ADMIN") throw new Error("Unauthorized");
+  return user;
+}
