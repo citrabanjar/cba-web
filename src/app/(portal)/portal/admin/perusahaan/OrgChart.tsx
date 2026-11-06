@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight, Printer, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { T } from "@/components/i18n";
+import { formatDate } from "@/lib/utils";
 
 type Person = {
   id: string;
@@ -192,9 +193,7 @@ export default function OrgChart({
     return () => window.removeEventListener("afterprint", finish);
   }, [printing, paper]);
 
-  const printDate = new Date().toLocaleDateString("id-ID", {
-    day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta",
-  });
+  const printDate = formatDate(new Date(), "Asia/Jakarta");
 
   return (
     <div className="bg-gray-50 min-h-full print:bg-white">

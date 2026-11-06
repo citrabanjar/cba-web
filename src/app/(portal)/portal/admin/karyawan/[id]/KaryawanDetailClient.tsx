@@ -13,7 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
-import { formatRupiah } from "@/lib/utils";
+import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
 import type { MasterOptions } from "@/lib/master-data";
 import { FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS } from "@/lib/personal-info";
@@ -166,20 +166,12 @@ const ATTENDANCE: Record<string, string> = {
 // Zona waktu ditulis eksplisit supaya hasil server dan browser sama.
 function fmtDate(d: Date | null): string {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("id-ID", {
-    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
-  });
+  return formatDate(d);
 }
 function fmtTime(d: Date | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleTimeString("id-ID", {
     hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
-  });
-}
-function fmtDateTime(d: Date): string {
-  return new Date(d).toLocaleString("id-ID", {
-    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-    timeZone: "Asia/Jakarta",
   });
 }
 const toInputDate = (d: Date | null) => (d ? new Date(d).toISOString().split("T")[0] : "");
@@ -911,7 +903,7 @@ export default function KaryawanDetailClient({
                   <TableBody>
                     {emp.changeLogs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell className="text-sm whitespace-nowrap">{fmtDateTime(log.createdAt)}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{formatDateTime(log.createdAt)}</TableCell>
                         <TableCell className="text-sm"><T>{PERSONAL_LOG_LABELS[log.field] ?? log.field}</T></TableCell>
                         <TableCell className="text-sm">{log.changedBy ?? "—"}</TableCell>
                       </TableRow>

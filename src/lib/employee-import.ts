@@ -79,9 +79,9 @@ const COLUMNS: Column[] = [
   { field: "departmentName", names: ["Departemen", "Department"], example: "ENGINEERING DEPARTEMENT", note: "Departemen baru dibuat otomatis, jadi tulis persis sama untuk satu departemen." },
   { field: "position", names: ["Jabatan", "Position"], example: "SUPERVISOR" },
   { field: "employmentStatus", names: ["Status Kerja", "Employment Status"], required: true, choices: { tetap: "TETAP", permanent: "TETAP", kontrak: "KONTRAK", contract: "KONTRAK", probation: "PROBATION" }, shown: "TETAP, KONTRAK, PROBATION", example: "KONTRAK" },
-  { field: "joinDate", names: ["Tanggal Masuk", "Start Date"], kind: "date", required: true, example: "2024-01-15", note: "Menentukan No. Urut dan tanggal berlaku gaji awal." },
-  { field: "contractEndDate", names: ["Tanggal Akhir Kontrak", "End Date"], kind: "date", example: "2026-12-31", note: "Isi untuk karyawan KONTRAK." },
-  { field: "resignDate", names: ["Tanggal Resign", "Resign Date"], kind: "date", example: "2026-06-30" },
+  { field: "joinDate", names: ["Tanggal Masuk", "Start Date"], kind: "date", required: true, example: "15-Jan-2024", note: "Menentukan No. Urut dan tanggal berlaku gaji awal." },
+  { field: "contractEndDate", names: ["Tanggal Akhir Kontrak", "End Date"], kind: "date", example: "31-Des-2026", note: "Isi untuk karyawan KONTRAK." },
+  { field: "resignDate", names: ["Tanggal Resign", "Resign Date"], kind: "date", example: "30-Jun-2026" },
   { field: "isActive", names: ["Status Aktif", "Follow Company General Policy"], choices: FLAG, shown: "Aktif, Nonaktif", example: "Aktif", note: "Kalau kosong dianggap Aktif. Karyawan Nonaktif tidak bisa login." },
   { field: "basicSalary", names: ["Gaji Pokok", "Basic Salary"], kind: "money", required: true, example: "5000000", note: "Angka saja, tanpa Rp dan tanpa titik." },
   { field: "paymentSchedule", names: ["Jadwal Bayar", "Payment Schedule"], choices: { bulanan: "Bulanan", monthly: "Bulanan", mingguan: "Mingguan", weekly: "Mingguan" }, shown: "Bulanan, Mingguan", example: "Bulanan" },
@@ -103,7 +103,7 @@ const COLUMNS: Column[] = [
   { field: "ktpNumber", names: ["No KTP", "ID Number"], kind: "digits", example: "3201010101010001", note: "16 digit. Tidak boleh sama dengan karyawan lain. Tulis sebagai teks." },
   { field: "address", names: ["Alamat KTP", "Residential Address"], example: "Jl. Contoh No. 1, Banjarmasin" },
   { field: "birthPlace", names: ["Tempat Lahir", "Birth Place"], example: "Banjarmasin" },
-  { field: "birthDate", names: ["Tanggal Lahir", "Birth Date"], kind: "date", example: "1990-05-20" },
+  { field: "birthDate", names: ["Tanggal Lahir", "Birth Date"], kind: "date", example: "20-Mei-1990" },
   { field: "gender", names: ["Jenis Kelamin", "Gender"], choices: { "laki-laki": "Laki-laki", male: "Laki-laki", perempuan: "Perempuan", female: "Perempuan" }, shown: "Laki-laki, Perempuan", example: "Laki-laki" },
   { field: "religion", names: ["Agama", "Religion"], choices: { islam: "Islam", kristen: "Kristen", katolik: "Katolik", hindu: "Hindu", buddha: "Buddha", konghucu: "Konghucu" }, shown: "Islam, Kristen, Katolik, Hindu, Buddha, Konghucu", example: "Islam" },
   { field: "maritalStatus", names: ["Status Nikah", "Marital Status"], choices: { menikah: "Menikah", married: "Menikah", "belum menikah": "Belum Menikah", single: "Belum Menikah", cerai: "Cerai", divorced: "Cerai" }, shown: "Belum Menikah, Menikah, Cerai", example: "Menikah" },
@@ -123,7 +123,7 @@ const SALARY_COLUMNS = [
 ];
 
 const FORMAT_LABEL: Record<Kind, string> = {
-  text: "Teks", digits: "Teks angka", date: "Tanggal YYYY-MM-DD", money: "Angka", email: "Email", phone: "Teks angka",
+  text: "Teks", digits: "Teks angka", date: "Tanggal DD-MMM-YYYY", money: "Angka", email: "Email", phone: "Teks angka",
 };
 
 // Pasangan nama + nominal selalu berurutan, dan KantorKu memakai nama "Amount 1" dua
@@ -136,13 +136,29 @@ const COMPONENT_HEADER: { pattern: RegExp; type: ImportComponent["type"] }[] = [
 const clean = (v: unknown) => String(v ?? "").trim();
 const key = (v: unknown) => clean(v).toLowerCase().replace(/\s+/g, " ");
 
+const MONTH_NAMES: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7,
+  agu: 8, ags: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12,
+};
+
 function toDate(v: unknown): string | undefined {
   if (typeof v === "number") {
     const d = XLSX.SSF.parse_date_code(v);
     if (!d) return undefined;
     return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
   }
-  return clean(v).match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  const text = clean(v);
+  const iso = text.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (iso) return iso;
+
+  // DD-MMM-YYYY atau DD-MM-YYYY, bulannya boleh singkatan Indonesia atau Inggris.
+  const parts = text.match(/^(\d{1,2})[-/ ]([a-z]{3,}|\d{1,2})[-/ ](\d{4})$/i);
+  if (!parts) return undefined;
+  const month = /^\d+$/.test(parts[2]) ? Number(parts[2]) : MONTH_NAMES[parts[2].slice(0, 3).toLowerCase()];
+  const day = Number(parts[1]);
+  const date = new Date(Date.UTC(Number(parts[3]), (month ?? 0) - 1, day));
+  if (!month || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
+  return date.toISOString().split("T")[0];
 }
 
 function toNumber(v: unknown): number | undefined {
@@ -185,7 +201,7 @@ function instructionRows(): string[][] {
     ["Petunjuk Pengisian Data Karyawan"],
     ["1. Isi data di sheet Karyawan, mulai baris 2. Jangan ubah nama kolom di baris 1."],
     ["2. No. Urut dibuat otomatis oleh portal, jadi tidak ada di file ini."],
-    ["3. Tanggal ditulis dengan format YYYY-MM-DD, misalnya 2024-01-15."],
+    ["3. Tanggal ditulis dengan format DD-MMM-YYYY, misalnya 15-Jan-2024. Format DD-MM-YYYY juga diterima."],
     ["4. Kolom Pilih salah satu harus diisi persis seperti Pilihan Nilai."],
     ["5. No KTP, NPWP, No Rekening, dan No HP sudah diatur sebagai teks. Saat menempel dari file lain, pakai Paste Values supaya angkanya tidak berubah."],
     ["6. Baris yang salah ditampilkan saat import dan tidak ikut masuk. Baris lain tetap bisa diimport."],
@@ -209,7 +225,7 @@ export function buildTemplate(): XLSX.WorkBook {
         data[XLSX.utils.encode_cell({ r, c })] = { t: "s", v: "", z: "@" };
       }
     }
-    const help = col?.shown ?? col?.note ?? (col?.kind === "date" ? "YYYY-MM-DD" : "");
+    const help = col?.shown ?? col?.note ?? (col?.kind === "date" ? "DD-MMM-YYYY" : "");
     const cell = data[XLSX.utils.encode_cell({ r: 0, c })];
     if (help) cell.c = [{ a: "Petunjuk", t: col?.shown ? `Pilih: ${help}` : help, hidden: true }];
   });
@@ -256,7 +272,7 @@ function readCell(col: Column, value: unknown, row: Record<string, unknown>): st
   switch (col.kind) {
     case "date": {
       const date = toDate(value);
-      if (!date) return `${label} "${text}" harus berformat YYYY-MM-DD`;
+      if (!date) return `${label} "${text}" harus berformat DD-MMM-YYYY`;
       row[col.field] = date;
       return null;
     }

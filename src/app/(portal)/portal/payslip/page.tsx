@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { formatRupiah } from "@/lib/utils";
+import { formatDate, formatRupiah } from "@/lib/utils";
 import { T } from "@/components/i18n";
 
 export const metadata: Metadata = { title: "Slip Gaji" };
@@ -46,7 +46,7 @@ export default async function PayslipPage() {
                   </div>
                   {slip.paidAt && (
                     <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-                      <T>Dibayar</T> {new Date(slip.paidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                      <T>Dibayar</T> {formatDate(slip.paidAt, "Asia/Jakarta")}
                     </span>
                   )}
                 </div>

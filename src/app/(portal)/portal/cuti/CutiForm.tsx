@@ -5,6 +5,8 @@ import { CalendarDays, Loader2, CheckCircle2, AlertTriangle, X } from "lucide-re
 import { submitLeave, cancelLeave } from "./actions";
 import type { LeaveRequest } from "@prisma/client";
 import { T, useT } from "@/components/i18n";
+import { Input } from "@/components/ui/input";
+import { formatDate } from "@/lib/utils";
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
   TAHUNAN: "Cuti Tahunan",
@@ -20,10 +22,6 @@ const STATUS_STYLES: Record<string, string> = {
   REJECTED: "bg-red-100 text-red-700",
   CANCELLED: "bg-gray-100 text-gray-500",
 };
-
-function formatDateID(d: Date | string) {
-  return new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-}
 
 interface Props {
   requests: LeaveRequest[];
@@ -89,21 +87,11 @@ export default function CutiForm({ requests }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Tanggal Mulai</T></label>
-                <input
-                  type="date"
-                  name="startDate"
-                  required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                />
+                <Input type="date" name="startDate" required />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Tanggal Akhir</T></label>
-                <input
-                  type="date"
-                  name="endDate"
-                  required
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-                />
+                <Input type="date" name="endDate" required />
               </div>
             </div>
 
@@ -149,8 +137,8 @@ export default function CutiForm({ requests }: Props) {
                       <T>{LEAVE_TYPE_LABELS[req.type] ?? req.type}</T>
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {formatDateID(req.startDate)}
-                      {req.totalDays > 1 ? ` – ${formatDateID(req.endDate)}` : ""}
+                      {formatDate(req.startDate)}
+                      {req.totalDays > 1 ? ` – ${formatDate(req.endDate)}` : ""}
                       {" · "}{req.totalDays} <T>hari</T>
                     </p>
                     <p className="text-xs text-gray-400 mt-1 line-clamp-2"><T>{req.reason}</T></p>

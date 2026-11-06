@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getTodayAttendance, getWeekAttendance } from "./actions";
 import AbsensiWrapper from "./AbsensiWrapper";
 import { T } from "@/components/i18n";
+import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Absensi" };
@@ -23,7 +24,7 @@ export default async function AbsensiPage() {
       <div className="px-6 py-4 border-b border-gray-100 bg-white">
         <h2 className="font-bold text-gray-800"><T>Absensi GPS</T></h2>
         <p className="text-xs text-gray-400 mt-0.5">
-          {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          {new Date().toLocaleDateString("id-ID", { weekday: "long", timeZone: "Asia/Jakarta" })}, {formatDate(new Date(), "Asia/Jakarta")}
         </p>
       </div>
 
