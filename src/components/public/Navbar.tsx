@@ -1,104 +1,143 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from "motion/react";
 import { Menu, X } from "lucide-react";
 import { LanguageSwitcher, T } from "@/components/i18n";
+import "./site.css";
 
 const links = [
-  { href: "/#tentang", label: "Tentang Kami" },
+  { href: "/#beranda", label: "Beranda" },
   { href: "/#layanan", label: "Layanan" },
+  { href: "/#tentang", label: "Tentang Kami" },
   { href: "/#kontak", label: "Kontak" },
 ];
 
+// Tautan membesar saat kursor mendekat, seperti dock macOS.
+function DockLink({ href, label, mouseX }: { href: string; label: string; mouseX: MotionValue<number> }) {
+  const ref = useRef<HTMLLIElement>(null);
+  const distance = useTransform(mouseX, (x) => {
+    const box = ref.current?.getBoundingClientRect();
+    if (!box || !Number.isFinite(x)) return 1000;
+    return x - (box.x + box.width / 2);
+  });
+  const scale = useSpring(useTransform(distance, [-110, 0, 110], [1, 1.18, 1]), { mass: 0.1, stiffness: 240, damping: 16 });
+  const y = useSpring(useTransform(distance, [-110, 0, 110], [0, -2, 0]), { mass: 0.1, stiffness: 240, damping: 16 });
+  return (
+    <motion.li ref={ref} style={{ scale, y }}>
+      <Link href={href} className="site-nav-link">
+        <span><T>{label}</T></span>
+      </Link>
+    </motion.li>
+  );
+}
+
+// Huruf tombol bergelombang saat disentuh kursor.
+function WaveText({ text }: { text: string }) {
+  return (
+    <span className="site-wave" aria-label={text}>
+      {[...text].map((ch, i) => (
+        <span key={i} aria-hidden style={{ animationDelay: `${i * 0.035}s` }}>
+          {ch === " " ? " " : ch}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const mouseX = useMotionValue(Infinity);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 30);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Garis tepi berkilau mengikuti posisi kursor.
+  function track(e: React.MouseEvent) {
+    const nav = navRef.current;
+    if (!nav) return;
+    const box = nav.getBoundingClientRect();
+    nav.style.setProperty("--mx", `${e.clientX - box.left}px`);
+  }
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.jpg"
-              alt="PT. Citra Banjar Abadi"
-              className="h-9 w-auto"
-            />
-          </Link>
+    <header className="site-nav-wrap">
+      <motion.nav
+        ref={navRef}
+        aria-label="Navigasi utama"
+        className={`site-nav ${scrolled ? "is-scrolled" : ""}`}
+        initial={{ opacity: 0, y: -12, scaleX: 0.6 }}
+        animate={{ opacity: 1, y: 0, scaleX: 1 }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        onMouseMove={track}
+        onMouseEnter={() => navRef.current?.style.setProperty("--glow", "1")}
+        onMouseLeave={() => navRef.current?.style.setProperty("--glow", "0")}
+      >
+        <span className="site-nav-shine" aria-hidden />
 
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6">
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="text-sm text-gray-600 hover:text-ink font-medium transition-colors"
-              >
-                <T>{l.label}</T>
-              </Link>
-            ))}
-          </nav>
+        <Link href="/" className="site-nav-logo" aria-label="PT. Citra Banjar Abadi">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.jpg" alt="PT. Citra Banjar Abadi" />
+        </Link>
 
-          {/* CTA */}
-          <div className="hidden md:flex items-center gap-3">
-            <LanguageSwitcher />
-            <Link
-              href="/portal"
-              className="text-sm font-medium text-ink border border-ink px-4 py-2 rounded-lg hover:bg-ink hover:text-white transition-colors"
-            >
-              <T>Portal Karyawan</T>
+        <ul
+          className="site-nav-links"
+          onMouseMove={(e) => mouseX.set(e.clientX)}
+          onMouseLeave={() => mouseX.set(Infinity)}
+        >
+          {links.map((l) => <DockLink key={l.href} {...l} mouseX={mouseX} />)}
+        </ul>
+
+        <div className="site-nav-right">
+          <LanguageSwitcher className="site-lang" />
+          <div className="hidden items-center gap-2 sm:flex">
+            <Link href="/portal" className="site-btn-glass">
+              <WaveText text="Portal" />
             </Link>
-            <Link
-              href="/progress"
-              className="text-sm font-medium bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark transition-colors"
-            >
+            <Link href="/progress" className="site-btn-red">
               <T>Cek Progress</T>
             </Link>
           </div>
-
-          {/* Mobile toggle */}
           <button
-            onClick={() => setOpen(!open)}
-            className="md:hidden p-2 rounded-md text-gray-600 hover:text-ink"
+            type="button"
+            className="site-nav-toggle"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Tutup menu" : "Buka menu"}
+            aria-expanded={open}
           >
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
-      </div>
+      </motion.nav>
 
-      {/* Mobile menu */}
       {open && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 flex flex-col gap-3">
-          <LanguageSwitcher className="self-start" />
+        <motion.div
+          className="site-nav-drawer"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
           {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={() => setOpen(false)}
-              className="text-sm text-gray-700 font-medium py-2"
-            >
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>
               <T>{l.label}</T>
             </Link>
           ))}
-          <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
-            <Link
-              href="/portal"
-              onClick={() => setOpen(false)}
-              className="text-sm font-medium text-center text-ink border border-ink px-4 py-2 rounded-lg"
-            >
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Link href="/portal" className="site-btn-glass justify-center" onClick={() => setOpen(false)}>
               <T>Portal Karyawan</T>
             </Link>
-            <Link
-              href="/progress"
-              onClick={() => setOpen(false)}
-              className="text-sm font-medium text-center bg-brand text-white px-4 py-2 rounded-lg"
-            >
+            <Link href="/progress" className="site-btn-red justify-center" onClick={() => setOpen(false)}>
               <T>Cek Progress</T>
             </Link>
           </div>
-        </div>
+        </motion.div>
       )}
     </header>
   );

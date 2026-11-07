@@ -1,42 +1,25 @@
 /**
- * Homepage PT. Citra Banjar Abadi
- * Route group (public)/page.tsx sudah digantikan oleh file ini.
- * File (public)/page.tsx harus dihapus sebelum build produksi.
+ * Homepage PT. Citra Banjar Abadi.
+ * Tampilan mengikuti desain Code XR: navbar kaca melayang, kartu layanan bertumpuk,
+ * dan formulir kontak beranimasi, dengan warna merah CBA.
  */
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import {
-  Building2, Users, ClipboardList, MapPin,
-  ArrowRight, CheckCircle2, Clock, Shield,
-  Briefcase, HardHat, Wrench, Phone, Mail,
+  ArrowRight, Building2, CheckCircle2, ClipboardList, Clock, Mail, MapPin, Shield, Users,
 } from "lucide-react";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import ServiceStack from "@/components/public/ServiceStack";
+import ContactCard from "@/components/public/ContactCard";
+import Reveal from "@/components/public/Reveal";
 import { T } from "@/components/i18n";
+import { COMPANY_ADDRESS, CONTACT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "PT. Citra Banjar Abadi",
   description: "Perusahaan konstruksi dan pelayanan teknik terpercaya di Kalimantan Selatan.",
 };
-
-const services = [
-  {
-    icon: HardHat,
-    title: "Konstruksi & Sipil",
-    desc: "Pembangunan gedung, infrastruktur, dan fasilitas umum dengan standar kualitas tinggi.",
-  },
-  {
-    icon: Wrench,
-    title: "Mekanikal & Elektrikal",
-    desc: "Instalasi, perawatan, dan perbaikan sistem mekanikal dan elektrikal industri.",
-  },
-  {
-    icon: Briefcase,
-    title: "Jasa Teknik",
-    desc: "Konsultasi teknik, desain, dan manajemen proyek untuk berbagai kebutuhan industri.",
-  },
-];
 
 const stats = [
   { value: "10+", label: "Tahun Pengalaman" },
@@ -54,206 +37,211 @@ const features = [
   "Layanan purna jual & pemeliharaan",
 ];
 
+const pillars = [
+  { icon: Building2, title: "Konstruksi", desc: "Gedung & Infrastruktur" },
+  { icon: Clock, title: "Tepat Waktu", desc: "Delivery On Schedule" },
+  { icon: Shield, title: "K3 Prioritas", desc: "Zero Accident Target" },
+  { icon: Users, title: "Tim Ahli", desc: "Tenaga Bersertifikat" },
+];
+
+function SectionTitle({ eyebrow, title, desc }: { eyebrow: string; title: string; desc?: string }) {
+  return (
+    <div>
+      <span className="site-eyebrow"><T>{eyebrow}</T></span>
+      <h2 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl"><T>{title}</T></h2>
+      {desc && <p className="mt-3 max-w-xl text-white/65"><T>{desc}</T></p>}
+    </div>
+  );
+}
+
 export default function HomePage() {
   return (
-    <>
+    <div className="site-bg min-h-screen">
       <Navbar />
-      <main className="flex-1">
+      <main>
         {/* Hero */}
-        <section className="relative bg-gradient-to-br from-ink to-brand-dark text-white overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-            }}
-          />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <MapPin size={14} className="text-red-300" />
+        <section id="beranda" className="relative overflow-hidden">
+          <div className="pointer-events-none absolute -right-32 top-24 h-[28rem] w-[28rem] rounded-full bg-brand/30 blur-[120px]" />
+          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 pb-20 pt-36 sm:px-6 md:pt-44 lg:grid-cols-[1.15fr_1fr] lg:px-8">
+            <Reveal>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-md">
+                <MapPin size={14} className="text-[#ffb3b8]" />
                 <T>Banjarmasin, Kalimantan Selatan</T>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
-                <T>Membangun Masa Depan</T><br />
-                <span className="text-red-300"><T>Bersama Kepercayaan</T></span>
+              </span>
+              <h1 className="mt-6 text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
+                <T>Membangun Masa Depan</T>
+                <br />
+                <span className="bg-gradient-to-r from-[#ff9aa1] to-[#ffd3c2] bg-clip-text text-transparent">
+                  <T>Bersama Kepercayaan</T>
+                </span>
               </h1>
-              <p className="text-gray-200 text-lg mb-8 leading-relaxed">
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
                 <T>PT. Citra Banjar Abadi hadir sebagai mitra konstruksi dan teknik terpercaya,
                 menghadirkan solusi berkualitas tinggi untuk setiap proyek Anda.</T>
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="#kontak"
-                  className="inline-flex items-center justify-center gap-2 bg-brand text-white font-semibold px-6 py-3 rounded-xl hover:bg-brand-dark transition-colors"
-                >
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href="/#kontak" className="site-btn-red site-btn-lg justify-center">
                   <T>Hubungi Kami</T> <ArrowRight size={18} />
                 </Link>
-                <Link
-                  href="/progress"
-                  className="inline-flex items-center justify-center gap-2 bg-white/10 backdrop-blur-sm text-white font-semibold px-6 py-3 rounded-xl hover:bg-white/20 transition-colors border border-white/20"
-                >
+                <Link href="/progress" className="site-btn-glass site-btn-lg justify-center">
                   <T>Cek Progress Proyek</T>
                 </Link>
               </div>
-            </div>
-          </div>
-        </section>
+            </Reveal>
 
-        {/* Stats */}
-        <section className="bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {stats.map((s) => (
-                <div key={s.label} className="text-center">
-                  <p className="text-3xl font-bold text-ink">{s.value}</p>
-                  <p className="text-sm text-gray-500 mt-1"><T>{s.label}</T></p>
-                </div>
-              ))}
-            </div>
+            <Reveal delay={0.15}>
+              <div className="grid grid-cols-2 gap-4">
+                {stats.map((s, i) => (
+                  <div
+                    key={s.label}
+                    className={`site-glass p-6 ${i % 2 === 1 ? "translate-y-6" : ""}`}
+                  >
+                    <p className="text-4xl font-bold tracking-tight">{s.value}</p>
+                    <p className="mt-1 text-sm text-white/60"><T>{s.label}</T></p>
+                    <div className="mt-5 h-1 w-12 rounded-full bg-gradient-to-r from-brand to-[#ff9aa1]" />
+                  </div>
+                ))}
+              </div>
+            </Reveal>
           </div>
         </section>
 
         {/* Layanan */}
-        <section id="layanan" className="py-20 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <span className="text-brand font-semibold text-sm uppercase tracking-wide"><T>Layanan Kami</T></span>
-              <h2 className="text-3xl font-bold text-ink mt-2"><T>Solusi Teknik Terpadu</T></h2>
-              <p className="text-gray-500 mt-3 max-w-xl mx-auto">
-                <T>Kami menyediakan layanan konstruksi dan teknik komprehensif untuk memenuhi kebutuhan proyek Anda.</T>
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {services.map((s) => (
-                <div
-                  key={s.title}
-                  className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100"
-                >
-                  <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mb-4">
-                    <s.icon size={24} className="text-ink" />
-                  </div>
-                  <h3 className="font-bold text-ink text-lg mb-2"><T>{s.title}</T></h3>
-                  <p className="text-gray-500 text-sm leading-relaxed"><T>{s.desc}</T></p>
-                </div>
-              ))}
-            </div>
+        <section id="layanan" className="scroll-mt-24 py-20">
+          <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+            <Reveal>
+              <SectionTitle
+                eyebrow="Layanan Kami"
+                title="Solusi Teknik Terpadu"
+                desc="Kami menyediakan layanan konstruksi dan teknik komprehensif untuk memenuhi kebutuhan proyek Anda."
+              />
+              <ul className="mt-8 space-y-3">
+                {["Konstruksi & Sipil", "Mekanikal & Elektrikal", "Jasa Teknik"].map((s, i) => (
+                  <li key={s} className="site-glass flex items-center gap-4 px-5 py-4">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-sm font-bold">
+                      0{i + 1}
+                    </span>
+                    <span className="font-semibold"><T>{s}</T></span>
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal delay={0.1} className="flex justify-center">
+              <ServiceStack />
+            </Reveal>
           </div>
         </section>
 
         {/* Tentang */}
-        <section id="tentang" className="py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-              <div>
-                <span className="text-brand font-semibold text-sm uppercase tracking-wide"><T>Tentang Kami</T></span>
-                <h2 className="text-3xl font-bold text-ink mt-2 mb-4"><T>Mitra Terpercaya Sejak Bertahun-tahun</T></h2>
-                <p className="text-gray-600 leading-relaxed mb-6">
+        <section id="tentang" className="scroll-mt-24 py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="site-glass grid gap-12 p-8 sm:p-12 lg:grid-cols-2">
+              <Reveal>
+                <SectionTitle eyebrow="Tentang Kami" title="Mitra Terpercaya Sejak Bertahun-tahun" />
+                <p className="mt-5 leading-relaxed text-white/70">
                   <T>PT. Citra Banjar Abadi adalah perusahaan yang bergerak di bidang konstruksi dan pelayanan teknik di
                   Kalimantan Selatan. Didukung oleh tim profesional berpengalaman, kami berkomitmen menghadirkan hasil
                   terbaik untuk setiap proyek.</T>
                 </p>
-                <ul className="space-y-3">
+                <ul className="mt-6 space-y-3">
                   {features.map((f) => (
-                    <li key={f} className="flex items-start gap-3 text-sm text-gray-600">
-                      <CheckCircle2 size={18} className="text-green-500 mt-0.5 shrink-0" />
+                    <li key={f} className="flex items-start gap-3 text-sm text-white/80">
+                      <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-400" />
                       <T>{f}</T>
                     </li>
                   ))}
                 </ul>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { icon: Building2, title: "Konstruksi", desc: "Gedung & Infrastruktur" },
-                  { icon: Clock, title: "Tepat Waktu", desc: "Delivery On Schedule" },
-                  { icon: Shield, title: "K3 Prioritas", desc: "Zero Accident Target" },
-                  { icon: Users, title: "Tim Ahli", desc: "Tenaga Bersertifikat" },
-                ].map((card) => (
-                  <div key={card.title} className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
-                    <div className="w-10 h-10 bg-ink/10 rounded-lg flex items-center justify-center mb-3">
-                      <card.icon size={20} className="text-ink" />
+              </Reveal>
+              <div className="grid grid-cols-2 gap-4 self-center">
+                {pillars.map((p, i) => (
+                  <Reveal key={p.title} delay={i * 0.08}>
+                    <div className="h-full rounded-2xl bg-white p-5 text-gray-900 shadow-[0_20px_40px_-20px_rgb(10_0_3/0.6)]">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-[#e86a72] text-white shadow-md shadow-brand/30">
+                        <p.icon size={21} />
+                      </div>
+                      <p className="mt-4 font-bold"><T>{p.title}</T></p>
+                      <p className="mt-0.5 text-xs text-gray-500"><T>{p.desc}</T></p>
                     </div>
-                    <p className="font-semibold text-ink text-sm"><T>{card.title}</T></p>
-                    <p className="text-xs text-gray-500 mt-1"><T>{card.desc}</T></p>
-                  </div>
+                  </Reveal>
                 ))}
               </div>
             </div>
           </div>
         </section>
 
-        {/* Portal Karyawan CTA */}
-        <section className="bg-gradient-to-r from-ink to-brand-dark text-white py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div>
-                <h2 className="text-2xl font-bold mb-3"><T>Portal Karyawan</T></h2>
-                <p className="text-gray-200 text-sm leading-relaxed mb-6">
-                  <T>Akses absensi GPS, pengajuan cuti, dinas luar, slip gaji, dan PPh 21 dalam satu platform.</T>
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {["Absensi GPS", "Pengajuan Cuti", "Slip Gaji", "PPh 21"].map((f) => (
-                    <span key={f} className="text-xs bg-white/10 px-3 py-1.5 rounded-full"><T>{f}</T></span>
-                  ))}
+        {/* Portal Karyawan */}
+        <section className="py-12">
+          <Reveal className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-r from-brand to-[#7a2129] p-8 sm:p-12">
+              <span className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/10" />
+              <span className="absolute -bottom-28 right-40 h-60 w-60 rounded-full bg-white/5" />
+              <div className="relative grid items-center gap-8 md:grid-cols-[1.4fr_1fr]">
+                <div>
+                  <h2 className="text-2xl font-bold sm:text-3xl"><T>Portal Karyawan</T></h2>
+                  <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/80">
+                    <T>Akses absensi GPS, pengajuan cuti, dinas luar, slip gaji, dan PPh 21 dalam satu platform.</T>
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {["Absensi GPS", "Pengajuan Cuti", "Slip Gaji", "PPh 21"].map((f) => (
+                      <span key={f} className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs"><T>{f}</T></span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex md:justify-end">
+                  <Link
+                    href="/portal"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-7 font-bold text-brand shadow-lg shadow-black/20 transition-transform hover:-translate-y-0.5"
+                  >
+                    <Users size={18} />
+                    <T>Masuk Portal</T>
+                    <ArrowRight size={18} />
+                  </Link>
                 </div>
               </div>
-              <div className="flex justify-center md:justify-end">
-                <Link
-                  href="/portal"
-                  className="inline-flex items-center gap-2 bg-white text-ink font-bold px-8 py-3 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <Users size={18} />
-                  <T>Masuk Portal</T>
-                  <ArrowRight size={18} />
-                </Link>
-              </div>
             </div>
-          </div>
+          </Reveal>
         </section>
 
         {/* Kontak */}
-        <section id="kontak" className="py-20 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <span className="text-brand font-semibold text-sm uppercase tracking-wide"><T>Kontak</T></span>
-              <h2 className="text-3xl font-bold text-ink mt-2"><T>Hubungi Kami</T></h2>
-            </div>
-            <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-              <div className="space-y-5">
-                {[
-                  { icon: MapPin, label: "Alamat", value: "Banjarmasin, Kalimantan Selatan" },
-                  { icon: Phone, label: "Telepon", value: "+62 ..." },
-                  { icon: Mail, label: "Email", value: "info@citrabanjara.co.id" },
-                ].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
-                      <Icon size={18} className="text-ink" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ink text-sm"><T>{label}</T></p>
-                      <p className="text-gray-500 text-sm mt-1">{value}</p>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0">
-                    <ClipboardList size={18} className="text-ink" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-ink text-sm"><T>Progress Proyek</T></p>
-                    <p className="text-gray-500 text-sm mt-1">
-                      <Link href="/progress" className="text-brand hover:underline">
-                        <T>Cek status proyek Anda →</T>
-                      </Link>
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <section id="kontak" className="scroll-mt-24 py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <Reveal className="mb-10 text-center">
+              <span className="site-eyebrow"><T>Kontak</T></span>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl"><T>Hubungi Kami</T></h2>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <ContactCard />
+            </Reveal>
+            <div className="mx-auto mt-6 grid max-w-4xl gap-4 sm:grid-cols-3">
+              {[
+                { icon: MapPin, label: "Alamat", value: COMPANY_ADDRESS, href: undefined },
+                { icon: Mail, label: "Email", value: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}` },
+                { icon: ClipboardList, label: "Progress Proyek", value: "Cek status proyek Anda →", href: "/progress" },
+              ].map(({ icon: Icon, label, value, href }) => {
+                const body = (
+                  <>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                      <Icon size={18} className="text-[#ffb3b8]" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs text-white/50"><T>{label}</T></span>
+                      <span className="block truncate text-sm font-medium"><T>{value}</T></span>
+                    </span>
+                  </>
+                );
+                return href ? (
+                  <Link key={label} href={href} className="site-glass flex items-center gap-3 p-4 transition-colors hover:bg-white/10">
+                    {body}
+                  </Link>
+                ) : (
+                  <div key={label} className="site-glass flex items-center gap-3 p-4">{body}</div>
+                );
+              })}
             </div>
           </div>
         </section>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

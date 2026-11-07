@@ -1,60 +1,66 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { loginAction } from "./actions";
-import { Lock, Loader2, AlertCircle } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { T } from "@/components/i18n";
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
+import { T, useT } from "@/components/i18n";
 
+// Isian bergaris bawah di atas kaca, mengikuti desain Code XR Glassy Login.
 export default function LoginForm() {
   const [state, formAction, isPending] = useActionState(loginAction, undefined);
+  const [show, setShow] = useState(false);
+  const t = useT();
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-6">
       {state?.error && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">
+        <div className="flex items-center gap-2 rounded-xl border border-rose-300/30 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
           <AlertCircle size={15} className="shrink-0" />
           <T>{state.error}</T>
         </div>
       )}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="login" className="text-gray-700"><T>ID Karyawan / Email</T></Label>
-        <Input
+      <label className="login-field">
+        <User size={17} />
+        <input
           id="login"
           name="login"
           type="text"
           required
           disabled={isPending}
-          placeholder="Masukkan ID karyawan"
+          autoComplete="username"
+          placeholder={t("ID Karyawan / Email")}
         />
-      </div>
+      </label>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-gray-700"><T>Password</T></Label>
-        <Input
+      <label className="login-field">
+        <Lock size={17} />
+        <input
           id="password"
           name="password"
-          type="password"
+          type={show ? "text" : "password"}
           required
           disabled={isPending}
-          placeholder="••••••••"
+          autoComplete="current-password"
+          placeholder={t("Password")}
         />
-      </div>
+        <button
+          type="button"
+          onClick={() => setShow((v) => !v)}
+          aria-label={show ? t("Sembunyikan password") : t("Lihat password")}
+          className="text-white/50 transition-colors hover:text-white"
+        >
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </label>
 
-      <Button
-        type="submit"
-        disabled={isPending}
-        className="w-full gap-2 bg-ink hover:bg-ink/85"
-      >
+      <button type="submit" disabled={isPending} className="login-submit">
         {isPending ? (
           <><Loader2 size={16} className="animate-spin" /> <T>Memverifikasi...</T></>
         ) : (
-          <><Lock size={16} /> <T en="Log in">Masuk</T></>
+          <T en="Log in">Masuk</T>
         )}
-      </Button>
+      </button>
     </form>
   );
 }
