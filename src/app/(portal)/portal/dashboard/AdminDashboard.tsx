@@ -21,26 +21,26 @@ function change(current: number, previous: number) {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+// Dipakai di kartu angka yang berwarna penuh, jadi teksnya putih.
 function ChangeChip({ value, label }: { value: number | null; label: string }) {
-  if (value === null) return <p className="mt-1 text-[11px] text-gray-400"><T>{label}</T></p>;
-  const up = value >= 0;
+  if (value === null) return <p className="mt-1 text-[11px] text-white/80"><T>{label}</T></p>;
   return (
-    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-gray-400">
-      <span className={`rounded-md px-1.5 py-0.5 font-semibold ${up ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-        {up ? "+" : ""}{value}%
+    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-white/80">
+      <span className="rounded-md bg-white/25 px-1.5 py-0.5 font-semibold text-white">
+        {value >= 0 ? "+" : ""}{value}%
       </span>
       <T>{label}</T>
     </p>
   );
 }
 
-// Setiap kartu punya warna sendiri: latar bergradasi lembut, ikon berwarna penuh, isi tetap putih.
+// Setiap kartu punya warna sendiri. Badan kartu ikut berwarna, bukan hanya judulnya.
 const TONES = {
-  violet: { card: "border-violet-200/70 from-violet-100 via-violet-50 to-white", icon: "bg-violet-500 shadow-violet-500/30", inner: "border-violet-100" },
-  sky: { card: "border-sky-200/70 from-sky-100 via-sky-50 to-white", icon: "bg-sky-500 shadow-sky-500/30", inner: "border-sky-100" },
-  emerald: { card: "border-emerald-200/70 from-emerald-100 via-emerald-50 to-white", icon: "bg-emerald-500 shadow-emerald-500/30", inner: "border-emerald-100" },
-  rose: { card: "border-rose-200/70 from-rose-100 via-rose-50 to-white", icon: "bg-rose-500 shadow-rose-500/30", inner: "border-rose-100" },
-  amber: { card: "border-amber-200/70 from-amber-100 via-amber-50 to-white", icon: "bg-amber-500 shadow-amber-500/30", inner: "border-amber-100" },
+  violet: { card: "border-violet-200 from-violet-100 to-violet-50", icon: "bg-violet-500 shadow-violet-500/30", inner: "border-violet-200/70 bg-violet-50/80", solid: "from-violet-600 to-indigo-400 shadow-violet-500/30" },
+  sky: { card: "border-sky-200 from-sky-100 to-sky-50", icon: "bg-sky-500 shadow-sky-500/30", inner: "border-sky-200/70 bg-sky-50/80", solid: "from-sky-500 to-cyan-400 shadow-sky-500/30" },
+  emerald: { card: "border-emerald-200 from-emerald-100 to-emerald-50", icon: "bg-emerald-500 shadow-emerald-500/30", inner: "border-emerald-200/70 bg-emerald-50/80", solid: "from-emerald-500 to-teal-400 shadow-emerald-500/30" },
+  rose: { card: "border-rose-200 from-rose-100 to-rose-50", icon: "bg-rose-500 shadow-rose-500/30", inner: "border-rose-200/70 bg-rose-50/80", solid: "from-rose-500 to-pink-400 shadow-rose-500/30" },
+  amber: { card: "border-amber-200 from-amber-100 to-amber-50", icon: "bg-amber-500 shadow-amber-500/30", inner: "border-amber-200/70 bg-amber-50/80", solid: "from-amber-500 to-orange-400 shadow-amber-500/30" },
 };
 type Tone = keyof typeof TONES;
 
@@ -63,31 +63,43 @@ function Panel({
         </div>
         {action}
       </div>
-      <div className={`rounded-xl border bg-white/90 p-4 ${color.inner}`}>{children}</div>
+      <div className={`rounded-xl border p-4 ${color.inner}`}>{children}</div>
     </section>
   );
 }
 
+// Kartu angka berwarna penuh dengan gradasi, mengikuti gaya kartu modern.
 function StatCard({
-  icon, title, subtitle, value, href, chip, tone,
+  icon: Icon, title, subtitle, value, href, chip, tone,
 }: {
   icon: React.ElementType; title: string; subtitle: string; value: number;
   href?: string; chip: React.ReactNode; tone: Tone;
 }) {
   return (
-    <Panel icon={icon} title={title} subtitle={subtitle} tone={tone}>
-      <div className="flex items-end justify-between gap-2">
+    <section className={`relative overflow-hidden rounded-2xl bg-gradient-to-br p-4 text-white shadow-lg ${TONES[tone].solid}`}>
+      <span aria-hidden className="pointer-events-none absolute -right-6 -top-8 h-28 w-28 rounded-full bg-white/15" />
+      <span aria-hidden className="pointer-events-none absolute -bottom-10 right-10 h-24 w-24 rounded-full bg-white/10" />
+      <div className="relative flex items-start gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/25">
+          <Icon size={17} />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold"><T>{title}</T></h3>
+          <p className="truncate text-[11px] text-white/80"><T>{subtitle}</T></p>
+        </div>
+      </div>
+      <div className="relative mt-4 flex items-end justify-between gap-2">
         <div>
-          <p className="text-3xl font-semibold tabular-nums text-gray-900">{value}</p>
+          <p className="text-3xl font-bold tabular-nums">{value}</p>
           {chip}
         </div>
         {href && (
-          <Link href={href} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:border-brand hover:text-brand">
+          <Link href={href} className="inline-flex items-center gap-1 rounded-lg bg-white/25 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-white/35">
             <T>Detail</T> <ArrowRight size={12} />
           </Link>
         )}
       </div>
-    </Panel>
+    </section>
   );
 }
 
