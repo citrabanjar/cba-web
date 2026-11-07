@@ -433,6 +433,9 @@ body {
 
 /* Cetak bagan: warna tetap ikut, dan bagan dikecilkan agar muat satu halaman */
 @media print {
+  .org-zoom {
+    zoom: 1 !important;
+  }
   .org-tree {
     zoom: var(--org-print-zoom, 1);
     print-color-adjust: exact;

@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Crown, Network, Printer, TriangleAlert, UserX, Users } from "lucide-react";
+import {
+  ChevronDown, ChevronRight, Crown, Maximize2, Network, Printer, TriangleAlert, UserX, Users, ZoomIn, ZoomOut,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { T } from "@/components/i18n";
+import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 
 type Person = {
@@ -18,6 +20,8 @@ type Person = {
 
 type Tree = Person & { reports: Tree[]; total: number };
 type Paper = "A4" | "A3";
+const ZOOM_MIN = 0.3;
+const ZOOM_MAX = 1.6;
 
 // Lebar dan tinggi area cetak dalam piksel CSS: kertas landscape dikurangi margin 10 mm.
 const PRINT_AREA: Record<Paper, { width: number; height: number }> = {
@@ -152,6 +156,9 @@ export default function OrgChart({
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [printing, setPrinting] = useState(false);
   const chartRef = useRef<HTMLUListElement>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const t = useT();
 
   const departments = useMemo(
     () => [...new Set(people.map((p) => parentDepartment(p.department)).filter(Boolean) as string[])].sort(),
@@ -170,7 +177,21 @@ export default function OrgChart({
       return next;
     });
 
+  const zoomBy = (step: number) =>
+    setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((z + step) * 10) / 10)));
+
+  // Perkecil bagan supaya seluruh lebarnya terlihat di kotak bagan.
+  function fitWidth() {
+    const view = viewRef.current;
+    const chart = chartRef.current;
+    if (!view || !chart) return;
+    const room = view.clientWidth - 48;
+    const full = chart.scrollWidth;
+    if (full > 0) setZoom(Math.min(1, Math.max(ZOOM_MIN, Math.floor((room / full) * 20) / 20)));
+  }
+
   function handlePrint() {
+    setZoom(1);
     setClosed(new Set()); // yang dilipat dibuka dulu supaya tercetak lengkap
     setPrinting(true);
   }
@@ -275,12 +296,39 @@ export default function OrgChart({
         )}
 
         {roots.length > 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-x-auto print:overflow-visible print:border-0 print:p-0">
-            <ul ref={chartRef} className="org-tree">
-              {roots.map((node) => (
-                <Branch key={node.id} node={node} closed={closed} toggle={toggle} canOpenProfile={canOpenProfile} />
-              ))}
-            </ul>
+          <div className="relative bg-white rounded-2xl border border-gray-200 print:border-0">
+            {/* Tombol perbesar/perkecil bagan; hanya bagan yang berubah, halaman tetap. */}
+            <div className="print:hidden absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+              <button type="button" onClick={() => zoomBy(-0.1)} disabled={zoom <= ZOOM_MIN}
+                aria-label={t("Perkecil")} title={t("Perkecil")}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-30">
+                <ZoomOut size={16} />
+              </button>
+              <button type="button" onClick={() => setZoom(1)} title={t("Ukuran asli")}
+                className="h-8 min-w-14 rounded-full px-2 text-xs font-semibold tabular-nums text-gray-700 hover:bg-gray-100">
+                {Math.round(zoom * 100)}%
+              </button>
+              <button type="button" onClick={() => zoomBy(0.1)} disabled={zoom >= ZOOM_MAX}
+                aria-label={t("Perbesar")} title={t("Perbesar")}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 disabled:opacity-30">
+                <ZoomIn size={16} />
+              </button>
+              <span className="mx-0.5 h-5 w-px bg-gray-200" />
+              <button type="button" onClick={fitWidth}
+                aria-label={t("Pas layar")} title={t("Pas layar")}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100">
+                <Maximize2 size={15} />
+              </button>
+            </div>
+            <div ref={viewRef} className="max-h-[75vh] overflow-auto p-6 pt-16 print:max-h-none print:overflow-visible print:p-0">
+              <div className="org-zoom w-max min-w-full" style={{ zoom }}>
+                <ul ref={chartRef} className="org-tree">
+                  {roots.map((node) => (
+                    <Branch key={node.id} node={node} closed={closed} toggle={toggle} canOpenProfile={canOpenProfile} />
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-200 py-12 text-center text-sm text-gray-400">

@@ -72,7 +72,7 @@ export default async function KaryawanDetailPage({
       },
       attendances: {
         orderBy: { date: "desc" },
-        take: 31,
+        take: 400, // kira-kira setahun, untuk kalender kehadiran
         select: {
           id: true, date: true, checkIn: true, checkOut: true,
           checkInAddr: true, status: true, note: true,

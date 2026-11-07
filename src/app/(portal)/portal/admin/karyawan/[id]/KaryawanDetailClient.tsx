@@ -27,6 +27,7 @@ import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, setEmployeeAccess, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
+import AttendanceCalendar from "./AttendanceCalendar";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; bpjsTkBase: number | null;
@@ -90,9 +91,9 @@ type FamilyRow = { name: string; idNumber: string; relation: string };
 const TAB_LIST = [
   { key: "pribadi", label: "Personal Info" },
   { key: "pekerjaan", label: "Pekerjaan" },
+  { key: "absensi", label: "Kehadiran & Shift" },
   { key: "gaji", label: "Gaji & Tunjangan" },
   { key: "pajak", label: "Pajak & BPJS" },
-  { key: "absensi", label: "Absensi" },
   { key: "cuti", label: "Cuti" },
   { key: "dinas", label: "Dinas Luar" },
   { key: "payslip", label: "Slip Gaji" },
@@ -1110,8 +1111,12 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "absensi" && (
+          <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} />
+        )}
+
+        {tab === "absensi" && (
           emp.attendances.length === 0 ? <Empty text="Belum ada data absensi." /> : (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
