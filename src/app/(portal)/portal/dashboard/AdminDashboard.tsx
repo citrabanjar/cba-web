@@ -35,16 +35,17 @@ function ChangeChip({ value, label }: { value: number | null; label: string }) {
 }
 
 // Warna ikon dan hiasan sudut untuk setiap kartu. Kartunya putih bersih, mengikuti gaya Admin Dashboard V2.
+// Ikon berwarna penuh dengan gradasi, plus garis warna di bawah kartu angka.
 const TONES = {
-  blue: { icon: "bg-blue-50 text-blue-600", glow: "from-blue-100" },
-  emerald: { icon: "bg-emerald-50 text-emerald-600", glow: "from-emerald-100" },
-  amber: { icon: "bg-amber-50 text-amber-600", glow: "from-amber-100" },
-  violet: { icon: "bg-violet-50 text-violet-600", glow: "from-violet-100" },
-  rose: { icon: "bg-rose-50 text-rose-600", glow: "from-rose-100" },
+  blue: { icon: "bg-gradient-to-br from-brand to-rose-400 text-white shadow-md shadow-brand/30", glow: "from-rose-100", bar: "from-brand to-rose-400" },
+  emerald: { icon: "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-md shadow-emerald-500/30", glow: "from-emerald-100", bar: "from-emerald-500 to-teal-400" },
+  amber: { icon: "bg-gradient-to-br from-amber-500 to-orange-400 text-white shadow-md shadow-amber-500/30", glow: "from-amber-100", bar: "from-amber-500 to-orange-400" },
+  violet: { icon: "bg-gradient-to-br from-ink to-slate-500 text-white shadow-md shadow-black/20", glow: "from-slate-100", bar: "from-ink to-slate-500" },
+  rose: { icon: "bg-gradient-to-br from-rose-500 to-pink-400 text-white shadow-md shadow-rose-500/30", glow: "from-rose-100", bar: "from-rose-500 to-pink-400" },
 };
 type Tone = keyof typeof TONES;
 
-const CARD = "relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_2px_12px_rgba(30,41,90,0.06)]";
+const CARD = "relative overflow-hidden rounded-2xl border bg-white";
 
 function Panel({
   icon: Icon, title, subtitle, action, children, tone = "blue",
@@ -87,10 +88,11 @@ function StatCard({
         </span>
       </div>
       <div className="relative">{chip}</div>
+      <span aria-hidden className={`absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r ${TONES[tone].bar}`} />
     </>
   );
   return href ? (
-    <Link href={href} className={`${CARD} block p-5 transition-shadow hover:shadow-[0_6px_20px_rgba(30,41,90,0.12)]`}>{body}</Link>
+    <Link href={href} className={`${CARD} block p-5 transition-transform hover:-translate-y-0.5`}>{body}</Link>
   ) : (
     <section className={`${CARD} p-5`}>{body}</section>
   );

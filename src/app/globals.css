@@ -34,14 +34,28 @@ html {
 .portal-theme main > .bg-gray-50 {
   background-color: transparent;
 }
-/* Kartu dan pita judul putih dibuat seperti kaca: agak tembus pandang dengan efek buram. */
-.portal-theme main .bg-white {
-  background-color: rgb(255 255 255 / 0.86);
-  backdrop-filter: blur(14px);
+/* Kartu putih penuh supaya kontras di atas latar merah, dengan bayangan dalam dan garis tepi terang. */
+.portal-theme main .bg-white.rounded-xl,
+.portal-theme main .bg-white.rounded-2xl,
+.portal-theme main section.bg-white {
+  border-color: rgb(255 255 255 / 0.9);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.9) inset,
+    0 18px 40px -18px rgb(20 0 5 / 0.55),
+    0 4px 12px -4px rgb(20 0 5 / 0.25);
 }
+/* Pita judul halaman seperti kaca, menyatu dengan latar. */
 .portal-theme main > div > .bg-white.border-b:first-child {
-  background-color: rgb(255 255 255 / 0.78);
-  border-color: rgb(255 255 255 / 0.3);
+  background-color: rgb(255 255 255 / 0.1);
+  border-color: rgb(255 255 255 / 0.12);
+  backdrop-filter: blur(14px);
+  box-shadow: none;
+}
+.portal-theme main > div > .bg-white.border-b:first-child :is(h1, h2) {
+  color: #fff;
+}
+.portal-theme main > div > .bg-white.border-b:first-child p {
+  color: rgb(255 255 255 / 0.7);
 }
 /* Tulisan yang langsung berada di atas latar gelap. */
 .portal-theme .on-dark {
