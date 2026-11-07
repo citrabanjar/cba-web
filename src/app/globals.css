@@ -27,6 +27,17 @@ html {
   --color-gray-50: #f4f7fe;
   --primary: #4361ee;
   --ring: #9fb0f6;
+  /* Latar biru bergradasi dengan dua cahaya lembut, seperti sampul V2. */
+  background-image:
+    radial-gradient(circle at 15% 5%, rgb(67 97 238 / 0.3), transparent 45%),
+    radial-gradient(circle at 90% 12%, rgb(56 189 248 / 0.32), transparent 40%),
+    radial-gradient(circle at 60% 95%, rgb(129 140 248 / 0.22), transparent 45%),
+    linear-gradient(160deg, #d9e4ff 0%, #e5ecff 45%, #eef2ff 100%);
+  background-attachment: fixed;
+}
+/* Halaman di dalam portal punya latar abu sendiri; dibuat transparan supaya gradasinya terlihat. */
+.portal-theme main > .bg-gray-50 {
+  background-color: transparent;
 }
 
 body {

@@ -190,7 +190,7 @@ export default function PortalShell({ user, children }: Props) {
       </aside>
 
       {/* Header */}
-      <header className="print:hidden fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white/85 px-4 backdrop-blur lg:left-64 lg:px-6">
+      <header className="print:hidden fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-3 border-b border-white/60 bg-white/55 px-4 backdrop-blur-md lg:left-64 lg:px-6">
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Buka menu"
