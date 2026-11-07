@@ -13,9 +13,7 @@ export type ActionItem = {
 };
 
 export const QUICK_ACTIONS = [
-  { key: "promosi", label: "Promosi" },
-  { key: "demosi", label: "Demosi" },
-  { key: "mutasi", label: "Mutasi" },
+  { key: "transfer", label: "Transfer" },
   { key: "resign", label: "Resign" },
 ];
 

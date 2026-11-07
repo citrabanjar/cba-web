@@ -78,7 +78,7 @@ type FormField = {
   type?: "date" | "email" | "select" | "suggest" | "check"; options?: Option[];
 };
 type Section = "detail" | "unit" | "bank" | "payroll" | "pribadi" | "alamat" | "pajak" | "bpjs";
-type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "MUTASI" | "PROMOSI" | "DEMOSI";
+type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "TRANSFER";
 type Component = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number };
 type FamilyRow = { name: string; idNumber: string; relation: string };
 
@@ -109,26 +109,24 @@ const SECTION_TITLE: Record<Section, string> = {
 
 const EVENT_LABEL: Record<string, string> = {
   PERPANJANGAN: "Perpanjangan Kontrak", PEMBERHENTIAN: "Pemberhentian",
-  MUTASI: "Mutasi", PROMOSI: "Promosi", DEMOSI: "Demosi",
+  MUTASI: "Mutasi", PROMOSI: "Promosi", DEMOSI: "Demosi", TRANSFER: "Transfer",
 };
 const EDIT_MODES: Partial<Record<Section, EditMode[]>> = {
   detail: ["ubah", "PERPANJANGAN", "PEMBERHENTIAN"],
-  unit: ["ubah", "MUTASI", "PROMOSI", "DEMOSI"],
+  unit: ["ubah", "TRANSFER"],
 };
 const MODE_COLOR: Record<EditMode, { active: string; idle: string }> = {
   ubah: { active: "bg-ink text-white border-ink", idle: "bg-gray-100 text-gray-700 border-gray-300" },
   PERPANJANGAN: { active: "bg-blue-700 text-white border-blue-700", idle: "bg-blue-50 text-blue-700 border-blue-300" },
   PEMBERHENTIAN: { active: "bg-brand text-white border-brand", idle: "bg-red-50 text-brand border-red-300" },
-  MUTASI: { active: "bg-amber-600 text-white border-amber-600", idle: "bg-amber-50 text-amber-800 border-amber-300" },
-  PROMOSI: { active: "bg-green-700 text-white border-green-700", idle: "bg-green-50 text-green-700 border-green-300" },
-  DEMOSI: { active: "bg-purple-700 text-white border-purple-700", idle: "bg-purple-50 text-purple-700 border-purple-300" },
+  TRANSFER: { active: "bg-green-700 text-white border-green-700", idle: "bg-green-50 text-green-700 border-green-300" },
 };
 const STOP_TYPES = ["Resign", "Diberhentikan", "Kontrak Berakhir"];
 type EventField = { key: string; label: string; type: string; options?: string[] };
-const JOB_CHANGE_FIELDS: EventField[] = [
-  { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
-  { key: "note", label: "Catatan", type: "text" },
-];
+const TRANSFER_TYPES = ["Mutasi", "Promosi", "Demosi"];
+const JOB_CHANGE_TYPE: Record<string, "MUTASI" | "PROMOSI" | "DEMOSI"> = {
+  Mutasi: "MUTASI", Promosi: "PROMOSI", Demosi: "DEMOSI",
+};
 const EVENT_FIELDS: Partial<Record<EditMode, EventField[]>> = {
   PERPANJANGAN: [
     { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
@@ -141,19 +139,17 @@ const EVENT_FIELDS: Partial<Record<EditMode, EventField[]>> = {
     { key: "effectiveDate", label: "Tanggal Berhenti *", type: "date" },
     { key: "note", label: "Catatan", type: "text" },
   ],
-  MUTASI: JOB_CHANGE_FIELDS,
-  PROMOSI: JOB_CHANGE_FIELDS,
-  DEMOSI: JOB_CHANGE_FIELDS,
+  TRANSFER: [
+    { key: "transferType", label: "Jenis Transfer", type: "select", options: TRANSFER_TYPES },
+    { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
+    { key: "note", label: "Catatan", type: "text" },
+  ],
 };
 // Shortcut dari menu Aksi di daftar karyawan.
 const QUICK_ACTIONS: Record<string, { section: Section; mode: EditMode }> = {
-  promosi: { section: "unit", mode: "PROMOSI" },
-  demosi: { section: "unit", mode: "DEMOSI" },
-  mutasi: { section: "unit", mode: "MUTASI" },
+  transfer: { section: "unit", mode: "TRANSFER" },
   resign: { section: "detail", mode: "PEMBERHENTIAN" },
 };
-const isJobChange = (mode: EditMode): mode is "MUTASI" | "PROMOSI" | "DEMOSI" =>
-  mode === "MUTASI" || mode === "PROMOSI" || mode === "DEMOSI";
 
 const LEAVE_LABEL: Record<string, string> = {
   TAHUNAN: "Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan",
@@ -727,8 +723,9 @@ export default function KaryawanDetailClient({
       try {
         const { effectiveDate = "", note } = eventForm;
         if (mode === "ubah") await updateEmployee(emp.id, form);
-        else if (isJobChange(mode)) {
-          await addJobChange(emp.id, { type: mode, effectiveDate, note }, form);
+        else if (mode === "TRANSFER") {
+          const type = JOB_CHANGE_TYPE[eventForm.transferType ?? TRANSFER_TYPES[0]];
+          await addJobChange(emp.id, { type, effectiveDate, note }, form);
         } else if (mode === "PEMBERHENTIAN") {
           const reason = [eventForm.stopType ?? STOP_TYPES[0], note?.trim()].filter(Boolean).join(": ");
           await addEmploymentEvent(emp.id, { type: mode, effectiveDate, reason });
@@ -739,7 +736,7 @@ export default function KaryawanDetailClient({
       } catch {
         setError(mode === "ubah"
           ? "Gagal menyimpan. ID Karyawan, email, atau No KTP mungkin sudah dipakai, atau ID atasan tidak ditemukan atau merupakan anak buahnya sendiri."
-          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Mutasi, promosi, dan demosi harus mengubah isian; tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
+          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Transfer harus mengubah isian; tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
       }
     });
   }
@@ -1150,7 +1147,7 @@ export default function KaryawanDetailClient({
             )}
             {editing === "unit" && mode === "ubah" && (
               <p className="text-xs text-gray-500">
-                <T>Pilih Mutasi, Promosi, atau Demosi lalu ubah isian di bawah supaya tercatat di Riwayat Pekerjaan.</T>
+                <T>Pilih Transfer lalu ubah isian di bawah supaya tercatat di Riwayat Pekerjaan.</T>
               </p>
             )}
             {EVENT_FIELDS[mode]?.map((field) => (
@@ -1180,7 +1177,7 @@ export default function KaryawanDetailClient({
                 <T>Karyawan dinonaktifkan dan tidak bisa login jika tanggal berhenti hari ini atau sudah lewat.</T>
               </p>
             )}
-            {(mode === "ubah" || isJobChange(mode)) && editing && fields[editing].map((field) => field.type === "check" ? (
+            {(mode === "ubah" || mode === "TRANSFER") && editing && fields[editing].map((field) => field.type === "check" ? (
               <label key={field.key} className="flex items-center gap-2 text-sm text-gray-800">
                 <input
                   type="checkbox"
