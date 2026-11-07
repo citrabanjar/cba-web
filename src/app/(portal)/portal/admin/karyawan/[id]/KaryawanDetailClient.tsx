@@ -330,37 +330,37 @@ function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?
   );
 }
 
-function ChangeHistory({
-  logs, labels,
-}: {
-  logs: Employee["changeLogs"]; labels: Record<string, string>;
-}) {
-  const shown = logs.filter((log) => labels[log.field]);
+const LOG_LABELS = { ...PERSONAL_LOG_LABELS, ...WORK_LOG_LABELS };
+
+function ChangeHistoryDialog({ logs, onClose }: { logs: Employee["changeLogs"]; onClose: () => void }) {
   return (
-    <SectionCard title="History Perubahan">
-      {shown.length === 0 ? (
-        <p className="py-4 text-sm text-gray-400"><T>Belum ada perubahan.</T></p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead><T>Tanggal Perubahan</T></TableHead>
-              <TableHead><T>Bagian yang Diubah</T></TableHead>
-              <TableHead><T>Diubah Oleh</T></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {shown.map((log) => (
-              <TableRow key={log.id}>
-                <TableCell className="text-sm whitespace-nowrap">{formatDateTime(log.createdAt)}</TableCell>
-                <TableCell className="text-sm"><T>{labels[log.field]}</T></TableCell>
-                <TableCell className="text-sm">{log.changedBy ?? "—"}</TableCell>
+    <Dialog open onOpenChange={(value: boolean) => { if (!value) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader><DialogTitle><T>History Perubahan</T></DialogTitle></DialogHeader>
+        {logs.length === 0 ? (
+          <p className="py-4 text-sm text-gray-400"><T>Belum ada perubahan.</T></p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead><T>Tanggal Perubahan</T></TableHead>
+                <TableHead><T>Bagian yang Diubah</T></TableHead>
+                <TableHead><T>Diubah Oleh</T></TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </SectionCard>
+            </TableHeader>
+            <TableBody>
+              {logs.map((log) => (
+                <TableRow key={log.id}>
+                  <TableCell className="text-sm whitespace-nowrap">{formatDateTime(log.createdAt)}</TableCell>
+                  <TableCell className="text-sm"><T>{LOG_LABELS[log.field] ?? log.field}</T></TableCell>
+                  <TableCell className="text-sm">{log.changedBy ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -596,6 +596,7 @@ export default function KaryawanDetailClient({
   const [eventForm, setEventForm] = useState<Record<string, string>>({});
   const [salaryOpen, setSalaryOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(initialAction === "history");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -816,14 +817,15 @@ export default function KaryawanDetailClient({
               </button>
             ))}
           </div>
-          {canEdit && (
-            <ActionMenu items={[
-              ...ACTION_ITEMS
-                .filter((item) => emp.isActive || item.key !== "resign")
-                .map((item) => ({ label: item.label, onClick: () => openQuick(item.key) })),
-              ...(emp.isActive ? [] : [{ label: "Aktifkan Kembali", onClick: handleReactivate, disabled: isPending }]),
-            ]} />
-          )}
+          <ActionMenu items={[
+            ...(canEdit ? ACTION_ITEMS
+              .filter((item) => emp.isActive || item.key !== "resign")
+              .map((item) => ({ label: item.label, onClick: () => openQuick(item.key) })) : []),
+            ...(canEdit && !emp.isActive
+              ? [{ label: "Aktifkan Kembali", onClick: handleReactivate, disabled: isPending }]
+              : []),
+            { label: "History Perubahan", onClick: () => setHistoryOpen(true), separated: canEdit },
+          ]} />
           </div>
         </div>
 
@@ -881,8 +883,6 @@ export default function KaryawanDetailClient({
                 </Table>
               )}
             </SectionCard>
-
-            <ChangeHistory logs={emp.changeLogs} labels={WORK_LOG_LABELS} />
           </div>
         )}
 
@@ -960,7 +960,6 @@ export default function KaryawanDetailClient({
               <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
             </SectionCard>
 
-            <ChangeHistory logs={emp.changeLogs} labels={PERSONAL_LOG_LABELS} />
           </div>
         )}
 
@@ -1113,6 +1112,7 @@ export default function KaryawanDetailClient({
       </main>
 
       {familyOpen && <FamilyDialog employee={emp} onClose={() => setFamilyOpen(false)} />}
+      {historyOpen && <ChangeHistoryDialog logs={emp.changeLogs} onClose={() => setHistoryOpen(false)} />}
 
       {canSeePay && salaryOpen && (
         <SalaryDialog employee={emp} current={currentSalary} open={salaryOpen} onClose={() => setSalaryOpen(false)} />

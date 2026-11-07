@@ -320,6 +320,11 @@ export default function KaryawanClient({
                         onClick: () => handleReactivate(emp),
                         disabled: isPending,
                       }]),
+                      ...(emp.id.startsWith("tmp-") ? [] : [{
+                        label: "History Perubahan",
+                        onClick: () => router.push(`/portal/admin/karyawan/${emp.id}?aksi=history`),
+                        separated: true,
+                      }]),
                     ]} />
                   </TableCell>
                 </TableRow>
