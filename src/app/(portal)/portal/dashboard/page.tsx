@@ -4,13 +4,14 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, AlertCircle, ShieldCheck, Settings, Network,
+  Receipt, TrendingUp, AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import { T } from "@/components/i18n";
+import AdminDashboard from "./AdminDashboard";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -55,40 +56,10 @@ export default async function DashboardPage() {
       desc: "Bukti potong pajak",
     },
     ]),
-    ...(isAdmin
-      ? [
-          {
-            href: "/portal/admin/karyawan",
-            icon: ShieldCheck,
-            label: "Data Karyawan",
-            desc: "Kelola data karyawan",
-          },
-        ]
-      : []),
-    ...(hasMenu(access, "perusahaan")
-      ? [
-          {
-            href: "/portal/admin/perusahaan",
-            icon: Network,
-            label: "Struktur Organisasi",
-            desc: "Bagan organisasi perusahaan",
-          },
-        ]
-      : []),
-    ...(superAdmin
-      ? [
-          {
-            href: "/portal/admin/settings",
-            icon: Settings,
-            label: "Pengaturan",
-            desc: "Pengaturan akun",
-          },
-        ]
-      : []),
   ];
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className={`p-4 sm:p-6 ${isAdmin ? "max-w-7xl" : "max-w-4xl"}`}>
       {/* Welcome */}
       <div className="mb-6">
         <p className="text-sm text-gray-400"><T>{greeting}</T></p>
@@ -124,8 +95,14 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>}
 
+      {isAdmin && (
+        <div className="mb-6">
+          <AdminDashboard canSeeSetup={superAdmin} />
+        </div>
+      )}
+
       {/* Menu */}
-      <div>
+      {menuItems.length > 0 && <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
           <T>Menu</T>
         </p>
@@ -142,7 +119,7 @@ export default async function DashboardPage() {
             </Link>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Info */}
       {!superAdmin && <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
