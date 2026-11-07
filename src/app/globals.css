@@ -18,15 +18,15 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Tema portal: ungu lembut dengan aksen biru langit. Website publik tetap memakai warna logo CBA. */
+/* Tema portal: biru cerah di atas latar abu kebiruan, mengikuti gaya Admin Dashboard V2.
+   Website publik tetap memakai warna logo CBA. */
 .portal-theme {
-  --color-brand: #6c5ce7;
-  --color-brand-dark: #5546d4;
-  --color-ink: #211d3f;
-  --color-gray-50: #f6f5fb;
-  --color-accent-sky: #38bdf8;
-  --primary: #6c5ce7;
-  --ring: #a99ff3;
+  --color-brand: #4361ee;
+  --color-brand-dark: #3049d4;
+  --color-ink: #1b2559;
+  --color-gray-50: #f4f7fe;
+  --primary: #4361ee;
+  --ring: #9fb0f6;
 }
 
 body {

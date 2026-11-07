@@ -63,7 +63,10 @@ export default async function DashboardPage() {
       {/* Welcome */}
       <div className="mb-6">
         <p className="text-sm text-gray-400"><T>{greeting}</T></p>
-        <h1 className="text-xl font-bold text-gray-800 mt-0.5">{user.name}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">
+          {isAdmin ? <><T>Selamat datang kembali</T>, {user.name}! 👋</> : user.name}
+        </h1>
+        {isAdmin && <p className="text-sm text-gray-500 mt-1"><T>Berikut ringkasan perusahaan hari ini.</T></p>}
         <p className="text-xs text-gray-400 mt-0.5">
           {[user.employeeId, roleLabel(user.role), superAdmin ? null : user.employmentStatus]
             .filter(Boolean)
