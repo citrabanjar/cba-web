@@ -261,8 +261,12 @@ export async function addEmploymentEvent(id: string, input: EmploymentEventInput
   } else if (input.type === "PEMBERHENTIAN") {
     const reason = input.reason?.trim();
     if (!reason) throw new Error("Alasan wajib diisi");
-    // Tanggal berhenti di masa depan belum memutus akses karyawan.
-    const isActive = target.isActive && effectiveDate > new Date();
+    // Status aktif hanya berubah di sini, jadi tanggalnya tidak boleh di masa depan.
+    // Tujuh jam adalah selisih UTC dengan WIB, supaya tanggal hari ini tetap diterima.
+    if (effectiveDate.getTime() > Date.now() + 7 * 60 * 60 * 1000) {
+      throw new Error("Tanggal berhenti tidak boleh di masa depan");
+    }
+    const isActive = false;
     Object.assign(changes, { resignDate: effectiveDate, isActive });
     event.reason = reason;
     log("resignDate", target.resignDate, effectiveDate);
@@ -355,24 +359,32 @@ export async function saveFamily(id: string, rows: FamilyInput[]) {
   return { success: true };
 }
 
-export async function toggleEmployeeActive(id: string) {
+// Status aktif hanya berubah lewat Resign, dan dibuka lagi lewat Aktifkan Kembali.
+export async function reactivateEmployee(id: string) {
   const actor = await requireMenu("karyawan");
   const user = await prisma.user.findFirst({
-    where: { id, ...editableTarget(actor.role) },
-    select: { isActive: true },
+    where: { id, isActive: false, ...editableTarget(actor.role) },
+    select: { resignDate: true },
   });
   if (!user) throw new Error("Not found");
   await prisma.user.update({
     where: { id },
     data: {
-      isActive: !user.isActive,
-      changeLogs: {
+      isActive: true,
+      resignDate: null,
+      employmentEvents: {
         create: {
-          field: "isActive",
-          oldValue: String(user.isActive),
-          newValue: String(!user.isActive),
-          changedBy: actor.name,
+          type: "AKTIF_KEMBALI",
+          effectiveDate: new Date(new Date().toISOString().split("T")[0]),
+          reason: "Karyawan diaktifkan kembali",
+          createdBy: actor.name,
         },
+      },
+      changeLogs: {
+        create: [
+          { field: "isActive", oldValue: "false", newValue: "true", changedBy: actor.name },
+          { field: "resignDate", oldValue: logValue(user.resignDate), newValue: null, changedBy: actor.name },
+        ],
       },
     },
   });

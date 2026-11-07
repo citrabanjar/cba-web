@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  createEmployee, updateEmployee, toggleEmployeeActive,
+  createEmployee, updateEmployee, reactivateEmployee,
   importEmployees, type EmployeeInput, type ImportResult,
 } from "./actions";
 import {
@@ -27,7 +27,7 @@ import type { MasterOptions } from "@/lib/master-data";
 import { BANK_OPTIONS } from "@/lib/personal-info";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
-import { T } from "@/components/i18n";
+import { T, useT } from "@/components/i18n";
 
 type Dept = { id: string; name: string };
 type Employee = {
@@ -88,6 +88,7 @@ export default function KaryawanClient({
 }: {
   employees: Employee[]; master: MasterOptions; canImport: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
@@ -172,10 +173,11 @@ export default function KaryawanClient({
     });
   }
 
-  function handleToggle(emp: Employee) {
+  function handleReactivate(emp: Employee) {
+    if (!window.confirm(t("Aktifkan kembali karyawan ini?"))) return;
     startTransition(async () => {
-      await toggleEmployeeActive(emp.id);
-      setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, isActive: !e.isActive } : e));
+      await reactivateEmployee(emp.id);
+      setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, isActive: true } : e));
     });
   }
 
@@ -307,16 +309,17 @@ export default function KaryawanClient({
                         { label: "Detail", onClick: () => router.push(`/portal/admin/karyawan/${emp.id}`) },
                       ]),
                       { label: "Edit", onClick: () => openEdit(emp) },
-                      ...(emp.id.startsWith("tmp-") ? [] : QUICK_ACTIONS.map((item) => ({
-                        label: item.label,
-                        onClick: () => router.push(`/portal/admin/karyawan/${emp.id}?aksi=${item.key}`),
-                      }))),
-                      {
-                        label: emp.isActive ? "Nonaktifkan" : "Aktifkan",
-                        onClick: () => handleToggle(emp),
+                      ...(emp.id.startsWith("tmp-") ? [] : QUICK_ACTIONS
+                        .filter((item) => emp.isActive || item.key !== "resign")
+                        .map((item) => ({
+                          label: item.label,
+                          onClick: () => router.push(`/portal/admin/karyawan/${emp.id}?aksi=${item.key}`),
+                        }))),
+                      ...(emp.isActive ? [] : [{
+                        label: "Aktifkan Kembali",
+                        onClick: () => handleReactivate(emp),
                         disabled: isPending,
-                        separated: true,
-                      },
+                      }]),
                     ]} />
                   </TableCell>
                 </TableRow>

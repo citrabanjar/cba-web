@@ -19,7 +19,7 @@ import { MENUS } from "@/lib/roles";
 import type { MasterOptions } from "@/lib/master-data";
 import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
 import {
-  addEmploymentEvent, addJobChange, addSalaryAdjustment, saveFamily, setEmployeeAccess, toggleEmployeeActive, updateEmployee,
+  addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, setEmployeeAccess, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
 
@@ -110,6 +110,7 @@ const SECTION_TITLE: Record<Section, string> = {
 const EVENT_LABEL: Record<string, string> = {
   PERPANJANGAN: "Perpanjangan Kontrak", PEMBERHENTIAN: "Pemberhentian",
   MUTASI: "Mutasi", PROMOSI: "Promosi", DEMOSI: "Demosi", TRANSFER: "Transfer",
+  AKTIF_KEMBALI: "Aktif Kembali",
 };
 const EDIT_MODES: Partial<Record<Section, EditMode[]>> = {
   detail: ["ubah", "PERPANJANGAN", "PEMBERHENTIAN"],
@@ -730,14 +731,15 @@ export default function KaryawanDetailClient({
       } catch {
         setError(mode === "ubah"
           ? "Gagal menyimpan. ID Karyawan, email, atau No KTP mungkin sudah dipakai, atau ID atasan tidak ditemukan atau merupakan anak buahnya sendiri."
-          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Transfer harus mengubah isian; tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
+          : "Gagal menyimpan. Periksa tanggal dan isian wajib. Tanggal berhenti tidak boleh di masa depan, transfer harus mengubah isian, dan tanggal akhir kontrak harus setelah tanggal berlaku dan kontrak lama.");
       }
     });
   }
 
-  function handleToggle() {
+  function handleReactivate() {
+    if (!window.confirm(t("Aktifkan kembali karyawan ini?"))) return;
     startTransition(async () => {
-      await toggleEmployeeActive(emp.id);
+      await reactivateEmployee(emp.id);
     });
   }
 
@@ -810,13 +812,10 @@ export default function KaryawanDetailClient({
           </div>
           {canEdit && (
             <ActionMenu items={[
-              ...ACTION_ITEMS.map((item) => ({ label: item.label, onClick: () => openQuick(item.key) })),
-              {
-                label: emp.isActive ? "Nonaktifkan" : "Aktifkan",
-                onClick: handleToggle,
-                disabled: isPending,
-                separated: true,
-              },
+              ...ACTION_ITEMS
+                .filter((item) => emp.isActive || item.key !== "resign")
+                .map((item) => ({ label: item.label, onClick: () => openQuick(item.key) })),
+              ...(emp.isActive ? [] : [{ label: "Aktifkan Kembali", onClick: handleReactivate, disabled: isPending }]),
             ]} />
           )}
           </div>
@@ -1128,7 +1127,8 @@ export default function KaryawanDetailClient({
                     key={key}
                     type="button"
                     aria-pressed={mode === key}
-                    disabled={key === "PERPANJANGAN" && emp.employmentStatus !== "KONTRAK"}
+                    disabled={(key === "PERPANJANGAN" && emp.employmentStatus !== "KONTRAK")
+                      || (key === "PEMBERHENTIAN" && !emp.isActive)}
                     onClick={() => { setMode(key); setEventForm({}); setError(null); }}
                     className={`flex-1 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                       mode === key ? MODE_COLOR[key].active : MODE_COLOR[key].idle
@@ -1168,7 +1168,7 @@ export default function KaryawanDetailClient({
             ))}
             {mode === "PEMBERHENTIAN" && (
               <p className="text-xs text-gray-500">
-                <T>Karyawan dinonaktifkan dan tidak bisa login jika tanggal berhenti hari ini atau sudah lewat.</T>
+                <T>Karyawan langsung dinonaktifkan dan tidak bisa login. Tanggal berhenti tidak boleh di masa depan.</T>
               </p>
             )}
             {(mode === "ubah" || mode === "TRANSFER") && editing && fields[editing].map((field) => field.type === "check" ? (
