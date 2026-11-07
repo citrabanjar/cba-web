@@ -281,12 +281,11 @@ export async function addEmploymentEvent(id: string, input: EmploymentEventInput
 }
 
 export type JobChangeInput = {
-  type: "MUTASI" | "PROMOSI" | "DEMOSI";
   effectiveDate: string;
   note?: string;
 };
 
-// Mutasi, promosi, dan demosi mengubah Unit Perusahaan sekaligus mencatat perubahannya di Riwayat Pekerjaan.
+// Transfer mengubah Unit Perusahaan sekaligus mencatat perubahannya di Riwayat Pekerjaan.
 export async function addJobChange(id: string, input: JobChangeInput, data: EmployeeUpdate) {
   const actor = await requireMenu("karyawan");
   if (!input.effectiveDate) throw new Error("Tanggal berlaku wajib diisi");
@@ -317,7 +316,7 @@ export async function addJobChange(id: string, input: JobChangeInput, data: Empl
   await prisma.employmentEvent.create({
     data: {
       userId: id,
-      type: input.type,
+      type: "TRANSFER",
       effectiveDate: new Date(input.effectiveDate),
       reason: [parts.join("; "), note].filter(Boolean).join(". "),
       createdBy: actor.name,

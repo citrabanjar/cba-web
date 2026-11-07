@@ -123,10 +123,6 @@ const MODE_COLOR: Record<EditMode, { active: string; idle: string }> = {
 };
 const STOP_TYPES = ["Resign", "Diberhentikan", "Kontrak Berakhir"];
 type EventField = { key: string; label: string; type: string; options?: string[] };
-const TRANSFER_TYPES = ["Mutasi", "Promosi", "Demosi"];
-const JOB_CHANGE_TYPE: Record<string, "MUTASI" | "PROMOSI" | "DEMOSI"> = {
-  Mutasi: "MUTASI", Promosi: "PROMOSI", Demosi: "DEMOSI",
-};
 const EVENT_FIELDS: Partial<Record<EditMode, EventField[]>> = {
   PERPANJANGAN: [
     { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
@@ -140,7 +136,6 @@ const EVENT_FIELDS: Partial<Record<EditMode, EventField[]>> = {
     { key: "note", label: "Catatan", type: "text" },
   ],
   TRANSFER: [
-    { key: "transferType", label: "Jenis Transfer", type: "select", options: TRANSFER_TYPES },
     { key: "effectiveDate", label: "Tanggal Berlaku *", type: "date" },
     { key: "note", label: "Catatan", type: "text" },
   ],
@@ -724,8 +719,7 @@ export default function KaryawanDetailClient({
         const { effectiveDate = "", note } = eventForm;
         if (mode === "ubah") await updateEmployee(emp.id, form);
         else if (mode === "TRANSFER") {
-          const type = JOB_CHANGE_TYPE[eventForm.transferType ?? TRANSFER_TYPES[0]];
-          await addJobChange(emp.id, { type, effectiveDate, note }, form);
+          await addJobChange(emp.id, { effectiveDate, note }, form);
         } else if (mode === "PEMBERHENTIAN") {
           const reason = [eventForm.stopType ?? STOP_TYPES[0], note?.trim()].filter(Boolean).join(": ");
           await addEmploymentEvent(emp.id, { type: mode, effectiveDate, reason });
