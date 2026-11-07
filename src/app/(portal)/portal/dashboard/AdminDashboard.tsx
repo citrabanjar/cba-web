@@ -34,37 +34,48 @@ function ChangeChip({ value, label }: { value: number | null; label: string }) {
   );
 }
 
+// Setiap kartu punya warna sendiri: latar bergradasi lembut, ikon berwarna penuh, isi tetap putih.
+const TONES = {
+  violet: { card: "border-violet-200/70 from-violet-100 via-violet-50 to-white", icon: "bg-violet-500 shadow-violet-500/30", inner: "border-violet-100" },
+  sky: { card: "border-sky-200/70 from-sky-100 via-sky-50 to-white", icon: "bg-sky-500 shadow-sky-500/30", inner: "border-sky-100" },
+  emerald: { card: "border-emerald-200/70 from-emerald-100 via-emerald-50 to-white", icon: "bg-emerald-500 shadow-emerald-500/30", inner: "border-emerald-100" },
+  rose: { card: "border-rose-200/70 from-rose-100 via-rose-50 to-white", icon: "bg-rose-500 shadow-rose-500/30", inner: "border-rose-100" },
+  amber: { card: "border-amber-200/70 from-amber-100 via-amber-50 to-white", icon: "bg-amber-500 shadow-amber-500/30", inner: "border-amber-100" },
+};
+type Tone = keyof typeof TONES;
+
 function Panel({
-  icon: Icon, title, subtitle, action, children, className = "",
+  icon: Icon, title, subtitle, action, children, tone = "violet", className = "",
 }: {
   icon: React.ElementType; title: string; subtitle: string;
-  action?: React.ReactNode; children: React.ReactNode; className?: string;
+  action?: React.ReactNode; children: React.ReactNode; tone?: Tone; className?: string;
 }) {
+  const color = TONES[tone];
   return (
-    <section className={`rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm ${className}`}>
+    <section className={`rounded-2xl border bg-gradient-to-br p-1.5 shadow-sm ${color.card} ${className}`}>
       <div className="flex items-start gap-2.5 px-2.5 py-2">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-          <Icon size={15} />
+        <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-md ${color.icon}`}>
+          <Icon size={16} />
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-gray-800"><T>{title}</T></h3>
-          <p className="truncate text-[11px] text-gray-400"><T>{subtitle}</T></p>
+          <p className="truncate text-[11px] text-gray-500"><T>{subtitle}</T></p>
         </div>
         {action}
       </div>
-      <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">{children}</div>
+      <div className={`rounded-xl border bg-white/90 p-4 ${color.inner}`}>{children}</div>
     </section>
   );
 }
 
 function StatCard({
-  icon, title, subtitle, value, href, chip,
+  icon, title, subtitle, value, href, chip, tone,
 }: {
   icon: React.ElementType; title: string; subtitle: string; value: number;
-  href?: string; chip: React.ReactNode;
+  href?: string; chip: React.ReactNode; tone: Tone;
 }) {
   return (
-    <Panel icon={icon} title={title} subtitle={subtitle}>
+    <Panel icon={icon} title={title} subtitle={subtitle} tone={tone}>
       <div className="flex items-end justify-between gap-2">
         <div>
           <p className="text-3xl font-semibold tabular-nums text-gray-900">{value}</p>
@@ -219,29 +230,29 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          icon={Users} title="Total Karyawan" subtitle="Karyawan yang masih aktif"
+          icon={Users} title="Total Karyawan" subtitle="Karyawan yang masih aktif" tone="violet"
           value={active} href="/portal/admin/karyawan"
           chip={<ChangeChip value={change(joinedThisYear, joinedLastYear)} label={`${joinedThisYear} masuk tahun ini`} />}
         />
         <StatCard
-          icon={Building2} title="Departemen" subtitle="Divisi di perusahaan"
+          icon={Building2} title="Departemen" subtitle="Divisi di perusahaan" tone="sky"
           value={departments} href={canSeeSetup ? "/portal/admin/setup" : undefined}
           chip={<ChangeChip value={null} label="Termasuk grup di dalamnya" />}
         />
         <StatCard
-          icon={UserCheck} title="Hadir Hari Ini" subtitle="Hadir atau dinas luar"
+          icon={UserCheck} title="Hadir Hari Ini" subtitle="Hadir atau dinas luar" tone="emerald"
           value={presentToday}
           chip={<ChangeChip value={change(presentToday, presentYesterday)} label="dibanding kemarin" />}
         />
         <StatCard
-          icon={UserX} title="Tidak Hadir Hari Ini" subtitle="Belum absen, izin, sakit, atau cuti"
+          icon={UserX} title="Tidak Hadir Hari Ini" subtitle="Belum absen, izin, sakit, atau cuti" tone="rose"
           value={absentToday}
           chip={<ChangeChip value={change(absentToday, absentYesterday)} label="dibanding kemarin" />}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-        <Panel icon={Clock} title="Rata-rata Jam Kerja" subtitle="Rata-rata jam kerja seluruh karyawan, 7 hari terakhir">
+        <Panel icon={Clock} tone="violet" title="Rata-rata Jam Kerja" subtitle="Rata-rata jam kerja seluruh karyawan, 7 hari terakhir">
           <div className="flex items-end justify-between">
             <p className="text-3xl font-semibold tabular-nums text-gray-900">
               {weekAverage.toFixed(1)} <span className="text-base font-medium text-gray-500"><T>jam</T></span>
@@ -251,7 +262,7 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
           {weekHours.length ? <HoursChart days={week} average={weekAverage} /> : <Empty text="Belum ada data absensi lengkap minggu ini." />}
         </Panel>
 
-        <Panel icon={CalendarClock} title="Jam Kerja per Bulan" subtitle="Total jam kerja seluruh karyawan, 3 bulan terakhir">
+        <Panel icon={CalendarClock} tone="sky" title="Jam Kerja per Bulan" subtitle="Total jam kerja seluruh karyawan, 3 bulan terakhir">
           <div className="flex gap-6">
             <div>
               <p className="flex items-center gap-1.5 text-[11px] text-gray-500"><span className="h-2.5 w-2.5 rounded-sm bg-brand" /><T>Jam kerja</T></p>
@@ -267,7 +278,7 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
       </div>
 
       <Panel
-        icon={Users} title="Karyawan Terbaru" subtitle="Karyawan aktif dengan tanggal masuk terbaru"
+        icon={Users} tone="amber" title="Karyawan Terbaru" subtitle="Karyawan aktif dengan tanggal masuk terbaru"
         action={
           <div className="flex items-center gap-2">
             {expiring > 0 && (
