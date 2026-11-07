@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Printer, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, Crown, Network, Printer, TriangleAlert, UserX, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { T } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -62,24 +62,30 @@ function PersonCard({
 }) {
   const initials = person.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const body = (
-    <div className="flex items-center gap-2.5 text-left">
-      {person.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={person.image} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
-      ) : (
-        <div className="w-9 h-9 rounded-full bg-ink text-white text-xs font-bold flex items-center justify-center shrink-0">
-          {initials}
-        </div>
-      )}
+    <div className="flex items-center gap-3 text-left">
+      <span className="shrink-0 rounded-full bg-gradient-to-br from-amber-400 via-brand to-rose-400 p-[2px]">
+        {person.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={person.image} alt="" className="h-10 w-10 rounded-full border-2 border-white object-cover" />
+        ) : (
+          <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-ink text-xs font-bold text-white">
+            {initials}
+          </span>
+        )}
+      </span>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-gray-800 truncate">{person.name}</p>
+        <p className="text-sm font-bold text-gray-900 truncate">{person.name}</p>
         <p className="text-xs text-gray-500 truncate">{person.position ?? <T>{"Jabatan belum diisi"}</T>}</p>
-        {person.department && <p className="text-[11px] text-gray-400 truncate">{person.department}</p>}
+        {person.department && (
+          <p className="mt-1 inline-block max-w-full truncate rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+            {person.department}
+          </p>
+        )}
       </div>
     </div>
   );
   return (
-    <div className="w-56 bg-white border border-gray-200 border-l-4 border-l-brand rounded-lg px-3 py-2.5 shadow-sm">
+    <div className="w-60 rounded-2xl border border-gray-200 bg-white px-3.5 py-3 shadow-[0_8px_20px_-12px_rgb(20_0_5/0.35)]">
       {canOpenProfile ? (
         <Link href={`/portal/admin/karyawan/${person.id}`} className="block hover:opacity-80">{body}</Link>
       ) : body}
@@ -106,7 +112,7 @@ function Branch({
             <button
               onClick={() => toggle(node.id)}
               aria-expanded={open}
-              className="print:hidden mt-2 flex w-full items-center justify-center gap-1 text-xs text-gray-500 hover:text-brand"
+              className="print:hidden mt-2.5 flex w-full items-center justify-center gap-1 rounded-full bg-gray-50 py-1 text-xs font-medium text-gray-500 hover:bg-brand/10 hover:text-brand"
             >
               {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
               {node.total} <T>anak buah</T>
@@ -205,30 +211,49 @@ export default function OrgChart({
       </div>
 
       <main className="px-4 sm:px-6 py-5 space-y-5 print:p-0">
-        <div className="print:hidden flex flex-wrap items-end gap-3">
-          <label className="text-xs text-white/80 space-y-1">
-            <span className="block"><T>Tampilkan</T></span>
+        <div className="print:hidden grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Karyawan Aktif", value: shown.length, icon: Users, tone: "from-brand to-rose-400" },
+            { label: "Departemen", value: departments.length, icon: Network, tone: "from-sky-500 to-indigo-400" },
+            { label: "Pimpinan Puncak", value: roots.length, icon: Crown, tone: "from-emerald-500 to-teal-400" },
+            { label: "Belum punya atasan", value: unassigned.length, icon: UserX, tone: "from-amber-500 to-orange-400" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-2xl border border-gray-200 bg-white p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}>
+                  <s.icon size={15} />
+                </span>
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="print:hidden flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3">
+          <label className="flex items-center gap-2 text-xs font-medium text-gray-500">
+            <span><T>Tampilkan</T></span>
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="h-8 max-w-72 rounded-lg border border-input bg-white px-2 text-sm text-gray-800"
+              className="h-9 max-w-72 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800"
             >
               <option value=""><T>Seluruh Perusahaan</T></option>
               {departments.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
           </label>
-          <label className="text-xs text-white/80 space-y-1">
-            <span className="block"><T>Kertas</T></span>
+          <label className="flex items-center gap-2 text-xs font-medium text-gray-500">
+            <span><T>Kertas</T></span>
             <select
               value={paper}
               onChange={(e) => setPaper(e.target.value as Paper)}
-              className="h-8 rounded-lg border border-input bg-white px-2 text-sm text-gray-800"
+              className="h-9 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm text-gray-800"
             >
               <option value="A4"><T>A4 Landscape</T></option>
               <option value="A3"><T>A3 Landscape</T></option>
             </select>
           </label>
-          <Button size="sm" onClick={handlePrint} disabled={roots.length === 0} className="gap-1.5">
+          <Button onClick={handlePrint} disabled={roots.length === 0} className="ml-auto h-9 gap-1.5 rounded-full px-5">
             <Printer size={15} /> <T>Cetak PDF</T>
           </Button>
         </div>
@@ -250,7 +275,7 @@ export default function OrgChart({
         )}
 
         {roots.length > 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-5 overflow-x-auto print:overflow-visible print:border-0 print:p-0">
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-x-auto print:overflow-visible print:border-0 print:p-0">
             <ul ref={chartRef} className="org-tree">
               {roots.map((node) => (
                 <Branch key={node.id} node={node} closed={closed} toggle={toggle} canOpenProfile={canOpenProfile} />
@@ -258,20 +283,25 @@ export default function OrgChart({
             </ul>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 py-12 text-center text-sm text-gray-400">
+          <div className="bg-white rounded-2xl border border-gray-200 py-12 text-center text-sm text-gray-400">
             <T>Struktur akan muncul setelah kolom Atasan Langsung terisi.</T>
           </div>
         )}
 
         {unassigned.length > 0 && (
-          <section className="print:hidden bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-sm text-gray-800">
-              <T>Belum punya atasan (</T>{unassigned.length})
-            </h3>
-            <p className="text-xs text-gray-500 mt-0.5 mb-4">
-              <T>Isi Atasan Langsung di profil karyawan supaya masuk ke struktur.</T>
-            </p>
-            <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(14rem,1fr))]">
+          <section className="print:hidden bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="section-head flex items-center gap-3 px-5 py-4" style={{ "--tone": "#f59e0b" } as React.CSSProperties}>
+              <span className="section-icon"><UserX size={17} /></span>
+              <div>
+                <h3 className="font-semibold text-[15px]">
+                  <T>Belum punya atasan (</T>{unassigned.length})
+                </h3>
+                <p className="text-xs text-gray-500">
+                  <T>Isi Atasan Langsung di profil karyawan supaya masuk ke struktur.</T>
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 p-5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
               {unassigned.map((p) => (
                 <PersonCard key={p.id} person={p} canOpenProfile={canOpenProfile} />
               ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Briefcase, Building2, Check, Network, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
@@ -9,7 +9,10 @@ import { deleteMasterItem, saveMasterItem, type MasterKind } from "./actions";
 
 type Item = { id: string; name: string; used: number };
 
+const ICON: Record<MasterKind, React.ElementType> = { branch: Building2, department: Network, position: Briefcase };
+
 function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; items: Item[] }) {
+  const Icon = ICON[kind];
   const t = useT();
   const [newName, setNewName] = useState("");
   const [editing, setEditing] = useState<Item | null>(null);
@@ -31,23 +34,27 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
   };
 
   return (
-    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="section-head flex items-center justify-between gap-3 px-5 py-3">
-        <h3 className="font-semibold text-sm"><T>{title}</T></h3>
-        <span className="text-xs text-gray-500">{items.length}</span>
+    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="section-head flex items-center justify-between gap-3 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="section-icon"><Icon size={17} /></span>
+          <h3 className="font-semibold text-[15px]"><T>{title}</T></h3>
+        </div>
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">{items.length}</span>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="p-5 space-y-3">
         <div className="flex gap-2">
           <Input
             value={newName}
             aria-label={t(title)}
-            placeholder="Tambah baru"
+            placeholder={t("Tambah baru")}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") add(); }}
+            className="h-10 rounded-full bg-gray-50 px-4"
           />
-          <Button size="sm" onClick={add} disabled={isPending || !newName.trim()} aria-label={t("Tambah baru")}>
-            <Plus size={15} />
+          <Button onClick={add} disabled={isPending || !newName.trim()} className="h-10 gap-1.5 rounded-full px-5">
+            <Plus size={15} /> <T>Tambah</T>
           </Button>
         </div>
 
@@ -56,9 +63,9 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
         {items.length === 0 ? (
           <p className="py-4 text-center text-sm text-gray-400"><T>Belum ada data.</T></p>
         ) : (
-          <ul className="max-h-72 overflow-y-auto pr-1 divide-y divide-gray-100">
+          <ul className="max-h-80 overflow-y-auto pr-1 space-y-2">
             {items.map((item) => (
-              <li key={item.id} className="flex items-center gap-2 py-2">
+              <li key={item.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5">
                 {editing?.id === item.id ? (
                   <>
                     <Input
@@ -77,11 +84,14 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
                   </>
                 ) : (
                   <>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-gray-800 break-words">{item.name}</p>
-                      <p className="text-xs text-gray-400">{item.used} <T>karyawan</T></p>
-                    </div>
-                    <button type="button" onClick={() => { setEditing(item); setError(null); }} aria-label={t("Ubah nama")} className="p-1 text-gray-400 hover:text-brand">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-600 shadow-sm ring-1 ring-gray-200">
+                      {item.name.trim()[0]?.toUpperCase()}
+                    </span>
+                    <p className="min-w-0 flex-1 text-sm font-semibold text-gray-900 break-words">{item.name}</p>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-gray-500 ring-1 ring-gray-200">
+                      <Users size={12} /> {item.used}
+                    </span>
+                    <button type="button" onClick={() => { setEditing(item); setError(null); }} aria-label={t("Ubah nama")} className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand">
                       <Pencil size={15} />
                     </button>
                     <button
@@ -90,7 +100,7 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
                       title={item.used > 0 ? t("Masih dipakai karyawan, jadi belum bisa dihapus.") : undefined}
                       onClick={() => run(() => deleteMasterItem(kind, item.id), () => {})}
                       aria-label={t("Hapus")}
-                      className="p-1 text-gray-400 hover:text-brand disabled:opacity-30 disabled:hover:text-gray-400"
+                      className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -118,10 +128,30 @@ export default function SetupClient({
           <T>Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.</T>
         </p>
       </div>
-      <main className="section-stack px-4 sm:px-6 py-5 space-y-5">
+      <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
+        {/* Ringkasan jumlah, gaya kartu angka seperti Data Karyawan */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Cabang", value: branches.length, icon: Building2, tone: "from-brand to-rose-400" },
+            { label: "Departemen", value: departments.length, icon: Network, tone: "from-sky-500 to-indigo-400" },
+            { label: "Jabatan", value: positions.length, icon: Briefcase, tone: "from-emerald-500 to-teal-400" },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}>
+                  <s.icon size={15} />
+                </span>
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="section-stack space-y-5">
         <MasterCard kind="branch" title="Cabang" items={branches} />
         <MasterCard kind="department" title="Departemen" items={departments} />
         <MasterCard kind="position" title="Jabatan" items={positions} />
+        </div>
       </main>
     </div>
   );

@@ -904,7 +904,13 @@ export default function KaryawanDetailClient({
 
           <div className="grid grid-cols-2 gap-3">
             <SummaryTile tone="amber" icon={Hash} label="Employee ID" value={emp.employeeId} />
-            <SummaryTile tone="sky" icon={CalendarDays} label="Tanggal Masuk" value={emp.joinDate ? fmtDate(emp.joinDate) : "—"} />
+            <SummaryTile
+              tone="sky"
+              icon={BriefcaseBusiness}
+              label="Jabatan & Departemen"
+              value={emp.position || "—"}
+              sub={emp.department?.name ?? undefined}
+            />
             <SummaryTile tone="rose" icon={Hourglass} label="Masa Kerja" value={tenure ?? "—"} />
             <SummaryTile
               tone="emerald"

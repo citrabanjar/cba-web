@@ -297,13 +297,6 @@ export default function PortalShell({ user, children }: Props) {
         <div className="lg:hidden"><LogoBadge width={150} /></div>
         <div className="ml-auto flex items-center gap-3">
           <LanguageSwitcher />
-          <div className="hidden items-center gap-2.5 sm:flex">
-            <Avatar name={user.name} size="h-8 w-8 text-[11px]" />
-            <div className="text-right leading-tight">
-              <p className="text-sm font-semibold text-white">{user.name}</p>
-              <p className="text-[11px] text-white/60">{roleLabel(user.role)}</p>
-            </div>
-          </div>
         </div>
       </header>
 
