@@ -263,6 +263,7 @@ export const en: Record<string, string> = {
   "Kontrak Berakhir": "Contract Ended",
   "Pilih Transfer lalu ubah isian di bawah supaya tercatat di Riwayat Pekerjaan.": "Choose Transfer, then change the fields below to record it in the Employment History.",
   "Transfer": "Transfer",
+  "Jenis Transfer": "Transfer Type",
   "Keterangan": "Details",
   "Kontrak sampai": "Contract until",
   "Payroll": "Payroll",
