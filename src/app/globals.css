@@ -18,6 +18,17 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Tema portal: ungu lembut dengan aksen biru langit. Website publik tetap memakai warna logo CBA. */
+.portal-theme {
+  --color-brand: #6c5ce7;
+  --color-brand-dark: #5546d4;
+  --color-ink: #211d3f;
+  --color-gray-50: #f6f5fb;
+  --color-accent-sky: #38bdf8;
+  --primary: #6c5ce7;
+  --ring: #a99ff3;
+}
+
 body {
   font-family: var(--font-sans);
 }
@@ -262,13 +273,13 @@ body {
   color: color-mix(in srgb, var(--tone) 82%, black);
 }
 .section-stack > :nth-child(4n + 2) .section-head {
-  --tone: #1d6fa5;
+  --tone: #0ea5e9;
 }
 .section-stack > :nth-child(4n + 3) .section-head {
-  --tone: #2e7d5b;
+  --tone: #10b981;
 }
 .section-stack > :nth-child(4n) .section-head {
-  --tone: #b7791f;
+  --tone: #f59e0b;
 }
 
 /* Cetak bagan: warna tetap ikut, dan bagan dikecilkan agar muat satu halaman */

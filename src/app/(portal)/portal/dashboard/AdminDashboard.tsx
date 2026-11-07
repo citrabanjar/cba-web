@@ -43,7 +43,7 @@ function Panel({
   return (
     <section className={`rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm ${className}`}>
       <div className="flex items-start gap-2.5 px-2.5 py-2">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-50 text-brand">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
           <Icon size={15} />
         </span>
         <div className="min-w-0 flex-1">
@@ -116,8 +116,8 @@ export function HoursChart({ days, average }: { days: { label: string; hours: nu
       <path d={line} fill="none" stroke="var(--color-brand)" strokeWidth="2.5" strokeLinejoin="round" />
       {average > 0 && (
         <g>
-          <line x1={PAD} x2={W - RIGHT} y1={y(average)} y2={y(average)} stroke="#333336" strokeDasharray="3 4" />
-          <rect x={PAD + 4} y={y(average) - 22} width="84" height="18" rx="4" fill="#333336" />
+          <line x1={PAD} x2={W - RIGHT} y1={y(average)} y2={y(average)} stroke="var(--color-ink)" strokeDasharray="3 4" />
+          <rect x={PAD + 4} y={y(average) - 22} width="84" height="18" rx="4" fill="var(--color-ink)" />
           <text x={PAD + 46} y={y(average) - 9} textAnchor="middle" fontSize="11" fill="#fff">
             {`Rata-rata ${average.toFixed(1)} j`}
           </text>
@@ -141,7 +141,7 @@ export function MonthBars({ months }: { months: { label: string; regular: number
         <div key={m.label} className="flex flex-col items-center gap-2">
           <div className="flex h-36 items-end gap-1.5">
             <div className="w-7 rounded-t-md bg-brand" style={{ height: `${(m.regular / max) * 100}%` }} title={`${Math.round(m.regular)} jam`} />
-            <div className="w-7 rounded-t-md bg-[#1d6fa5]" style={{ height: `${(m.extra / max) * 100}%` }} title={`${Math.round(m.extra)} jam`} />
+            <div className="w-7 rounded-t-md bg-sky-400" style={{ height: `${(m.extra / max) * 100}%` }} title={`${Math.round(m.extra)} jam`} />
           </div>
           <span className="text-[11px] text-gray-400">{m.label}</span>
         </div>
@@ -258,7 +258,7 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
               <p className="text-lg font-semibold tabular-nums text-gray-900">{Math.round(totalRegular)} <span className="text-xs font-medium text-gray-500"><T>jam</T></span></p>
             </div>
             <div>
-              <p className="flex items-center gap-1.5 text-[11px] text-gray-500"><span className="h-2.5 w-2.5 rounded-sm bg-[#1d6fa5]" /><T>Lebih dari 8 jam</T></p>
+              <p className="flex items-center gap-1.5 text-[11px] text-gray-500"><span className="h-2.5 w-2.5 rounded-sm bg-sky-400" /><T>Lebih dari 8 jam</T></p>
               <p className="text-lg font-semibold tabular-nums text-gray-900">{Math.round(totalExtra)} <span className="text-xs font-medium text-gray-500"><T>jam</T></span></p>
             </div>
           </div>

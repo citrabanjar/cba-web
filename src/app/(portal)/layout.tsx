@@ -12,7 +12,7 @@ export default async function PortalLayout({
   const session = await auth();
 
   if (!session?.user) {
-    return <div className="min-h-screen bg-gray-50">{children}</div>;
+    return <div className="portal-theme min-h-screen bg-gray-50">{children}</div>;
   }
 
   const access = await getAccess();

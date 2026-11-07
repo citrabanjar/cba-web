@@ -71,40 +71,44 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
   return sections;
 }
 
-type Props = {
-  user: { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-  children: React.ReactNode;
-};
+type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
+type Props = { user: User; children: React.ReactNode };
+
+const initials = (name: string) => name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+function Avatar({ name, size = "h-9 w-9 text-xs" }: { name: string; size?: string }) {
+  return (
+    <span className={`flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-sky-400 font-bold text-white ${size}`}>
+      {initials(name)}
+    </span>
+  );
+}
 
 function NavLinks({
-  sections,
-  pathname,
-  onClose,
+  sections, pathname, onClose,
 }: {
-  sections: NavSection[];
-  pathname: string;
-  onClose?: () => void;
+  sections: NavSection[]; pathname: string; onClose?: () => void;
 }) {
   return (
-    <nav className="flex-1 overflow-y-auto py-3">
+    <nav className="flex-1 overflow-y-auto px-3 py-2">
       {sections.map((sec) => (
-        <div key={sec.section} className="mb-2">
-          <p className="px-5 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+        <div key={sec.section} className="mb-3">
+          <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
             <T>{sec.section}</T>
           </p>
           {sec.items.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
+                aria-current={isActive ? "page" : undefined}
                 className={[
-                  "flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-colors border-l-2",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "text-white bg-ink border-brand"
-                    : "text-gray-600 hover:bg-gray-100 border-transparent",
+                    ? "bg-brand/10 font-semibold text-brand"
+                    : "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900",
                 ].join(" ")}
               >
                 <item.icon size={17} />
@@ -131,17 +135,44 @@ function Logo({ width }: { width: number }) {
   );
 }
 
-function LogoutButton({ className = "" }: { className?: string }) {
+function LogoutButton() {
   return (
     <form action={logoutAction}>
       <button
         type="submit"
-        className={`flex items-center justify-center gap-2 px-3 py-1.5 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors ${className}`}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
       >
-        <LogOut size={15} />
+        <LogOut size={17} />
         <T>Keluar</T>
       </button>
     </form>
+  );
+}
+
+function UserCard({ user }: { user: User }) {
+  const info = [user.employeeId, roleLabel(user.role)].filter(Boolean).join(" · ");
+  return (
+    <div className="mx-3 flex items-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+      <Avatar name={user.name} />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
+        <p className="truncate text-[11px] text-gray-500">{info}</p>
+      </div>
+    </div>
+  );
+}
+
+function SidebarBody({
+  user, sections, pathname, onClose,
+}: {
+  user: User; sections: NavSection[]; pathname: string; onClose?: () => void;
+}) {
+  return (
+    <>
+      <div className="pb-3"><UserCard user={user} /></div>
+      <NavLinks sections={sections} pathname={pathname} onClose={onClose} />
+      <div className="border-t border-gray-100 p-3"><LogoutButton /></div>
+    </>
   );
 }
 
@@ -149,75 +180,59 @@ export default function PortalShell({ user, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const sections = getNavSections(user.role, user.menuAccess);
-  const userInfo = [user.employeeId, roleLabel(user.role)].filter(Boolean).join(" · ");
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header atas, sama dengan form.citrabanjar.com */}
-      <header className="print:hidden fixed top-0 inset-x-0 z-40 h-[68px] bg-white border-b-4 border-brand flex items-center gap-3 px-4 lg:px-5">
+    <div className="portal-theme min-h-screen bg-gray-50">
+      {/* Sidebar desktop */}
+      <aside className="print:hidden fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
+        <div className="flex h-16 shrink-0 items-center px-5"><Logo width={190} /></div>
+        <SidebarBody user={user} sections={sections} pathname={pathname} />
+      </aside>
+
+      {/* Header */}
+      <header className="print:hidden fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white/85 px-4 backdrop-blur lg:left-64 lg:px-6">
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Buka menu"
-          className="lg:hidden p-1 rounded-lg hover:bg-gray-100 text-gray-700"
+          className="rounded-lg p-1 text-gray-700 hover:bg-gray-100 lg:hidden"
         >
           <Menu size={22} />
         </button>
-        <Logo width={230} />
-        <LanguageSwitcher className="ml-auto" />
-        <div className="hidden sm:flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-sm font-bold text-ink uppercase leading-tight">{user.name}</p>
-            <p className="text-xs text-gray-500">
-              {userInfo}
-            </p>
+        <div className="lg:hidden"><Logo width={170} /></div>
+        <div className="ml-auto flex items-center gap-3">
+          <LanguageSwitcher />
+          <div className="hidden items-center gap-2.5 sm:flex">
+            <Avatar name={user.name} size="h-8 w-8 text-[11px]" />
+            <div className="text-right leading-tight">
+              <p className="text-sm font-semibold text-gray-900">{user.name}</p>
+              <p className="text-[11px] text-gray-500">{roleLabel(user.role)}</p>
+            </div>
           </div>
-          <LogoutButton />
         </div>
       </header>
-
-      {/* Sidebar desktop */}
-      <aside className="print:hidden hidden lg:flex w-60 bg-white border-r border-gray-200 flex-col fixed top-[68px] bottom-0 left-0 z-30">
-        <NavLinks sections={sections} pathname={pathname} />
-      </aside>
 
       {/* Sidebar mobile */}
       {sidebarOpen && (
         <>
-          <div
-            className="fixed inset-0 bg-black/40 z-50 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <aside className="fixed inset-y-0 left-0 w-72 bg-white z-50 flex flex-col lg:hidden shadow-xl">
-            <div className="flex items-center justify-between gap-3 px-4 py-4 border-b-4 border-brand shrink-0">
-              <Logo width={200} />
+          <div className="fixed inset-0 z-50 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white shadow-xl lg:hidden">
+            <div className="flex h-16 shrink-0 items-center justify-between gap-3 px-4">
+              <Logo width={170} />
               <button
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Tutup menu"
-                className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"
+                className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"
               >
                 <X size={20} />
               </button>
             </div>
-
-            <NavLinks
-              sections={sections}
-              pathname={pathname}
-              onClose={() => setSidebarOpen(false)}
-            />
-
-            <div className="border-t border-gray-100 p-4 shrink-0">
-              <p className="text-sm font-bold text-ink uppercase truncate">{user.name}</p>
-              <p className="text-xs text-gray-500 mb-3">
-                {userInfo}
-              </p>
-              <LogoutButton className="w-full" />
-            </div>
+            <SidebarBody user={user} sections={sections} pathname={pathname} onClose={() => setSidebarOpen(false)} />
           </aside>
         </>
       )}
 
       {/* Konten */}
-      <main className="pt-[68px] lg:ml-60 min-w-0 print:p-0 print:ml-0">{children}</main>
+      <main className="min-w-0 pt-16 lg:ml-64 print:ml-0 print:p-0">{children}</main>
     </div>
   );
 }

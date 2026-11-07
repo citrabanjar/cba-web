@@ -118,9 +118,9 @@ const EDIT_MODES: Partial<Record<Section, EditMode[]>> = {
 };
 const MODE_COLOR: Record<EditMode, { active: string; idle: string }> = {
   ubah: { active: "bg-ink text-white border-ink", idle: "bg-gray-100 text-gray-700 border-gray-300" },
-  PERPANJANGAN: { active: "bg-blue-700 text-white border-blue-700", idle: "bg-blue-50 text-blue-700 border-blue-300" },
-  PEMBERHENTIAN: { active: "bg-brand text-white border-brand", idle: "bg-red-50 text-brand border-red-300" },
-  TRANSFER: { active: "bg-green-700 text-white border-green-700", idle: "bg-green-50 text-green-700 border-green-300" },
+  PERPANJANGAN: { active: "bg-brand text-white border-brand", idle: "bg-brand/10 text-brand border-brand/30" },
+  PEMBERHENTIAN: { active: "bg-rose-600 text-white border-rose-600", idle: "bg-rose-50 text-rose-700 border-rose-300" },
+  TRANSFER: { active: "bg-sky-600 text-white border-sky-600", idle: "bg-sky-50 text-sky-700 border-sky-300" },
 };
 const STOP_TYPES = ["Resign", "Diberhentikan", "Kontrak Berakhir"];
 type EventField = { key: string; label: string; type: string; options?: string[] };
@@ -778,7 +778,7 @@ export default function KaryawanDetailClient({
                   </a>
                 )}
                 {emp.email && (
-                  <a href={`mailto:${emp.email}`} aria-label="Email" className="p-1 rounded-full bg-red-50 text-brand hover:bg-red-100">
+                  <a href={`mailto:${emp.email}`} aria-label="Email" className="p-1 rounded-full bg-brand/10 text-brand hover:bg-brand/15">
                     <Mail size={14} />
                   </a>
                 )}

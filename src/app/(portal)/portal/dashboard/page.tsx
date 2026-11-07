@@ -87,7 +87,7 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/portal/absensi"
-              className="ml-auto text-xs font-semibold text-brand bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+              className="ml-auto text-xs font-semibold text-brand bg-brand/10 border border-brand/20 px-3 py-1.5 rounded-lg hover:bg-brand/15 transition-colors"
             >
               <T>Absen →</T>
             </Link>
