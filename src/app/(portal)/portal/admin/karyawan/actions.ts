@@ -331,6 +331,39 @@ export async function addJobChange(id: string, input: JobChangeInput, data: Empl
   return { success: true };
 }
 
+const MAX_PHOTO_BYTES = 200_000;
+
+// Pesan dikembalikan karena pesan error server action disamarkan di production.
+export async function uploadEmployeePhoto(id: string, form: FormData) {
+  const actor = await requireMenu("import");
+  const file = form.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { error: "File foto kosong." };
+  if (file.size > MAX_PHOTO_BYTES) return { error: "Ukuran foto terlalu besar." };
+
+  const data = Buffer.from(await file.arrayBuffer());
+  if (data[0] !== 0xff || data[1] !== 0xd8) return { error: "File bukan gambar JPEG." };
+
+  const target = await prisma.user.findFirst({
+    where: { id, ...editableTarget(actor.role) },
+    select: { id: true },
+  });
+  if (!target) return { error: "Karyawan tidak bisa diubah." };
+
+  await prisma.$transaction([
+    prisma.employeePhoto.upsert({ where: { userId: id }, update: { data }, create: { userId: id, data } }),
+    prisma.user.update({
+      where: { id },
+      data: {
+        image: `/api/foto/${id}?v=${Date.now()}`,
+        changeLogs: { create: { field: "photo", changedBy: actor.name } },
+      },
+    }),
+  ]);
+  revalidatePath(LIST_PATH);
+  revalidatePath(`${LIST_PATH}/${id}`);
+  return {};
+}
+
 export type FamilyInput = { name: string; idNumber: string; relation: string };
 
 // Daftar keluarga disimpan sekaligus, jadi tambah, ubah, dan hapus baris cukup satu aksi.

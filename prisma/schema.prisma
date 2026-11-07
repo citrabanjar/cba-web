@@ -146,6 +146,7 @@ model User {
   salaries     EmployeeSalary[]
   changeLogs   EmployeeChangeLog[]
   family       FamilyMember[]
+  photo        EmployeePhoto?
   employmentEvents EmploymentEvent[]
   accounts     Account[]
   sessions     Session[]
@@ -364,6 +365,14 @@ model EmploymentEvent {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, effectiveDate])
+}
+
+model EmployeePhoto {
+  userId    String   @id
+  data      Bytes
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model FamilyMember {

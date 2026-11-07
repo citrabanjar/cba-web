@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Upload, Download, CheckCircle2, Loader2 } from "lucide-react";
+import { Search, Plus, Upload, Download, CheckCircle2, ImageUp, Loader2 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -27,6 +27,7 @@ import type { MasterOptions } from "@/lib/master-data";
 import { BANK_OPTIONS } from "@/lib/personal-info";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
+import PhotoUpload from "./PhotoUpload";
 import { T, useT } from "@/components/i18n";
 
 type Dept = { id: string; name: string };
@@ -92,7 +93,7 @@ export default function KaryawanClient({
   const router = useRouter();
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
-  const [modal, setModal] = useState<"none" | "add" | "edit" | "upload">("none");
+  const [modal, setModal] = useState<"none" | "add" | "edit" | "upload" | "photo">("none");
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [form, setForm] = useState<Partial<EmployeeInput>>({ ...EMPTY });
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
@@ -231,6 +232,9 @@ export default function KaryawanClient({
               </Button>
               <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-1.5">
                 <Download size={15} /> <T>Template .xlsx</T>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setModal("photo")} className="gap-1.5">
+                <ImageUp size={15} /> <T>Upload Foto</T>
               </Button>
             </>
           )}
@@ -428,6 +432,16 @@ export default function KaryawanClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {modal === "photo" && (
+        <PhotoUpload
+          employees={employees.filter((e) => !e.id.startsWith("tmp-"))}
+          onClose={(changed) => {
+            setModal("none");
+            if (changed) window.location.reload();
+          }}
+        />
+      )}
 
       {/* Dialog import */}
       <Dialog open={modal === "upload"} onOpenChange={(open: boolean) => { if (!open) closeImport(); }}>
