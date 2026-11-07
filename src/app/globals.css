@@ -27,17 +27,23 @@ html {
   --color-gray-50: #f4f7fe;
   --primary: #4361ee;
   --ring: #9fb0f6;
-  /* Latar biru bergradasi dengan dua cahaya lembut, seperti sampul V2. */
+  /* Seluruh latar biru mengilap seperti sampul V2: kilau putih di kiri atas, biru cerah di sudut lain. */
+  background-color: #c7d7ff;
   background-image:
-    radial-gradient(circle at 15% 5%, rgb(67 97 238 / 0.3), transparent 45%),
-    radial-gradient(circle at 90% 12%, rgb(56 189 248 / 0.32), transparent 40%),
-    radial-gradient(circle at 60% 95%, rgb(129 140 248 / 0.22), transparent 45%),
-    linear-gradient(160deg, #d9e4ff 0%, #e5ecff 45%, #eef2ff 100%);
+    radial-gradient(ellipse 60% 45% at 12% 0%, rgb(255 255 255 / 0.85), transparent 70%),
+    radial-gradient(circle at 95% 5%, rgb(56 189 248 / 0.55), transparent 42%),
+    radial-gradient(circle at 80% 100%, rgb(67 97 238 / 0.45), transparent 48%),
+    radial-gradient(circle at 0% 85%, rgb(129 140 248 / 0.4), transparent 45%),
+    linear-gradient(150deg, #dbe6ff 0%, #c4d5ff 50%, #b5c9ff 100%);
   background-attachment: fixed;
 }
-/* Halaman di dalam portal punya latar abu sendiri; dibuat transparan supaya gradasinya terlihat. */
+/* Halaman di dalam portal punya latar dan pita judul sendiri; dibuat transparan supaya birunya terlihat. */
 .portal-theme main > .bg-gray-50 {
   background-color: transparent;
+}
+.portal-theme main > .bg-gray-50 > .bg-white.border-b:first-child {
+  background-color: transparent;
+  border-color: rgb(255 255 255 / 0.5);
 }
 
 body {

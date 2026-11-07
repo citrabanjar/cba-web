@@ -93,7 +93,7 @@ function NavLinks({
     <nav className="flex-1 overflow-y-auto px-3 py-2">
       {sections.map((sec) => (
         <div key={sec.section} className="mb-3">
-          <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+          <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
             <T>{sec.section}</T>
           </p>
           {sec.items.map((item) => {
@@ -107,8 +107,8 @@ function NavLinks({
                 className={[
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "bg-brand/10 font-semibold text-brand"
-                    : "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                    ? "bg-brand font-semibold text-white shadow-md shadow-brand/30"
+                    : "font-medium text-gray-700 hover:bg-white/60 hover:text-gray-900",
                 ].join(" ")}
               >
                 <item.icon size={17} />
@@ -140,7 +140,7 @@ function LogoutButton() {
     <form action={logoutAction}>
       <button
         type="submit"
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-white/60"
       >
         <LogOut size={17} />
         <T>Keluar</T>
@@ -152,7 +152,7 @@ function LogoutButton() {
 function UserCard({ user }: { user: User }) {
   const info = [user.employeeId, roleLabel(user.role)].filter(Boolean).join(" · ");
   return (
-    <div className="mx-3 flex items-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-2.5">
+    <div className="mx-3 flex items-center gap-2.5 rounded-xl border border-white/70 bg-white/60 p-2.5 shadow-sm">
       <Avatar name={user.name} />
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
@@ -171,7 +171,7 @@ function SidebarBody({
     <>
       <div className="pb-3"><UserCard user={user} /></div>
       <NavLinks sections={sections} pathname={pathname} onClose={onClose} />
-      <div className="border-t border-gray-100 p-3"><LogoutButton /></div>
+      <div className="border-t border-white/60 p-3"><LogoutButton /></div>
     </>
   );
 }
@@ -182,19 +182,19 @@ export default function PortalShell({ user, children }: Props) {
   const sections = getNavSections(user.role, user.menuAccess);
 
   return (
-    <div className="portal-theme min-h-screen bg-gray-50">
+    <div className="portal-theme min-h-screen">
       {/* Sidebar desktop */}
-      <aside className="print:hidden fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
+      <aside className="print:hidden fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/60 bg-white/40 backdrop-blur-xl lg:flex">
         <div className="flex h-16 shrink-0 items-center px-5"><Logo width={190} /></div>
         <SidebarBody user={user} sections={sections} pathname={pathname} />
       </aside>
 
       {/* Header */}
-      <header className="print:hidden fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-3 border-b border-white/60 bg-white/55 px-4 backdrop-blur-md lg:left-64 lg:px-6">
+      <header className="print:hidden fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-3 border-b border-white/50 bg-white/30 px-4 backdrop-blur-xl lg:left-64 lg:px-6">
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Buka menu"
-          className="rounded-lg p-1 text-gray-700 hover:bg-gray-100 lg:hidden"
+          className="rounded-lg p-1 text-gray-700 hover:bg-white/60 lg:hidden"
         >
           <Menu size={22} />
         </button>
