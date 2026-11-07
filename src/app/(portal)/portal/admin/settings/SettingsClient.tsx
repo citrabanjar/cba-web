@@ -55,8 +55,8 @@ export default function SettingsClient({ name, employeeId, role }: { name: strin
   return (
     <div className="p-6 max-w-xl space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-800"><T>Pengaturan Akun</T></h1>
-        <p className="text-sm text-gray-400 mt-0.5"><T>Kelola informasi akun super admin</T></p>
+        <h1 className="text-xl font-bold text-white"><T>Pengaturan Akun</T></h1>
+        <p className="text-sm text-white/70 mt-0.5"><T>Kelola informasi akun super admin</T></p>
       </div>
 
       {/* Info akun */}

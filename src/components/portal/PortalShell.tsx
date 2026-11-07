@@ -78,7 +78,7 @@ const initials = (name: string) => name.split(" ").slice(0, 2).map((w) => w[0]).
 
 function Avatar({ name, size = "h-9 w-9 text-xs" }: { name: string; size?: string }) {
   return (
-    <span className={`flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-sky-400 font-bold text-white ${size}`}>
+    <span className={`flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-amber-400 font-bold text-white ${size}`}>
       {initials(name)}
     </span>
   );
@@ -93,7 +93,7 @@ function NavLinks({
     <nav className="flex-1 overflow-y-auto px-3 py-2">
       {sections.map((sec) => (
         <div key={sec.section} className="mb-3">
-          <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
+          <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-white/50">
             <T>{sec.section}</T>
           </p>
           {sec.items.map((item) => {
@@ -107,8 +107,8 @@ function NavLinks({
                 className={[
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
-                    ? "bg-brand font-semibold text-white shadow-md shadow-brand/30"
-                    : "font-medium text-gray-700 hover:bg-white/60 hover:text-gray-900",
+                    ? "bg-white font-semibold text-brand shadow-md shadow-black/20"
+                    : "font-medium text-white/80 hover:bg-white/10 hover:text-white",
                 ].join(" ")}
               >
                 <item.icon size={17} />
@@ -135,12 +135,21 @@ function Logo({ width }: { width: number }) {
   );
 }
 
+// Gambar logo berlatar putih, jadi diberi kotak putih agar rapi di atas latar gelap.
+function LogoBadge({ width }: { width: number }) {
+  return (
+    <span className="inline-flex rounded-xl bg-white px-3 py-2 shadow-md shadow-black/20">
+      <Logo width={width} />
+    </span>
+  );
+}
+
 function LogoutButton() {
   return (
     <form action={logoutAction}>
       <button
         type="submit"
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-white/60"
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-rose-200 transition-colors hover:bg-white/10 hover:text-white"
       >
         <LogOut size={17} />
         <T>Keluar</T>
@@ -152,11 +161,11 @@ function LogoutButton() {
 function UserCard({ user }: { user: User }) {
   const info = [user.employeeId, roleLabel(user.role)].filter(Boolean).join(" · ");
   return (
-    <div className="mx-3 flex items-center gap-2.5 rounded-xl border border-white/70 bg-white/60 p-2.5 shadow-sm">
+    <div className="mx-3 flex items-center gap-2.5 rounded-xl border border-white/15 bg-white/10 p-2.5">
       <Avatar name={user.name} />
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
-        <p className="truncate text-[11px] text-gray-500">{info}</p>
+        <p className="truncate text-sm font-semibold text-white">{user.name}</p>
+        <p className="truncate text-[11px] text-white/60">{info}</p>
       </div>
     </div>
   );
@@ -171,7 +180,7 @@ function SidebarBody({
     <>
       <div className="pb-3"><UserCard user={user} /></div>
       <NavLinks sections={sections} pathname={pathname} onClose={onClose} />
-      <div className="border-t border-white/60 p-3"><LogoutButton /></div>
+      <div className="border-t border-white/10 p-3"><LogoutButton /></div>
     </>
   );
 }
@@ -184,28 +193,28 @@ export default function PortalShell({ user, children }: Props) {
   return (
     <div className="portal-theme min-h-screen">
       {/* Sidebar desktop */}
-      <aside className="print:hidden fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/60 bg-white/40 backdrop-blur-xl lg:flex">
-        <div className="flex h-16 shrink-0 items-center px-5"><Logo width={190} /></div>
+      <aside className="print:hidden fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-white/10 bg-white/5 backdrop-blur-xl lg:flex">
+        <div className="flex h-16 shrink-0 items-center px-4"><LogoBadge width={180} /></div>
         <SidebarBody user={user} sections={sections} pathname={pathname} />
       </aside>
 
       {/* Header */}
-      <header className="print:hidden fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-3 border-b border-white/50 bg-white/30 px-4 backdrop-blur-xl lg:left-64 lg:px-6">
+      <header className="print:hidden fixed inset-x-0 top-0 z-20 flex h-16 items-center gap-3 border-b border-white/10 bg-white/5 px-4 backdrop-blur-xl lg:left-64 lg:px-6">
         <button
           onClick={() => setSidebarOpen(true)}
           aria-label="Buka menu"
-          className="rounded-lg p-1 text-gray-700 hover:bg-white/60 lg:hidden"
+          className="rounded-lg p-1 text-white hover:bg-white/10 lg:hidden"
         >
           <Menu size={22} />
         </button>
-        <div className="lg:hidden"><Logo width={170} /></div>
+        <div className="lg:hidden"><LogoBadge width={150} /></div>
         <div className="ml-auto flex items-center gap-3">
           <LanguageSwitcher />
           <div className="hidden items-center gap-2.5 sm:flex">
             <Avatar name={user.name} size="h-8 w-8 text-[11px]" />
             <div className="text-right leading-tight">
-              <p className="text-sm font-semibold text-gray-900">{user.name}</p>
-              <p className="text-[11px] text-gray-500">{roleLabel(user.role)}</p>
+              <p className="text-sm font-semibold text-white">{user.name}</p>
+              <p className="text-[11px] text-white/60">{roleLabel(user.role)}</p>
             </div>
           </div>
         </div>
@@ -215,13 +224,13 @@ export default function PortalShell({ user, children }: Props) {
       {sidebarOpen && (
         <>
           <div className="fixed inset-0 z-50 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white shadow-xl lg:hidden">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-gradient-to-b from-ink to-brand-dark shadow-xl lg:hidden">
             <div className="flex h-16 shrink-0 items-center justify-between gap-3 px-4">
-              <Logo width={170} />
+              <LogoBadge width={170} />
               <button
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Tutup menu"
-                className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"
+                className="rounded-lg p-1 text-white/70 hover:bg-white/10"
               >
                 <X size={20} />
               </button>

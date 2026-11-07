@@ -62,12 +62,12 @@ export default async function DashboardPage() {
     <div className={`p-4 sm:p-6 ${isAdmin ? "max-w-7xl" : "max-w-4xl"}`}>
       {/* Welcome */}
       <div className="mb-6">
-        <p className="text-sm text-gray-400"><T>{greeting}</T></p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-0.5">
+        <p className="text-sm text-white/70"><T>{greeting}</T></p>
+        <h1 className="text-2xl font-bold text-white mt-0.5">
           {isAdmin ? <><T>Selamat datang kembali</T>, {user.name}! 👋</> : user.name}
         </h1>
-        {isAdmin && <p className="text-sm text-gray-500 mt-1"><T>Berikut ringkasan perusahaan hari ini.</T></p>}
-        <p className="text-xs text-gray-400 mt-0.5">
+        {isAdmin && <p className="text-sm text-white/80 mt-1"><T>Berikut ringkasan perusahaan hari ini.</T></p>}
+        <p className="text-xs text-white/60 mt-0.5">
           {[user.employeeId, roleLabel(user.role), superAdmin ? null : user.employmentStatus]
             .filter(Boolean)
             .join(" · ")}
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
 
       {/* Menu */}
       {menuItems.length > 0 && <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+        <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-3">
           <T>Menu</T>
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

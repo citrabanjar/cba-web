@@ -753,10 +753,10 @@ export default function KaryawanDetailClient({
   return (
     <div className="bg-gray-50 min-h-full">
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
-          <Link href="/portal/admin/karyawan" className="hover:text-brand"><T>Data Karyawan</T></Link>
-          <ChevronRight size={15} className="text-gray-400" />
-          <span className="text-gray-800 truncate">{emp.name}</span>
+        <nav className="flex items-center gap-1.5 text-sm font-medium text-white/80">
+          <Link href="/portal/admin/karyawan" className="hover:text-white"><T>Data Karyawan</T></Link>
+          <ChevronRight size={15} className="text-white/50" />
+          <span className="text-white truncate">{emp.name}</span>
         </nav>
 
         <div className="bg-white rounded-xl border border-gray-200">

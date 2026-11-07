@@ -206,23 +206,23 @@ export default function OrgChart({
 
       <main className="px-4 sm:px-6 py-5 space-y-5 print:p-0">
         <div className="print:hidden flex flex-wrap items-end gap-3">
-          <label className="text-xs text-gray-600 space-y-1">
+          <label className="text-xs text-white/80 space-y-1">
             <span className="block"><T>Tampilkan</T></span>
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="h-8 max-w-72 rounded-lg border border-input bg-white px-2 text-sm"
+              className="h-8 max-w-72 rounded-lg border border-input bg-white px-2 text-sm text-gray-800"
             >
               <option value=""><T>Seluruh Perusahaan</T></option>
               {departments.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
           </label>
-          <label className="text-xs text-gray-600 space-y-1">
+          <label className="text-xs text-white/80 space-y-1">
             <span className="block"><T>Kertas</T></span>
             <select
               value={paper}
               onChange={(e) => setPaper(e.target.value as Paper)}
-              className="h-8 rounded-lg border border-input bg-white px-2 text-sm"
+              className="h-8 rounded-lg border border-input bg-white px-2 text-sm text-gray-800"
             >
               <option value="A4"><T>A4 Landscape</T></option>
               <option value="A3"><T>A3 Landscape</T></option>

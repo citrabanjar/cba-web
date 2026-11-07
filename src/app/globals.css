@@ -18,32 +18,34 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Tema portal: biru cerah di atas latar abu kebiruan, mengikuti gaya Admin Dashboard V2.
-   Website publik tetap memakai warna logo CBA. */
+/* Tema portal: warna logo CBA. Latar abu gelap ke merah tua seperti beranda website,
+   dengan kartu putih berefek kaca di atasnya. */
 .portal-theme {
-  --color-brand: #4361ee;
-  --color-brand-dark: #3049d4;
-  --color-ink: #1b2559;
-  --color-gray-50: #f4f7fe;
-  --primary: #4361ee;
-  --ring: #9fb0f6;
-  /* Seluruh latar biru mengilap seperti sampul V2: kilau putih di kiri atas, biru cerah di sudut lain. */
-  background-color: #c7d7ff;
+  --color-gray-50: #f6f4f5;
+  background-color: #3a2a2e;
   background-image:
-    radial-gradient(ellipse 60% 45% at 12% 0%, rgb(255 255 255 / 0.85), transparent 70%),
-    radial-gradient(circle at 95% 5%, rgb(56 189 248 / 0.55), transparent 42%),
-    radial-gradient(circle at 80% 100%, rgb(67 97 238 / 0.45), transparent 48%),
-    radial-gradient(circle at 0% 85%, rgb(129 140 248 / 0.4), transparent 45%),
-    linear-gradient(150deg, #dbe6ff 0%, #c4d5ff 50%, #b5c9ff 100%);
+    radial-gradient(ellipse 55% 40% at 10% 0%, rgb(255 255 255 / 0.14), transparent 70%),
+    radial-gradient(circle at 92% 8%, rgb(190 53 63 / 0.55), transparent 45%),
+    radial-gradient(circle at 75% 100%, rgb(158 42 51 / 0.7), transparent 50%),
+    linear-gradient(140deg, #333336 0%, #4a2a30 45%, #9e2a33 100%);
   background-attachment: fixed;
 }
-/* Halaman di dalam portal punya latar dan pita judul sendiri; dibuat transparan supaya birunya terlihat. */
+/* Halaman di dalam portal punya latar sendiri; dibuat transparan supaya warna merahnya terlihat. */
 .portal-theme main > .bg-gray-50 {
   background-color: transparent;
 }
-.portal-theme main > .bg-gray-50 > .bg-white.border-b:first-child {
-  background-color: transparent;
-  border-color: rgb(255 255 255 / 0.5);
+/* Kartu dan pita judul putih dibuat seperti kaca: agak tembus pandang dengan efek buram. */
+.portal-theme main .bg-white {
+  background-color: rgb(255 255 255 / 0.86);
+  backdrop-filter: blur(14px);
+}
+.portal-theme main > div > .bg-white.border-b:first-child {
+  background-color: rgb(255 255 255 / 0.78);
+  border-color: rgb(255 255 255 / 0.3);
+}
+/* Tulisan yang langsung berada di atas latar gelap. */
+.portal-theme .on-dark {
+  color: #fff;
 }
 
 body {
