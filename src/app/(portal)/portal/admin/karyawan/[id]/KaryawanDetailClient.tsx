@@ -2,7 +2,12 @@
 
 import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Loader2, Mail, Phone, Plus, Trash2 } from "lucide-react";
+import {
+  BadgeCheck, BriefcaseBusiness, Building2, Cake, CalendarClock, CalendarDays, CalendarX, ChevronDown,
+  ChevronRight, CreditCard, FileText, Hash, Heart, History, Home, Hourglass, IdCard, KeyRound, Landmark,
+  Loader2, Mail, MapPin, MessageCircle, Network, Pencil, Phone, Plus, Receipt, ShieldCheck, Sparkles,
+  Trash2, UserRound, Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -198,28 +203,122 @@ function Pill({ cls, children }: { cls: string; children: React.ReactNode }) {
   );
 }
 
+// Ikon judul kartu, warnanya mengikuti urutan kartu di dalam tab (lihat .section-stack di globals.css).
+const SECTION_ICON: Record<string, React.ElementType> = {
+  "Data Pribadi": UserRound, "Tempat Tinggal": Home, "Keluarga": Users, "Rekening Bank": Landmark,
+  "Detail Pekerjaan": BriefcaseBusiness, "Unit Perusahaan": Building2, "Riwayat Pekerjaan": History,
+  "Payroll": CalendarClock, "Pajak": Receipt, "BPJS": ShieldCheck, "Akses Portal": KeyRound,
+};
+
+// Kartu bagian bergaya Code XR Dashboard v3: judul dengan ikon berwarna dan tombol Edit berbentuk pil.
+// `grid` menyusun isian sebagai kotak-kotak kecil; tanpa `grid` isinya bebas (tabel, dll).
 function SectionCard({
-  title, onEdit, action, children,
+  title, onEdit, action, grid = false, children,
 }: {
-  title: string; onEdit?: () => void; action?: React.ReactNode; children: React.ReactNode;
+  title: string; onEdit?: () => void; action?: React.ReactNode; grid?: boolean; children: React.ReactNode;
 }) {
+  const Icon = SECTION_ICON[title] ?? FileText;
   return (
-    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="section-head flex items-center justify-between gap-3 px-5 py-3">
-        <h3 className="font-semibold text-sm"><T>{title}</T></h3>
-        {action}
-        {onEdit && <Button size="sm" onClick={onEdit} className="h-7 px-4 text-xs"><T>Edit</T></Button>}
+    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="section-head flex items-center justify-between gap-3 px-5 py-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="section-icon"><Icon size={17} /></span>
+          <h3 className="font-semibold text-[15px] truncate"><T>{title}</T></h3>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {action}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white transition-colors hover:bg-ink/85"
+            >
+              <Pencil size={13} /> <T>Edit</T>
+            </button>
+          )}
+        </div>
       </div>
-      <dl className="px-5 py-3">{children}</dl>
+      <dl className={grid ? "grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3" : "px-5 pb-4"}>{children}</dl>
     </section>
   );
 }
 
+// Ikon tiap isian supaya kotaknya mudah dikenali.
+const FIELD_ICON: Record<string, React.ElementType> = {
+  "Nama Lengkap": UserRound, "Phone Number": Phone, "Email": Mail, "Tempat Lahir": MapPin,
+  "Tanggal Lahir": Cake, "Jenis ID": IdCard, "ID Number": IdCard, "Jenis Kelamin": UserRound,
+  "Status Perkawinan": Heart, "Agama": Sparkles, "Alamat sesuai Identitas": Home, "Alamat Saat Ini": MapPin,
+  "Nama Bank": Landmark, "No Rekening": CreditCard, "Nama Pemilik Rekening": UserRound,
+  "Employee ID": Hash, "Tanggal Masuk": CalendarDays, "Status": BadgeCheck, "Tanggal Akhir Kontrak": CalendarX,
+  "No SPK": FileText, "Tanggal SPK": CalendarDays, "Masa Kerja": Hourglass, "Tanggal Berhenti": CalendarX,
+  "Cabang": Building2, "Departemen": Network, "Jabatan": BriefcaseBusiness, "Atasan Langsung": UserRound,
+  "Payroll": CalendarClock, "NPWP": Receipt, "Status PTKP": Receipt, "Taxability": Receipt,
+  "Status Pajak": Receipt, "Kode Objek Pajak": Hash,
+};
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const Icon = FIELD_ICON[label] ?? (label.includes("BPJS") ? ShieldCheck : FileText);
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-0.5 sm:gap-4 py-2">
-      <dt className="text-sm font-medium text-gray-700"><T>{label}</T></dt>
-      <dd className="text-sm text-gray-600 break-words">{children || "—"}</dd>
+    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/70 px-4 py-3">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200">
+        <Icon size={15} />
+      </span>
+      <div className="min-w-0">
+        <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400"><T>{label}</T></dt>
+        <dd className="mt-0.5 text-sm font-semibold text-gray-900 break-words">{children || "—"}</dd>
+      </div>
+    </div>
+  );
+}
+
+// Nomor HP Indonesia diubah ke format internasional untuk tautan WhatsApp.
+function waLink(phone: string | null): string | null {
+  const digits = phone?.replace(/\D/g, "") ?? "";
+  if (!digits) return null;
+  return `https://wa.me/${digits.startsWith("0") ? `62${digits.slice(1)}` : digits}`;
+}
+
+function ContactButton({
+  href, label, dark = false, children,
+}: {
+  href: string | null; label: string; dark?: boolean; children: React.ReactNode;
+}) {
+  const t = useT();
+  const cls = `flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
+    dark ? "bg-ink text-white hover:bg-ink/85" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-100"
+  }`;
+  if (!href) {
+    return <span aria-label={t(label)} title={t(label)} className={`${cls} pointer-events-none opacity-35`}>{children}</span>;
+  }
+  return (
+    <a href={href} aria-label={t(label)} title={t(label)} className={cls}
+      {...(href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}>
+      {children}
+    </a>
+  );
+}
+
+const TILE_TONE = {
+  amber: "bg-amber-50 border-amber-100 text-amber-700",
+  sky: "bg-sky-50 border-sky-100 text-sky-700",
+  rose: "bg-rose-50 border-rose-100 text-rose-700",
+  emerald: "bg-emerald-50 border-emerald-100 text-emerald-700",
+};
+
+// Kartu ringkasan berwarna lembut, seperti kartu "Ongoing Projects" di desain Code XR.
+function SummaryTile({
+  tone, icon: Icon, label, value, sub,
+}: {
+  tone: keyof typeof TILE_TONE; icon: React.ElementType; label: string; value: string; sub?: string;
+}) {
+  return (
+    <div className={`rounded-2xl border p-4 ${TILE_TONE[tone]}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-[11px] font-semibold"><T>{label}</T></span>
+        <Icon size={16} className="opacity-70" />
+      </div>
+      <p className="mt-3 truncate text-base font-bold text-gray-900">{value}</p>
+      {sub && <p className="truncate text-xs text-gray-500">{sub}</p>}
     </div>
   );
 }
@@ -759,58 +858,77 @@ export default function KaryawanDetailClient({
           <span className="text-white truncate">{emp.name}</span>
         </nav>
 
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-5">
-            {emp.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={emp.image} alt={emp.name} className="w-20 h-20 rounded-full object-cover shrink-0" />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-ink flex items-center justify-center text-white text-2xl font-bold shrink-0">
-                {initials}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-gray-900">{emp.name}</h2>
-                {emp.phone && (
-                  <a href={`tel:${emp.phone}`} aria-label="Telepon" className="p-1 rounded-full bg-green-50 text-green-700 hover:bg-green-100">
-                    <Phone size={14} />
-                  </a>
+        {/* Kartu profil + ringkasan, mengikuti desain Code XR Dashboard v3 "My Profile". */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            <div className="flex items-start gap-4">
+              <span className="shrink-0 rounded-full bg-gradient-to-br from-amber-400 via-brand to-rose-400 p-[3px]">
+                {emp.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={emp.image} alt={emp.name} className="h-20 w-20 rounded-full border-[3px] border-white object-cover" />
+                ) : (
+                  <span className="flex h-20 w-20 items-center justify-center rounded-full border-[3px] border-white bg-ink text-2xl font-bold text-white">
+                    {initials}
+                  </span>
                 )}
-                {emp.email && (
-                  <a href={`mailto:${emp.email}`} aria-label="Email" className="p-1 rounded-full bg-brand/10 text-brand hover:bg-brand/15">
-                    <Mail size={14} />
-                  </a>
-                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold leading-tight text-gray-900">{emp.name}</h2>
+                <p className="mt-0.5 text-sm text-gray-500">{emp.position || "—"}</p>
+                <p className="text-xs text-gray-400 truncate">{emp.department?.name}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Pill cls={emp.isActive
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : "bg-red-50 text-red-700 border-red-200"}>
+                    {emp.isActive ? <T>{"Aktif"}</T> : <T>{"Nonaktif"}</T>}
+                  </Pill>
+                  <Pill cls="bg-gray-100 text-gray-700 border-gray-200">
+                    <T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T>
+                  </Pill>
+                </div>
               </div>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {[emp.department?.name, emp.position].filter(Boolean).join(" · ") || "—"}
-              </p>
-              <div className="flex gap-2 mt-2">
-                <Pill cls={emp.isActive
-                  ? "bg-green-50 text-green-700 border-green-200"
-                  : "bg-red-50 text-red-700 border-red-200"}>
-                  {emp.isActive ? <T>{"Aktif"}</T> : <T>{"Nonaktif"}</T>}
-                </Pill>
-                <Pill cls="bg-gray-100 text-gray-700 border-gray-200">
-                  <T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T>
-                </Pill>
-              </div>
+            </div>
+            <div className="mt-5 flex items-center gap-2">
+              <ContactButton href={emp.email ? `mailto:${emp.email}` : null} label="Email" dark>
+                <Mail size={17} />
+              </ContactButton>
+              <ContactButton href={emp.phone ? `tel:${emp.phone}` : null} label="Telepon">
+                <Phone size={17} />
+              </ContactButton>
+              <ContactButton href={waLink(emp.phone)} label="WhatsApp">
+                <MessageCircle size={17} />
+              </ContactButton>
+              <span className="ml-auto truncate text-xs text-gray-400">{emp.email ?? emp.phone ?? ""}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 pr-5 border-t border-gray-100">
-          <div role="tablist" className="flex flex-1 min-w-0 gap-6 px-5 overflow-x-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <SummaryTile tone="amber" icon={Hash} label="Employee ID" value={emp.employeeId} />
+            <SummaryTile tone="sky" icon={CalendarDays} label="Tanggal Masuk" value={emp.joinDate ? fmtDate(emp.joinDate) : "—"} />
+            <SummaryTile tone="rose" icon={Hourglass} label="Masa Kerja" value={tenure ?? "—"} />
+            <SummaryTile
+              tone="emerald"
+              icon={UserRound}
+              label="Atasan Langsung"
+              value={emp.manager ? emp.manager.name : "—"}
+              sub={emp.manager?.employeeId ?? undefined}
+            />
+          </div>
+        </div>
+
+        {/* Tab berbentuk pil; tab aktif berwarna gelap supaya jelas terlihat. */}
+        <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-2">
+          <div role="tablist" className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto">
             {tabs.map((t) => (
               <button
                 key={t.key}
                 role="tab"
                 aria-selected={tab === t.key}
                 onClick={() => setTab(t.key)}
-                className={`py-3 text-sm whitespace-nowrap border-b-2 transition-colors ${
+                className={`h-9 shrink-0 rounded-full px-4 text-sm whitespace-nowrap transition-colors ${
                   tab === t.key
-                    ? "border-brand text-gray-900 font-semibold"
-                    : "border-transparent text-gray-500 hover:text-gray-800"
+                    ? "bg-ink font-semibold text-white shadow-sm"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                 }`}
               >
                 <T>{t.label}</T>
@@ -826,12 +944,11 @@ export default function KaryawanDetailClient({
               : []),
             { label: "History Perubahan", onClick: () => setHistoryOpen(true), separated: canEdit },
           ]} />
-          </div>
         </div>
 
         {tab === "pekerjaan" && (
           <div className="section-stack space-y-5">
-            <SectionCard title="Detail Pekerjaan" onEdit={edit("detail")}>
+            <SectionCard title="Detail Pekerjaan" onEdit={edit("detail")} grid>
               <Field label="Employee ID">{emp.employeeId}</Field>
               <Field label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</Field>
               <Field label="Status"><T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T></Field>
@@ -844,7 +961,7 @@ export default function KaryawanDetailClient({
               {emp.resignDate && <Field label="Tanggal Berhenti">{fmtDate(emp.resignDate)}</Field>}
             </SectionCard>
 
-            <SectionCard title="Unit Perusahaan" onEdit={edit("unit")}>
+            <SectionCard title="Unit Perusahaan" onEdit={edit("unit")} grid>
               <Field label="Cabang">{emp.branch}</Field>
               <Field label="Departemen">{emp.department?.name}</Field>
               <Field label="Jabatan">{emp.position}</Field>
@@ -888,7 +1005,7 @@ export default function KaryawanDetailClient({
 
         {tab === "gaji" && canSeePay && (
           <div className="section-stack space-y-5">
-            <SectionCard title="Payroll" onEdit={edit("payroll")}>
+            <SectionCard title="Payroll" onEdit={edit("payroll")} grid>
               <Field label="Payroll">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
             </SectionCard>
 
@@ -911,7 +1028,7 @@ export default function KaryawanDetailClient({
 
         {tab === "pribadi" && (
           <div className="section-stack space-y-5">
-            <SectionCard title="Data Pribadi" onEdit={edit("pribadi")}>
+            <SectionCard title="Data Pribadi" onEdit={edit("pribadi")} grid>
               <Field label="Nama Lengkap">{emp.name}</Field>
               <Field label="Phone Number">{emp.phone}</Field>
               <Field label="Email">{emp.email}</Field>
@@ -924,7 +1041,7 @@ export default function KaryawanDetailClient({
               <Field label="Agama">{emp.religion}</Field>
             </SectionCard>
 
-            <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")}>
+            <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")} grid>
               <Field label="Alamat sesuai Identitas">{emp.address}</Field>
               <Field label="Alamat Saat Ini">{emp.addressSameAsId ? emp.address : emp.currentAddress}</Field>
             </SectionCard>
@@ -954,7 +1071,7 @@ export default function KaryawanDetailClient({
               )}
             </SectionCard>
 
-            <SectionCard title="Rekening Bank" onEdit={edit("bank")}>
+            <SectionCard title="Rekening Bank" onEdit={edit("bank")} grid>
               <Field label="Nama Bank">{emp.bankName}</Field>
               <Field label="No Rekening">{emp.bankAccount}</Field>
               <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
@@ -965,14 +1082,14 @@ export default function KaryawanDetailClient({
 
         {tab === "pajak" && (
           <div className="section-stack space-y-5">
-            <SectionCard title="Pajak" onEdit={edit("pajak")}>
+            <SectionCard title="Pajak" onEdit={edit("pajak")} grid>
               <Field label="NPWP">{emp.npwp}</Field>
               <Field label="Status PTKP">{emp.ptkpStatus}</Field>
               <Field label="Taxability">{emp.taxability}</Field>
               <Field label="Status Pajak">{emp.taxStatus}</Field>
               <Field label="Kode Objek Pajak">{emp.taxObjectCode}</Field>
             </SectionCard>
-            <SectionCard title="BPJS" onEdit={edit("bpjs")}>
+            <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
               <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
               <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
               {canSeePay && (

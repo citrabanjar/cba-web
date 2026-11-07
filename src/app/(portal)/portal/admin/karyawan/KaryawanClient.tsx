@@ -3,7 +3,9 @@
 import { useState, useTransition, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Upload, Download, CheckCircle2, ImageUp, Loader2 } from "lucide-react";
+import {
+  Search, Plus, Upload, Download, CheckCircle2, ImageUp, Loader2, Users, UserCheck, BadgeCheck, Clock3,
+} from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -102,7 +104,17 @@ export default function KaryawanClient({
   const [isPending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [view, setView] = useState<"all" | "active" | "inactive">("active");
+  const stats = {
+    total: employees.length,
+    active: employees.filter((e) => e.isActive).length,
+    tetap: employees.filter((e) => e.isActive && e.employmentStatus === "TETAP").length,
+    kontrak: employees.filter((e) => e.isActive && e.employmentStatus === "KONTRAK").length,
+  };
+
   const filtered = employees.filter(e =>
+    (view === "all" || (view === "active") === e.isActive)
+  ).filter(e =>
     !search ||
     e.name.toLowerCase().includes(search.toLowerCase()) ||
     e.employeeId.toLowerCase().includes(search.toLowerCase()) ||
@@ -212,54 +224,95 @@ export default function KaryawanClient({
 
   return (
     <div className="bg-gray-50 min-h-full">
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h2 className="font-bold text-gray-800"><T>Data Karyawan</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5">{employees.length} <T>karyawan terdaftar</T></p>
-      </div>
-
-      <main className="px-6 py-5 max-w-6xl space-y-4">
-        {/* Action bar */}
-        <div className="flex gap-2 flex-wrap items-center">
-          <Button onClick={openAdd} size="sm" className="gap-1.5">
+      <div className="bg-white border-b border-gray-100 px-6 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="font-bold text-gray-800"><T>Data Karyawan</T></h2>
+          <p className="text-xs text-gray-400 mt-0.5">{employees.length} <T>karyawan terdaftar</T></p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={openAdd} size="sm" className="h-9 gap-1.5 rounded-full px-4">
             <Plus size={15} /> <T>Tambah Karyawan</T>
           </Button>
           {canImport && (
             <>
               <Button variant="outline" size="sm"
                 onClick={() => { setModal("upload"); setParsed(null); setImportResult(null); }}
-                className="gap-1.5">
+                className="h-9 gap-1.5 rounded-full px-4">
                 <Upload size={15} /> <T>Import Excel</T>
               </Button>
-              <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-1.5">
+              <Button variant="outline" size="sm" onClick={downloadTemplate} className="h-9 gap-1.5 rounded-full px-4">
                 <Download size={15} /> <T>Template .xlsx</T>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setModal("photo")} className="gap-1.5">
+              <Button variant="outline" size="sm" onClick={() => setModal("photo")} className="h-9 gap-1.5 rounded-full px-4">
                 <ImageUp size={15} /> <T>Upload Foto</T>
               </Button>
             </>
           )}
-          <div className="relative ml-auto w-full sm:w-72 mt-2 sm:mt-0">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cari ID, nama, jabatan..."
-              className="pl-9"
-            />
-          </div>
+        </div>
+      </div>
+
+      <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
+        {/* Ringkasan, gaya kartu angka Code XR FinSet */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Total Karyawan", value: stats.total, icon: Users, tone: "from-brand to-rose-400" },
+            { label: "Aktif", value: stats.active, icon: UserCheck, tone: "from-emerald-500 to-teal-400" },
+            { label: "Tetap", value: stats.tetap, icon: BadgeCheck, tone: "from-sky-500 to-indigo-400" },
+            { label: "Kontrak", value: stats.kontrak, icon: Clock3, tone: "from-amber-500 to-orange-400" },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}>
+                  <s.icon size={15} />
+                </span>
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
+            </div>
+          ))}
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          {/* Judul tabel, filter status, cari, dan tombol aksi */}
+          <div className="flex flex-col gap-3 border-b border-gray-100 p-4 lg:flex-row lg:items-center">
+            <div className="flex items-center gap-1 rounded-full bg-gray-100 p-1">
+              {([
+                { key: "active", label: "Aktif" },
+                { key: "inactive", label: "Nonaktif" },
+                { key: "all", label: "Semua" },
+              ] as const).map((v) => (
+                <button
+                  key={v.key}
+                  type="button"
+                  onClick={() => setView(v.key)}
+                  className={`h-8 rounded-full px-4 text-xs font-semibold transition-colors ${
+                    view === v.key ? "bg-ink text-white shadow-sm" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <T>{v.label}</T>
+                </button>
+              ))}
+            </div>
+            <div className="relative w-full lg:ml-auto lg:w-72">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={t("Cari ID, nama, jabatan...")}
+                className="h-9 rounded-full bg-gray-50 pl-10"
+              />
+            </div>
+          </div>
+
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                <TableHead className="w-[70px] px-4"><T>No.</T></TableHead>
+              <TableRow className="hover:bg-transparent [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-wider [&>th]:text-gray-400">
+                <TableHead className="w-[70px] px-5"><T>No.</T></TableHead>
                 <TableHead className="px-4"><T>Nama</T></TableHead>
                 <TableHead className="hidden md:table-cell px-4"><T>Departemen</T></TableHead>
                 <TableHead className="hidden lg:table-cell px-4"><T>Status Kerja</T></TableHead>
                 <TableHead className="hidden sm:table-cell px-4"><T>Status</T></TableHead>
-                <TableHead className="text-right px-4"><T>Aksi</T></TableHead>
+                <TableHead className="text-right px-5"><T>Aksi</T></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -271,10 +324,14 @@ export default function KaryawanClient({
                 </TableRow>
               )}
               {filtered.map(emp => (
-                <TableRow key={emp.id} className={!emp.isActive ? "opacity-50" : ""}>
-                  <TableCell className="px-4 text-xs text-gray-500">{emp.employeeNo ?? "—"}</TableCell>
+                <TableRow key={emp.id} className={`[&>td]:py-3 ${!emp.isActive ? "opacity-60" : ""}`}>
+                  <TableCell className="px-5 text-xs text-gray-400 tabular-nums">{emp.employeeNo ?? "—"}</TableCell>
                   <TableCell className="px-4">
-                    <div>
+                    <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ink to-brand-dark text-[11px] font-bold text-white">
+                      {emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
                       {/* Baris baru masih ber-id sementara sampai halaman dimuat ulang */}
                       {emp.id.startsWith("tmp-") ? (
                         <p className="font-medium text-sm text-gray-800">{emp.name}</p>
@@ -287,6 +344,7 @@ export default function KaryawanClient({
                         </Link>
                       )}
                       <p className="font-mono text-xs text-gray-500">{emp.employeeId}</p>
+                    </div>
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell px-4 text-sm text-gray-600">
@@ -307,7 +365,7 @@ export default function KaryawanClient({
                       {emp.isActive ? <T>{"Aktif"}</T> : <T>{"Nonaktif"}</T>}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 text-right whitespace-nowrap">
+                  <TableCell className="px-5 text-right whitespace-nowrap">
                     <ActionMenu items={[
                       ...(emp.id.startsWith("tmp-") ? [] : [
                         { label: "Detail", onClick: () => router.push(`/portal/admin/karyawan/${emp.id}`) },

@@ -20,10 +20,9 @@ export default function PortalLoginPage() {
             <span className="inline-flex rounded-xl bg-white px-3 py-2 shadow-md shadow-black/20">
               <Image src="/logo.jpg" alt="PT. Citra Banjar Abadi" width={190} height={28} priority />
             </span>
-            <h1 className="mt-8 text-2xl font-bold text-white"><T>Portal Karyawan</T></h1>
-            <p className="mb-8 mt-1 text-sm text-white/60"><T>Masuk dengan ID karyawan atau email Anda.</T></p>
+            <p className="mb-8 mt-6 text-sm text-white/60"><T>Masuk dengan ID karyawan atau email Anda.</T></p>
             <LoginForm />
-            <p className="mt-6 text-center text-xs text-white/55"><T>Lupa password? Hubungi HRD</T></p>
+            <p className="mt-6 text-center text-xs text-white/55"><T>Lupa password?</T></p>
           </div>
 
           <div className="hidden flex-col justify-center p-10 md:flex">
