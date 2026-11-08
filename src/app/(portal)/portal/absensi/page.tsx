@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getTodayAttendance, getWeekAttendance } from "./actions";
+import { getMyLocations, getTodayAttendance, getWeekAttendance } from "./actions";
 import AbsensiWrapper from "./AbsensiWrapper";
 import { T } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -13,9 +13,10 @@ export default async function AbsensiPage() {
   const session = await auth();
   if (!session?.user) redirect("/portal");
 
-  const [today, week] = await Promise.all([
+  const [today, week, { locations, onTrip }] = await Promise.all([
     getTodayAttendance(),
     getWeekAttendance(),
+    getMyLocations(),
   ]);
 
   return (
@@ -30,7 +31,7 @@ export default async function AbsensiPage() {
 
       {/* Map + controls */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <AbsensiWrapper today={today} week={week} />
+        <AbsensiWrapper today={today} week={week} locations={locations} onTrip={onTrip} />
       </div>
     </div>
   );

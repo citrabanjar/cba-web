@@ -105,55 +105,56 @@ model User {
   menuAccess       String[]         @default([]) // menu yang dibuka super admin untuk ADMIN
 
   // Pekerjaan
-  branch           String?
-  managerId        String?
-  contractEndDate  DateTime?        @db.Date
-  resignDate       DateTime?        @db.Date
-  paymentSchedule  String?
+  branch          String?
+  managerId       String?
+  contractEndDate DateTime? @db.Date
+  resignDate      DateTime? @db.Date
+  paymentSchedule String?
 
   // Data pribadi
-  spkNumber        String?
-  spkDate          DateTime?        @db.Date
-  idType           String?
-  ktpNumber        String?          @unique
-  address          String?          @db.Text // alamat sesuai identitas
-  currentAddress   String?          @db.Text
-  addressSameAsId  Boolean          @default(false)
-  birthPlace       String?
-  birthDate        DateTime?        @db.Date
-  gender           String?
-  religion         String?
-  maritalStatus    String?
-  nationality      String?
-  emergencyName    String?
-  emergencyPhone   String?
+  spkNumber         String?
+  spkDate           DateTime? @db.Date
+  idType            String?
+  ktpNumber         String?   @unique
+  address           String?   @db.Text // alamat sesuai identitas
+  currentAddress    String?   @db.Text
+  addressSameAsId   Boolean   @default(false)
+  birthPlace        String?
+  birthDate         DateTime? @db.Date
+  gender            String?
+  religion          String?
+  maritalStatus     String?
+  nationality       String?
+  emergencyName     String?
+  emergencyPhone    String?
   emergencyRelation String?
 
   // Pajak dan BPJS
-  npwp             String?
-  ptkpStatus       String?
-  taxability       String?
-  taxStatus        String?
-  taxObjectCode    String?
-  bpjsTkNumber     String?
-  bpjsTkActive     Boolean          @default(false)
-  bpjsKesNumber    String?
-  bpjsKesActive    Boolean          @default(false)
+  npwp          String?
+  ptkpStatus    String?
+  taxability    String?
+  taxStatus     String?
+  taxObjectCode String?
+  bpjsTkNumber  String?
+  bpjsTkActive  Boolean @default(false)
+  bpjsKesNumber String?
+  bpjsKesActive Boolean @default(false)
 
-  department   Department?   @relation(fields: [departmentId], references: [id])
-  manager      User?         @relation("Atasan", fields: [managerId], references: [id], onDelete: SetNull)
-  reports      User[]        @relation("Atasan")
-  salaries     EmployeeSalary[]
-  changeLogs   EmployeeChangeLog[]
-  family       FamilyMember[]
-  photo        EmployeePhoto?
+  department       Department?         @relation(fields: [departmentId], references: [id])
+  manager          User?               @relation("Atasan", fields: [managerId], references: [id], onDelete: SetNull)
+  reports          User[]              @relation("Atasan")
+  salaries         EmployeeSalary[]
+  changeLogs       EmployeeChangeLog[]
+  family           FamilyMember[]
+  photo            EmployeePhoto?
   employmentEvents EmploymentEvent[]
-  accounts     Account[]
-  sessions     Session[]
-  attendances  Attendance[]
-  leaves       LeaveRequest[]
-  businessTrips BusinessTrip[]
-  payslips     Payslip[]
+  workLocations    WorkLocation[]      @relation("UserWorkLocations")
+  accounts         Account[]
+  sessions         Session[]
+  attendances      Attendance[]
+  leaves           LeaveRequest[]
+  businessTrips    BusinessTrip[]
+  payslips         Payslip[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -171,19 +172,21 @@ enum AttendanceStatus {
 }
 
 model Attendance {
-  id          String           @id @default(cuid())
-  userId      String
-  date        DateTime         @db.Date
-  checkIn     DateTime?
-  checkOut    DateTime?
-  checkInLat  Float?
-  checkInLng  Float?
-  checkOutLat Float?
-  checkOutLng Float?
-  checkInAddr String?
-  checkOutAddr String?
-  status      AttendanceStatus @default(HADIR)
-  note        String?
+  id               String           @id @default(cuid())
+  userId           String
+  date             DateTime         @db.Date
+  checkIn          DateTime?
+  checkOut         DateTime?
+  checkInLat       Float?
+  checkInLng       Float?
+  checkOutLat      Float?
+  checkOutLng      Float?
+  checkInAddr      String?
+  checkOutAddr     String?
+  checkInLocation  String? // nama lokasi absen masuk, atau "Dinas Luar"
+  checkOutLocation String? // nama lokasi absen pulang, atau "Dinas Luar"
+  status           AttendanceStatus @default(HADIR)
+  note             String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -209,17 +212,17 @@ enum LeaveType {
 }
 
 model LeaveRequest {
-  id          String      @id @default(cuid())
-  userId      String
-  type        LeaveType
-  startDate   DateTime    @db.Date
-  endDate     DateTime    @db.Date
-  totalDays   Int
-  reason      String      @db.Text
-  status      LeaveStatus @default(PENDING)
-  approvedBy  String?
-  approvedAt  DateTime?
-  note        String?
+  id         String      @id @default(cuid())
+  userId     String
+  type       LeaveType
+  startDate  DateTime    @db.Date
+  endDate    DateTime    @db.Date
+  totalDays  Int
+  reason     String      @db.Text
+  status     LeaveStatus @default(PENDING)
+  approvedBy String?
+  approvedAt DateTime?
+  note       String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -251,26 +254,27 @@ model BusinessTrip {
 // ─── Payslip ──────────────────────────────────────────────────────────────────
 
 model Payslip {
-  id              String   @id @default(cuid())
-  userId          String
-  period          String   // e.g. "2026-10"
-  periodLabel     String   // e.g. "Oktober 2026"
-  basicSalary     Float
-  overtimePay     Float    @default(0)
-  mealAllowance   Float    @default(0)
-  travelAllowance Float    @default(0)
-  otherBenefits   Float    @default(0)
-  pph21           Float    @default(0)
-  bpjsKesehatan   Float    @default(0)
-  bpjsKetenagakerjaan Float @default(0)
-  otherDeductions Float    @default(0)
-  netPay          Float
-  paidAt          DateTime?
-  paidVia         String?  // e.g. "Transfer Bank Mandiri"
+  id                  String    @id @default(cuid())
+  userId              String
+  period              String // e.g. "2026-10"
+  periodLabel         String // e.g. "Oktober 2026"
+  basicSalary         Float
+  overtimePay         Float     @default(0)
+  mealAllowance       Float     @default(0)
+  travelAllowance     Float     @default(0)
+  otherBenefits       Float     @default(0)
+  pph21               Float     @default(0)
+  bpjsKesehatan       Float     @default(0)
+  bpjsKetenagakerjaan Float     @default(0)
+  otherDeductions     Float     @default(0)
+  netPay              Float
+  paidAt              DateTime?
+  paidVia             String? // e.g. "Transfer Bank Mandiri"
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
   @@unique([userId, period])
   @@index([period])
 }
@@ -286,35 +290,35 @@ enum ProjectStatus {
 }
 
 model CustomerProject {
-  id           String        @id @default(cuid())
-  code         String        @unique
-  clientName   String
-  clientEmail  String?
-  clientPhone  String?
-  projectName  String
-  description  String?       @db.Text
-  status       ProjectStatus @default(PLANNING)
-  startDate    DateTime?     @db.Date
-  endDate      DateTime?     @db.Date
-  progress     Int           @default(0)
-  accessToken  String        @unique @default(cuid())
-  updates      ProjectUpdate[]
+  id          String          @id @default(cuid())
+  code        String          @unique
+  clientName  String
+  clientEmail String?
+  clientPhone String?
+  projectName String
+  description String?         @db.Text
+  status      ProjectStatus   @default(PLANNING)
+  startDate   DateTime?       @db.Date
+  endDate     DateTime?       @db.Date
+  progress    Int             @default(0)
+  accessToken String          @unique @default(cuid())
+  updates     ProjectUpdate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model ProjectUpdate {
-  id          String          @id @default(cuid())
+  id          String   @id @default(cuid())
   projectId   String
   title       String
-  description String          @db.Text
+  description String   @db.Text
   progress    Int
   images      String[]
   createdBy   String
 
-  project CustomerProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  project   CustomerProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
 }
 
 // ─── Riwayat gaji dan perubahan data ────────────────────────────────────────
@@ -426,6 +430,7 @@ model WorkShift {
   updatedAt           DateTime @updatedAt
 
   patternDays WorkPatternDay[]
+  locations   WorkLocation[]   @relation("ShiftWorkLocations")
 }
 
 model WorkPattern {
@@ -437,7 +442,8 @@ model WorkPattern {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  days WorkPatternDay[]
+  days      WorkPatternDay[]
+  locations WorkLocation[]   @relation("PatternWorkLocations")
 }
 
 model WorkPatternDay {
@@ -476,4 +482,22 @@ model AttendanceRule {
   noCheckInIsAlpha      Boolean  @default(true) // tidak absen & tanpa izin/cuti/sakit/dinas = Alpha
   updatedBy             String?
   updatedAt             DateTime @updatedAt
+}
+
+// Lokasi absen (geotagging). Bisa ditempel ke karyawan, shift, atau pola kerja;
+// absen di luar radius semua lokasi yang diizinkan ditolak, kecuali saat Dinas Luar.
+model WorkLocation {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  address   String?
+  latitude  Float
+  longitude Float
+  radius    Int      @default(200) // meter
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees User[]        @relation("UserWorkLocations")
+  shifts    WorkShift[]   @relation("ShiftWorkLocations")
+  patterns  WorkPattern[] @relation("PatternWorkLocations")
 }

@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { Attendance } from "@prisma/client";
 import { Loader2 } from "lucide-react";
+import type { AllowedLocation } from "@/lib/work-location-client";
 
 const AbsensiClient = dynamic(() => import("./AbsensiClient"), {
   ssr: false,
@@ -16,8 +17,10 @@ const AbsensiClient = dynamic(() => import("./AbsensiClient"), {
 interface Props {
   today: Attendance | null;
   week: Attendance[];
+  locations: AllowedLocation[];
+  onTrip: boolean;
 }
 
-export default function AbsensiWrapper({ today, week }: Props) {
-  return <AbsensiClient today={today} week={week} />;
+export default function AbsensiWrapper(props: Props) {
+  return <AbsensiClient {...props} />;
 }

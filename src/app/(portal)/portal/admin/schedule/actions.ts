@@ -170,3 +170,60 @@ export async function saveRule(input: RuleInput): Promise<Result> {
   revalidatePath(PATH);
   return {};
 }
+
+// ─── Lokasi absen (geotagging) ──────────────────────────────────────────────
+
+export type LocationInput = {
+  name: string; address: string; latitude: number; longitude: number; radius: number; isActive: boolean;
+  employeeIds: string[]; shiftIds: string[]; patternIds: string[];
+};
+
+export async function saveLocation(id: string | null, input: LocationInput): Promise<Result> {
+  await requireMenu("karyawan");
+  const name = input.name.trim();
+  if (!name) return { error: "Nama lokasi wajib diisi." };
+  const { latitude, longitude } = input;
+  if (!(Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) || (latitude === 0 && longitude === 0)) {
+    return { error: "Titik lokasi belum dipilih. Klik peta atau isi koordinat." };
+  }
+  const radius = Math.round(input.radius);
+  if (!(radius >= 10 && radius <= 5000)) return { error: "Radius 10 sampai 5000 meter." };
+
+  const taken = await prisma.workLocation.findFirst({
+    where: { name: { equals: name, mode: "insensitive" }, ...(id ? { id: { not: id } } : {}) },
+    select: { id: true },
+  });
+  if (taken) return { error: "Nama lokasi sudah dipakai." };
+
+  const links = (ids: string[]) => [...new Set(ids)].map((v) => ({ id: v }));
+  const data = { name, address: input.address.trim() || null, latitude, longitude, radius, isActive: input.isActive };
+  if (id) {
+    await prisma.workLocation.update({
+      where: { id },
+      data: {
+        ...data,
+        employees: { set: links(input.employeeIds) },
+        shifts: { set: links(input.shiftIds) },
+        patterns: { set: links(input.patternIds) },
+      },
+    });
+  } else {
+    await prisma.workLocation.create({
+      data: {
+        ...data,
+        employees: { connect: links(input.employeeIds) },
+        shifts: { connect: links(input.shiftIds) },
+        patterns: { connect: links(input.patternIds) },
+      },
+    });
+  }
+  revalidatePath(PATH);
+  return {};
+}
+
+export async function deleteLocation(id: string): Promise<Result> {
+  await requireMenu("karyawan");
+  await prisma.workLocation.delete({ where: { id } });
+  revalidatePath(PATH);
+  return {};
+}

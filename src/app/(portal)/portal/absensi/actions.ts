@@ -2,12 +2,30 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getDistanceMeters } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import { getAllowedLocations, isOnApprovedTrip, nearestLocation } from "@/lib/work-location";
 
-const OFFICE_LAT = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LAT ?? "-3.3186");
-const OFFICE_LNG = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LNG ?? "114.5944");
-const OFFICE_RADIUS = parseFloat(process.env.NEXT_PUBLIC_OFFICE_RADIUS_METERS ?? "200");
+// Cek lokasi absen. Saat Dinas Luar disetujui, absen boleh di mana saja (lokasinya tetap
+// disimpan). Selain itu, absen di luar radius semua lokasi yang diizinkan ditolak.
+// Selama belum ada lokasi absen sama sekali, absen belum dibatasi.
+async function checkLocation(userId: string, lat: number, lng: number) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { error: "Lokasi GPS tidak terbaca. Aktifkan GPS lalu coba lagi." } as const;
+  }
+  if (await isOnApprovedTrip(userId)) {
+    return { label: "Dinas Luar", inside: true, distance: null as number | null } as const;
+  }
+  const { locations } = await getAllowedLocations(userId);
+  if (locations.length === 0) return { label: null, inside: true, distance: null as number | null } as const;
+  const nearest = nearestLocation(locations, lat, lng)!;
+  const distance = Math.round(nearest.distance);
+  if (!nearest.inside) {
+    return {
+      error: `Anda berada ${distance} m dari lokasi terdekat (${nearest.location.name}, radius ${nearest.location.radius} m). Absen tidak bisa dilakukan.`,
+    } as const;
+  }
+  return { label: nearest.location.name, inside: true, distance } as const;
+}
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
@@ -60,8 +78,8 @@ export async function checkIn(lat: number, lng: number) {
   });
   if (existing?.checkIn) return { error: "Anda sudah check-in hari ini." };
 
-  const distance = getDistanceMeters(lat, lng, OFFICE_LAT, OFFICE_LNG);
-  const inRadius = distance <= OFFICE_RADIUS;
+  const place = await checkLocation(session.user.id, lat, lng);
+  if ("error" in place) return { error: place.error };
   const address = await reverseGeocode(lat, lng);
 
   await prisma.attendance.upsert({
@@ -71,7 +89,8 @@ export async function checkIn(lat: number, lng: number) {
       checkInLat: lat,
       checkInLng: lng,
       checkInAddr: address,
-      status: inRadius ? "HADIR" : "HADIR",
+      checkInLocation: place.label,
+      status: "HADIR",
     },
     create: {
       userId: session.user.id,
@@ -80,17 +99,13 @@ export async function checkIn(lat: number, lng: number) {
       checkInLat: lat,
       checkInLng: lng,
       checkInAddr: address,
+      checkInLocation: place.label,
       status: "HADIR",
     },
   });
 
   revalidatePath("/portal/absensi");
-  return {
-    ok: true,
-    inRadius,
-    distance: Math.round(distance),
-    address,
-  };
+  return { ok: true, location: place.label, distance: place.distance, address };
 }
 
 export async function checkOut(lat: number, lng: number) {
@@ -106,6 +121,8 @@ export async function checkOut(lat: number, lng: number) {
   if (!record?.checkIn) return { error: "Anda belum check-in hari ini." };
   if (record.checkOut) return { error: "Anda sudah check-out hari ini." };
 
+  const place = await checkLocation(session.user.id, lat, lng);
+  if ("error" in place) return { error: place.error };
   const address = await reverseGeocode(lat, lng);
 
   await prisma.attendance.update({
@@ -115,9 +132,21 @@ export async function checkOut(lat: number, lng: number) {
       checkOutLat: lat,
       checkOutLng: lng,
       checkOutAddr: address,
+      checkOutLocation: place.label,
     },
   });
 
   revalidatePath("/portal/absensi");
-  return { ok: true, address };
+  return { ok: true, location: place.label, distance: place.distance, address };
+}
+
+// Lokasi yang ditampilkan di peta absensi karyawan.
+export async function getMyLocations() {
+  const session = await auth();
+  if (!session?.user?.id) return { locations: [], onTrip: false };
+  const [{ locations }, onTrip] = await Promise.all([
+    getAllowedLocations(session.user.id),
+    isOnApprovedTrip(session.user.id),
+  ]);
+  return { locations, onTrip };
 }

@@ -4,17 +4,19 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { MapPin, Clock, LogIn, LogOut, Loader2, AlertTriangle, CheckCircle2, Navigation } from "lucide-react";
 import { checkIn, checkOut } from "./actions";
-import { getDistanceMeters, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import type { Attendance } from "@prisma/client";
 import { T } from "@/components/i18n";
+import { nearestLocation, type AllowedLocation } from "@/lib/work-location-client";
 
-const OFFICE_LAT = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LAT ?? "-3.3186");
-const OFFICE_LNG = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LNG ?? "114.5944");
-const OFFICE_RADIUS = parseFloat(process.env.NEXT_PUBLIC_OFFICE_RADIUS_METERS ?? "200");
+// Titik awal peta kalau belum ada lokasi absen (Banjarmasin).
+const DEFAULT_CENTER: [number, number] = [-3.3186, 114.5944];
 
 interface Props {
   today: Attendance | null;
   week: Attendance[];
+  locations: AllowedLocation[];
+  onTrip: boolean;
 }
 
 function getDurationStr(checkIn: Date, checkOut?: Date | null) {
@@ -27,7 +29,7 @@ function getDurationStr(checkIn: Date, checkOut?: Date | null) {
 
 const DAY_NAMES = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-export default function AbsensiClient({ today, week }: Props) {
+export default function AbsensiClient({ today, week, locations, onTrip }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -35,7 +37,7 @@ export default function AbsensiClient({ today, week }: Props) {
 
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
-  const [distance, setDistance] = useState<number | null>(null);
+  const [near, setNear] = useState<{ name: string; distance: number; radius: number; inside: boolean } | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "warn" | "err"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -47,7 +49,7 @@ export default function AbsensiClient({ today, week }: Props) {
       if (!mapRef.current || mapInstanceRef.current) return;
 
       const map = leafletRef.current.map(mapRef.current, {
-        center: [OFFICE_LAT, OFFICE_LNG],
+        center: locations[0] ? [locations[0].latitude, locations[0].longitude] : DEFAULT_CENTER,
         zoom: 16,
         zoomControl: true,
       });
@@ -56,25 +58,25 @@ export default function AbsensiClient({ today, week }: Props) {
         attribution: "© OpenStreetMap",
       }).addTo(map);
 
-      // Office marker
+      // Semua lokasi absen yang boleh dipakai karyawan ini.
       const officeIcon = leafletRef.current.divIcon({
-        html: `<div style="background:#BE353F;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)">🏢</div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
+        html: `<div style="background:#BE353F;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)">🏢</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
         className: "",
       });
-      leafletRef.current.marker([OFFICE_LAT, OFFICE_LNG], { icon: officeIcon })
-        .bindPopup("Kantor PT. Citra Banjar Abadi")
-        .addTo(map);
-
-      // Office radius circle
-      leafletRef.current.circle([OFFICE_LAT, OFFICE_LNG], {
-        radius: OFFICE_RADIUS,
-        color: "#BE353F",
-        fillColor: "#3b82f6",
-        fillOpacity: 0.1,
-        weight: 2,
-      }).addTo(map);
+      for (const loc of locations) {
+        leafletRef.current.marker([loc.latitude, loc.longitude], { icon: officeIcon })
+          .bindPopup(`${loc.name} (radius ${loc.radius} m)`)
+          .addTo(map);
+        leafletRef.current.circle([loc.latitude, loc.longitude], {
+          radius: loc.radius,
+          color: "#BE353F",
+          fillColor: "#3b82f6",
+          fillOpacity: 0.1,
+          weight: 2,
+        }).addTo(map);
+      }
 
       mapInstanceRef.current = map;
     });
@@ -100,8 +102,11 @@ export default function AbsensiClient({ today, week }: Props) {
         setPos({ lat, lng });
         setGpsError(null);
 
-        const dist = getDistanceMeters(lat, lng, OFFICE_LAT, OFFICE_LNG);
-        setDistance(Math.round(dist));
+        const best = nearestLocation(locations, lat, lng);
+        setNear(best ? {
+          name: best.location.name, distance: Math.round(best.distance),
+          radius: best.location.radius, inside: best.inside,
+        } : null);
 
         if (mapInstanceRef.current && leafletRef.current) {
           const L = leafletRef.current;
@@ -136,12 +141,14 @@ export default function AbsensiClient({ today, week }: Props) {
       if ("error" in res) {
         setMessage({ type: "err", text: res.error ?? "" });
       } else {
-        const dist = res.distance ?? 0;
-        if (!res.inRadius) {
-          setMessage({ type: "warn", text: `Check-in berhasil. Anda berada ${dist}m dari kantor (di luar radius ${OFFICE_RADIUS}m).` });
-        } else {
-          setMessage({ type: "ok", text: `Check-in berhasil! Anda berada ${dist}m dari kantor. ✓` });
-        }
+        setMessage({
+          type: "ok",
+          text: res.location === "Dinas Luar"
+            ? "Check-in berhasil (Dinas Luar). Lokasi Anda tersimpan."
+            : res.location
+              ? `Check-in berhasil di ${res.location} (${res.distance ?? 0} m). ✓`
+              : "Check-in berhasil! ✓",
+        });
       }
     });
   };
@@ -159,7 +166,8 @@ export default function AbsensiClient({ today, week }: Props) {
     });
   };
 
-  const inRadius = distance !== null && distance <= OFFICE_RADIUS;
+  // Tombol absen hanya aktif di dalam radius, kecuali saat Dinas Luar atau belum ada lokasi.
+  const canAbsen = onTrip || locations.length === 0 || !!near?.inside;
   const hasCheckIn = !!today?.checkIn;
   const hasCheckOut = !!today?.checkOut;
 
@@ -176,12 +184,22 @@ export default function AbsensiClient({ today, week }: Props) {
               <AlertTriangle size={14} className="shrink-0" />
               {gpsError}
             </div>
-          ) : distance !== null ? (
-            <div className={`rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-medium ${inRadius ? "bg-green-50 border border-green-200 text-green-700" : "bg-amber-50 border border-amber-200 text-amber-700"}`}>
+          ) : onTrip && pos ? (
+            <div className="rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-medium bg-sky-50 border border-sky-200 text-sky-700">
               <Navigation size={14} className="shrink-0" />
-              {inRadius
-                ? `${distance}m dari kantor — Dalam area ✓`
-                : `${distance}m dari kantor — Di luar radius ${OFFICE_RADIUS}m`}
+              Dinas Luar — absen boleh di mana saja, lokasi tetap disimpan
+            </div>
+          ) : near ? (
+            <div className={`rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-medium ${near.inside ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"}`}>
+              <Navigation size={14} className="shrink-0" />
+              {near.inside
+                ? `${near.distance} m dari ${near.name} — Dalam area ✓`
+                : `${near.distance} m dari ${near.name} — Di luar radius ${near.radius} m, absen tidak bisa dilakukan`}
+            </div>
+          ) : pos && locations.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
+              <Navigation size={14} className="shrink-0" />
+              <T>Lokasi GPS terbaca.</T>
             </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
@@ -250,7 +268,7 @@ export default function AbsensiClient({ today, week }: Props) {
         {!hasCheckIn ? (
           <button
             onClick={handleCheckIn}
-            disabled={isPending || !pos}
+            disabled={isPending || !pos || !canAbsen}
             className="w-full bg-green-600 text-white font-semibold py-3 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isPending ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
@@ -259,7 +277,7 @@ export default function AbsensiClient({ today, week }: Props) {
         ) : !hasCheckOut ? (
           <button
             onClick={handleCheckOut}
-            disabled={isPending || !pos}
+            disabled={isPending || !pos || !canAbsen}
             className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {isPending ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}

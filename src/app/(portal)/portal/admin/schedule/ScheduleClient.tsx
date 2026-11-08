@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
-  CalendarClock, CalendarOff, Clock, Coffee, Layers, Loader2, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
+  CalendarClock, CalendarOff, Clock, Coffee, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import LocationTab, { type Location } from "./LocationTab";
 import {
   deleteHoliday, deletePattern, deleteShift, saveHoliday, savePattern, saveRule, saveShift,
   type BreakTime, type PatternInput, type RuleInput, type ShiftInput,
@@ -26,6 +27,7 @@ const TABS = [
   { key: "shift", label: "Shift", icon: Clock },
   { key: "pola", label: "Pola Kerja", icon: Repeat },
   { key: "libur", label: "Kalender Libur", icon: CalendarOff },
+  { key: "lokasi", label: "Lokasi Absen", icon: MapPin },
   { key: "aturan", label: "Aturan Kehadiran", icon: Scale },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
@@ -638,9 +640,10 @@ function RuleTab({ rule }: { rule: Rule }) {
 // ─── Halaman ────────────────────────────────────────────────────────────────
 
 export default function ScheduleClient({
-  shifts, patterns, holidays, rule,
+  shifts, patterns, holidays, rule, locations, employees,
 }: {
   shifts: Shift[]; patterns: Pattern[]; holidays: Holiday[]; rule: Rule;
+  locations: Location[]; employees: { id: string; label: string; sub?: string }[];
 }) {
   const [tab, setTab] = useState<Tab>("shift");
   const year = String(new Date().getFullYear());
@@ -648,6 +651,7 @@ export default function ScheduleClient({
     { label: "Shift Aktif", value: shifts.filter((s) => s.isActive && !s.isOff).length, icon: Clock, tone: "from-brand to-rose-400" },
     { label: "Pola Kerja", value: patterns.length, icon: Repeat, tone: "from-sky-500 to-indigo-400" },
     { label: `Libur ${year}`, value: holidays.filter((h) => h.date.startsWith(year)).length, icon: CalendarOff, tone: "from-amber-500 to-orange-400" },
+    { label: "Lokasi Absen", value: locations.filter((l) => l.isActive).length, icon: MapPin, tone: "from-rose-500 to-pink-400" },
     { label: "Lembur", value: rule.overtimeNeedsApproval ? "Disetujui" : "Otomatis", icon: Layers, tone: "from-emerald-500 to-teal-400" },
   ];
 
@@ -661,7 +665,7 @@ export default function ScheduleClient({
       </div>
 
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           {stats.map((s) => (
             <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
               <div className="flex items-center justify-between">
@@ -693,6 +697,14 @@ export default function ScheduleClient({
         {tab === "shift" && <ShiftTab shifts={shifts} />}
         {tab === "pola" && <PatternTab patterns={patterns} shifts={shifts} />}
         {tab === "libur" && <HolidayTab holidays={holidays} />}
+        {tab === "lokasi" && (
+          <LocationTab
+            locations={locations}
+            employees={employees}
+            shifts={shifts.filter((s) => !s.isOff).map((s) => ({ id: s.id, label: `${s.code} · ${s.name}`, sub: `${s.startTime}–${s.endTime}`, color: s.color }))}
+            patterns={patterns.map((p) => ({ id: p.id, label: p.name, sub: `${p.cycleDays} hari` }))}
+          />
+        )}
         {tab === "aturan" && <RuleTab rule={rule} />}
       </main>
     </div>
