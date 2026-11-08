@@ -170,7 +170,9 @@ export default function AttendanceCalendar({
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? "bg-brand text-white" : ""}`}>
                       {day}
                     </span>
-                    {shiftDays[k] && (
+                    {shiftDays[k]?.manual ? (
+                      <span title={t("Belum diisi")} className="h-4 w-5 rounded-md border border-dashed border-amber-300 bg-amber-50" />
+                    ) : shiftDays[k] && (
                       <span title={shiftDays[k].holiday ?? shiftDays[k].name}
                         className="rounded-md px-1 py-px text-[9px] font-bold leading-tight text-white sm:text-[10px]"
                         style={{ background: shiftDays[k].color }}>
@@ -230,13 +232,17 @@ export default function AttendanceCalendar({
               <p className="mt-2 text-base font-bold text-gray-900">{formatDate(new Date(selected))}</p>
               {shiftDays[selected] && (
                 <p className="mt-1 flex items-center gap-2 text-sm text-gray-700">
-                  <span className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: shiftDays[selected].color }}>
-                    {shiftDays[selected].code}
-                  </span>
+                  {shiftDays[selected].manual ? (
+                    <span className="h-5 w-7 rounded-md border border-dashed border-amber-300 bg-amber-50" />
+                  ) : (
+                    <span className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: shiftDays[selected].color }}>
+                      {shiftDays[selected].code}
+                    </span>
+                  )}
                   {shiftDays[selected].holiday
                     ? shiftDays[selected].holiday
                     : shiftDays[selected].manual
-                      ? <T>Jadwal manual (belum diisi)</T>
+                      ? <T>Shift belum diisi</T>
                       : <>{shiftDays[selected].name}{shiftDays[selected].startTime && ` · ${shiftDays[selected].startTime}–${shiftDays[selected].endTime}`}</>}
                 </p>
               )}

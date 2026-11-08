@@ -67,7 +67,7 @@ export default function RosterTab({
     return { shift: row.days[date] ?? null, changed: false, cleared: false };
   }
 
-  // Kotak "?" (jadwal manual kosong) diisi dengan shift 7 hari sebelumnya.
+  // Kotak yang belum diisi diisi dengan shift 7 hari sebelumnya.
   function fillFromPreviousWeek() {
     const next = { ...changes };
     let filled = 0;
@@ -107,9 +107,14 @@ export default function RosterTab({
   }
 
   const pendingCount = Object.keys(changes).length;
-  const emptyCount = shown.reduce((n, r) => n + dates.filter((d) => cell(r, d).shift?.manual).length, 0);
-  // Karyawan yang masih punya kotak tanpa jadwal sama sekali (belum diisi di layar ini juga).
-  const unscheduledCount = shown.filter((r) => r.unscheduled > 0 && dates.some((d) => !cell(r, d).shift && !cell(r, d).changed)).length;
+  // Kotak wajib diisi yang masih kosong: jadwal manual belum diisi, atau karyawan tanpa jadwal sama sekali.
+  const isEmpty = (row: Row, date: string) => {
+    const c = cell(row, date);
+    return !c.changed && (c.shift ? !!c.shift.manual : row.unscheduled > 0);
+  };
+  const emptyByRow = shown.map((r) => dates.filter((d) => isEmpty(r, d)).length);
+  const emptyCount = emptyByRow.reduce((a, b) => a + b, 0);
+  const emptyPeople = emptyByRow.filter((n) => n > 0).length;
 
   return (
     <div className="space-y-4">
@@ -175,18 +180,13 @@ export default function RosterTab({
         </div>
 
         {msg && <p className={`rounded-xl px-4 py-2.5 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
-        {unscheduledCount > 0 && (
-          <p className="flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-800">
+        {emptyCount > 0 && (
+          <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
             <TriangleAlert size={15} className="mt-0.5 shrink-0" />
             <span>
-              {unscheduledCount} <T>karyawan belum punya jadwal (kotak bergaris).</T>{" "}
-              <T>Isi shift-nya di sini; setelah disimpan, karyawan itu otomatis ditandai Jadwal Manual. Untuk karyawan kantor, tempel pola kerja di menu Pola Kerja.</T>
+              <b>{emptyCount} <T>hari kerja dari</T> {emptyPeople} <T>karyawan belum memiliki shift</T></b> <T>(kotak bergaris).</T>{" "}
+              <T>Isi shift-nya di sini. Karyawan tanpa jadwal otomatis ditandai Jadwal Manual setelah disimpan; untuk karyawan kantor, tempel pola kerja di tab Pola Kerja.</T>
             </span>
-          </p>
-        )}
-        {emptyCount > 0 && (
-          <p className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-            <TriangleAlert size={15} /> {emptyCount} <T>kotak jadwal manual belum diisi (ditandai ?).</T>
           </p>
         )}
 
@@ -243,17 +243,16 @@ export default function RosterTab({
                             onMouseEnter={() => { if (painting) paint(row.id, d); }}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); if (v) paint(row.id, d, v); }}
-                            title={s ? (s.holiday ?? (s.manual ? t("Jadwal manual (belum diisi)") : `${s.name}${s.startTime ? ` · ${s.startTime}–${s.endTime}` : ""}`)) : ""}
+                            title={isEmpty(row, d) ? t("Belum diisi") : s ? (s.holiday ?? (s.manual ? t("Belum diisi") : `${s.name}${s.startTime ? ` · ${s.startTime}–${s.endTime}` : ""}`)) : ""}
                             className={[
                               "flex h-8 min-w-9 cursor-pointer items-center justify-center rounded-md text-[11px] font-bold transition-transform hover:scale-105",
                               c.changed ? "ring-2 ring-amber-400" : "",
                               c.cleared ? "border border-dashed border-gray-300 text-gray-300" : "",
-                              s?.manual ? "border border-dashed border-amber-300 bg-amber-50 text-amber-600" : "",
-                              !s && !c.cleared ? "border border-dashed border-rose-200 bg-rose-50/40" : "",
+                              isEmpty(row, d) ? "border border-dashed border-amber-300 bg-amber-50/60" : "",
                             ].join(" ")}
                             style={s && !s.manual ? { background: fromPattern ? `${s.color}33` : s.color, color: fromPattern ? s.color : "#fff" } : undefined}
                           >
-                            {c.cleared ? "–" : s ? s.code : ""}
+                            {c.cleared ? "–" : s && !s.manual ? s.code : ""}
                           </div>
                         </td>
                       );
@@ -268,7 +267,7 @@ export default function RosterTab({
         <div className="flex flex-wrap gap-4 text-[11px] text-gray-500">
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded bg-emerald-500" /> <T>Diisi di Jadwal Bulanan</T></span>
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded bg-emerald-500/20" /> <T>Dari pola kerja</T></span>
-          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded border border-dashed border-amber-300 bg-amber-50" /> <T>Jadwal manual belum diisi</T></span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded border border-dashed border-amber-300 bg-amber-50" /> <T>Belum diisi</T></span>
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded ring-2 ring-amber-400" /> <T>Belum disimpan</T></span>
         </div>
     </div>

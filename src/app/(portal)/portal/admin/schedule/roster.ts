@@ -38,3 +38,27 @@ export async function loadRoster(bulan: string | undefined, showAll: boolean) {
 
   return { year, month, showAll, rows };
 }
+
+// Hari kerja yang belum punya shift dalam satu bulan roster: total, jumlah karyawan, dan per tanggal.
+// Belum punya shift = jadwal manual belum diisi, atau karyawan tanpa jadwal sama sekali.
+export function unfilledIn({ rows, year, month }: Awaited<ReturnType<typeof loadRoster>>) {
+  const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const days = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const byDate = new Map<string, number>();
+  let total = 0;
+  let people = 0;
+  for (const r of rows) {
+    let n = 0;
+    for (let i = 1; i <= days; i++) {
+      const k = `${monthKey}-${String(i).padStart(2, "0")}`;
+      const d = r.days[k];
+      if (d ? d.manual : r.unscheduled > 0) {
+        n += 1;
+        byDate.set(k, (byDate.get(k) ?? 0) + 1);
+      }
+    }
+    total += n;
+    if (n > 0) people += 1;
+  }
+  return { total, people, byDate };
+}

@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { ArrowRight, Building2, Clock, PieChart, UserCheck, UserX, Users } from "lucide-react";
+import { ArrowRight, PieChart, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { T } from "@/components/i18n";
+import IndicatorCards from "./IndicatorCards";
+import TaskPanel from "./TaskPanel";
+import { loadInsights } from "./insights";
 
 const DAY = 24 * 60 * 60 * 1000;
-const PRESENT = ["HADIR", "DINAS"] as const;
 const STATUS_LABEL: Record<string, string> = { TETAP: "Tetap", KONTRAK: "Kontrak", PROBATION: "Probation" };
 
 // Kolom tanggal absensi tersimpan tengah malam UTC, jadi "hari ini" dihitung dalam WIB lalu dijadikan UTC.
@@ -14,25 +16,6 @@ function todayDate() {
   return new Date(`${text}T00:00:00Z`);
 }
 const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY);
-const hoursBetween = (start: Date, end: Date) => Math.max(0, (end.getTime() - start.getTime()) / 3_600_000);
-
-function change(current: number, previous: number) {
-  if (!previous) return null;
-  return Math.round(((current - previous) / previous) * 100);
-}
-
-function ChangeChip({ value, label }: { value: number | null; label: string }) {
-  if (value === null) return <p className="mt-1.5 text-[11px] text-gray-400"><T>{label}</T></p>;
-  const up = value >= 0;
-  return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-400">
-      <span className={`rounded-md px-1.5 py-0.5 font-semibold ${up ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
-        {up ? "▲" : "▼"} {Math.abs(value)}%
-      </span>
-      <T>{label}</T>
-    </p>
-  );
-}
 
 // Warna ikon dan hiasan sudut untuk setiap kartu. Kartunya putih bersih, mengikuti gaya Admin Dashboard V2.
 // Ikon berwarna penuh dengan gradasi, plus garis warna di bawah kartu angka.
@@ -67,34 +50,6 @@ function Panel({
       </div>
       {children}
     </section>
-  );
-}
-
-function StatCard({
-  icon: Icon, title, value, href, chip, tone,
-}: {
-  icon: React.ElementType; title: string; value: number; href?: string; chip: React.ReactNode; tone: Tone;
-}) {
-  const body = (
-    <>
-      <span aria-hidden className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br to-transparent ${TONES[tone].glow}`} />
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm text-gray-500"><T>{title}</T></p>
-          <p className="mt-1 text-[28px] font-bold leading-tight tabular-nums text-gray-900">{value}</p>
-        </div>
-        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${TONES[tone].icon}`}>
-          <Icon size={20} />
-        </span>
-      </div>
-      <div className="relative">{chip}</div>
-      <span aria-hidden className={`absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r ${TONES[tone].bar}`} />
-    </>
-  );
-  return href ? (
-    <Link href={href} className={`${CARD} block p-5 transition-transform hover:-translate-y-0.5`}>{body}</Link>
-  ) : (
-    <section className={`${CARD} p-5`}>{body}</section>
   );
 }
 
@@ -198,22 +153,12 @@ function Donut({ parts }: { parts: { label: string; value: number }[] }) {
 
 export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boolean }) {
   const today = todayDate();
-  const yearStart = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
-  const lastYearStart = new Date(Date.UTC(today.getUTCFullYear() - 1, 0, 1));
   const employee = { role: { not: "SUPER_ADMIN" as const } };
 
-  const [active, joinedThisYear, joinedLastYear, departments, presentToday, presentYesterday, worked, byStatus, recent, expiring] =
+  const [insights, active, byStatus, recent, expiring] =
     await Promise.all([
+      loadInsights(),
       prisma.user.count({ where: { ...employee, isActive: true } }),
-      prisma.user.count({ where: { ...employee, joinDate: { gte: yearStart } } }),
-      prisma.user.count({ where: { ...employee, joinDate: { gte: lastYearStart, lt: yearStart } } }),
-      prisma.department.count(),
-      prisma.attendance.count({ where: { date: today, status: { in: [...PRESENT] } } }),
-      prisma.attendance.count({ where: { date: addDays(today, -1), status: { in: [...PRESENT] } } }),
-      prisma.attendance.findMany({
-        where: { date: { gte: addDays(today, -6) }, checkIn: { not: null }, checkOut: { not: null } },
-        select: { date: true, checkIn: true, checkOut: true },
-      }),
       prisma.user.groupBy({ by: ["employmentStatus"], where: { ...employee, isActive: true }, _count: { _all: true } }),
       prisma.user.findMany({
         where: { ...employee, isActive: true },
@@ -232,22 +177,6 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
       }),
     ]);
 
-  const absentToday = Math.max(0, active - presentToday);
-  const absentYesterday = Math.max(0, active - presentYesterday);
-
-  const hoursByDay = new Map<string, number[]>();
-  for (const row of worked) {
-    const key = row.date.toISOString().slice(0, 10);
-    hoursByDay.set(key, [...(hoursByDay.get(key) ?? []), hoursBetween(row.checkIn!, row.checkOut!)]);
-  }
-  const avg = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
-  const week = [6, 5, 4, 3, 2, 1, 0].map((back) => {
-    const date = addDays(today, -back);
-    return { label: formatDate(date).slice(0, 6), hours: avg(hoursByDay.get(date.toISOString().slice(0, 10)) ?? []) };
-  });
-  const weekHours = week.flatMap((d) => (d.hours === null ? [] : [d.hours]));
-  const weekAverage = avg(weekHours) ?? 0;
-
   const statusParts = ["TETAP", "KONTRAK", "PROBATION"]
     .map((status) => ({
       label: STATUS_LABEL[status],
@@ -257,36 +186,13 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={Users} title="Total Karyawan" tone="blue" value={active} href="/portal/admin/karyawan"
-          chip={<ChangeChip value={change(joinedThisYear, joinedLastYear)} label={`${joinedThisYear} masuk tahun ini`} />}
-        />
-        <StatCard
-          icon={Building2} title="Departemen" tone="violet" value={departments}
-          href={canSeeSetup ? "/portal/admin/setup" : undefined}
-          chip={<ChangeChip value={null} label="Termasuk grup di dalamnya" />}
-        />
-        <StatCard
-          icon={UserCheck} title="Hadir Hari Ini" tone="emerald" value={presentToday}
-          chip={<ChangeChip value={change(presentToday, presentYesterday)} label="dibanding kemarin" />}
-        />
-        <StatCard
-          icon={UserX} title="Tidak Hadir Hari Ini" tone="amber" value={absentToday}
-          chip={<ChangeChip value={change(absentToday, absentYesterday)} label="dibanding kemarin" />}
-        />
-      </div>
+      {/* Indikator dinamis: kartu jadwal selalu pertama, sisanya bergantian */}
+      <IndicatorCards
+        items={insights.indicators.map((i) => (i.key === "departments" && !canSeeSetup ? { ...i, href: undefined } : i))}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <Panel
-          icon={Clock} tone="blue" title="Rata-rata Jam Kerja" subtitle="Rata-rata jam kerja seluruh karyawan, 7 hari terakhir"
-          action={<span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-600"><T>7 hari terakhir</T></span>}
-        >
-          <p className="text-3xl font-bold tabular-nums text-gray-900">
-            {weekAverage.toFixed(1)} <span className="text-base font-medium text-gray-400"><T>jam</T></span>
-          </p>
-          {weekHours.length ? <HoursChart days={week} average={weekAverage} /> : <Empty text="Belum ada data absensi lengkap minggu ini." />}
-        </Panel>
+        <TaskPanel daily={insights.daily} monthly={insights.monthly} />
 
         <Panel icon={PieChart} tone="violet" title="Status Karyawan" subtitle="Komposisi karyawan aktif menurut status kerja">
           {active ? <Donut parts={statusParts} /> : <Empty text="Belum ada karyawan aktif." />}
