@@ -287,6 +287,7 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Cari nama tempat, klik peta, atau geser titik merah untuk memindahkan lokasi. Lingkaran lain adalah lokasi yang sudah ada.": "Search for a place, click the map, or drag the red dot to move the location. Other circles are existing locations.",
   "Aktifkan GPS dan izinkan akses lokasi di browser.": "Turn on GPS and allow location access in your browser.",
   "Pastikan GPS HP menyala.": "Make sure your phone's GPS is on.",
   "Absen boleh di mana saja, lokasi Anda tetap disimpan.": "You may clock in anywhere; your location is still saved.",

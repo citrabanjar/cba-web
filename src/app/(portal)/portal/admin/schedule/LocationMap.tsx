@@ -12,6 +12,8 @@ const DEFAULT_CENTER: [number, number] = [-3.3186, 114.5944];
 
 type MapProps = {
   point: MapPoint | null; others?: MapPoint[]; onPick?: (lat: number, lng: number) => void; height?: number;
+  // Dipanggil saat tempat dipilih dari kolom cari (nama dan alamat dari Google).
+  onPlace?: (place: { name: string; address: string }) => void;
 };
 
 // Peta pemilih titik lokasi absen: klik peta atau geser penanda untuk memindahkan titik,
@@ -21,8 +23,11 @@ export default function LocationMap(props: MapProps) {
   return GOOGLE_MAPS_KEY ? <GoogleLocationMap {...props} /> : <OsmLocationMap {...props} />;
 }
 
-function GoogleLocationMap({ point, others = [], onPick, height = 300 }: MapProps) {
+function GoogleLocationMap({ point, others = [], onPick, onPlace, height = 300 }: MapProps) {
   const box = useRef<HTMLDivElement>(null);
+  const searchBox = useRef<HTMLDivElement>(null);
+  const placeRef = useRef(onPlace);
+  useEffect(() => { placeRef.current = onPlace; }, [onPlace]);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
@@ -66,6 +71,30 @@ function GoogleLocationMap({ point, others = [], onPick, height = 300 }: MapProp
       });
       mapRef.current = map;
       setReady(true);
+
+      // Kolom cari tempat (Google Places), hanya di peta yang titiknya bisa dipilih.
+      if (pickRef.current && searchBox.current) {
+        maps.importLibrary("places").then((lib) => {
+          const { PlaceAutocompleteElement } = lib as google.maps.PlacesLibrary;
+          if (cancelled || !searchBox.current || searchBox.current.childElementCount > 0) return;
+          const input = new PlaceAutocompleteElement({ includedRegionCodes: ["id"] });
+          input.setAttribute("placeholder", "Cari nama tempat atau alamat...");
+          input.style.width = "100%";
+          searchBox.current.appendChild(input);
+          input.addEventListener("gmp-select", async (event: Event) => {
+            const prediction = (event as unknown as { placePrediction: google.maps.places.PlacePrediction }).placePrediction;
+            const place = prediction.toPlace();
+            await place.fetchFields({ fields: ["location", "displayName", "formattedAddress"] });
+            if (!place.location) return;
+            const lat = place.location.lat();
+            const lng = place.location.lng();
+            map.setCenter({ lat, lng });
+            map.setZoom(18);
+            pickRef.current?.(lat, lng);
+            placeRef.current?.({ name: place.displayName ?? "", address: place.formattedAddress ?? "" });
+          });
+        }).catch(() => {});
+      }
     }).catch(() => { if (!cancelled) setFailed(true); });
     return () => {
       cancelled = true;
@@ -103,7 +132,12 @@ function GoogleLocationMap({ point, others = [], onPick, height = 300 }: MapProp
   }, [point, ready]);
 
   if (failed) return <OsmLocationMap point={point} others={others} onPick={onPick} height={height} />;
-  return <div ref={box} className="w-full overflow-hidden rounded-xl border border-gray-200" style={{ height }} />;
+  return (
+    <div className="space-y-2">
+      {onPick && <div ref={searchBox} className="gmp-search" />}
+      <div ref={box} className="w-full overflow-hidden rounded-xl border border-gray-200" style={{ height }} />
+    </div>
+  );
 }
 
 function OsmLocationMap({ point, others = [], onPick, height = 300 }: MapProps) {

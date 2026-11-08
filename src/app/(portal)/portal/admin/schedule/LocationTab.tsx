@@ -128,8 +128,17 @@ function LocationDialog({
                 {gps ? <Loader2 size={13} className="animate-spin" /> : <Crosshair size={13} />} <T>Pakai lokasi saya</T>
               </button>
             </div>
-            <LocationMap point={point} others={otherPoints} onPick={pick} />
-            <p className="text-[11px] text-gray-400"><T>Klik peta atau geser titik merah untuk memindahkan lokasi. Lingkaran abu-abu adalah lokasi lain.</T></p>
+            <LocationMap
+              point={point}
+              others={otherPoints}
+              onPick={pick}
+              onPlace={({ name, address }) => setForm((f) => ({
+                ...f,
+                name: f.name.trim() ? f.name : name,
+                address: f.address.trim() ? f.address : address,
+              }))}
+            />
+            <p className="text-[11px] text-gray-400"><T>Cari nama tempat, klik peta, atau geser titik merah untuk memindahkan lokasi. Lingkaran lain adalah lokasi yang sudah ada.</T></p>
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1.3fr]">
               <div className="space-y-1.5">
                 <Label className="text-xs">Latitude</Label>
