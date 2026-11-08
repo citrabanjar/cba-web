@@ -304,8 +304,9 @@ export default function KaryawanClient({
             </div>
           </div>
 
-          <Table>
-            <TableHeader>
+          {/* Daftar bisa digulir atas-bawah sendiri; judul kolom tetap terlihat */}
+          <Table containerClassName="max-h-[calc(100vh-240px)] min-h-64 overflow-y-auto">
+            <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#f3f4f6]">
               <TableRow className="hover:bg-transparent [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-wider [&>th]:text-gray-400">
                 <TableHead className="w-[70px] px-5"><T>No.</T></TableHead>
                 <TableHead className="px-4"><T>Nama</T></TableHead>

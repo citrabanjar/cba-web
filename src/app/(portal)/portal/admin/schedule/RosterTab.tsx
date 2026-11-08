@@ -203,7 +203,8 @@ export default function RosterTab({
             )}
           </div>
         ) : (
-          <div className="overflow-auto rounded-2xl border border-gray-200 bg-white select-none">
+          // Tabel digulir atas-bawah dan kiri-kanan sendiri; baris tanggal dan kolom nama tetap terlihat.
+          <div className="max-h-[calc(100vh-200px)] min-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white select-none">
             <table className="border-separate border-spacing-0 text-xs">
               <thead>
                 <tr>
