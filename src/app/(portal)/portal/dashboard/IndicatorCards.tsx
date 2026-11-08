@@ -47,27 +47,23 @@ function Card({ item }: { item: Indicator }) {
     : <section className={cls}>{body}</section>;
 }
 
-// Kartu indikator Beranda. Kartu "pinned" (jadwal) diam di kiri; kartu lainnya berjalan terus
-// ke kiri seperti running text, dan berhenti saat disorot mouse (atau disentuh/difokus).
+// Kartu indikator Beranda: semua kartu berjalan terus ke kiri seperti running text (kartu
+// jadwal di urutan pertama), dan berhenti saat disorot mouse (atau disentuh/difokus).
 export default function IndicatorCards({ items }: { items: Indicator[] }) {
-  const pinned = items.filter((i) => i.pinned);
-  const pool = items.filter((i) => !i.pinned);
-  const running = pool.length > 3;
+  const pool = [...items.filter((i) => i.pinned), ...items.filter((i) => !i.pinned)];
+  const running = pool.length > 4;
   // Daftar digandakan supaya putarannya menyambung tanpa jeda.
   const loop = running ? [...pool, ...pool] : pool;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-4">
-      {pinned.map((item) => <Card key={item.key} item={item} />)}
-      <div className="indicator-track @container overflow-hidden rounded-2xl xl:col-span-3">
-        <div className={running ? "indicator-marquee" : "flex"} style={{ ["--marquee-duration" as string]: `${pool.length * 6}s` }}>
-          {loop.map((item, idx) => (
-            <div key={`${item.key}-${idx}`} aria-hidden={idx >= pool.length || undefined}
-              className="w-[calc((100cqw+1.25rem)/1.2)] shrink-0 pr-5 sm:w-[calc((100cqw+1.25rem)/2)] xl:w-[calc((100cqw+1.25rem)/3)]">
-              <Card item={item} />
-            </div>
-          ))}
-        </div>
+    <div className="indicator-track @container overflow-hidden rounded-2xl">
+      <div className={running ? "indicator-marquee" : "flex"} style={{ ["--marquee-duration" as string]: `${pool.length * 6}s` }}>
+        {loop.map((item, idx) => (
+          <div key={`${item.key}-${idx}`} aria-hidden={idx >= pool.length || undefined}
+            className="w-[calc((100cqw+1.25rem)/1.2)] shrink-0 pr-5 sm:w-[calc((100cqw+1.25rem)/2)] xl:w-[calc((100cqw+1.25rem)/4)]">
+            <Card item={item} />
+          </div>
+        ))}
       </div>
     </div>
   );

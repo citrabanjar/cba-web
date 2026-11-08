@@ -44,7 +44,8 @@ export default function TaskPanel({ daily, monthly }: { daily: Task[]; monthly: 
   // Buka tab yang masih ada pekerjaannya.
   const [view, setView] = useState<"daily" | "monthly">(pendingDaily === 0 && pendingMonthly > 0 ? "monthly" : "daily");
   const list = view === "daily" ? daily : monthly;
-  const sorted = [...list.filter((t) => t.count > 0), ...list.filter((t) => t.count === 0)];
+  // Yang berjalan hanya tugas yang belum beres; yang sudah beres hilang dari daftar.
+  const sorted = list.filter((t) => t.count > 0);
   const doneCount = list.length - (view === "daily" ? pendingDaily : pendingMonthly);
   const pct = list.length ? Math.round((doneCount / list.length) * 100) : 100;
 
@@ -78,7 +79,14 @@ export default function TaskPanel({ daily, monthly }: { daily: Task[]; monthly: 
 
       {/* Daftar tugas berjalan ke atas seperti running text, berhenti saat disorot.
           Digandakan supaya putarannya menyambung tanpa jeda. */}
-      <div className="task-track -mx-2 h-[21rem] overflow-hidden">
+      {sorted.length === 0 && (
+        <div className="flex h-[21rem] flex-col items-center justify-center gap-2 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check size={22} strokeWidth={3} /></span>
+          <p className="text-sm font-semibold text-gray-800"><T>Semua tugas beres</T></p>
+          <p className="text-xs text-gray-400"><T>Tidak ada pekerjaan yang terlewat.</T></p>
+        </div>
+      )}
+      <div className={`task-track -mx-2 h-[21rem] overflow-hidden ${sorted.length === 0 ? "hidden" : ""}`}>
         <div key={view} className={sorted.length > 3 ? "task-marquee" : ""}
           style={{ ["--marquee-duration" as string]: `${sorted.length * 4}s` }}>
           {(sorted.length > 3 ? [...sorted, ...sorted] : sorted).map((t, idx) => (

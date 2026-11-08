@@ -16,9 +16,10 @@ export type IndicatorIcon =
 export type Tone = "blue" | "emerald" | "amber" | "violet" | "rose";
 
 // Satu kartu kecil di Beranda. noteValue + note membentuk baris keterangan di bawah angka.
+// actionable = indikator pekerjaan: kartunya hilang dari running saat sudah beres (nilai 0).
 export type Indicator = {
   key: string; title: string; value: string | number; note: string; noteValue?: string | number;
-  icon: IndicatorIcon; tone: Tone; href?: string; pinned?: boolean;
+  icon: IndicatorIcon; tone: Tone; href?: string; pinned?: boolean; actionable?: boolean;
 };
 
 // Satu baris di kartu Tugas. Selesai kalau count = 0.
@@ -99,15 +100,13 @@ export async function loadInsights() {
   const absentToday = Math.max(0, active - presentToday);
 
   const indicators: Indicator[] = [
-    now.total > 0
-      ? { key: "schedule", title: "Shift Belum Diisi", value: now.total, noteValue: now.people, note: "karyawan · hari kerja bulan ini", icon: "schedule", tone: "amber", href: rosterHref(0), pinned: true }
-      : { key: "schedule", title: "Shift Bulan Ini", value: "✓", note: "Semua shift sudah terisi", icon: "schedule", tone: "emerald", href: rosterHref(0), pinned: true },
+    { key: "schedule", title: "Shift Belum Diisi", value: now.total, noteValue: now.people, note: "karyawan · hari kerja bulan ini", icon: "schedule", tone: "amber", href: rosterHref(0), pinned: true, actionable: true },
     { key: "present", title: "Hadir Hari Ini", value: presentToday, noteValue: presentYesterday, note: "hadir kemarin", icon: "present", tone: "emerald" },
     { key: "absent", title: "Tidak Hadir Hari Ini", value: absentToday, noteValue: Math.max(0, active - presentYesterday), note: "tidak hadir kemarin", icon: "absent", tone: "rose" },
     { key: "total", title: "Total Karyawan", value: active, noteValue: joinedThisYear, note: "masuk tahun ini", icon: "users", tone: "blue", href: "/portal/admin/karyawan" },
-    { key: "contract", title: "Kontrak Berakhir", value: expiring60, note: "dalam 60 hari ke depan", icon: "contract", tone: "amber", href: "/portal/admin/karyawan" },
-    { key: "leave", title: "Cuti Menunggu", value: leaves.length, note: "pengajuan belum diputus", icon: "leave", tone: "violet", href: profile(leaves[0]?.userId) },
-    { key: "trip", title: "Dinas Menunggu", value: trips.length, note: "pengajuan belum diputus", icon: "trip", tone: "violet", href: profile(trips[0]?.userId) },
+    { key: "contract", title: "Kontrak Berakhir", value: expiring60, note: "dalam 60 hari ke depan", icon: "contract", tone: "amber", href: "/portal/admin/karyawan", actionable: true },
+    { key: "leave", title: "Cuti Menunggu", value: leaves.length, note: "pengajuan belum diputus", icon: "leave", tone: "violet", href: profile(leaves[0]?.userId), actionable: true },
+    { key: "trip", title: "Dinas Menunggu", value: trips.length, note: "pengajuan belum diputus", icon: "trip", tone: "violet", href: profile(trips[0]?.userId), actionable: true },
     { key: "departments", title: "Departemen", value: departments, note: "Termasuk grup di dalamnya", icon: "building", tone: "violet", href: "/portal/admin/setup" },
     {
       key: "birthday", title: "Ulang Tahun Bulan Ini", value: birthdayThisMonth.length,
@@ -139,5 +138,6 @@ export async function loadInsights() {
       : []),
   ];
 
-  return { indicators, daily, monthly };
+  // Indikator pekerjaan yang sudah beres tidak ikut berjalan.
+  return { indicators: indicators.filter((i) => !(i.actionable && i.value === 0)), daily, monthly };
 }

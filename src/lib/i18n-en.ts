@@ -287,6 +287,8 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Semua tugas beres": "All tasks done",
+  "Tidak ada pekerjaan yang terlewat.": "Nothing has been missed.",
   "Shift Belum Diisi": "Unfilled Shifts",
   "karyawan · hari kerja bulan ini": "employees · work days this month",
   "Shift Bulan Ini": "This Month's Shifts",
