@@ -96,10 +96,9 @@ const TAB_LIST = [
   { key: "pribadi", label: "Personal Info" },
   { key: "pekerjaan", label: "Pekerjaan" },
   { key: "absensi", label: "Kehadiran & Shift" },
-  { key: "cuti", label: "Cuti" },
+  { key: "cuti", label: "Cuti & Dinas" },
   { key: "gaji", label: "Gaji & Tunjangan" },
   { key: "pajak", label: "Pajak & BPJS" },
-  { key: "dinas", label: "Dinas Luar" },
   { key: "payslip", label: "Slip Gaji" },
   { key: "akses", label: "Akses" },
 ];
@@ -1160,6 +1159,7 @@ export default function KaryawanDetailClient({
         {tab === "cuti" && (
           <div className="space-y-5">
           <LeaveBalanceCard rows={leaveBalances} />
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Cuti</T></p>
           {emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1191,8 +1191,10 @@ export default function KaryawanDetailClient({
           </div>
         )}
 
-        {tab === "dinas" && (
-          emp.businessTrips.length === 0 ? <Empty text="Belum ada pengajuan dinas luar." /> : (
+        {tab === "cuti" && (
+          <div className="mt-5 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Dinas Luar</T></p>
+          {emp.businessTrips.length === 0 ? <Empty text="Belum ada pengajuan dinas luar." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
                 <TableHeader>
@@ -1219,7 +1221,8 @@ export default function KaryawanDetailClient({
                 </TableBody>
               </Table>
             </div>
-          )
+          )}
+          </div>
         )}
 
         {tab === "payslip" && canSeePay && (
