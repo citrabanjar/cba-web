@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { loadRoster, unfilledIn } from "../admin/schedule/roster";
+import { getHiddenIndicators } from "@/lib/app-settings";
 
 const DAY = 86_400_000;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
@@ -42,18 +43,16 @@ export async function loadInsights() {
   const tomorrowKey = keyOf(addDays(today, 1));
   const year = today.getUTCFullYear();
   const month = today.getUTCMonth();
-  const yearStart = new Date(Date.UTC(year, 0, 1));
   const employee = { role: { not: "SUPER_ADMIN" as const } };
 
   const [
-    thisMonth, nextMonth, active, joinedThisYear, departments, presentToday, presentYesterday,
+    thisMonth, nextMonth, active, presentToday, presentYesterday,
     attendanceToday, incomplete, leaves, trips, expiring60, expiring30, birthdays, nextHoliday, holidaysNextYear,
+    joinedThisYear, departments, hidden,
   ] = await Promise.all([
     loadRoster(monthParam(year, month), true),
     loadRoster(monthParam(year, month + 1), true),
     prisma.user.count({ where: { ...employee, isActive: true } }),
-    prisma.user.count({ where: { ...employee, joinDate: { gte: yearStart } } }),
-    prisma.department.count(),
     prisma.attendance.count({ where: { date: today, status: { in: ["HADIR", "DINAS"] } } }),
     prisma.attendance.count({ where: { date: addDays(today, -1), status: { in: ["HADIR", "DINAS"] } } }),
     prisma.attendance.findMany({ where: { date: today }, select: { userId: true } }),
@@ -77,6 +76,9 @@ export async function loadInsights() {
     prisma.user.findMany({ where: { ...employee, isActive: true, birthDate: { not: null } }, select: { name: true, birthDate: true } }),
     prisma.holiday.findFirst({ where: { date: { gte: today } }, orderBy: { date: "asc" } }),
     prisma.holiday.count({ where: { date: { gte: new Date(Date.UTC(year + 1, 0, 1)), lt: new Date(Date.UTC(year + 2, 0, 1)) } } }),
+    prisma.user.count({ where: { ...employee, joinDate: { gte: new Date(Date.UTC(year, 0, 1)) } } }),
+    prisma.department.count(),
+    getHiddenIndicators(),
   ]);
 
   const now = unfilledIn(thisMonth);
@@ -104,11 +106,9 @@ export async function loadInsights() {
     { key: "schedule", title: "Shift Belum Diisi", value: now.total, noteValue: now.people, note: "karyawan · hari kerja bulan ini", icon: "schedule", tone: "amber", href: rosterHref(0), pinned: true, actionable: true },
     { key: "present", title: "Hadir Hari Ini", value: presentToday, noteValue: presentYesterday, note: "hadir kemarin", icon: "present", tone: "emerald" },
     { key: "absent", title: "Tidak Hadir Hari Ini", value: absentToday, noteValue: Math.max(0, active - presentYesterday), note: "tidak hadir kemarin", icon: "absent", tone: "rose" },
-    { key: "total", title: "Total Karyawan", value: active, noteValue: joinedThisYear, note: "masuk tahun ini", icon: "users", tone: "blue", href: "/portal/admin/karyawan" },
     { key: "contract", title: "Kontrak Berakhir", value: expiring60, note: "dalam 60 hari ke depan", icon: "contract", tone: "amber", href: "/portal/admin/karyawan", actionable: true },
     { key: "leave", title: "Cuti Menunggu", value: leaves.length, note: "pengajuan belum diputus", icon: "leave", tone: "violet", href: profile(leaves[0]?.userId), actionable: true },
     { key: "trip", title: "Dinas Menunggu", value: trips.length, note: "pengajuan belum diputus", icon: "trip", tone: "violet", href: profile(trips[0]?.userId), actionable: true },
-    { key: "departments", title: "Departemen", value: departments, note: "Termasuk grup di dalamnya", icon: "building", tone: "violet", href: "/portal/admin/setup" },
     {
       key: "birthday", title: "Ulang Tahun Bulan Ini", value: birthdayThisMonth.length,
       noteValue: nextBirthday ? `${nextBirthday.name} (${nextBirthday.birthDate!.getUTCDate()})` : undefined,
@@ -120,6 +120,8 @@ export async function loadInsights() {
           noteValue: `${formatDate(nextHoliday.date)} · ${nextHoliday.name}`, note: "hari lagi", icon: "holiday", tone: "blue", href: "/portal/admin/schedule",
         }
       : { key: "holiday", title: "Libur Berikutnya", value: "—", note: "Belum ada libur terjadwal", icon: "holiday", tone: "blue", href: "/portal/admin/schedule" },
+    { key: "total", title: "Total Karyawan", value: active, noteValue: joinedThisYear, note: "masuk tahun ini", icon: "users", tone: "blue", href: "/portal/admin/karyawan" },
+    { key: "departments", title: "Departemen", value: departments, note: "Termasuk grup di dalamnya", icon: "building", tone: "violet" },
   ];
 
   const daily: Task[] = [
@@ -141,7 +143,9 @@ export async function loadInsights() {
 
   // Indikator pekerjaan yang sudah beres tidak ikut berjalan.
   const data = await loadDataTasks();
-  return { indicators: indicators.filter((i) => !(i.actionable && i.value === 0)), daily, monthly, data };
+  // Yang dimatikan Super Admin di Pengaturan, dan indikator pekerjaan yang sudah beres, tidak ikut berjalan.
+  const shown = indicators.filter((i) => !hidden.includes(i.key) && !(i.actionable && i.value === 0));
+  return { indicators: shown, daily, monthly, data };
 }
 
 // Tugas kelengkapan data karyawan aktif: siapa saja yang datanya belum diperbarui.

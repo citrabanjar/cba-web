@@ -428,6 +428,7 @@ model WorkShift {
   overtimeMinimum     Int      @default(60) // lembur minimal X menit
   overtimeRounding    Int      @default(30) // pembulatan ke bawah per X menit
   isActive            Boolean  @default(true)
+  sortOrder           Int      @default(0) // urutan kartu shift (bisa digeser)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -540,4 +541,12 @@ model EmployeeShiftDay {
 
   @@unique([userId, date])
   @@index([date])
+}
+
+// Setelan umum aplikasi (key → JSON), mis. pilihan running indikator Beranda.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
 }

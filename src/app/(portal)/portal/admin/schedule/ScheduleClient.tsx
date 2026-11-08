@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CalendarClock, CalendarOff, CalendarRange, Clock, Coffee, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
+  CalendarClock, CalendarOff, CalendarRange, Clock, Coffee, GripVertical, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,7 @@ import type { loadRoster } from "./roster";
 import AssignDialog, { type EmployeeOption } from "./AssignDialog";
 import {
   deleteHoliday, deletePattern, deleteShift, saveHoliday, savePattern, saveRule, saveShift,
-  type BreakTime, type PatternInput, type RuleInput, type ShiftInput,
-} from "./actions";
+  type BreakTime, type PatternInput, type RuleInput, type ShiftInput, reorderShifts } from "./actions";
 
 type Shift = Omit<ShiftInput, "startTime" | "endTime"> & {
   id: string; used: number; startTime: string | null; endTime: string | null;
@@ -263,6 +262,35 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  // Urutan kartu di layar. Ikut data server kalau daftar shift berubah (tambah/hapus).
+  const serverKey = shifts.map((s) => s.id).join(",");
+  const [order, setOrder] = useState(() => shifts.map((s) => s.id));
+  const [syncedKey, setSyncedKey] = useState(serverKey);
+  if (syncedKey !== serverKey) { setSyncedKey(serverKey); setOrder(shifts.map((s) => s.id)); }
+  const [dragId, setDragId] = useState<string | null>(null);
+  const byId = new Map(shifts.map((s) => [s.id, s]));
+  const ordered = order.map((id) => byId.get(id)).filter((s): s is Shift => !!s);
+
+  // Saat diseret melewati kartu lain, kartu yang diseret langsung pindah ke posisi itu.
+  function moveOver(targetId: string) {
+    if (!dragId || dragId === targetId) return;
+    setOrder((prev) => {
+      const next = prev.filter((id) => id !== dragId);
+      next.splice(next.indexOf(targetId) + (prev.indexOf(dragId) < prev.indexOf(targetId) ? 1 : 0), 0, dragId);
+      return next;
+    });
+  }
+  function finishDrag() {
+    if (!dragId) return;
+    setDragId(null);
+    if (order.join(",") === serverKey) return;
+    setError(null);
+    start(async () => {
+      const r = await reorderShifts(order);
+      if (r.error) { setError(r.error); setOrder(shifts.map((s) => s.id)); }
+    });
+  }
+
   function remove(s: Shift) {
     if (!window.confirm(t("Hapus shift ini?"))) return;
     setError(null);
@@ -276,9 +304,18 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
     <SectionCard icon={Clock} title="Master Shift" desc="Jam kerja, istirahat, toleransi, dan aturan lembur per shift."
       action={<PillButton onClick={() => setEditing("new")}><Plus size={14} /> <T>Tambah Shift</T></PillButton>}>
       <ErrorText text={error} />
+      <p className="mb-3 flex items-center gap-1.5 text-[11px] text-gray-400">
+        <GripVertical size={13} /> <T>Tahan dan geser kartu untuk mengatur urutan. Urutan ini dipakai di semua daftar shift.</T>
+        {pending && <Loader2 size={12} className="animate-spin" />}
+      </p>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {shifts.map((s) => (
-          <div key={s.id} className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white ${s.isActive ? "" : "opacity-55"}`}>
+        {ordered.map((s) => (
+          <div key={s.id} draggable
+            onDragStart={(e) => { setDragId(s.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.id); }}
+            onDragOver={(e) => { e.preventDefault(); moveOver(s.id); }}
+            onDrop={(e) => { e.preventDefault(); finishDrag(); }}
+            onDragEnd={finishDrag}
+            className={`relative cursor-grab overflow-hidden rounded-2xl border border-gray-200 bg-white transition-shadow active:cursor-grabbing ${s.isActive ? "" : "opacity-55"} ${dragId === s.id ? "opacity-40 ring-2 ring-brand/40" : "hover:shadow-md"}`}>
             <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: s.color }} />
             <div className="p-4 pl-5">
               <div className="flex items-start justify-between gap-2">

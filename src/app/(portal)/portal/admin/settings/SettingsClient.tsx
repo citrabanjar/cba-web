@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/i18n";
+import IndicatorSettings from "./IndicatorSettings";
 
 type State = { error?: string; success?: boolean } | undefined;
 
@@ -49,7 +50,9 @@ function PasswordField({
   );
 }
 
-export default function SettingsClient({ name, employeeId, role }: { name: string; employeeId: string; role: string }) {
+export default function SettingsClient({
+  name, employeeId, role, indicatorHidden,
+}: { name: string; employeeId: string; role: string; indicatorHidden: string[] | null }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
 
   return (
@@ -81,6 +84,8 @@ export default function SettingsClient({ name, employeeId, role }: { name: strin
           </div>
         </CardContent>
       </Card>
+
+      {indicatorHidden && <IndicatorSettings hidden={indicatorHidden} />}
 
       {/* Ganti password */}
       <Card className="border-gray-100">

@@ -151,7 +151,7 @@ function Donut({ parts }: { parts: { label: string; value: number }[] }) {
   );
 }
 
-export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boolean }) {
+export default async function AdminDashboard() {
   const today = todayDate();
   const employee = { role: { not: "SUPER_ADMIN" as const } };
 
@@ -188,7 +188,7 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
     <div className="space-y-5">
       {/* Indikator dinamis: kartu jadwal selalu pertama, sisanya bergantian */}
       <IndicatorCards
-        items={insights.indicators.map((i) => (i.key === "departments" && !canSeeSetup ? { ...i, href: undefined } : i))}
+        items={insights.indicators}
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">

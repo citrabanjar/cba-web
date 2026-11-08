@@ -1,7 +1,9 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { isManagement } from "@/lib/roles";
+import { isManagement, isSuperAdmin } from "@/lib/roles";
+import { revalidatePath } from "next/cache";
+import { INDICATOR_CATALOG, INDICATOR_SETTING_KEY } from "@/lib/dashboard-indicators";
 import bcrypt from "bcryptjs";
 
 export async function changeAdminPassword(
@@ -33,4 +35,20 @@ export async function changeAdminPassword(
   });
 
   return { success: true };
+}
+
+// Simpan kartu running indikator Beranda yang dimatikan. Khusus Super Admin.
+export async function saveHiddenIndicators(hidden: string[]): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user || !isSuperAdmin(session.user.role)) return { error: "Unauthorized" };
+  const known = new Set<string>(INDICATOR_CATALOG.map((i) => i.key));
+  const value = { hidden: [...new Set(hidden)].filter((k) => known.has(k)) };
+  await prisma.appSetting.upsert({
+    where: { key: INDICATOR_SETTING_KEY },
+    update: { value, updatedBy: session.user.name ?? null },
+    create: { key: INDICATOR_SETTING_KEY, value, updatedBy: session.user.name ?? null },
+  });
+  revalidatePath("/portal/dashboard");
+  revalidatePath("/portal/admin/settings");
+  return {};
 }

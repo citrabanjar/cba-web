@@ -26,7 +26,7 @@ export default async function SchedulePage({
   const roster = initialTab === "jadwal" ? await loadRoster(params.bulan, params.semua === "1") : null;
 
   const [shifts, patterns, holidays, rule, locations, employees] = await Promise.all([
-    prisma.workShift.findMany({ orderBy: [{ isOff: "asc" }, { code: "asc" }], include: { _count: { select: { patternDays: true } } } }),
+    prisma.workShift.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { _count: { select: { patternDays: true } } } }),
     prisma.workPattern.findMany({
       orderBy: { name: "asc" },
       include: { days: { orderBy: { dayIndex: "asc" } }, employees: { select: { userId: true } } },

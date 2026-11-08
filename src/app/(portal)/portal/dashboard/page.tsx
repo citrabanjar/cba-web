@@ -100,7 +100,7 @@ export default async function DashboardPage() {
 
       {isAdmin && (
         <div className="mb-6">
-          <AdminDashboard canSeeSetup={superAdmin} />
+          <AdminDashboard />
         </div>
       )}
 

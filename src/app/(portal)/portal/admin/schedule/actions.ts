@@ -77,7 +77,23 @@ export async function saveShift(id: string | null, input: ShiftInput): Promise<R
     overtimeRounding: input.overtimeRounding, isActive: input.isActive,
   };
   if (id) await prisma.workShift.update({ where: { id }, data });
-  else await prisma.workShift.create({ data });
+  else {
+    // Shift baru ditaruh paling akhir.
+    const last = await prisma.workShift.aggregate({ _max: { sortOrder: true } });
+    await prisma.workShift.create({ data: { ...data, sortOrder: (last._max.sortOrder ?? 0) + 1 } });
+  }
+  revalidatePath(PATH);
+  return {};
+}
+
+// Simpan urutan kartu shift hasil digeser (drag & drop). ids = urutan baru dari atas.
+export async function reorderShifts(ids: string[]): Promise<Result> {
+  await requireMenu("karyawan");
+  const unique = [...new Set(ids)];
+  if (unique.length === 0 || unique.length > 200) return { error: "Urutan tidak valid." };
+  const found = await prisma.workShift.count({ where: { id: { in: unique } } });
+  if (found !== unique.length) return { error: "Ada shift yang tidak ditemukan." };
+  await prisma.$transaction(unique.map((id, i) => prisma.workShift.update({ where: { id }, data: { sortOrder: i + 1 } })));
   revalidatePath(PATH);
   return {};
 }
