@@ -150,6 +150,7 @@ model User {
   employmentEvents EmploymentEvent[]
   workLocations    WorkLocation[]      @relation("UserWorkLocations")
   schedules        EmployeeSchedule[]
+  shiftDays        EmployeeShiftDay[]
   accounts         Account[]
   sessions         Session[]
   attendances      Attendance[]
@@ -430,8 +431,9 @@ model WorkShift {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  patternDays WorkPatternDay[]
-  locations   WorkLocation[]   @relation("ShiftWorkLocations")
+  patternDays  WorkPatternDay[]
+  employeeDays EmployeeShiftDay[]
+  locations    WorkLocation[]     @relation("ShiftWorkLocations")
 }
 
 model WorkPattern {
@@ -520,4 +522,22 @@ model EmployeeSchedule {
   pattern WorkPattern? @relation(fields: [patternId], references: [id], onDelete: Restrict)
 
   @@unique([userId, effectiveDate])
+}
+
+// Shift per tanggal untuk satu karyawan: isi jadwal manual (Security) atau tukar shift.
+// Kalau ada, baris ini mengalahkan pola kerja dan hari libur pada tanggal itu.
+model EmployeeShiftDay {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  shiftId   String
+  note      String?
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift WorkShift @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, date])
+  @@index([date])
 }

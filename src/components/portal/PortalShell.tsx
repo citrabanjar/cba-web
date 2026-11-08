@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Home, Clock, Calendar, CalendarClock, Briefcase, FileText, ChevronLeft, ChevronRight,
+  Home, Clock, Calendar, CalendarClock, CalendarRange, Briefcase, FileText, ChevronLeft, ChevronRight,
   Receipt, Users, LogOut, Menu, X, Settings, Network, Building2,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
@@ -45,10 +45,13 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
 
   // Jadwal kerja dikelola admin data karyawan, masuk ke bagian TIME.
   if (hasMenu({ role, menuAccess }, "karyawan")) {
-    const schedule = { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock };
+    const schedule = [
+      { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock },
+      { href: "/portal/admin/jadwal", label: "Jadwal Bulanan", icon: CalendarRange },
+    ];
     const time = sections.find((s) => s.section === "TIME");
-    if (time) time.items.push(schedule);
-    else sections.push({ section: "TIME", items: [schedule] });
+    if (time) time.items.push(...schedule);
+    else sections.push({ section: "TIME", items: schedule });
   }
 
   if (hasMenu({ role, menuAccess }, "karyawan")) {

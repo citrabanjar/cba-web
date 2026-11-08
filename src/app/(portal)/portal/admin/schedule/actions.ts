@@ -86,6 +86,8 @@ export async function deleteShift(id: string): Promise<Result> {
   await requireMenu("karyawan");
   const used = await prisma.workPatternDay.count({ where: { shiftId: id } });
   if (used > 0) return { error: "Shift masih dipakai di pola kerja. Nonaktifkan saja, atau ganti dulu di pola kerja." };
+  const scheduled = await prisma.employeeShiftDay.count({ where: { shiftId: id } });
+  if (scheduled > 0) return { error: "Shift masih dipakai di Jadwal Bulanan. Nonaktifkan saja supaya riwayat jadwal tetap utuh." };
   await prisma.workShift.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -268,4 +270,34 @@ export async function deleteEmployeeSchedule(id: string): Promise<Result> {
   revalidatePath(PATH);
   revalidatePath("/portal/admin/karyawan", "layout");
   return {};
+}
+
+// ─── Jadwal bulanan (shift per tanggal) ─────────────────────────────────────
+
+export type ShiftDayChange = { userId: string; date: string; shiftId: string | null };
+
+// Simpan isian Jadwal Bulanan. shiftId null berarti isian tanggal itu dihapus
+// (kembali mengikuti pola kerja, atau "?" untuk jadwal manual).
+export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result & { count?: number }> {
+  const user = await requireMenu("karyawan");
+  const valid = changes.filter((c) => c.userId && /^\d{4}-\d{2}-\d{2}$/.test(c.date));
+  if (valid.length === 0) return { error: "Tidak ada perubahan untuk disimpan." };
+  if (valid.length > 5000) return { error: "Perubahan terlalu banyak sekaligus. Simpan per bulan." };
+  const shiftIds = [...new Set(valid.map((c) => c.shiftId).filter(Boolean) as string[])];
+  const found = await prisma.workShift.count({ where: { id: { in: shiftIds } } });
+  if (found !== shiftIds.length) return { error: "Ada shift yang tidak ditemukan." };
+
+  await prisma.$transaction(valid.map((c) => {
+    const date = new Date(`${c.date}T00:00:00Z`);
+    return c.shiftId
+      ? prisma.employeeShiftDay.upsert({
+          where: { userId_date: { userId: c.userId, date } },
+          update: { shiftId: c.shiftId, updatedBy: user.name },
+          create: { userId: c.userId, date, shiftId: c.shiftId, updatedBy: user.name },
+        })
+      : prisma.employeeShiftDay.deleteMany({ where: { userId: c.userId, date } });
+  }));
+  revalidatePath("/portal/admin/jadwal");
+  revalidatePath("/portal/admin/karyawan", "layout");
+  return { count: valid.length };
 }
