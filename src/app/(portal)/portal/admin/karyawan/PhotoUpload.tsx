@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, ImageUp, Loader2 } from "lucide-react";
+import { CheckCircle2, FileImage, FolderOpen, ImageUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -33,6 +32,9 @@ async function toSquareJpeg(file: File): Promise<Blob> {
 }
 
 const fileId = (name: string) => name.replace(/\.[^.]+$/, "").trim().toLowerCase();
+const IMAGE = /\.(jpe?g|png|webp)$/i;
+// Kunci unik per file (folder bisa berisi subfolder dengan nama file yang sama).
+const fileKey = (f: File) => (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
 
 export default function PhotoUpload({
   employees, onClose,
@@ -50,10 +52,18 @@ export default function PhotoUpload({
   const ready = items.filter((i) => i.person && i.status !== "selesai");
   const done = items.filter((i) => i.status === "selesai").length;
 
+  const matched = items.filter((i) => i.person).length;
+  const [skipped, setSkipped] = useState(0);
+
+  // Dari pilihan file atau satu folder: hanya gambar yang diambil, file lain di folder dilewati.
   function choose(files: FileList | null) {
-    setItems([...(files ?? [])].map((file) => ({
-      file, person: byId.get(fileId(file.name)), status: "siap",
-    })));
+    const all = [...(files ?? [])];
+    const images = all.filter((f) => IMAGE.test(f.name) || f.type.startsWith("image/"));
+    setSkipped(all.length - images.length);
+    setItems(images
+      .map((file) => ({ file, person: byId.get(fileId(file.name)), status: "siap" as Status }))
+      // Yang cocok dengan karyawan di atas, yang tidak cocok di bawah.
+      .sort((a, b) => Number(!a.person) - Number(!b.person) || a.file.name.localeCompare(b.file.name)));
   }
 
   const patch = (file: File, change: Partial<Item>) =>
@@ -85,27 +95,41 @@ export default function PhotoUpload({
         <div className="space-y-4 py-1">
           <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
             <p><T>• Nama file harus sama dengan Employee ID, misalnya P023.jpg.</T></p>
-            <p><T>• Bisa pilih banyak foto sekaligus. Foto lama akan diganti.</T></p>
+            <p><T>• Bisa pilih beberapa file, atau satu folder sekaligus (file selain foto dilewati). Foto lama akan diganti.</T></p>
             <p><T>• Foto otomatis dipotong persegi dari bagian tengah.</T></p>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs"><T>Pilih Foto</T></Label>
-            <input
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              disabled={uploading}
-              aria-label={t("Pilih Foto")}
-              onChange={(e) => choose(e.target.files)}
-              className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-brand file:text-white file:text-xs file:font-medium hover:file:bg-brand-dark cursor-pointer"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border border-dashed border-gray-300 px-3 py-4 text-center hover:border-brand hover:bg-brand/5 ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+              <FileImage size={20} className="text-brand" />
+              <span className="text-xs font-semibold text-gray-800"><T>Pilih File</T></span>
+              <span className="text-[11px] text-gray-400"><T>satu atau beberapa foto</T></span>
+              <input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={uploading}
+                aria-label={t("Pilih File")} className="sr-only"
+                onChange={(e) => { choose(e.target.files); e.target.value = ""; }} />
+            </label>
+            <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border border-dashed border-gray-300 px-3 py-4 text-center hover:border-brand hover:bg-brand/5 ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+              <FolderOpen size={20} className="text-brand" />
+              <span className="text-xs font-semibold text-gray-800"><T>Pilih Folder</T></span>
+              <span className="text-[11px] text-gray-400"><T>semua foto di dalam folder</T></span>
+              <input type="file" multiple disabled={uploading} aria-label={t("Pilih Folder")} className="sr-only"
+                ref={(el) => { el?.setAttribute("webkitdirectory", ""); el?.setAttribute("directory", ""); }}
+                onChange={(e) => { choose(e.target.files); e.target.value = ""; }} />
+            </label>
           </div>
+
+          {items.length > 0 && (
+            <p className="text-xs text-gray-600">
+              <b className="text-emerald-700">{matched}</b> <T>foto cocok dengan karyawan</T>
+              {items.length - matched > 0 && <> · <b className="text-red-700">{items.length - matched}</b> <T>tidak cocok</T></>}
+              {skipped > 0 && <> · {skipped} <T>file bukan foto dilewati</T></>}
+            </p>
+          )}
 
           {items.length > 0 && (
             <ul className="max-h-60 overflow-y-auto divide-y divide-gray-100 text-xs">
               {items.map((item) => (
-                <li key={item.file.name} className="flex items-center gap-2 py-1.5">
+                <li key={fileKey(item.file)} className="flex items-center gap-2 py-1.5">
                   <span className="font-mono text-gray-500 w-28 shrink-0 truncate">{item.file.name}</span>
                   <span className={`flex-1 min-w-0 truncate ${item.person ? "text-gray-700" : "text-red-700"}`}>
                     {item.person ? item.person.name : <T>Employee ID tidak ditemukan</T>}

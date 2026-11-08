@@ -38,15 +38,19 @@ function Row({ task }: { task: Task }) {
 
 // Kartu besar Beranda: daftar pekerjaan admin harian dan bulanan, supaya tidak ada yang terlewat.
 // Tugas yang belum selesai di atas; yang sudah beres dicoret di bawah.
-export default function TaskPanel({ daily, monthly }: { daily: Task[]; monthly: Task[] }) {
-  const pendingDaily = daily.filter((t) => t.count > 0).length;
-  const pendingMonthly = monthly.filter((t) => t.count > 0).length;
-  // Buka tab yang masih ada pekerjaannya.
-  const [view, setView] = useState<"daily" | "monthly">(pendingDaily === 0 && pendingMonthly > 0 ? "monthly" : "daily");
-  const list = view === "daily" ? daily : monthly;
+export default function TaskPanel({ daily, monthly, data }: { daily: Task[]; monthly: Task[]; data: Task[] }) {
+  const tabs = [
+    { key: "daily", label: "Harian", list: daily },
+    { key: "monthly", label: "Bulanan", list: monthly },
+    { key: "data", label: "Data Karyawan", list: data },
+  ].map((x) => ({ ...x, pending: x.list.filter((t) => t.count > 0).length }));
+  // Buka tab pertama yang masih ada pekerjaannya.
+  const [view, setView] = useState(() => (tabs.find((x) => x.pending > 0) ?? tabs[0]).key);
+  const current = tabs.find((x) => x.key === view) ?? tabs[0];
+  const list = current.list;
   // Yang berjalan hanya tugas yang belum beres; yang sudah beres hilang dari daftar.
   const sorted = list.filter((t) => t.count > 0);
-  const doneCount = list.length - (view === "daily" ? pendingDaily : pendingMonthly);
+  const doneCount = list.length - current.pending;
   const pct = list.length ? Math.round((doneCount / list.length) * 100) : 100;
 
   return (
@@ -60,7 +64,7 @@ export default function TaskPanel({ daily, monthly }: { daily: Task[]; monthly: 
           <p className="truncate text-xs text-gray-400"><T>Pekerjaan yang perlu diselesaikan supaya tidak ada yang terlewat</T></p>
         </div>
         <div className="flex items-center gap-1 rounded-full bg-gray-100 p-1 text-xs font-semibold">
-          {([["daily", "Harian", pendingDaily], ["monthly", "Bulanan", pendingMonthly]] as const).map(([k, label, n]) => (
+          {tabs.map(({ key: k, label, pending: n }) => (
             <button key={k} type="button" onClick={() => setView(k)}
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ${view === k ? "bg-ink text-white" : "text-gray-500 hover:text-gray-900"}`}>
               <T>{label}</T>

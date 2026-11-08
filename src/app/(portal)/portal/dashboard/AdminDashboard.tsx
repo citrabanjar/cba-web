@@ -192,7 +192,7 @@ export default async function AdminDashboard({ canSeeSetup }: { canSeeSetup: boo
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <TaskPanel daily={insights.daily} monthly={insights.monthly} />
+        <TaskPanel daily={insights.daily} monthly={insights.monthly} data={insights.data} />
 
         <Panel icon={PieChart} tone="violet" title="Status Karyawan" subtitle="Komposisi karyawan aktif menurut status kerja">
           {active ? <Donut parts={statusParts} /> : <Empty text="Belum ada karyawan aktif." />}

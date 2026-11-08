@@ -238,10 +238,7 @@ export default function KaryawanClient({
               <Button variant="outline" size="sm"
                 onClick={() => { setModal("upload"); setParsed(null); setImportResult(null); }}
                 className="h-9 gap-1.5 rounded-full px-4">
-                <Upload size={15} /> <T>Import Excel</T>
-              </Button>
-              <Button variant="outline" size="sm" onClick={downloadTemplate} className="h-9 gap-1.5 rounded-full px-4">
-                <Download size={15} /> <T>Template .xlsx</T>
+                <Upload size={15} /> <T>Import Karyawan</T>
               </Button>
               <Button variant="outline" size="sm" onClick={() => setModal("photo")} className="h-9 gap-1.5 rounded-full px-4">
                 <ImageUp size={15} /> <T>Upload Foto</T>
