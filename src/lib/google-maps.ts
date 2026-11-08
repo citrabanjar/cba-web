@@ -1,6 +1,10 @@
 // Memuat Google Maps JavaScript API sekali saja di browser.
-// Kuncinya dibatasi Google hanya untuk citrabanjar.com dan localhost.
-export const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+// Kunci peta Google memang selalu terlihat di browser; pengamannya adalah pembatasan di
+// Google Cloud (project cba-portal-514102, akun admin@apocalypto.id): hanya boleh dipakai
+// dari *.citrabanjar.com, citrabanjar.com, dan localhost:3000, dan hanya untuk API Maps.
+// Disimpan di kode atas persetujuan pemilik (2026-11-08).
+export const GOOGLE_MAPS_KEY =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAHJjG8Lb0otpn-VnzSUXAIia381Scg-bw";
 
 let loading: Promise<typeof google.maps> | null = null;
 
