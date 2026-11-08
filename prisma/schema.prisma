@@ -401,3 +401,79 @@ model EmployeeChangeLog {
 
   @@index([userId, createdAt])
 }
+
+// ─── Schedule (parameter jadwal kerja) ─────────────────────────────────────
+// Dasar penilaian kehadiran: terlambat, pulang cepat, alpha, dan lembur.
+
+model WorkShift {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  name                String
+  color               String   @default("#10b981")
+  isOff               Boolean  @default(false) // shift libur (OFF)
+  startTime           String? // "08:00"
+  endTime             String? // "17:00"; lebih kecil dari startTime berarti lewat tengah malam
+  breaks              Json     @default("[]") // [{ "start": "12:00", "end": "13:00" }]
+  lateTolerance       Int      @default(5) // menit
+  earlyLeaveTolerance Int      @default(0) // menit
+  checkInEarliest     Int      @default(60) // menit sebelum jam masuk
+  checkOutLatest      Int      @default(360) // menit sesudah jam pulang
+  overtimeStartAfter  Int      @default(30) // lembur dihitung setelah X menit dari jam pulang
+  overtimeMinimum     Int      @default(60) // lembur minimal X menit
+  overtimeRounding    Int      @default(30) // pembulatan ke bawah per X menit
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  patternDays WorkPatternDay[]
+}
+
+model WorkPattern {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  cycleDays   Int      @default(7)
+  startDate   DateTime @db.Date // hari pertama siklus (hari ke-1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  days WorkPatternDay[]
+}
+
+model WorkPatternDay {
+  id        String @id @default(cuid())
+  patternId String
+  dayIndex  Int // 0 = hari pertama siklus
+  shiftId   String
+
+  pattern WorkPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  shift   WorkShift   @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+
+  @@unique([patternId, dayIndex])
+}
+
+enum HolidayType {
+  NASIONAL
+  CUTI_BERSAMA
+  PERUSAHAAN
+}
+
+model Holiday {
+  id        String      @id @default(cuid())
+  date      DateTime    @unique @db.Date
+  name      String
+  type      HolidayType @default(NASIONAL)
+  createdAt DateTime    @default(now())
+}
+
+// Aturan kehadiran yang berlaku untuk semua karyawan; hanya satu baris ("default").
+model AttendanceRule {
+  id                    String   @id @default("default")
+  overtimeNeedsApproval Boolean  @default(true) // lembur harus diajukan & disetujui atasan
+  holidayWorkIsOvertime Boolean  @default(true) // masuk di hari libur dihitung lembur hari libur
+  halfDayMinutes        Int      @default(240) // kerja kurang dari ini dihitung setengah hari
+  lateAsHalfDayMinutes  Int? // terlambat lebih dari ini dihitung setengah hari (kosong = tidak)
+  noCheckInIsAlpha      Boolean  @default(true) // tidak absen & tanpa izin/cuti/sakit/dinas = Alpha
+  updatedBy             String?
+  updatedAt             DateTime @updatedAt
+}
