@@ -228,23 +228,15 @@ function ShiftDialog({ shift, onClose }: { shift: Shift | "new"; onClose: () => 
               </div>
 
               <div>
-                <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900"><Timer size={15} /> <T>Toleransi & Waktu Absen</T></p>
+                <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900"><Timer size={15} /> <T>Toleransi</T></p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <NumberField label="Toleransi terlambat" hint="Masuk lewat dari ini dihitung terlambat." value={form.lateTolerance} onChange={(n) => set("lateTolerance", n)} />
                   <NumberField label="Toleransi pulang cepat" hint="Pulang lebih awal dari ini dihitung pulang cepat." value={form.earlyLeaveTolerance} onChange={(n) => set("earlyLeaveTolerance", n)} />
-                  <NumberField label="Absen masuk paling awal" hint="Menit sebelum jam masuk." value={form.checkInEarliest} onChange={(n) => set("checkInEarliest", n)} />
-                  <NumberField label="Absen pulang paling lambat" hint="Menit sesudah jam pulang." value={form.checkOutLatest} onChange={(n) => set("checkOutLatest", n)} />
                 </div>
               </div>
 
-              <div>
-                <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900"><Layers size={15} /> <T>Aturan Lembur</T></p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <NumberField label="Lembur dihitung setelah" hint="Menit sesudah jam pulang." value={form.overtimeStartAfter} onChange={(n) => set("overtimeStartAfter", n)} />
-                  <NumberField label="Lembur minimal" hint="Kurang dari ini tidak dihitung." value={form.overtimeMinimum} onChange={(n) => set("overtimeMinimum", n)} />
-                  <NumberField label="Pembulatan ke bawah" hint="Contoh 30 = per setengah jam." value={form.overtimeRounding} onChange={(n) => set("overtimeRounding", n)} />
-                </div>
-              </div>
+              {/* Rentang absen tidak dipakai (diganti kunci lupa absen), dan aturan lembur
+                  dipindah ke Setup Lembur. Nilainya tetap tersimpan di database. */}
             </>
           )}
           <ErrorText text={error} />
@@ -314,8 +306,6 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
                     ["Istirahat", s.breaks.length ? s.breaks.map((b) => `${b.start}–${b.end}`).join(", ") : "—"],
                     ["Toleransi telat", `${s.lateTolerance} mnt`],
                     ["Pulang cepat", `${s.earlyLeaveTolerance} mnt`],
-                    ["Lembur setelah", `${s.overtimeStartAfter} mnt`],
-                    ["Lembur min / bulat", `${s.overtimeMinimum} / ${s.overtimeRounding} mnt`],
                   ].map(([k, v]) => (
                     <div key={k} className="rounded-lg bg-gray-50 px-2.5 py-1.5">
                       <dt className="text-[10px] uppercase tracking-wide text-gray-400"><T>{k}</T></dt>

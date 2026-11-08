@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -90,7 +89,7 @@ function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; co
   const pct = Math.min(100, (storage.usedMb / storage.limitMb) * 100);
   const bar = pct >= 85 ? "bg-rose-400" : pct >= 60 ? "bg-amber-300" : "bg-emerald-300";
   const fmt = (mb: number) => (mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(mb < 10 ? 1 : 0)} MB`);
-  const label = `Neon capacity: ${fmt(storage.usedMb)} / ${fmt(storage.limitMb)} (${pct.toFixed(1)}%)`;
+  const label = `Database capacity: ${fmt(storage.usedMb)} / ${fmt(storage.limitMb)} (${pct.toFixed(1)}%)`;
   if (collapsed) {
     return (
       <div className="mb-2 flex justify-center" title={label} aria-label={label}>
@@ -103,7 +102,7 @@ function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; co
   return (
     <div className="mb-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5" title={t("Ukuran database dibanding batas paket Neon.")}>
       <div className="flex items-center justify-between text-[11px]">
-        <span className="font-semibold uppercase tracking-wider text-white/55">Neon capacity</span>
+        <span className="font-semibold uppercase tracking-wider text-white/55">Database capacity</span>
         <span className="font-semibold tabular-nums text-white/80">{pct.toFixed(1)}%</span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -142,7 +141,13 @@ function NavLinks({
   sections: NavSection[]; pathname: string; collapsed: boolean; onClose?: () => void;
 }) {
   const t = useT();
+  const router = useRouter();
   const [hovered, setHovered] = useState<number | null>(null);
+  // Menu memakai tombol, bukan link, supaya Chrome tidak menampilkan alamat halaman
+  // di pojok kiri bawah saat kursor menunjuk menu. Halaman tetap dimuat lebih dulu.
+  useEffect(() => {
+    for (const sec of sections) for (const item of sec.items) router.prefetch(item.href);
+  }, [sections, router]);
   // Nomor urut menu di seluruh bagian, untuk efek dock.
   const starts = sections.map((_, k) => sections.slice(0, k).reduce((n, s) => n + s.items.length, 0));
   return (
@@ -160,16 +165,16 @@ function NavLinks({
             const i = starts[si] + ii;
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
-              <Link
+              <button
+                type="button"
                 key={item.href}
-                href={item.href}
-                onClick={onClose}
+                onClick={() => { onClose?.(); router.push(item.href); }}
                 onMouseEnter={() => setHovered(i)}
                 aria-current={isActive ? "page" : undefined}
                 aria-label={collapsed ? t(item.label) : undefined}
                 title={collapsed ? t(item.label) : undefined}
                 className={[
-                  "portal-nav-item group relative mb-0.5 flex h-10 items-center gap-3 rounded-xl text-sm transition-colors",
+                  "portal-nav-item group relative mb-0.5 flex h-10 w-full items-center gap-3 rounded-xl text-left text-sm transition-colors",
                   collapsed ? "justify-center px-0" : "px-3",
                   isActive
                     ? "bg-white font-semibold text-brand shadow-md shadow-black/20"
@@ -184,7 +189,7 @@ function NavLinks({
                   <item.icon size={18} />
                 </motion.span>
                 {!collapsed && <span className="truncate"><T>{item.label}</T></span>}
-              </Link>
+              </button>
             );
           })}
         </div>
