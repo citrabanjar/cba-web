@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "motion/react";
 import {
   Building2, Cake, CalendarOff, CalendarRange, FileClock, FileWarning, Plane, UserCheck, UserX, Users,
 } from "lucide-react";
@@ -20,16 +18,6 @@ const TONES: Record<Tone, { icon: string; glow: string; bar: string }> = {
   violet: { icon: "bg-gradient-to-br from-ink to-slate-500 text-white shadow-md shadow-black/20", glow: "from-slate-100", bar: "from-ink to-slate-500" },
   rose: { icon: "bg-gradient-to-br from-rose-500 to-pink-400 text-white shadow-md shadow-rose-500/30", glow: "from-rose-100", bar: "from-rose-500 to-pink-400" },
 };
-
-const SLOTS = 4;
-const ROTATE_MS = 3 * 60_000; // ganti indikator setiap 3 menit
-
-function pickRandom<T>(items: T[], n: number, avoid: T[]): T[] {
-  // Utamakan yang belum tampil, supaya setiap putaran terasa berganti.
-  const fresh = items.filter((x) => !avoid.includes(x)).sort(() => Math.random() - 0.5);
-  const rest = items.filter((x) => avoid.includes(x)).sort(() => Math.random() - 0.5);
-  return [...fresh, ...rest].slice(0, n);
-}
 
 function Card({ item }: { item: Indicator }) {
   const Icon = ICONS[item.icon];
@@ -59,36 +47,28 @@ function Card({ item }: { item: Indicator }) {
     : <section className={cls}>{body}</section>;
 }
 
-// Empat kartu indikator. Kartu "pinned" (jadwal) selalu di posisi pertama; sisanya bergantian
-// secara acak setiap beberapa menit kalau indikatornya lebih dari empat.
+// Kartu indikator Beranda. Kartu "pinned" (jadwal) diam di kiri; kartu lainnya berjalan terus
+// ke kiri seperti running text, dan berhenti saat disorot mouse (atau disentuh/difokus).
 export default function IndicatorCards({ items }: { items: Indicator[] }) {
   const pinned = items.filter((i) => i.pinned);
   const pool = items.filter((i) => !i.pinned);
-  const free = Math.max(0, SLOTS - pinned.length);
-  // Tampilan awal tetap (sama di server dan browser), baru diacak saat berganti.
-  const [shown, setShown] = useState(() => pool.slice(0, free).map((i) => i.key));
-
-  const poolKeys = pool.map((i) => i.key).join(",");
-  useEffect(() => {
-    const keys = poolKeys.split(",").filter(Boolean);
-    if (keys.length <= free) return;
-    const id = setInterval(() => setShown((prev) => pickRandom(keys, free, prev)), ROTATE_MS);
-    return () => clearInterval(id);
-  }, [poolKeys, free]);
-
-  const visible = [...pinned, ...shown.map((k) => pool.find((i) => i.key === k)).filter((i): i is Indicator => !!i)];
+  const running = pool.length > 3;
+  // Daftar digandakan supaya putarannya menyambung tanpa jeda.
+  const loop = running ? [...pool, ...pool] : pool;
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-      <AnimatePresence mode="popLayout" initial={false}>
-        {visible.map((item) => (
-          <motion.div key={item.key} layout
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.35 }}>
-            <Card item={item} />
-          </motion.div>
-        ))}
-      </AnimatePresence>
+    <div className="grid gap-5 xl:grid-cols-4">
+      {pinned.map((item) => <Card key={item.key} item={item} />)}
+      <div className="indicator-track @container overflow-hidden rounded-2xl xl:col-span-3">
+        <div className={running ? "indicator-marquee" : "flex"} style={{ ["--marquee-duration" as string]: `${pool.length * 6}s` }}>
+          {loop.map((item, idx) => (
+            <div key={`${item.key}-${idx}`} aria-hidden={idx >= pool.length || undefined}
+              className="w-[calc((100cqw+1.25rem)/1.2)] shrink-0 pr-5 sm:w-[calc((100cqw+1.25rem)/2)] xl:w-[calc((100cqw+1.25rem)/3)]">
+              <Card item={item} />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

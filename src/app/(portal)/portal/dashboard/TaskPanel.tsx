@@ -76,8 +76,17 @@ export default function TaskPanel({ daily, monthly }: { daily: Task[]; monthly: 
         <span className="text-[11px] font-medium tabular-nums text-gray-500">{doneCount}/{list.length} <T>beres</T></span>
       </div>
 
-      <div className="-mx-2 divide-y divide-gray-50">
-        {sorted.map((t) => <Row key={t.key} task={t} />)}
+      {/* Daftar tugas berjalan ke atas seperti running text, berhenti saat disorot.
+          Digandakan supaya putarannya menyambung tanpa jeda. */}
+      <div className="task-track -mx-2 h-[21rem] overflow-hidden">
+        <div key={view} className={sorted.length > 3 ? "task-marquee" : ""}
+          style={{ ["--marquee-duration" as string]: `${sorted.length * 4}s` }}>
+          {(sorted.length > 3 ? [...sorted, ...sorted] : sorted).map((t, idx) => (
+            <div key={`${t.key}-${idx}`} aria-hidden={idx >= sorted.length || undefined} className="border-b border-gray-50">
+              <Row task={t} />
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

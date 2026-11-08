@@ -442,3 +442,36 @@ body {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Kartu indikator Beranda: berjalan terus ke kiri, berhenti saat disorot. */
+.indicator-marquee {
+  display: flex;
+  width: max-content;
+  animation: indicator-run var(--marquee-duration, 40s) linear infinite;
+}
+.indicator-track:hover .indicator-marquee,
+.indicator-track:focus-within .indicator-marquee {
+  animation-play-state: paused;
+}
+@keyframes indicator-run {
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .indicator-marquee { animation: none; }
+}
+
+/* Daftar Tugas Admin di Beranda: berjalan ke atas, berhenti saat disorot. */
+.task-marquee {
+  animation: task-run var(--marquee-duration, 20s) linear infinite;
+}
+.task-track:hover .task-marquee,
+.task-track:focus-within .task-marquee {
+  animation-play-state: paused;
+}
+@keyframes task-run {
+  to { transform: translateY(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-marquee { animation: none; }
+  .task-track { overflow-y: auto; }
+}
