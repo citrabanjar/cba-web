@@ -1,16 +1,11 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
-import { useEffect, useRef, useState, useTransition } from "react";
-import { MapPin, Clock, LogIn, LogOut, Loader2, AlertTriangle, CheckCircle2, Navigation } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { MapPin, LogIn, LogOut, Loader2, AlertTriangle, CheckCircle2, Navigation, XCircle, Plane } from "lucide-react";
 import { checkIn, checkOut } from "./actions";
-import { formatDateTime } from "@/lib/utils";
 import type { Attendance } from "@prisma/client";
 import { T } from "@/components/i18n";
 import { nearestLocation, type AllowedLocation } from "@/lib/work-location-client";
-
-// Titik awal peta kalau belum ada lokasi absen (Banjarmasin).
-const DEFAULT_CENTER: [number, number] = [-3.3186, 114.5944];
 
 interface Props {
   today: Attendance | null;
@@ -29,109 +24,34 @@ function getDurationStr(checkIn: Date, checkOut?: Date | null) {
 
 const DAY_NAMES = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
+// Halaman absen tanpa peta: lokasi absen sudah ditentukan admin, jadi karyawan cukup
+// melihat status apakah posisinya di dalam area. Pengecekan tetap dilakukan server.
 export default function AbsensiClient({ today, week, locations, onTrip }: Props) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const leafletRef = useRef<any>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const userMarkerRef = useRef<any>(null);
-
-  const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
-  const [gpsError, setGpsError] = useState<string | null>(null);
-  const [near, setNear] = useState<{ name: string; distance: number; radius: number; inside: boolean } | null>(null);
+  const [pos, setPos] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(
+    typeof navigator !== "undefined" && !navigator.geolocation ? "Browser tidak mendukung GPS." : null,
+  );
   const [message, setMessage] = useState<{ type: "ok" | "warn" | "err"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Load Leaflet (client-only)
+  // Pantau posisi GPS selama halaman terbuka.
   useEffect(() => {
-    import("leaflet").then((L) => {
-      leafletRef.current = L.default ?? L;
-
-      if (!mapRef.current || mapInstanceRef.current) return;
-
-      const map = leafletRef.current.map(mapRef.current, {
-        center: locations[0] ? [locations[0].latitude, locations[0].longitude] : DEFAULT_CENTER,
-        zoom: 16,
-        zoomControl: true,
-      });
-
-      leafletRef.current.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap",
-      }).addTo(map);
-
-      // Semua lokasi absen yang boleh dipakai karyawan ini.
-      const officeIcon = leafletRef.current.divIcon({
-        html: `<div style="background:#BE353F;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)">🏢</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        className: "",
-      });
-      for (const loc of locations) {
-        leafletRef.current.marker([loc.latitude, loc.longitude], { icon: officeIcon })
-          .bindPopup(`${loc.name} (radius ${loc.radius} m)`)
-          .addTo(map);
-        leafletRef.current.circle([loc.latitude, loc.longitude], {
-          radius: loc.radius,
-          color: "#BE353F",
-          fillColor: "#3b82f6",
-          fillOpacity: 0.1,
-          weight: 2,
-        }).addTo(map);
-      }
-
-      mapInstanceRef.current = map;
-    });
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
-
-  // GPS watch
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setGpsError("Browser tidak mendukung GPS.");
-      return;
-    }
-
+    if (!navigator.geolocation) return;
     const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        setPos({ lat, lng });
+      (p) => {
+        setPos({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) });
         setGpsError(null);
-
-        const best = nearestLocation(locations, lat, lng);
-        setNear(best ? {
-          name: best.location.name, distance: Math.round(best.distance),
-          radius: best.location.radius, inside: best.inside,
-        } : null);
-
-        if (mapInstanceRef.current && leafletRef.current) {
-          const L = leafletRef.current;
-          if (userMarkerRef.current) {
-            userMarkerRef.current.setLatLng([lat, lng]);
-          } else {
-            const userIcon = L.divIcon({
-              html: `<div style="background:#22c55e;color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3)">📍</div>`,
-              iconSize: [28, 28],
-              iconAnchor: [14, 14],
-              className: "",
-            });
-            userMarkerRef.current = L.marker([lat, lng], { icon: userIcon })
-              .bindPopup("Lokasi Anda sekarang")
-              .addTo(mapInstanceRef.current);
-          }
-          mapInstanceRef.current.setView([lat, lng], 16);
-        }
       },
-      (err) => setGpsError("Izinkan akses lokasi untuk absensi GPS."),
-      { enableHighAccuracy: true, maximumAge: 5000 }
+      () => setGpsError("Izinkan akses lokasi untuk absensi GPS."),
+      { enableHighAccuracy: true, maximumAge: 5000 },
     );
-
     return () => navigator.geolocation.clearWatch(id);
   }, []);
+
+  const best = pos ? nearestLocation(locations, pos.lat, pos.lng) : null;
+  const near = best
+    ? { name: best.location.name, distance: Math.round(best.distance), radius: best.location.radius, inside: best.inside }
+    : null;
 
   const handleCheckIn = () => {
     if (!pos) return setMessage({ type: "err", text: "GPS belum siap. Tunggu sebentar." });
@@ -171,47 +91,31 @@ export default function AbsensiClient({ today, week, locations, onTrip }: Props)
   const hasCheckIn = !!today?.checkIn;
   const hasCheckOut = !!today?.checkOut;
 
+  // Kartu status lokasi pengganti peta.
+  const status = gpsError
+    ? { tone: "bg-red-50 border-red-200 text-red-700", icon: AlertTriangle, title: gpsError, sub: "Aktifkan GPS dan izinkan akses lokasi di browser." }
+    : !pos
+      ? { tone: "bg-gray-50 border-gray-200 text-gray-600", icon: Loader2, title: "Mendeteksi lokasi GPS...", sub: "Pastikan GPS HP menyala." }
+      : onTrip
+        ? { tone: "bg-sky-50 border-sky-200 text-sky-700", icon: Plane, title: "Dinas Luar", sub: "Absen boleh di mana saja, lokasi Anda tetap disimpan." }
+        : near?.inside
+          ? { tone: "bg-emerald-50 border-emerald-200 text-emerald-700", icon: CheckCircle2, title: `Anda di ${near.name}`, sub: `${near.distance} m dari titik lokasi, dalam area. Silakan absen.` }
+          : near
+            ? { tone: "bg-red-50 border-red-200 text-red-700", icon: XCircle, title: "Di luar area absen", sub: `${near.distance} m dari ${near.name} (radius ${near.radius} m). Absen tidak bisa dilakukan.` }
+            : { tone: "bg-gray-50 border-gray-200 text-gray-600", icon: Navigation, title: "Lokasi GPS terbaca.", sub: "" };
+
   return (
     <div className="flex flex-col h-full">
-      {/* Map */}
-      <div className="relative flex-1 min-h-[280px]">
-        <div ref={mapRef} className="w-full h-full" />
-
-        {/* GPS status overlay */}
-        <div className="absolute top-3 left-3 right-3 z-[400] pointer-events-none">
-          {gpsError ? (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-red-700">
-              <AlertTriangle size={14} className="shrink-0" />
-              {gpsError}
-            </div>
-          ) : onTrip && pos ? (
-            <div className="rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-medium bg-sky-50 border border-sky-200 text-sky-700">
-              <Navigation size={14} className="shrink-0" />
-              Dinas Luar — absen boleh di mana saja, lokasi tetap disimpan
-            </div>
-          ) : near ? (
-            <div className={`rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-medium ${near.inside ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"}`}>
-              <Navigation size={14} className="shrink-0" />
-              {near.inside
-                ? `${near.distance} m dari ${near.name} — Dalam area ✓`
-                : `${near.distance} m dari ${near.name} — Di luar radius ${near.radius} m, absen tidak bisa dilakukan`}
-            </div>
-          ) : pos && locations.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
-              <Navigation size={14} className="shrink-0" />
-              <T>Lokasi GPS terbaca.</T>
-            </div>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
-              <Loader2 size={14} className="animate-spin shrink-0" />
-              <T>Mendeteksi lokasi GPS...</T>
-            </div>
-          )}
+      <div className="m-4 rounded-2xl border border-gray-200 bg-white p-4 space-y-4 overflow-y-auto">
+        {/* Status lokasi */}
+        <div className={`flex items-start gap-3 rounded-2xl border p-4 ${status.tone}`}>
+          <status.icon size={26} className={`mt-0.5 shrink-0 ${status.icon === Loader2 ? "animate-spin" : ""}`} />
+          <div className="min-w-0">
+            <p className="font-bold"><T>{status.title}</T></p>
+            {status.sub && <p className="mt-0.5 text-sm opacity-90"><T>{status.sub}</T></p>}
+            {pos && <p className="mt-1 text-[11px] opacity-70"><T>Akurasi GPS</T> ±{pos.accuracy} m</p>}
+          </div>
         </div>
-      </div>
-
-      {/* Bottom panel */}
-      <div className="bg-white border-t border-gray-100 p-4 space-y-4 max-h-[55vh] overflow-y-auto">
 
         {/* Pesan hasil */}
         {message && (

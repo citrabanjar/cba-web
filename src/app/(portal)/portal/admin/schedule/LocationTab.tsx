@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Crosshair, Loader2, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Crosshair, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { googleMapsLink } from "@/lib/google-maps";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -263,6 +264,10 @@ export default function LocationTab({
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       <span className="rounded-full bg-rose-50 px-2.5 py-0.5 font-semibold text-rose-700"><T>Radius</T> {l.radius} m</span>
                       {!l.isActive && <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600"><T>Nonaktif</T></span>}
+                      <a href={googleMapsLink(l.latitude, l.longitude)} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 font-semibold text-sky-700 hover:bg-sky-100">
+                        <ExternalLink size={11} /> <T>Buka di Google Maps</T>
+                      </a>
                     </div>
                     <p className="mt-2 text-xs text-gray-500">{scopeText || t("Belum ditempel ke karyawan, shift, atau pola kerja.")}</p>
                   </div>
