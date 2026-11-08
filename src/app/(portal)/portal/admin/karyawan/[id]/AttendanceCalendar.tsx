@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, LogIn, LogOut, MapPin } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
+import type { DayShift } from "@/lib/schedule";
 
 type Attendance = {
   id: string; date: Date; checkIn: Date | null; checkOut: Date | null;
@@ -54,9 +55,9 @@ function coveredDays(ranges: Range[], status: string, map: Map<string, string>) 
 }
 
 export default function AttendanceCalendar({
-  attendances, leaves, trips,
+  attendances, leaves, trips, shiftDays = {},
 }: {
-  attendances: Attendance[]; leaves: Leave[]; trips: Trip[];
+  attendances: Attendance[]; leaves: Leave[]; trips: Trip[]; shiftDays?: Record<string, DayShift>;
 }) {
   const t = useT();
   // Hari ini menurut waktu Jakarta (UTC+7), dihitung sekali saat kalender dibuka.
@@ -163,8 +164,17 @@ export default function AttendanceCalendar({
                     isSel ? "ring-2 ring-ink ring-offset-1" : "hover:shadow-md",
                   ].join(" ")}
                 >
-                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? "bg-brand text-white" : ""}`}>
-                    {day}
+                  <span className="flex w-full items-center justify-between gap-1">
+                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? "bg-brand text-white" : ""}`}>
+                      {day}
+                    </span>
+                    {shiftDays[k] && (
+                      <span title={shiftDays[k].holiday ?? shiftDays[k].name}
+                        className="rounded-md px-1 py-px text-[9px] font-bold leading-tight text-white sm:text-[10px]"
+                        style={{ background: shiftDays[k].color }}>
+                        {shiftDays[k].code}
+                      </span>
+                    )}
                   </span>
                   {style && (
                     <span className="mt-auto w-full truncate text-[10px] font-semibold sm:text-[11px]">
@@ -216,6 +226,18 @@ export default function AttendanceCalendar({
           ) : (
             <>
               <p className="mt-2 text-base font-bold text-gray-900">{formatDate(new Date(selected))}</p>
+              {shiftDays[selected] && (
+                <p className="mt-1 flex items-center gap-2 text-sm text-gray-700">
+                  <span className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ background: shiftDays[selected].color }}>
+                    {shiftDays[selected].code}
+                  </span>
+                  {shiftDays[selected].holiday
+                    ? shiftDays[selected].holiday
+                    : shiftDays[selected].manual
+                      ? <T>Jadwal manual (belum diisi)</T>
+                      : <>{shiftDays[selected].name}{shiftDays[selected].startTime && ` · ${shiftDays[selected].startTime}–${shiftDays[selected].endTime}`}</>}
+                </p>
+              )}
               {sel ? (
                 <div className="mt-3 space-y-2.5 text-sm">
                   <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS[sel.status]?.cell ?? ""}`}>
@@ -250,7 +272,9 @@ export default function AttendanceCalendar({
         {/* Tempat shift, menunggu fitur Schedule */}
         <section className="rounded-2xl border border-dashed border-white/30 bg-white/10 p-5 text-white backdrop-blur">
           <p className="text-xs font-semibold uppercase tracking-wider text-white/60"><T>Shift</T></p>
-          <p className="mt-2 text-sm text-white/80"><T>Jadwal shift akan tampil di sini setelah menu Schedule siap.</T></p>
+          <p className="mt-2 text-sm text-white/80">
+            <T>Kode shift tampil di pojok kanan atas setiap tanggal, sesuai jadwal kerja karyawan. Hari libur perusahaan otomatis OFF.</T>
+          </p>
         </section>
       </div>
     </div>

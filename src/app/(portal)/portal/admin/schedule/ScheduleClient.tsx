@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import LocationTab, { type Location } from "./LocationTab";
+import AssignDialog, { type EmployeeOption } from "./AssignDialog";
 import {
   deleteHoliday, deletePattern, deleteShift, saveHoliday, savePattern, saveRule, saveShift,
   type BreakTime, type PatternInput, type RuleInput, type ShiftInput,
@@ -19,7 +20,7 @@ import {
 type Shift = Omit<ShiftInput, "startTime" | "endTime"> & {
   id: string; used: number; startTime: string | null; endTime: string | null;
 };
-type Pattern = Omit<PatternInput, "description"> & { id: string; description: string | null };
+type Pattern = Omit<PatternInput, "description"> & { id: string; description: string | null; assigned: number };
 type Holiday = { id: string; date: string; name: string; type: string };
 type Rule = RuleInput & { updatedBy: string | null; updatedAt: Date | null };
 
@@ -419,15 +420,18 @@ function PatternDialog({ pattern, shifts, onClose }: { pattern: Pattern | "new";
   );
 }
 
-function PatternTab({ patterns, shifts }: { patterns: Pattern[]; shifts: Shift[] }) {
+function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shifts: Shift[]; employees: EmployeeOption[] }) {
   const t = useT();
   const [editing, setEditing] = useState<Pattern | "new" | null>(null);
+  const [assigning, setAssigning] = useState<Pattern | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const byId = new Map(shifts.map((s) => [s.id, s]));
 
   return (
     <SectionCard icon={Repeat} title="Pola Kerja" desc="Susunan shift yang berulang. Pola inilah yang nanti ditempel ke karyawan."
       action={<PillButton onClick={() => setEditing("new")}><Plus size={14} /> <T>Tambah Pola</T></PillButton>}>
+      <ErrorText text={error} />
       {patterns.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-400"><T>Belum ada pola kerja.</T></p>
       ) : (
@@ -443,12 +447,19 @@ function PatternTab({ patterns, shifts }: { patterns: Pattern[]; shifts: Shift[]
                       {p.description ? `${p.description} · ` : ""}{p.cycleDays} <T>hari per siklus</T> · {fmtDur(hours)} <T>per siklus</T> · <T>mulai</T> {formatDate(new Date(`${p.startDate}T00:00:00Z`))}
                     </p>
                   </div>
-                  <div className="flex">
+                  <div className="flex items-center gap-1">
+                    <span className="mr-1 rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-gray-500 ring-1 ring-gray-200">
+                      {p.assigned} <T>karyawan</T>
+                    </span>
+                    <button type="button" onClick={() => setAssigning(p)}
+                      className="mr-1 inline-flex h-7 items-center rounded-full bg-ink px-3 text-[11px] font-semibold text-white hover:bg-ink/85">
+                      <T>Tempel ke Karyawan</T>
+                    </button>
                     <button type="button" onClick={() => setEditing(p)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand">
                       <Pencil size={14} />
                     </button>
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus pola kerja ini?"))) start(async () => { await deletePattern(p.id); }); }}
+                      onClick={() => { if (window.confirm(t("Hapus pola kerja ini?"))) start(async () => { setError(null); const r = await deletePattern(p.id); if (r.error) setError(r.error); }); }}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
@@ -471,6 +482,7 @@ function PatternTab({ patterns, shifts }: { patterns: Pattern[]; shifts: Shift[]
         </div>
       )}
       {editing && <PatternDialog pattern={editing} shifts={shifts} onClose={() => setEditing(null)} />}
+      {assigning && <AssignDialog pattern={assigning} employees={employees} onClose={() => setAssigning(null)} />}
     </SectionCard>
   );
 }
@@ -633,7 +645,7 @@ export default function ScheduleClient({
   shifts, patterns, holidays, rule, locations, employees,
 }: {
   shifts: Shift[]; patterns: Pattern[]; holidays: Holiday[]; rule: Rule;
-  locations: Location[]; employees: { id: string; label: string; sub?: string }[];
+  locations: Location[]; employees: EmployeeOption[];
 }) {
   const [tab, setTab] = useState<Tab>("shift");
   const year = String(new Date().getFullYear());
@@ -685,7 +697,7 @@ export default function ScheduleClient({
         </div>
 
         {tab === "shift" && <ShiftTab shifts={shifts} />}
-        {tab === "pola" && <PatternTab patterns={patterns} shifts={shifts} />}
+        {tab === "pola" && <PatternTab patterns={patterns} shifts={shifts} employees={employees} />}
         {tab === "libur" && <HolidayTab holidays={holidays} />}
         {tab === "lokasi" && (
           <LocationTab

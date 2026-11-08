@@ -129,6 +129,8 @@ export async function savePattern(id: string | null, input: PatternInput): Promi
 
 export async function deletePattern(id: string): Promise<Result> {
   await requireMenu("karyawan");
+  const used = await prisma.employeeSchedule.count({ where: { patternId: id } });
+  if (used > 0) return { error: "Pola kerja masih dipakai karyawan. Ganti jadwal karyawannya dulu." };
   await prisma.workPattern.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -225,5 +227,45 @@ export async function deleteLocation(id: string): Promise<Result> {
   await requireMenu("karyawan");
   await prisma.workLocation.delete({ where: { id } });
   revalidatePath(PATH);
+  return {};
+}
+
+// ─── Jadwal kerja karyawan ──────────────────────────────────────────────────
+
+export type ScheduleInput = { type: "POLA" | "MANUAL"; patternId: string; effectiveDate: string; note: string };
+
+// Tempel jadwal ke satu atau banyak karyawan. Jadwal di tanggal berlaku yang sama diganti.
+export async function assignSchedule(userIds: string[], input: ScheduleInput): Promise<Result & { count?: number }> {
+  const user = await requireMenu("karyawan");
+  const ids = [...new Set(userIds)].filter(Boolean);
+  if (ids.length === 0) return { error: "Pilih minimal satu karyawan." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveDate)) return { error: "Tanggal mulai berlaku wajib diisi." };
+  if (input.type !== "POLA" && input.type !== "MANUAL") return { error: "Jenis jadwal tidak dikenal." };
+  if (input.type === "POLA") {
+    const pattern = await prisma.workPattern.findUnique({ where: { id: input.patternId }, select: { id: true } });
+    if (!pattern) return { error: "Pilih pola kerja." };
+  }
+  const effectiveDate = new Date(`${input.effectiveDate}T00:00:00Z`);
+  const data = {
+    type: input.type,
+    patternId: input.type === "POLA" ? input.patternId : null,
+    note: input.note.trim() || null,
+    createdBy: user.name,
+  };
+  await prisma.$transaction(ids.map((userId) => prisma.employeeSchedule.upsert({
+    where: { userId_effectiveDate: { userId, effectiveDate } },
+    update: data,
+    create: { userId, effectiveDate, ...data },
+  })));
+  revalidatePath(PATH);
+  revalidatePath("/portal/admin/karyawan", "layout");
+  return { count: ids.length };
+}
+
+export async function deleteEmployeeSchedule(id: string): Promise<Result> {
+  await requireMenu("karyawan");
+  await prisma.employeeSchedule.delete({ where: { id } });
+  revalidatePath(PATH);
+  revalidatePath("/portal/admin/karyawan", "layout");
   return {};
 }

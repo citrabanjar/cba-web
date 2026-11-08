@@ -28,6 +28,8 @@ import {
 } from "../actions";
 import { T, useT } from "@/components/i18n";
 import AttendanceCalendar from "./AttendanceCalendar";
+import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
+import type { DayShift } from "@/lib/schedule";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; bpjsTkBase: number | null;
@@ -678,6 +680,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, master, canSeePay, isSuper, canEdit,
+  schedules, patterns, shiftDays,
 }: {
   employee: Employee;
   tenure: string | null;
@@ -687,6 +690,9 @@ export default function KaryawanDetailClient({
   canSeePay: boolean;
   isSuper: boolean;
   canEdit: boolean;
+  schedules: ScheduleRow[];
+  patterns: { id: string; name: string; cycleDays: number }[];
+  shiftDays: Record<string, DayShift>;
 }) {
   const t = useT();
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
@@ -1111,7 +1117,10 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "absensi" && (
-          <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} />
+          <div className="space-y-5">
+            <ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEdit} />
+            <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} />
+          </div>
         )}
 
         {tab === "absensi" && (

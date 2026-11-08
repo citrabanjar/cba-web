@@ -149,6 +149,7 @@ model User {
   photo            EmployeePhoto?
   employmentEvents EmploymentEvent[]
   workLocations    WorkLocation[]      @relation("UserWorkLocations")
+  schedules        EmployeeSchedule[]
   accounts         Account[]
   sessions         Session[]
   attendances      Attendance[]
@@ -443,7 +444,8 @@ model WorkPattern {
   updatedAt   DateTime @updatedAt
 
   days      WorkPatternDay[]
-  locations WorkLocation[]   @relation("PatternWorkLocations")
+  locations WorkLocation[]     @relation("PatternWorkLocations")
+  employees EmployeeSchedule[]
 }
 
 model WorkPatternDay {
@@ -500,4 +502,22 @@ model WorkLocation {
   employees User[]        @relation("UserWorkLocations")
   shifts    WorkShift[]   @relation("ShiftWorkLocations")
   patterns  WorkPattern[] @relation("PatternWorkLocations")
+}
+
+// Jadwal kerja karyawan dengan tanggal berlaku. Baris terbaru yang berlaku pada suatu
+// tanggal menentukan jadwalnya: POLA memakai pola kerja; MANUAL diisi per tanggal (Security).
+model EmployeeSchedule {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String // "POLA" atau "MANUAL"
+  patternId     String?
+  effectiveDate DateTime @db.Date
+  note          String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pattern WorkPattern? @relation(fields: [patternId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, effectiveDate])
 }

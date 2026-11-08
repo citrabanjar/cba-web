@@ -5,6 +5,7 @@ import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
 import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
+import { getShiftCalendar } from "@/lib/schedule";
 import KaryawanDetailClient from "./KaryawanDetailClient";
 
 function tenure(joinDate: Date | null): string | null {
@@ -121,6 +122,22 @@ export default async function KaryawanDetailPage({
       })
     : [];
 
+  // Jadwal kerja: riwayat, pilihan pola, dan shift per tanggal (setahun ke belakang, 3 bulan ke depan).
+  const now = new Date();
+  const [schedules, patterns, shiftDays] = await Promise.all([
+    prisma.employeeSchedule.findMany({
+      where: { userId: id },
+      orderBy: { effectiveDate: "desc" },
+      select: { id: true, type: true, effectiveDate: true, note: true, createdBy: true, pattern: { select: { id: true, name: true } } },
+    }),
+    prisma.workPattern.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, cycleDays: true } }),
+    getShiftCalendar(
+      id,
+      new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1)),
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 4, 0)),
+    ),
+  ]);
+
   const managers = await prisma.user.findMany({
     where: { role: { not: "SUPER_ADMIN" }, isActive: true, id: { not: id } },
     select: { id: true, name: true, employeeId: true },
@@ -142,6 +159,9 @@ export default async function KaryawanDetailPage({
       canSeePay={canSeePay}
       isSuper={isSuperAdmin(access.role)}
       canEdit={isSuperAdmin(access.role) || employee.role === "KARYAWAN"}
+      schedules={schedules}
+      patterns={patterns}
+      shiftDays={shiftDays}
     />
   );
 }
