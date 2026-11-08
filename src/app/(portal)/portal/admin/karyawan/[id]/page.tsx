@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { computeBalances } from "@/lib/leave-balance";
 import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
@@ -84,7 +85,7 @@ export default async function KaryawanDetailPage({
         take: 50,
         select: {
           id: true, type: true, startDate: true, endDate: true,
-          totalDays: true, reason: true, status: true,
+          totalDays: true, reason: true, status: true, policy: { select: { code: true, name: true } },
         },
       },
       businessTrips: {
@@ -162,6 +163,7 @@ export default async function KaryawanDetailPage({
       schedules={schedules}
       patterns={patterns}
       shiftDays={shiftDays}
+      leaveBalances={await computeBalances([id])}
     />
   );
 }

@@ -30,6 +30,8 @@ import { T, useT } from "@/components/i18n";
 import AttendanceCalendar from "./AttendanceCalendar";
 import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
 import type { DayShift } from "@/lib/schedule";
+import type { BalanceRow } from "@/lib/leave-balance";
+import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; bpjsTkBase: number | null;
@@ -67,7 +69,7 @@ type Employee = {
   }[];
   leaves: {
     id: string; type: string; startDate: Date; endDate: Date;
-    totalDays: number; reason: string; status: string;
+    totalDays: number; reason: string; status: string; policy: { code: string; name: string } | null;
   }[];
   businessTrips: {
     id: string; destination: string; purpose: string; startDate: Date;
@@ -94,9 +96,9 @@ const TAB_LIST = [
   { key: "pribadi", label: "Personal Info" },
   { key: "pekerjaan", label: "Pekerjaan" },
   { key: "absensi", label: "Kehadiran & Shift" },
+  { key: "cuti", label: "Cuti" },
   { key: "gaji", label: "Gaji & Tunjangan" },
   { key: "pajak", label: "Pajak & BPJS" },
-  { key: "cuti", label: "Cuti" },
   { key: "dinas", label: "Dinas Luar" },
   { key: "payslip", label: "Slip Gaji" },
   { key: "akses", label: "Akses" },
@@ -680,7 +682,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, master, canSeePay, isSuper, canEdit,
-  schedules, patterns, shiftDays,
+  schedules, patterns, shiftDays, leaveBalances,
 }: {
   employee: Employee;
   tenure: string | null;
@@ -693,6 +695,7 @@ export default function KaryawanDetailClient({
   schedules: ScheduleRow[];
   patterns: { id: string; name: string; cycleDays: number }[];
   shiftDays: Record<string, DayShift>;
+  leaveBalances: BalanceRow[];
 }) {
   const t = useT();
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
@@ -1155,7 +1158,9 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "cuti" && (
-          emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
+          <div className="space-y-5">
+          <LeaveBalanceCard rows={leaveBalances} />
+          {emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
                 <TableHeader>
@@ -1171,7 +1176,7 @@ export default function KaryawanDetailClient({
                   {emp.leaves.map((l) => (
                     <TableRow key={l.id}>
                       <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(l.startDate)} – {fmtDate(l.endDate)}</TableCell>
-                      <TableCell className="px-4 text-sm"><T>{LEAVE_LABEL[l.type] ?? l.type}</T></TableCell>
+                      <TableCell className="px-4 text-sm">{l.policy ? <>{t(l.policy.name)} <span className="text-[11px] text-gray-400">{l.policy.code}</span></> : <T>{LEAVE_LABEL[l.type] ?? l.type}</T>}</TableCell>
                       <TableCell className="px-4 text-sm">{l.totalDays}</TableCell>
                       <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate"><T>{l.reason}</T></TableCell>
                       <TableCell className="px-4">
@@ -1182,7 +1187,8 @@ export default function KaryawanDetailClient({
                 </TableBody>
               </Table>
             </div>
-          )
+          )}
+          </div>
         )}
 
         {tab === "dinas" && (

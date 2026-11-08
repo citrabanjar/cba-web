@@ -226,8 +226,10 @@ model LeaveRequest {
   approvedBy String?
   approvedAt DateTime?
   note       String?
+  policyId   String? // jenis cuti dari Setup Leave; kosong untuk pengajuan lama
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy LeavePolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -582,6 +584,7 @@ model LeavePolicy {
   updatedAt        DateTime @updatedAt
 
   balances LeaveBalanceEntry[]
+  requests LeaveRequest[]
 }
 
 // Buku saldo cuti per karyawan. SALDO_AWAL = hasil migrasi dari aplikasi lama (per tanggal),
