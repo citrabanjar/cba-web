@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type React from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, LogIn, LogOut, MapPin } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -55,9 +56,10 @@ function coveredDays(ranges: Range[], status: string, map: Map<string, string>) 
 }
 
 export default function AttendanceCalendar({
-  attendances, leaves, trips, shiftDays = {},
+  attendances, leaves, trips, shiftDays = {}, side,
 }: {
   attendances: Attendance[]; leaves: Leave[]; trips: Trip[]; shiftDays?: Record<string, DayShift>;
+  side?: React.ReactNode; // kartu tambahan di kolom kanan (mis. Jadwal Kerja)
 }) {
   const t = useT();
   // Hari ini menurut waktu Jakarta (UTC+7), dihitung sekali saat kalender dibuka.
@@ -269,13 +271,7 @@ export default function AttendanceCalendar({
           )}
         </section>
 
-        {/* Tempat shift, menunggu fitur Schedule */}
-        <section className="rounded-2xl border border-dashed border-white/30 bg-white/10 p-5 text-white backdrop-blur">
-          <p className="text-xs font-semibold uppercase tracking-wider text-white/60"><T>Shift</T></p>
-          <p className="mt-2 text-sm text-white/80">
-            <T>Kode shift tampil di pojok kanan atas setiap tanggal, sesuai jadwal kerja karyawan. Hari libur perusahaan otomatis OFF.</T>
-          </p>
-        </section>
+        {side}
       </div>
     </div>
   );

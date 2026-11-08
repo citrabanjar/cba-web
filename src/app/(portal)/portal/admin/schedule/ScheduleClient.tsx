@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
-  CalendarClock, CalendarOff, Clock, Coffee, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
+  CalendarClock, CalendarOff, CalendarRange, Clock, Coffee, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import LocationTab, { type Location } from "./LocationTab";
+import RosterTab from "./RosterTab";
+import type { loadRoster } from "./roster";
 import AssignDialog, { type EmployeeOption } from "./AssignDialog";
 import {
   deleteHoliday, deletePattern, deleteShift, saveHoliday, savePattern, saveRule, saveShift,
@@ -30,6 +33,7 @@ const TABS = [
   { key: "libur", label: "Kalender Libur", icon: CalendarOff },
   { key: "lokasi", label: "Lokasi Absen", icon: MapPin },
   { key: "aturan", label: "Aturan Kehadiran", icon: Scale },
+  { key: "jadwal", label: "Jadwal Bulanan", icon: CalendarRange },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
@@ -642,12 +646,20 @@ function RuleTab({ rule }: { rule: Rule }) {
 // ─── Halaman ────────────────────────────────────────────────────────────────
 
 export default function ScheduleClient({
-  shifts, patterns, holidays, rule, locations, employees,
+  shifts, patterns, holidays, rule, locations, employees, initialTab, roster,
 }: {
   shifts: Shift[]; patterns: Pattern[]; holidays: Holiday[]; rule: Rule;
   locations: Location[]; employees: EmployeeOption[];
+  initialTab: Tab; roster: Awaited<ReturnType<typeof loadRoster>> | null;
 }) {
-  const [tab, setTab] = useState<Tab>("shift");
+  const router = useRouter();
+  const [tab, setTabState] = useState<Tab>(initialTab);
+  // Tab Jadwal Bulanan butuh data dari server, jadi dibuka lewat alamat (?tab=jadwal).
+  const setTab = (k: Tab) => {
+    setTabState(k);
+    if (k === "jadwal" && !roster) router.push("?tab=jadwal", { scroll: false });
+    else if (k !== "jadwal" && roster) router.replace("?", { scroll: false });
+  };
   const year = String(new Date().getFullYear());
   const stats = [
     { label: "Shift Aktif", value: shifts.filter((s) => s.isActive && !s.isOff).length, icon: Clock, tone: "from-brand to-rose-400" },
@@ -708,6 +720,12 @@ export default function ScheduleClient({
           />
         )}
         {tab === "aturan" && <RuleTab rule={rule} />}
+        {tab === "jadwal" && (roster ? (
+          <RosterTab {...roster}
+            shifts={shifts.filter((x) => x.isActive).map((x) => ({ id: x.id, code: x.code, name: x.name, color: x.color, isOff: x.isOff, startTime: x.startTime, endTime: x.endTime }))} />
+        ) : (
+          <div className="flex justify-center rounded-2xl border border-gray-200 bg-white py-14 text-gray-400"><Loader2 size={20} className="animate-spin" /></div>
+        ))}
       </main>
     </div>
   );

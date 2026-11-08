@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Copy, Eraser, Loader2, RotateCcw, Save, TriangleAlert } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import type { DayShift } from "@/lib/schedule";
-import { saveShiftDays } from "../schedule/actions";
+import { saveShiftDays } from "./actions";
 
 type Shift = { id: string; code: string; name: string; color: string; isOff: boolean; startTime: string | null; endTime: string | null };
-type Row = { id: string; name: string; employeeId: string; department: string | null; days: Record<string, DayShift> };
+type Row = { id: string; name: string; employeeId: string; department: string | null; days: Record<string, DayShift>; unscheduled: number };
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
@@ -23,7 +23,7 @@ const shiftKey = (date: string, days: number) => {
 
 // Tabel jadwal bulanan: baris karyawan, kolom tanggal. Pilih kartu shift lalu klik atau seret
 // di atas kotak tanggal untuk mengisi; kartu juga bisa diseret langsung ke kotak tanggal.
-export default function JadwalClient({
+export default function RosterTab({
   year, month, showAll, rows, shifts,
 }: {
   year: number; month: number; showAll: boolean; rows: Row[]; shifts: Shift[];
@@ -98,37 +98,35 @@ export default function JadwalClient({
     start(async () => {
       const r = await saveShiftDays(list);
       if (r.error) setMsg({ ok: false, text: r.error });
-      else { setChanges({}); setMsg({ ok: true, text: `${r.count} perubahan tersimpan.` }); router.refresh(); }
+      else {
+        setChanges({});
+        setMsg({ ok: true, text: `${r.count} perubahan tersimpan.${r.marked ? ` ${r.marked} karyawan otomatis ditandai Jadwal Manual.` : ""}` });
+        router.refresh();
+      }
     });
   }
 
   const pendingCount = Object.keys(changes).length;
   const emptyCount = shown.reduce((n, r) => n + dates.filter((d) => cell(r, d).shift?.manual).length, 0);
+  // Karyawan yang masih punya kotak tanpa jadwal sama sekali (belum diisi di layar ini juga).
+  const unscheduledCount = shown.filter((r) => r.unscheduled > 0 && dates.some((d) => !cell(r, d).shift && !cell(r, d).changed)).length;
 
   return (
-    <div className="bg-gray-50 min-h-full">
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h2 className="font-bold text-gray-800"><T>Jadwal Bulanan</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5">
-          <T>Isi shift per tanggal untuk karyawan Jadwal Manual (Security) atau untuk tukar shift.</T>
-        </p>
-      </div>
-
-      <main className="px-4 sm:px-6 py-5 space-y-4">
+    <div className="space-y-4">
         {/* Bulan, filter, dan tombol aksi */}
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3">
           <div className="flex items-center gap-1 rounded-full border border-gray-200 p-1">
-            <Link href={`?bulan=${monthParam(-1)}${showAll ? "&semua=1" : ""}`} aria-label={t("Bulan sebelumnya")}
+            <Link scroll={false} href={`?tab=jadwal&bulan=${monthParam(-1)}${showAll ? "&semua=1" : ""}`} aria-label={t("Bulan sebelumnya")}
               className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"><ChevronLeft size={16} /></Link>
             <span className="min-w-36 text-center text-sm font-semibold text-gray-800"><T>{MONTHS[month]}</T> {year}</span>
-            <Link href={`?bulan=${monthParam(1)}${showAll ? "&semua=1" : ""}`} aria-label={t("Bulan berikutnya")}
+            <Link scroll={false} href={`?tab=jadwal&bulan=${monthParam(1)}${showAll ? "&semua=1" : ""}`} aria-label={t("Bulan berikutnya")}
               className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"><ChevronRight size={16} /></Link>
           </div>
           <div className="flex items-center gap-1 rounded-full bg-gray-100 p-1 text-xs font-semibold">
-            <Link href={`?bulan=${monthParam(0)}`} className={`rounded-full px-3 py-1.5 ${!showAll ? "bg-ink text-white" : "text-gray-500"}`}>
+            <Link scroll={false} href={`?tab=jadwal&bulan=${monthParam(0)}`} className={`rounded-full px-3 py-1.5 ${!showAll ? "bg-ink text-white" : "text-gray-500"}`}>
               <T>Jadwal Manual</T>
             </Link>
-            <Link href={`?bulan=${monthParam(0)}&semua=1`} className={`rounded-full px-3 py-1.5 ${showAll ? "bg-ink text-white" : "text-gray-500"}`}>
+            <Link scroll={false} href={`?tab=jadwal&bulan=${monthParam(0)}&semua=1`} className={`rounded-full px-3 py-1.5 ${showAll ? "bg-ink text-white" : "text-gray-500"}`}>
               <T>Semua karyawan</T>
             </Link>
           </div>
@@ -177,6 +175,15 @@ export default function JadwalClient({
         </div>
 
         {msg && <p className={`rounded-xl px-4 py-2.5 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
+        {unscheduledCount > 0 && (
+          <p className="flex items-start gap-2 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-800">
+            <TriangleAlert size={15} className="mt-0.5 shrink-0" />
+            <span>
+              {unscheduledCount} <T>karyawan belum punya jadwal (kotak bergaris).</T>{" "}
+              <T>Isi shift-nya di sini; setelah disimpan, karyawan itu otomatis ditandai Jadwal Manual. Untuk karyawan kantor, tempel pola kerja di menu Pola Kerja.</T>
+            </span>
+          </p>
+        )}
         {emptyCount > 0 && (
           <p className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
             <TriangleAlert size={15} /> {emptyCount} <T>kotak jadwal manual belum diisi (ditandai ?).</T>
@@ -220,6 +227,9 @@ export default function JadwalClient({
                     <td className="sticky left-0 z-10 border-b border-r border-gray-100 bg-white px-3 py-1.5">
                       <p className="truncate font-semibold text-gray-900">{row.name}</p>
                       <p className="truncate text-[10px] text-gray-400">{[row.employeeId, row.department].filter(Boolean).join(" · ")}</p>
+                      {row.unscheduled > 0 && (
+                        <span className="mt-0.5 inline-flex rounded-full bg-rose-50 px-1.5 py-px text-[10px] font-semibold text-rose-600"><T>Belum ada jadwal</T></span>
+                      )}
                     </td>
                     {dates.map((d) => {
                       const c = cell(row, d);
@@ -238,6 +248,7 @@ export default function JadwalClient({
                               c.changed ? "ring-2 ring-amber-400" : "",
                               c.cleared ? "border border-dashed border-gray-300 text-gray-300" : "",
                               s?.manual ? "border border-dashed border-amber-300 bg-amber-50 text-amber-600" : "",
+                              !s && !c.cleared ? "border border-dashed border-rose-200 bg-rose-50/40" : "",
                             ].join(" ")}
                             style={s && !s.manual ? { background: fromPattern ? `${s.color}33` : s.color, color: fromPattern ? s.color : "#fff" } : undefined}
                           >
@@ -259,7 +270,6 @@ export default function JadwalClient({
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded border border-dashed border-amber-300 bg-amber-50" /> <T>Jadwal manual belum diisi</T></span>
           <span className="inline-flex items-center gap-1.5"><span className="h-3 w-5 rounded ring-2 ring-amber-400" /> <T>Belum disimpan</T></span>
         </div>
-      </main>
     </div>
   );
 }

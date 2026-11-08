@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CalendarClock, Loader2, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, ChevronDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,7 @@ export default function ScheduleCard({
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [form, setForm] = useState({ type: "POLA" as "POLA" | "MANUAL", patternId: patterns[0]?.id ?? "", effectiveDate: "", note: "" });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -43,52 +44,54 @@ export default function ScheduleCard({
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <div className="section-head flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="section-icon"><CalendarClock size={17} /></span>
-          <h3 className="font-semibold text-[15px]"><T>Jadwal Kerja</T></h3>
-        </div>
+    <section className="bg-white rounded-2xl border border-gray-200 p-5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400"><T>Jadwal Kerja</T></p>
         {canEdit && (
           <button type="button" onClick={() => { setError(null); setOpen(true); }}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-            <Plus size={13} /> <T>Atur Jadwal</T>
+            className="inline-flex h-7 items-center gap-1 rounded-full bg-ink px-3 text-xs font-semibold text-white hover:bg-ink/85">
+            <Plus size={13} /> <T>Atur</T>
           </button>
         )}
       </div>
-      <div className="p-5">
-        {schedules.length === 0 ? (
-          <p className="text-sm text-gray-400"><T>Belum ada jadwal kerja. Tempel pola kerja supaya shift harian muncul di kalender.</T></p>
-        ) : (
-          <div className="space-y-3">
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700"><T>Berlaku sekarang</T></p>
-              <p className="mt-0.5 font-bold text-gray-900">{current ? <T>{label(current)}</T> : <T>Belum berlaku</T>}</p>
-              {current && <p className="text-xs text-gray-500"><T>Mulai</T> {formatDate(current.effectiveDate)}</p>}
-            </div>
-            <ul className="space-y-2">
+      {schedules.length === 0 ? (
+        <p className="mt-3 text-sm text-gray-400"><T>Belum ada jadwal kerja</T></p>
+      ) : (
+        <>
+          <p className="mt-2 flex items-center gap-2 text-base font-bold text-gray-900">
+            <CalendarClock size={16} className="shrink-0 text-emerald-600" />
+            <span className="truncate">{current ? <T>{label(current)}</T> : <T>Belum berlaku</T>}</span>
+          </p>
+          {current && <p className="mt-0.5 text-xs text-gray-500"><T>sejak</T> {formatDate(current.effectiveDate)}</p>}
+          <button type="button" onClick={() => setShowHistory((v) => !v)}
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900">
+            <T>Riwayat</T> ({schedules.length})
+            <ChevronDown size={13} className={`transition-transform ${showHistory ? "rotate-180" : ""}`} />
+          </button>
+          {showHistory && (
+            <ul className="mt-2 divide-y divide-gray-100 border-t border-gray-100">
               {schedules.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5 text-sm">
-                  <span className="w-28 shrink-0 font-semibold tabular-nums text-gray-900">{formatDate(s.effectiveDate)}</span>
+                <li key={s.id} className="flex items-center gap-2 py-1.5 text-xs">
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-gray-800"><T>{label(s)}</T></span>
-                    {(s.note || s.createdBy) && (
-                      <span className="block truncate text-xs text-gray-400">{[s.note, s.createdBy].filter(Boolean).join(" · ")}</span>
-                    )}
+                    <span className="block font-semibold tabular-nums text-gray-900">{formatDate(s.effectiveDate)}</span>
+                    <span className="block truncate text-gray-600">
+                      <T>{label(s)}</T>
+                      {(s.note || s.createdBy) && <span className="text-gray-400"> · {[s.note, s.createdBy].filter(Boolean).join(" · ")}</span>}
+                    </span>
                   </span>
                   {canEdit && (
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
                       onClick={() => { if (window.confirm(t("Hapus jadwal ini?"))) start(async () => { await deleteEmployeeSchedule(s.id); }); }}
-                      className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
-                      <Trash2 size={14} />
+                      className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30">
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </li>
               ))}
             </ul>
-          </div>
-        )}
-      </div>
+          )}
+        </>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
@@ -112,7 +115,7 @@ export default function ScheduleCard({
               </div>
             ) : (
               <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500">
-                <T>Shift diisi per tanggal di tabel jadwal bulanan (untuk Security atau jadwal tidak teratur). Tabel itu menyusul di tahap berikutnya.</T>
+                <T>Shift diisi per tanggal di menu Jadwal Bulanan (untuk Security atau jadwal tidak teratur).</T>
               </p>
             )}
             <div className="space-y-1.5">

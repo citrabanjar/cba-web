@@ -6,14 +6,24 @@ import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import ScheduleClient from "./ScheduleClient";
+import { loadRoster } from "./roster";
 import type { BreakTime } from "./actions";
 
 export const metadata: Metadata = { title: "Schedule" };
 
-export default async function SchedulePage() {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; bulan?: string; semua?: string }>;
+}) {
   const access = await getAccess();
   if (!access) redirect("/portal");
   if (!hasMenu(access, "karyawan")) redirect("/portal/dashboard");
+
+  const params = await searchParams;
+  const initialTab = params.tab === "jadwal" ? "jadwal" : "shift";
+  // Data Jadwal Bulanan cukup berat, jadi hanya dimuat saat tab itu dibuka.
+  const roster = initialTab === "jadwal" ? await loadRoster(params.bulan, params.semua === "1") : null;
 
   const [shifts, patterns, holidays, rule, locations, employees] = await Promise.all([
     prisma.workShift.findMany({ orderBy: [{ isOff: "asc" }, { code: "asc" }], include: { _count: { select: { patternDays: true } } } }),
@@ -36,6 +46,8 @@ export default async function SchedulePage() {
 
   return (
     <ScheduleClient
+      initialTab={initialTab}
+      roster={roster}
       shifts={shifts.map(({ _count, ...s }) => ({ ...s, breaks: (s.breaks as BreakTime[]) ?? [], used: _count.patternDays }))}
       patterns={patterns.map((p) => ({
         id: p.id, name: p.name, description: p.description, cycleDays: p.cycleDays,

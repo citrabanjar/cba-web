@@ -12,7 +12,7 @@ import LocationMap from "./LocationMap";
 import { deleteLocation, saveLocation, type LocationInput } from "./actions";
 
 export type Location = LocationInput & { id: string; address: string };
-type Option = { id: string; label: string; sub?: string; color?: string };
+type Option = { id: string; label: string; sub?: string; color?: string; department?: string | null };
 
 const EMPTY: LocationInput = {
   name: "", address: "", latitude: 0, longitude: 0, radius: 200, isActive: true,
@@ -28,16 +28,33 @@ function PickList({
   const t = useT();
   const [q, setQ] = useState("");
   const shown = q
-    ? options.filter((o) => `${o.label} ${o.sub ?? ""}`.toLowerCase().includes(q.toLowerCase()))
+    ? options.filter((o) => `${o.label} ${o.sub ?? ""} ${o.department ?? ""}`.toLowerCase().includes(q.toLowerCase()))
     : options;
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  // "Pilih semua" berlaku untuk daftar yang sedang tampil (hasil pencarian kalau ada).
+  const allShown = shown.length > 0 && shown.every((o) => selected.includes(o.id));
+  const someShown = !allShown && shown.some((o) => selected.includes(o.id));
+  const toggleAll = () => {
+    const ids = new Set(shown.map((o) => o.id));
+    onChange(allShown ? selected.filter((x) => !ids.has(x)) : [...new Set([...selected, ...ids])]);
+  };
   return (
     <div className="space-y-2">
       {searchable && (
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama atau ID...")} className="pl-9" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama, ID, atau departemen...")} className="pl-9" />
         </div>
+      )}
+      {shown.length > 1 && (
+        <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border-b border-gray-100 px-2 pb-2 pt-1">
+          <input type="checkbox" checked={allShown} ref={(el) => { if (el) el.indeterminate = someShown; }} onChange={toggleAll}
+            className="h-4 w-4 accent-[var(--color-brand)]" />
+          <span className="flex-1 text-sm font-semibold text-gray-800">
+            {q ? <T>Pilih semua hasil pencarian</T> : <T>Pilih semua</T>} ({shown.length})
+          </span>
+          <span className="text-xs text-gray-400">{selected.length} <T>dipilih</T></span>
+        </label>
       )}
       <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
         {shown.length === 0 && <p className="py-2 text-xs text-gray-400"><T>Tidak ada data.</T></p>}

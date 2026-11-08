@@ -1117,10 +1117,8 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "absensi" && (
-          <div className="space-y-5">
-            <ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEdit} />
-            <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} />
-          </div>
+          <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays}
+            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEdit} />} />
         )}
 
         {tab === "absensi" && (

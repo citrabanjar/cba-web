@@ -278,7 +278,7 @@ export type ShiftDayChange = { userId: string; date: string; shiftId: string | n
 
 // Simpan isian Jadwal Bulanan. shiftId null berarti isian tanggal itu dihapus
 // (kembali mengikuti pola kerja, atau "?" untuk jadwal manual).
-export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result & { count?: number }> {
+export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result & { count?: number; marked?: number }> {
   const user = await requireMenu("karyawan");
   const valid = changes.filter((c) => c.userId && /^\d{4}-\d{2}-\d{2}$/.test(c.date));
   if (valid.length === 0) return { error: "Tidak ada perubahan untuk disimpan." };
@@ -297,7 +297,27 @@ export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result &
         })
       : prisma.employeeShiftDay.deleteMany({ where: { userId: c.userId, date } });
   }));
-  revalidatePath("/portal/admin/jadwal");
+
+  // Karyawan yang belum punya jadwal sama sekali sampai tanggal pertama yang diisi otomatis
+  // ditandai Jadwal Manual mulai tanggal itu, supaya hari lain tampil "?" (belum diisi).
+  const firstByUser = new Map<string, string>();
+  for (const c of valid) {
+    if (!c.shiftId) continue;
+    const f = firstByUser.get(c.userId);
+    if (!f || c.date < f) firstByUser.set(c.userId, c.date);
+  }
+  let marked = 0;
+  for (const [userId, first] of firstByUser) {
+    const effectiveDate = new Date(`${first}T00:00:00Z`);
+    const has = await prisma.employeeSchedule.findFirst({ where: { userId, effectiveDate: { lte: effectiveDate } }, select: { id: true } });
+    if (has) continue;
+    await prisma.employeeSchedule.create({
+      data: { userId, type: "MANUAL", effectiveDate, note: "Otomatis dari Jadwal Bulanan", createdBy: user.name },
+    });
+    marked += 1;
+  }
+
+  revalidatePath("/portal/admin/schedule");
   revalidatePath("/portal/admin/karyawan", "layout");
-  return { count: valid.length };
+  return { count: valid.length, marked };
 }
