@@ -151,6 +151,7 @@ model User {
   workLocations    WorkLocation[]      @relation("UserWorkLocations")
   schedules        EmployeeSchedule[]
   shiftDays        EmployeeShiftDay[]
+  leaveBalances    LeaveBalanceEntry[]
   accounts         Account[]
   sessions         Session[]
   attendances      Attendance[]
@@ -549,4 +550,55 @@ model AppSetting {
   value     Json
   updatedBy String?
   updatedAt DateTime @updatedAt
+}
+
+// Kebijakan cuti/izin perusahaan (Setup Leave). Isi awal mengikuti UU Ketenagakerjaan dan
+// UU KIA; pemilik bisa mengubah jumlah hari dan aturannya.
+model LeavePolicy {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  name             String
+  category         String // TAHUNAN | ISTIRAHAT_PANJANG | KHUSUS | MELAHIRKAN | SAKIT | IBADAH | DINAS | TANPA_UPAH | LAINNYA
+  quota            Int? // kosong = sesuai kebutuhan / surat dokter
+  unit             String   @default("HARI_KERJA") // HARI_KERJA | HARI_KALENDER | BULAN
+  period           String   @default("KEJADIAN") // TAHUN | KEJADIAN
+  minServiceMonths Int      @default(0) // masa kerja minimal sebelum berhak
+  gender           String? // P = perempuan, L = laki-laki, kosong = semua
+  forStatus        String? // TETAP | KONTRAK | kosong = semua status kerja
+  accrualPerMonth  Float    @default(0) // saldo bertambah X hari tiap genap 1 bulan kerja (cuti masa kontrak)
+  paid             Boolean  @default(true)
+  payNote          String? // mis. "Bulan 1-4 upah penuh, bulan 5-6 75%"
+  deductsAnnual    Boolean  @default(false) // memotong saldo cuti tahunan
+  needsAttachment  Boolean  @default(false)
+  attachmentNote   String? // mis. "Surat keterangan dokter"
+  carryOverDays    Int      @default(0) // sisa yang boleh dibawa ke tahun berikutnya
+  noticeDays       Int      @default(0) // diajukan paling lambat X hari sebelumnya
+  legalBasis       String?
+  note             String?  @db.Text
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  updatedBy        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  balances LeaveBalanceEntry[]
+}
+
+// Buku saldo cuti per karyawan. SALDO_AWAL = hasil migrasi dari aplikasi lama (per tanggal),
+// PENYESUAIAN = koreksi manual (+/-). Penambahan rutin dan pemakaian dihitung otomatis.
+model LeaveBalanceEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  policyId  String
+  date      DateTime @db.Date
+  days      Float
+  kind      String // SALDO_AWAL | PENYESUAIAN
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy LeavePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, policyId])
 }
