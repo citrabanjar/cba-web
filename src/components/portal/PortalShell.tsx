@@ -12,6 +12,7 @@ import {
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
 import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
+import type { StorageInfo } from "@/lib/storage";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
 type NavSection = { section: string; items: NavItem[] };
@@ -81,7 +82,37 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; children: React.ReactNode };
+
+// Pemakaian penyimpanan database Neon, hanya untuk super admin.
+function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
+  const t = useT();
+  const pct = Math.min(100, (storage.usedMb / storage.limitMb) * 100);
+  const bar = pct >= 85 ? "bg-rose-400" : pct >= 60 ? "bg-amber-300" : "bg-emerald-300";
+  const fmt = (mb: number) => (mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(mb < 10 ? 1 : 0)} MB`);
+  const label = `Neon capacity: ${fmt(storage.usedMb)} / ${fmt(storage.limitMb)} (${pct.toFixed(1)}%)`;
+  if (collapsed) {
+    return (
+      <div className="mb-2 flex justify-center" title={label} aria-label={label}>
+        <span className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-bold text-white">
+          {Math.round(pct)}%
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5" title={t("Ukuran database dibanding batas paket Neon.")}>
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="font-semibold uppercase tracking-wider text-white/55">Neon capacity</span>
+        <span className="font-semibold tabular-nums text-white/80">{pct.toFixed(1)}%</span>
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.max(pct, 2)}%` }} />
+      </div>
+      <p className="mt-1 text-[11px] tabular-nums text-white/55">{fmt(storage.usedMb)} / {fmt(storage.limitMb)}</p>
+    </div>
+  );
+}
 
 const WIDE = 256;
 const NARROW = 78;
@@ -234,7 +265,7 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, children }: Props) {
+export default function PortalShell({ user, storage, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
@@ -290,7 +321,10 @@ export default function PortalShell({ user, children }: Props) {
         </div>
         <div className="pb-3 pt-1"><UserCard user={user} collapsed={collapsed} /></div>
         <NavLinks sections={sections} pathname={pathname} collapsed={collapsed} />
-        <div className="border-t border-white/10 p-3"><LogoutButton collapsed={collapsed} /></div>
+        <div className="border-t border-white/10 p-3">
+          {storage && <StorageMeter storage={storage} collapsed={collapsed} />}
+          <LogoutButton collapsed={collapsed} />
+        </div>
       </motion.aside>
 
       {/* Header */}
@@ -338,7 +372,10 @@ export default function PortalShell({ user, children }: Props) {
               </div>
               <div className="pb-3"><UserCard user={user} /></div>
               <NavLinks sections={sections} pathname={pathname} collapsed={false} onClose={() => setSidebarOpen(false)} />
-              <div className="border-t border-white/10 p-3"><LogoutButton /></div>
+              <div className="border-t border-white/10 p-3">
+                {storage && <StorageMeter storage={storage} />}
+                <LogoutButton />
+              </div>
             </motion.aside>
           </>
         )}

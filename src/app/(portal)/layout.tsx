@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { auth } from "@/auth";
 import PortalShell from "@/components/portal/PortalShell";
 import { getAccess } from "@/lib/access";
+import { isSuperAdmin } from "@/lib/roles";
+import { getDatabaseStorage } from "@/lib/storage";
 
 export default async function PortalLayout({
   children,
@@ -16,6 +18,7 @@ export default async function PortalLayout({
   }
 
   const access = await getAccess();
+  const storage = isSuperAdmin(access?.role) ? await getDatabaseStorage() : null;
 
   return (
     <PortalShell
@@ -25,6 +28,7 @@ export default async function PortalLayout({
         role: access?.role ?? "KARYAWAN",
         menuAccess: access?.menuAccess ?? [],
       }}
+      storage={storage}
     >
       {children}
     </PortalShell>

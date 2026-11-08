@@ -287,6 +287,7 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Ukuran database dibanding batas paket Neon.": "Database size compared to the Neon plan limit.",
   "Master Shift": "Shift Master",
   "Jam kerja, istirahat, toleransi, dan aturan lembur per shift.": "Working hours, breaks, tolerances, and overtime rules per shift.",
   "Tambah Shift": "Add Shift",
