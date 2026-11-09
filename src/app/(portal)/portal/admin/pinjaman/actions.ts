@@ -108,6 +108,19 @@ export async function cancelLoan(id: string): Promise<Result> {
   return {};
 }
 
+// Hapus permanen pinjaman yang dibatalkan atau ditolak (tidak pernah ada angsuran terpotong).
+// Saldo awal migrasi hanya bisa dihapus Super Admin.
+export async function deleteLoan(id: string): Promise<Result> {
+  const access = await requireAdmin();
+  const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { installments: true } });
+  if (!loan || !["BATAL", "DITOLAK"].includes(loan.status)) return { error: "Hanya pinjaman yang dibatalkan atau ditolak yang bisa dihapus." };
+  if (loan.isOpening && !isSuperAdmin(access.role)) return { error: "Saldo awal migrasi hanya bisa diubah Super Admin." };
+  if (loan.installments.some((i) => i.status === "LUNAS")) return { error: "Pinjaman ini punya angsuran terpotong, tidak bisa dihapus." };
+  await prisma.employeeLoan.delete({ where: { id } });
+  refresh(loan.userId);
+  return {};
+}
+
 // Upload saldo awal migrasi (Super Admin): sisa pinjaman dan sisa angsuran per karyawan dari aplikasi lama.
 // Langsung berjalan karena uangnya sudah dicairkan di aplikasi lama.
 export type OpeningRow = { employeeId: string; remaining: number; tenor: number; startPeriod: string; original: number | null; note: string };

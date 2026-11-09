@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
+import { DeleteLoanButton } from "@/components/portal/LoanManager";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, addMonths, isPeriod, loanSummary } from "@/lib/loans";
@@ -168,12 +169,13 @@ export default function PinjamanAdminClient({ loans, employees, isSuper }: { loa
         {list.map((l) => (
           <LoanCard key={l.id} loan={l}
             header={<p className="mb-1 text-sm font-semibold text-gray-900">{l.name} <span className="text-xs font-normal text-gray-400">{[l.employeeId, l.department].filter(Boolean).join(" · ")}</span></p>}
-            actions={
+            actions={<div className="flex flex-col items-end gap-1.5">
               <Link href={`/portal/admin/karyawan/${l.userId}?tab=pinjaman`}
                 className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
                 <T>{["PENDING", "DISETUJUI", "BERJALAN"].includes(l.status) ? "Kelola di profil" : "Lihat profil"}</T> <ArrowUpRight size={13} />
               </Link>
-            } />
+              {(!l.isOpening || isSuper) && <DeleteLoanButton loan={l} />}
+            </div>} />
         ))}
       </div>
       {upload && <UploadDialog employees={employees} onClose={() => setUpload(false)} />}

@@ -6,7 +6,7 @@ import { ArrowRight, Check, ListChecks } from "lucide-react";
 import { T } from "@/components/i18n";
 import type { Task } from "./insights";
 
-export function Row({ task }: { task: Task }) {
+export function Row({ task, tag }: { task: Task; tag?: React.ReactNode }) {
   const done = task.count === 0;
   const body = (
     <>
@@ -15,7 +15,7 @@ export function Row({ task }: { task: Task }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className={`block text-sm font-semibold ${done ? "text-gray-400 line-through decoration-gray-300" : "text-gray-900"}`}>
-          <T>{task.title}</T>
+          <T>{task.title}</T>{tag}
         </span>
         <span className="block text-xs text-gray-500">
           {done ? <T>Beres</T> : (

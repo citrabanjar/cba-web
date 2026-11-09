@@ -58,50 +58,46 @@ function SetupList({ steps }: { steps: SetupStep[] }) {
   );
 }
 
-function ReminderList({ list }: { list: DueReminder[] }) {
+// Pengingat SOP sebagai satu baris di running list, dengan tombol Selesai.
+function ReminderRow({ r }: { r: DueReminder }) {
   const t = useT();
   const [pending, start] = useTransition();
-  if (!list.length) return <p className="py-10 text-center text-sm text-gray-400"><T>Tidak ada pengingat SOP yang jatuh tempo.</T></p>;
   return (
-    <ul className="max-h-[21rem] space-y-1 overflow-y-auto pr-1">
-      {list.map((r) => (
-        <li key={r.id} className="flex items-start gap-3 rounded-xl px-3 py-2.5 hover:bg-gray-50">
-          <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${r.daysLeft < 0 ? "bg-rose-100 text-rose-600" : "bg-sky-100 text-sky-700"}`}><BellRing size={14} /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-gray-900">{r.title}</span>
-            <span className="block text-xs text-gray-500">
-              {fmt(r.occurrence)} · {r.daysLeft < 0 ? `${t("lewat")} ${-r.daysLeft} ${t("hari")}` : r.daysLeft === 0 ? t("hari ini") : `${r.daysLeft} ${t("hari lagi")}`}
-            </span>
-            {r.note && <span className="block text-[11px] text-gray-400">{r.note}</span>}
-          </span>
-          <button type="button" disabled={pending} onClick={() => start(async () => { await markReminderDone(r.id, r.occurrence); })}
-            className="shrink-0 rounded-full border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:bg-white disabled:opacity-50">
-            <T>Selesai</T>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <div className="flex items-start gap-3 rounded-xl px-3 py-2.5">
+      <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${r.daysLeft < 0 ? "bg-rose-100 text-rose-600" : "bg-sky-100 text-sky-700"}`}><BellRing size={14} /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-gray-900">{r.title} <Tag label="SOP" /></span>
+        <span className="block text-xs text-gray-500">
+          {fmt(r.occurrence)} · {r.daysLeft < 0 ? `${t("lewat")} ${-r.daysLeft} ${t("hari")}` : r.daysLeft === 0 ? t("hari ini") : `${r.daysLeft} ${t("hari lagi")}`}
+        </span>
+        {r.note && <span className="block text-[11px] text-gray-400">{r.note}</span>}
+      </span>
+      <button type="button" disabled={pending} onClick={() => start(async () => { await markReminderDone(r.id, r.occurrence); })}
+        className="shrink-0 rounded-full border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:bg-white disabled:opacity-50">
+        <T>Selesai</T>
+      </button>
+    </div>
   );
 }
 
-// Agent HRD: memantau sistem HR dan memandu setup awal. Berbasis aturan (tanpa AI).
+const Tag = ({ label }: { label: string }) => (
+  <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 align-middle text-[9px] font-semibold uppercase tracking-wide text-gray-500"><T>{label}</T></span>
+);
+
+// Agent HRD: satu running list semua pekerjaan yang belum beres; admin memilih sendiri mana yang dikerjakan dulu.
+// Berbasis aturan (tanpa AI). Super Admin juga melihat panduan Setup Awal sampai ditandai selesai.
 export default function AgentPanel({ groups, setup, reminders }: { groups: { key: string; label: string; list: Task[] }[]; setup: SetupStep[] | null; reminders: DueReminder[] }) {
   const setupLeft = setup ? setup.filter((s) => !s.optional && !s.done).length : 0;
-  const tabs = [
-    ...(setup ? [{ key: "setup", label: "Setup Awal", pending: setupLeft }] : []),
-    ...groups.map((g) => ({ key: g.key, label: g.label, pending: g.list.filter((t) => t.count > 0).length })),
-    { key: "sop", label: "Pengingat SOP", pending: reminders.length },
-  ].filter((x) => x.key === "setup" || x.key === "sop" || groups.find((g) => g.key === x.key)!.list.length > 0);
-  const totalPending = tabs.filter((x) => x.key !== "setup").reduce((a, x) => a + x.pending, 0);
-  const [view, setView] = useState(() => (tabs.find((x) => x.pending > 0) ?? tabs[0]).key);
-  const group = groups.find((g) => g.key === view);
-  const list = group?.list ?? [];
-  const sorted = list.filter((t) => t.count > 0);
-  const doneCount = list.length - sorted.length;
-  const pct = list.length ? Math.round((doneCount / list.length) * 100) : 100;
+  const [showSetup, setShowSetup] = useState(false);
+  const items = [
+    ...groups.flatMap((g) => g.list.filter((t) => t.count > 0).map((t) => ({ key: `${g.key}-${t.key}`, node: <Row task={t} tag={<Tag label={g.label} />} /> }))),
+    ...reminders.map((r) => ({ key: `sop-${r.id}`, node: <ReminderRow r={r} /> })),
+  ];
+  const total = items.length;
+  const run = total > 3;
   const greeting = setup && setupLeft > 0
     ? `Setup awal tinggal ${setupLeft} langkah lagi.`
-    : totalPending > 0 ? `Ada ${totalPending} hal yang perlu perhatian.` : "Semua beres, tidak ada yang terlewat.";
+    : total > 0 ? `Ada ${total} hal yang perlu perhatian.` : "Semua beres, tidak ada yang terlewat.";
 
   return (
     <section className="relative overflow-hidden rounded-2xl border bg-white p-5">
@@ -113,45 +109,31 @@ export default function AgentPanel({ groups, setup, reminders }: { groups: { key
           <h3 className="text-[15px] font-semibold text-gray-900"><T>Agent HRD</T></h3>
           <p className="truncate text-xs text-gray-500"><T>{greeting}</T></p>
         </div>
-      </div>
-      <div className="mb-3 flex flex-wrap items-center gap-1 rounded-2xl bg-gray-100 p-1 text-xs font-semibold">
-        {tabs.map(({ key: k, label, pending: n }) => (
-          <button key={k} type="button" onClick={() => setView(k)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ${view === k ? "bg-ink text-white" : "text-gray-500 hover:text-gray-900"}`}>
-            <T>{label}</T>
-            {n > 0 && <span className={`rounded-full px-1.5 text-[10px] ${view === k ? "bg-white/20" : "bg-amber-100 text-amber-700"}`}>{n}</span>}
+        {setup && (
+          <button type="button" onClick={() => setShowSetup((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${showSetup ? "bg-ink text-white" : "bg-gray-100 text-gray-600 hover:text-gray-900"}`}>
+            {showSetup ? <T>Kembali ke daftar tugas</T> : <><T>Setup Awal</T>{setupLeft > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[10px] text-amber-700">{setupLeft}</span>}</>}
           </button>
-        ))}
+        )}
       </div>
 
-      {view === "setup" && setup && <SetupList steps={setup} />}
-      {view === "sop" && <ReminderList list={reminders} />}
-      {group && (
-        <>
-          <div className="mb-3 flex items-center gap-3 px-1">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
-              <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all" style={{ width: `${pct}%` }} />
-            </div>
-            <span className="text-[11px] font-medium tabular-nums text-gray-500">{doneCount}/{list.length} <T>beres</T></span>
+      {showSetup && setup ? <SetupList steps={setup} /> : total === 0 ? (
+        <div className="flex h-[18rem] flex-col items-center justify-center gap-2 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check size={22} strokeWidth={3} /></span>
+          <p className="text-sm font-semibold text-gray-800"><T>Semua beres</T></p>
+          <p className="text-xs text-gray-400"><T>Tidak ada pekerjaan yang terlewat.</T></p>
+        </div>
+      ) : (
+        // Berjalan ke atas seperti running text, berhenti saat disorot supaya admin bisa memilih.
+        <div className="task-track -mx-2 h-[20rem] overflow-hidden">
+          <div className={run ? "task-marquee" : ""} style={{ ["--marquee-duration" as string]: `${total * 4}s` }}>
+            {(run ? [...items, ...items] : items).map((it, idx) => (
+              <div key={`${it.key}-${idx}`} aria-hidden={idx >= total || undefined} inert={idx >= total || undefined} className="border-b border-gray-50">
+                {it.node}
+              </div>
+            ))}
           </div>
-          {sorted.length === 0 && (
-            <div className="flex h-[18rem] flex-col items-center justify-center gap-2 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check size={22} strokeWidth={3} /></span>
-              <p className="text-sm font-semibold text-gray-800"><T>Semua beres</T></p>
-              <p className="text-xs text-gray-400"><T>Tidak ada pekerjaan yang terlewat.</T></p>
-            </div>
-          )}
-          {/* Berjalan ke atas seperti running text, berhenti saat disorot. */}
-          <div className={`task-track -mx-2 h-[18rem] overflow-hidden ${sorted.length === 0 ? "hidden" : ""}`}>
-            <div key={view} className={sorted.length > 3 ? "task-marquee" : ""} style={{ ["--marquee-duration" as string]: `${sorted.length * 4}s` }}>
-              {(sorted.length > 3 ? [...sorted, ...sorted] : sorted).map((t, idx) => (
-                <div key={`${t.key}-${idx}`} aria-hidden={idx >= sorted.length || undefined} className="border-b border-gray-50">
-                  <Row task={t} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </section>
   );

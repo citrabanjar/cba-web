@@ -10,7 +10,7 @@ import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, addMonths, buildSchedule, loanSummary, periodShort } from "@/lib/loans";
-import { approveLoan, cancelLoan, markDisbursed, rejectLoan, saveSchedule } from "@/app/(portal)/portal/admin/pinjaman/actions";
+import { approveLoan, cancelLoan, deleteLoan, markDisbursed, rejectLoan, saveSchedule } from "@/app/(portal)/portal/admin/pinjaman/actions";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -166,7 +166,24 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
           <T>Batalkan</T>
         </Button>
       )}
+      <DeleteLoanButton loan={loan} />
     </div>
+  );
+}
+
+// Hapus pinjaman yang dibatalkan/ditolak supaya daftar tetap bersih.
+export function DeleteLoanButton({ loan }: { loan: { id: string; status: string; seqNo: number } }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  if (!["BATAL", "DITOLAK"].includes(loan.status)) return null;
+  return (
+    <Button size="sm" variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
+      onClick={() => {
+        if (!window.confirm(`${t("Hapus permanen Pinjaman ke-")}${loan.seqNo}? ${t("Data yang dihapus tidak bisa dikembalikan.")}`)) return;
+        start(async () => { const r = await deleteLoan(loan.id); if (r.error) window.alert(t(r.error)); });
+      }}>
+      {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} <T>Hapus</T>
+    </Button>
   );
 }
 
