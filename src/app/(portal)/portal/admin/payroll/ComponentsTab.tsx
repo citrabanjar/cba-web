@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
-import { PAY_KINDS, categoryLabel, describe, legalWarning, type PayComponentInput } from "@/lib/payroll";
+import { PAY_KINDS, categoryLabel, describe, type PayComponentInput } from "@/lib/payroll";
 import { deletePayComponent, setComponentAssignments } from "./actions";
 import ComponentDialog from "./ComponentDialog";
 
@@ -140,7 +140,6 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.taxable ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
                         <T>{c.taxable ? "Objek PPh 21" : "Bukan objek PPh 21"}</T>
                       </span>
-                      {legalWarning(c, workDaysPerWeek) && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">{t(legalWarning(c, workDaysPerWeek)!)}</span>}
                       {c.kind === "PENDAPATAN" && c.params?.fixedWage && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700"><T>Upah tetap</T></span>}
                       {c.kind === "PENDAPATAN" && c.params?.prorate && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600"><T>Prorata</T></span>}
                       {c.method === "THR" && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"><T>Tidak rutin</T></span>}

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import {
   NEEDS_BASE, NEEDS_PARAM, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, defaultRestTiers, describe, isTaxableCategory,
-  legalWarning, overtimeTiers, paramUnit, type PayComponentInput, type PayParams, type Tier,
+  overtimeTiers, paramUnit, type PayComponentInput, type PayParams, type Tier,
 } from "@/lib/payroll";
 import { savePayComponent } from "./actions";
 import type { Component } from "./ComponentsTab";
@@ -80,7 +80,6 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
   const method = PAY_METHODS.find((m) => m.key === form.method);
   const category = PAY_CATEGORIES.find((c) => c.key === form.category);
   const unit = paramUnit(form.param);
-  const legal = legalWarning(form, workDaysPerWeek);
   const tiers = overtimeTiers(p, workDaysPerWeek);
   // Komponen yang bisa dicentang sebagai dasar nilai: gaji pokok + pendapatan bernilai tetap.
   const baseOptions = [
@@ -272,7 +271,6 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                 </>
               )}
               <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700"><b><T>Hasil</T>:</b> {t(describe(form, workDaysPerWeek))}</p>
-              {legal && <p className="text-xs text-red-600">{t(legal)}</p>}
             </div>
           )}
 
