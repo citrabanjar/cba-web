@@ -152,6 +152,7 @@ model User {
   schedules        EmployeeSchedule[]
   shiftDays        EmployeeShiftDay[]
   leaveBalances    LeaveBalanceEntry[]
+  payrollLines     PayrollLine[]
   accounts         Account[]
   sessions         Session[]
   attendances      Attendance[]
@@ -605,3 +606,69 @@ model LeaveBalanceEntry {
 
   @@index([userId, policyId])
 }
+
+// Komponen payroll & benefit perusahaan (Setup Payroll). Isi awal mengikuti UU Ketenagakerjaan,
+// PP 35/2021 (lembur), PP 36/2021 (pengupahan), aturan BPJS, dan Permenaker 6/2016 (THR).
+model PayComponent {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  kind        String // PENDAPATAN | POTONGAN | BENEFIT (ditanggung perusahaan, tidak mengurangi gaji)
+  category    String // GAJI_POKOK | TUNJANGAN_TETAP | TUNJANGAN_TIDAK_TETAP | LEMBUR | THR | BONUS | BPJS_TK | BPJS_KES | PAJAK | POTONGAN_LAIN
+  method      String // TETAP | PER_HADIR | PERSEN | RUMUS_LEMBUR | RUMUS_THR | PPH21_TER | PRORATA_MANGKIR
+  amount      Float? // nominal bawaan (mis. uang makan per hari)
+  rate        Float? // persen (mis. 3.7)
+  base        String? // GAJI_POKOK | UPAH_TETAP (pokok + tunjangan tetap) | UPAH_BPJS
+  capAmount   Float? // batas atas dasar perhitungan
+  floorAmount Float? // batas bawah dasar perhitungan
+  taxable     Boolean  @default(true) // objek PPh 21
+  legalBasis  String?
+  note        String?  @db.Text
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Proses gaji bulanan. DRAFT bisa dihitung ulang dan diubah; FINAL mengunci angka dan menerbitkan slip gaji.
+model PayrollRun {
+  id          String    @id @default(cuid())
+  period      String    @unique // "2026-11"
+  status      String    @default("DRAFT") // DRAFT | FINAL
+  includeThr  Boolean   @default(false)
+  note        String?
+  createdBy   String?
+  finalizedBy String?
+  finalizedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lines PayrollLine[]
+}
+
+// Hasil hitung gaji satu karyawan dalam satu periode.
+model PayrollLine {
+  id         String  @id @default(cuid())
+  runId      String
+  userId     String
+  inputs     Json // hari hadir, mangkir, jam lembur, bonus, kasbon, dst.
+  items      Json // rincian komponen [{code,name,kind,amount,detail,taxable}]
+  gross      Float   @default(0) // penghasilan bruto untuk PPh 21
+  earnings   Float   @default(0)
+  deductions Float   @default(0)
+  benefits   Float   @default(0)
+  pph21      Float   @default(0)
+  netPay     Float   @default(0)
+  ptkp       String?
+  terRate    Float?
+  warning    String?
+  updatedAt  DateTime @updatedAt
+
+  run  PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, userId])
+  @@index([userId])
+}
+

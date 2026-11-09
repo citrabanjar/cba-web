@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Home, Clock, Calendar, CalendarClock, CalendarHeart, Briefcase, FileText, ChevronLeft, ChevronRight,
+  Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
   Receipt, Users, LogOut, Menu, X, Settings, Network, Building2,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
@@ -52,6 +52,14 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
     const time = sections.find((s) => s.section === "TIME");
     if (time) time.items.push(...schedule);
     else sections.push({ section: "TIME", items: schedule });
+  }
+
+  // Setup payroll untuk yang punya akses Gaji & Payroll, masuk ke bagian FINANCE.
+  if (hasMenu({ role, menuAccess }, "gaji")) {
+    const payroll = { href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark };
+    const finance = sections.find((s) => s.section === "FINANCE");
+    if (finance) finance.items.push(payroll);
+    else sections.push({ section: "FINANCE", items: [payroll] });
   }
 
   if (hasMenu({ role, menuAccess }, "karyawan")) {
