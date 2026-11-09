@@ -456,14 +456,61 @@ export async function addSalaryAdjustment(
       },
     },
   });
-  // Komponen master yang dipilih di profil otomatis ditempel ke karyawan ini (beserta gaji pokok).
-  const codes = ["GP", ...data.components.map((c) => c.code?.trim()).filter((c): c is string => !!c)];
-  const masters = await prisma.payComponent.findMany({ where: { code: { in: codes } }, select: { id: true } });
-  if (masters.length) {
-    await prisma.employeePayComponent.createMany({ data: masters.map((m) => ({ userId, componentId: m.id, createdBy: "Profil" })), skipDuplicates: true });
-  }
+  await syncAssignmentsFromSalary(userId, new Date(data.effectiveDate), data.components, actor.name ?? null);
   revalidatePath(`${LIST_PATH}/${userId}`);
+  revalidatePath("/portal/admin/payroll");
   return { success: true };
+}
+
+// Penyesuaian gaji membuka/menutup tempelan komponen input tetap: komponen yang kini dipilih mulai berlaku
+// per tanggal berlaku; yang ada di gaji sebelumnya tetapi tidak dipilih lagi (mis. demosi) berakhir sehari sebelumnya.
+async function syncAssignmentsFromSalary(userId: string, effective: Date, components: ImportComponent[], by: string | null) {
+  const day = new Date(Date.UTC(effective.getUTCFullYear(), effective.getUTCMonth(), effective.getUTCDate()));
+  const dayBefore = new Date(day.getTime() - 86_400_000);
+  const now = new Set(["GP", ...components.map((c) => c.code?.trim()).filter((c): c is string => !!c)]);
+  const prev = await prisma.employeeSalary.findFirst({
+    where: { userId, effectiveDate: { lt: day } }, orderBy: { effectiveDate: "desc" }, include: { components: { select: { code: true } } },
+  });
+  const before = new Set(prev?.components.map((c) => c.code).filter((c): c is string => !!c) ?? []);
+  const masters = await prisma.payComponent.findMany({
+    where: { code: { in: [...now, ...before] }, method: "INPUT" },
+    select: { id: true, code: true, employees: { where: { userId }, select: { id: true, startDate: true, endDate: true } } },
+  });
+  const note = `Penyesuaian gaji ${day.toISOString().slice(0, 10)}`;
+  for (const m of masters) {
+    const row = m.employees[0];
+    if (now.has(m.code)) {
+      if (!row) await prisma.employeePayComponent.create({ data: { userId, componentId: m.id, startDate: m.code === "GP" ? null : day, note: m.code === "GP" ? null : note, createdBy: by } });
+      else if (row.endDate && row.endDate < day) await prisma.employeePayComponent.update({ where: { id: row.id }, data: { startDate: day, endDate: null, note } });
+    } else if (before.has(m.code) && row && (!row.endDate || row.endDate >= day)) {
+      await prisma.employeePayComponent.update({ where: { id: row.id }, data: { endDate: dayBefore, note } });
+    }
+  }
+}
+
+const isoDate = (v: string | null | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T00:00:00Z`) : null);
+
+// Tempel / atur masa berlaku satu komponen untuk satu karyawan (dari profil).
+export async function savePayAssignment(userId: string, componentId: string, data: { startDate: string | null; endDate: string | null; note: string }) {
+  const actor = await requireMenu("gaji");
+  const startDate = isoDate(data.startDate), endDate = isoDate(data.endDate);
+  if (startDate && endDate && endDate < startDate) return { error: "Tanggal Sampai tidak boleh sebelum tanggal Mulai." };
+  const fields = { startDate, endDate, note: data.note.trim().slice(0, 200) || null };
+  await prisma.employeePayComponent.upsert({
+    where: { userId_componentId: { userId, componentId } },
+    update: fields, create: { userId, componentId, ...fields, createdBy: actor.name ?? null },
+  });
+  revalidatePath(`${LIST_PATH}/${userId}`);
+  revalidatePath("/portal/admin/payroll");
+  return {};
+}
+
+export async function removePayAssignment(userId: string, componentId: string) {
+  await requireMenu("gaji");
+  await prisma.employeePayComponent.deleteMany({ where: { userId, componentId } });
+  revalidatePath(`${LIST_PATH}/${userId}`);
+  revalidatePath("/portal/admin/payroll");
+  return {};
 }
 
 export async function setEmployeeAccess(id: string, role: string, menuAccess: string[]) {

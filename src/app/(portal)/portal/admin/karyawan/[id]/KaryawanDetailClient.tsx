@@ -32,6 +32,7 @@ import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
 import type { DayShift } from "@/lib/schedule";
 import type { BalanceRow } from "@/lib/leave-balance";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
+import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; bpjsTkBase: number | null;
@@ -703,7 +704,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, master, canSeePay, isSuper, canEdit,
-  schedules, patterns, shiftDays, leaveBalances, payOptions,
+  schedules, patterns, shiftDays, leaveBalances, payOptions, payComponents,
 }: {
   employee: Employee;
   tenure: string | null;
@@ -718,6 +719,7 @@ export default function KaryawanDetailClient({
   shiftDays: Record<string, DayShift>;
   leaveBalances: BalanceRow[];
   payOptions: PayOption[];
+  payComponents: PayComponentRow[];
 }) {
   const t = useT();
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
@@ -1059,6 +1061,8 @@ export default function KaryawanDetailClient({
                 ? <SalaryCard salary={currentSalary} />
                 : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
             </SectionCard>
+
+            <PayComponentsCard userId={emp.id} rows={payComponents} />
 
             {emp.salaries.length > 0 && <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} />}
           </div>

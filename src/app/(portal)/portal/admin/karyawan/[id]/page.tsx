@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { computeBalances } from "@/lib/leave-balance";
+import { describe, type PayParams } from "@/lib/payroll";
 import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
@@ -164,6 +165,18 @@ export default async function KaryawanDetailPage({
       patterns={patterns}
       shiftDays={shiftDays}
       leaveBalances={await computeBalances([id])}
+      payComponents={canSeePay ? (await prisma.payComponent.findMany({
+        where: { OR: [{ isActive: true }, { employees: { some: { userId: id } } }] }, orderBy: { sortOrder: "asc" },
+        include: { employees: { where: { userId: id }, select: { startDate: true, endDate: true, note: true } } },
+      })).map((c) => {
+        const a = c.employees[0];
+        const d = (x: Date | null) => (x ? x.toISOString().slice(0, 10) : null);
+        return {
+          componentId: c.id, code: c.code, name: c.name, kind: c.kind, method: c.method,
+          formula: describe({ ...c, params: (c.params as PayParams | null) ?? null }),
+          assigned: a ? { startDate: d(a.startDate), endDate: d(a.endDate), note: a.note } : null,
+        };
+      }) : []}
       payOptions={(await prisma.payComponent.findMany({
         where: { isActive: true, method: "INPUT", kind: { in: ["PENDAPATAN", "POTONGAN"] }, NOT: { category: "GAJI_POKOK" } },
         orderBy: { sortOrder: "asc" }, select: { code: true, name: true, kind: true, params: true },

@@ -18,8 +18,9 @@ export default async function PayrollPage() {
   if (!access) redirect("/portal");
   if (!hasMenu(access, "gaji")) redirect("/portal/dashboard");
 
+  const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
   const [components, settings, runs, employees] = await Promise.all([
-    prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { employees: { select: { userId: true } } } }),
+    prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     getPayrollSettings(),
     prisma.payrollRun.findMany({
       orderBy: { period: "desc" }, take: 24,
@@ -33,7 +34,7 @@ export default async function PayrollPage() {
   return (
     <PayrollClient
       components={components.map(({ employees: assigned, createdAt, updatedAt, ...c }) => ({
-        ...c, params: (c.params as PayParams | null) ?? null, employeeIds: assigned.map((e) => e.userId),
+        ...c, params: (c.params as PayParams | null) ?? null, employeeIds: assigned.filter((e) => (!e.endDate || e.endDate >= today) && (!e.startDate || e.startDate <= today)).map((e) => e.userId),
         createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString(),
       }))}
       employees={employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId ?? "", department: e.department?.name ?? null }))}

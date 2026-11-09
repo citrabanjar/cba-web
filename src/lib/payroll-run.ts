@@ -58,7 +58,7 @@ async function loadContext(period: string) {
   const { start, end } = periodRange(period, settings);
   const year = Number(period.slice(0, 4));
   const [components, priorLines] = await Promise.all([
-    prisma.payComponent.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, include: { employees: { select: { userId: true } } } }),
+    prisma.payComponent.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     // Gaji final bulan-bulan sebelumnya di tahun yang sama (untuk hitung ulang PPh 21 Desember).
     prisma.payrollLine.findMany({
       where: { run: { status: "FINAL", period: { gte: `${year}-01`, lt: period } } },
@@ -71,7 +71,13 @@ async function loadContext(period: string) {
 // Hitung gaji satu karyawan dari komponen yang ditempel ke karyawan itu.
 async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, override?: Partial<LineInputs>) {
   const { settings: s, start, end } = ctx;
-  const components = ctx.components.filter((c) => c.employees.some((e) => e.userId === userId));
+  // Komponen yang tertempel ke karyawan ini dan masa berlakunya bersinggungan dengan periode.
+  const tempel = new Map<string, { startDate: Date | null; endDate: Date | null }>();
+  for (const c of ctx.components) {
+    const a = c.employees.find((e) => e.userId === userId && (!e.startDate || utc(e.startDate) <= end) && (!e.endDate || utc(e.endDate) >= start));
+    if (a) tempel.set(c.code, a);
+  }
+  const components = ctx.components.filter((c) => tempel.has(c.code));
   const [user, salary, trips, leaves] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true } }),
     prisma.employeeSalary.findFirst({ where: { userId, effectiveDate: { lte: end } }, orderBy: { effectiveDate: "desc" }, include: { components: true } }),
@@ -111,8 +117,11 @@ async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, overri
   if (components.length === 0) warnings.push("Belum ada komponen yang ditempel");
 
   const basicFull = salary?.basicSalary ?? 0;
-  const allowances = salary?.components.filter((c) => c.type === "TUNJANGAN") ?? [];
-  const fixedDeductions = salary?.components.filter((c) => c.type === "POTONGAN") ?? [];
+  // Isian profil yang tertaut ke komponen master hanya berlaku selama komponennya tertempel.
+  const masterCodes = new Set(ctx.components.map((c) => c.code));
+  const live = (c: { code: string | null }) => !c.code || !masterCodes.has(c.code) || tempel.has(c.code);
+  const allowances = salary?.components.filter((c) => c.type === "TUNJANGAN" && live(c)) ?? [];
+  const fixedDeductions = salary?.components.filter((c) => c.type === "POTONGAN" && live(c)) ?? [];
   // Upah tetap = gaji pokok + tunjangan tetap profil + nominal tetap perusahaan yang ditempel.
   const fixedTotal = basicFull + allowances.reduce((a, c) => a + c.amount, 0)
     + components.filter((c) => c.method === "NOMINAL" && c.category === "TUNJANGAN_TETAP").reduce((a, c) => a + (c.amount ?? 0), 0);
@@ -122,6 +131,50 @@ async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, overri
   const factor = s.prorate === "HARI_KALENDER" ? calHere / calDays : workDaysFull ? workDaysHere / workDaysFull : 1;
   const prorate = (n: number) => (factor < 1 ? n * factor : n);
   if (factor < 1) warnings.push(`Gaji prorata ${Math.round(factor * 100)}%`);
+
+  // Masa berlaku tempelan yang tidak penuh satu periode (mis. tunjangan jabatan berhenti karena demosi).
+  const fmt = (d: Date) => d.toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "UTC" });
+  const windowOf = (code: string) => {
+    const t = tempel.get(code);
+    const a = [from, t?.startDate ? utc(t.startDate) : null].reduce((x, y) => (y && y > x! ? y : x), from)!;
+    const b = [to, t?.endDate ? utc(t.endDate) : null].reduce((x, y) => (y && y < x! ? y : x), to)!;
+    return { a, b, partial: a.getTime() !== from.getTime() || b.getTime() !== to.getTime() };
+  };
+  const windowCache = new Map<string, Promise<{ factor: number; ctx: PayContext | null }>>();
+  // Faktor prorata dan data parameter khusus masa berlaku komponen.
+  const windowFor = (code: string, base: PayContext) => {
+    const w = windowOf(code);
+    if (!w.partial) return Promise.resolve({ factor, ctx: base, label: "" });
+    const key = `${w.a.getTime()}-${w.b.getTime()}`;
+    if (!windowCache.has(key)) {
+      windowCache.set(key, (async () => {
+        if (w.a > w.b) return { factor: 0, ctx: null };
+        const [wd, attW, leaveW] = await Promise.all([
+          countLeaveDays(userId, w.a, w.b, "HARI_KERJA"),
+          prisma.attendance.groupBy({ by: ["status"], where: { userId, date: { gte: w.a, lte: w.b } }, _count: { _all: true } }),
+          Promise.all(leaves.map((l) => {
+            const a = utc(l.startDate) < w.a ? w.a : utc(l.startDate), b = utc(l.endDate) > w.b ? w.b : utc(l.endDate);
+            return a <= b ? countLeaveDays(userId, a, b, "HARI_KERJA") : Promise.resolve(0);
+          })).then((x) => x.reduce((p, q) => p + q, 0)),
+        ]);
+        const days = Math.round((w.b.getTime() - w.a.getTime()) / DAY) + 1;
+        const f = s.prorate === "HARI_KALENDER" ? days / calDays : workDaysFull ? wd / workDaysFull : 1;
+        const cnt = (st: string[]) => attW.filter((x) => st.includes(x.status)).reduce((n, x) => n + x._count._all, 0);
+        const dates = [...tripDates].filter((d) => d >= w.a.getTime() && d <= w.b.getTime()).length;
+        return {
+          factor: f,
+          ctx: {
+            ...base,
+            qty: {
+              ...base.qty, HARI_HADIR: cnt(["HADIR", "DINAS"]), HARI_MANGKIR: cnt(["ALPHA"]), HARI_CUTI: leaveW, HARI_DINAS: dates,
+              KALI_DINAS: trips.filter((t) => utc(t.startDate) >= w.a && utc(t.startDate) <= w.b).length,
+            },
+          },
+        };
+      })());
+    }
+    return windowCache.get(key)!.then((r) => ({ ...r, label: `berlaku ${fmt(w.a)} - ${fmt(w.b)}` }));
+  };
   if (fixedTotal > 0 && fixedTotal < s.umk) warnings.push("Upah di bawah UMK");
 
   // Nilai komponen input: GP dari gaji pokok, tetap dari profil (pakai kode), tiap periode dari draft.
@@ -141,33 +194,40 @@ async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, overri
   };
 
   const used = new Set<string>();
+  const join2 = (...x: string[]) => x.filter(Boolean).join(" · ");
   for (const c of components) {
     const params = (c.params ?? null) as PayParams | null;
     const earning = c.kind === "PENDAPATAN";
     if (c.method === "PPH21") continue;
+    used.add(c.code);
+    // BPJS, potongan persen, dan input tiap periode tidak diprorata menurut masa berlaku tempelan.
+    const byWindow = !(c.method === "PERSEN" || params?.perPeriod);
+    const w = byWindow ? await windowFor(c.code, pctx) : { factor, ctx: pctx, label: "" };
+    if (!w.ctx) continue;
+    const pr = (n: number) => (w.factor < 1 ? n * w.factor : n);
+    const prLabel = w.label || (w.factor < 1 ? `prorata ${Math.round(w.factor * 100)}%` : "");
     if (c.method === "INPUT") {
-      used.add(c.code);
       const v = c.category === "GAJI_POKOK" ? basicFull : values[c.code] ?? 0;
       const fixed = !params?.perPeriod;
-      add(c.code, c.name, c.kind, fixed && earning ? prorate(v) : v,
-        params?.perPeriod ? "input periode ini" : c.category === "GAJI_POKOK" ? (factor < 1 ? `prorata ${Math.round(factor * 100)}%` : "") : "nilai di profil karyawan", c.taxable);
+      add(c.code, c.name, c.kind, fixed && earning ? pr(v) : v,
+        params?.perPeriod ? "input periode ini" : c.category === "GAJI_POKOK" ? prLabel : join2("nilai di profil karyawan", w.label), c.taxable);
       continue;
     }
     if (c.method === "PERSEN" && fixedTotal <= 0) continue;
-    const r = evaluate({ ...c, params }, pctx);
+    const r = evaluate({ ...c, params }, w.ctx);
     if (!r) continue;
-    used.add(c.code);
-    add(c.code, c.name, c.kind, c.method === "NOMINAL" && earning ? prorate(r.amount) : r.amount, r.detail, c.taxable);
+    add(c.code, c.name, c.kind, c.method === "NOMINAL" && earning ? pr(r.amount) : r.amount, join2(r.detail, w.label), c.taxable);
   }
-  // Tunjangan/potongan profil yang belum masuk lewat komponen (diketik bebas atau komponennya tidak ditempel).
+  // Tunjangan/potongan profil yang diketik bebas (tanpa komponen master) tetap dibayar.
+  // Yang tertaut ke komponen master hanya dibayar lewat tempelan yang masih berlaku.
   const master = new Map(ctx.components.map((c) => [c.code, c]));
   allowances.forEach((a, i) => {
-    if (a.code && used.has(a.code)) return;
+    if (a.code && (used.has(a.code) || master.has(a.code))) return;
     const m = a.code ? master.get(a.code) : undefined;
     add(a.code && !items.some((x) => x.code === a.code) ? a.code : `TJ${i + 1}`, a.name, "PENDAPATAN", prorate(a.amount), "tunjangan tetap karyawan", m?.taxable ?? true);
   });
   fixedDeductions.forEach((d, i) => {
-    if (d.code && used.has(d.code)) return;
+    if (d.code && (used.has(d.code) || master.has(d.code))) return;
     const m = d.code ? master.get(d.code) : undefined;
     add(d.code && !items.some((x) => x.code === d.code) ? d.code : `PT${i + 1}`, d.name, "POTONGAN", d.amount, "potongan tetap karyawan", m?.taxable ?? false);
   });

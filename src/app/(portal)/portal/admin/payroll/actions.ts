@@ -82,12 +82,27 @@ export async function setComponentAssignments(componentId: string, userIds: stri
   const access = await requirePayroll();
   const valid = await prisma.user.findMany({ where: { id: { in: userIds }, role: { not: "SUPER_ADMIN" } }, select: { id: true } });
   const ids = valid.map((u) => u.id);
-  await prisma.$transaction([
-    prisma.employeePayComponent.deleteMany({ where: { componentId, userId: { notIn: ids } } }),
-    prisma.employeePayComponent.createMany({
-      data: ids.map((userId) => ({ userId, componentId, createdBy: access.name ?? null })), skipDuplicates: true,
-    }),
-  ]);
+  const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  const rows = await prisma.employeePayComponent.findMany({ where: { componentId } });
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+  for (const r of rows) {
+    const activeNow = (!r.endDate || r.endDate >= today) && (!r.startDate || r.startDate <= today);
+    if (ids.includes(r.userId)) {
+      // Dicentang lagi padahal sudah berakhir: berlaku kembali mulai hari ini.
+      if (r.endDate && r.endDate < today) ops.push(prisma.employeePayComponent.update({ where: { id: r.id }, data: { startDate: today, endDate: null } }));
+    } else if (activeNow) {
+      // Dilepas: tempelan polos dihapus; yang punya riwayat tanggal/keterangan diakhiri kemarin.
+      ops.push(r.startDate || r.endDate || r.note
+        ? prisma.employeePayComponent.update({ where: { id: r.id }, data: { endDate: yesterday } })
+        : prisma.employeePayComponent.delete({ where: { id: r.id } }));
+    }
+  }
+  const existing = new Set(rows.map((r) => r.userId));
+  ops.push(prisma.employeePayComponent.createMany({
+    data: ids.filter((u) => !existing.has(u)).map((userId) => ({ userId, componentId, createdBy: access.name ?? null })),
+  }));
+  await prisma.$transaction(ops);
   revalidatePath(PATH);
   return {};
 }
