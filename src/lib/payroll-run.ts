@@ -198,7 +198,6 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     }
     return windowCache.get(key)!.then((r) => ({ ...r, label: `berlaku ${fmt(w.a)} - ${fmt(w.b)}` }));
   };
-  if (fixedTotal > 0 && fixedTotal < s.umk) warnings.push("Upah di bawah UMK");
 
   // Nilai komponen input: GP dari gaji pokok, tetap dari profil (pakai kode), tiap periode dari draft.
   const values: Record<string, number> = { GP: basicFull };

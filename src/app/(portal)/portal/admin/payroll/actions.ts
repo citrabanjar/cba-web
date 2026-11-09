@@ -132,15 +132,12 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
   const access = await requirePayroll();
   const n = (v: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)));
   const value: PayrollSettings = {
-    region: input.region.trim() || "-",
-    umk: n(input.umk, 0, 1e9), ump: n(input.ump, 0, 1e9),
     periodStartDay: n(input.periodStartDay, 1, 28), payDay: n(input.payDay, 0, 31),
     overtimeDivisor: n(input.overtimeDivisor, 1, 400), workDaysPerWeek: input.workDaysPerWeek === 5 ? 5 : 6,
     prorate: input.prorate === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA",
     rounding: [1, 100, 1000].includes(Number(input.rounding)) ? Number(input.rounding) : 1,
     weekStartDay: n(input.weekStartDay, 0, 6),
   };
-  if (value.umk <= 0) return { error: "UMK wajib diisi." };
   await prisma.appSetting.upsert({
     where: { key: PAYROLL_SETTING_KEY },
     update: { value, updatedBy: access.name ?? null },

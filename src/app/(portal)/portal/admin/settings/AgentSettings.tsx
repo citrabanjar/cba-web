@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bot, CheckCircle2, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, CheckCircle2, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm"
 const describe = (r: SopReminder) =>
   r.freq === "MONTHLY" ? `Setiap tanggal ${r.day}` : r.freq === "YEARLY" ? `Setiap ${r.day} ${MONTHS[(r.month || 1) - 1]}` : `Sekali, ${r.date}`;
 
-// Pengaturan Agent HRD (Super Admin): pengecekan yang aktif, batas angka, dan pengingat SOP.
+// Pengaturan Task Admin (Super Admin): pengecekan yang aktif, batas angka, dan pengingat SOP.
 export default function AgentSettings({ settings }: { settings: Settings }) {
   const t = useT();
   const [disabled, setDisabled] = useState<string[]>(settings.disabled);
@@ -39,8 +39,8 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
   return (
     <Card className="border-gray-100">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600"><Bot size={15} /> <T>Agent HRD</T></CardTitle>
-        <p className="text-xs text-gray-400"><T>Atur pengecekan yang dipantau Agent HRD di Beranda, batas angkanya, dan pengingat SOP perusahaan.</T></p>
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600"><ClipboardList size={15} /> <T>Task Admin</T></CardTitle>
+        <p className="text-xs text-gray-400"><T>Atur pengecekan yang dipantau Task Admin di Beranda, batas angkanya, dan pengingat SOP perusahaan.</T></p>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-3">
@@ -67,7 +67,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
           </div>
           <div className="flex justify-end">
             <Button size="sm" disabled={pending} className="gap-1.5"
-              onClick={() => run(() => saveAgentRules({ disabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) }), "Pengaturan Agent HRD tersimpan.")}>
+              onClick={() => run(() => saveAgentRules({ disabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) }), "Pengaturan Task Admin tersimpan.")}>
               {pending && <Loader2 size={14} className="animate-spin" />} <T>Simpan Pengecekan</T>
             </Button>
           </div>
@@ -77,7 +77,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-600"><T>Pengingat SOP</T></p>
-              <p className="text-[11px] text-gray-400"><T>Tugas berulang perusahaan yang dimunculkan Agent HRD pada tanggalnya sampai ditandai selesai.</T></p>
+              <p className="text-[11px] text-gray-400"><T>Tugas berulang perusahaan yang dimunculkan Task Admin pada tanggalnya sampai ditandai selesai.</T></p>
             </div>
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing({ ...EMPTY })}><Plus size={14} /> <T>Tambah</T></Button>
           </div>

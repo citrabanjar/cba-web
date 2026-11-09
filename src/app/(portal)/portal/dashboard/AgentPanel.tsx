@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowRight, BellRing, Bot, Check, Circle, Loader2 } from "lucide-react";
+import { ArrowRight, BellRing, Check, Circle, ClipboardList, Loader2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { markReminderDone, setSetupDone } from "../admin/settings/agent-actions";
 import { Row } from "./TaskPanel";
@@ -84,7 +84,7 @@ const Tag = ({ label }: { label: string }) => (
   <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 align-middle text-[9px] font-semibold uppercase tracking-wide text-gray-500"><T>{label}</T></span>
 );
 
-// Agent HRD: satu running list semua pekerjaan yang belum beres; admin memilih sendiri mana yang dikerjakan dulu.
+// Task Admin: satu running list semua pekerjaan yang belum beres; admin memilih sendiri mana yang dikerjakan dulu.
 // Berbasis aturan (tanpa AI). Super Admin juga melihat panduan Setup Awal sampai ditandai selesai.
 export default function AgentPanel({ groups, setup, reminders }: { groups: { key: string; label: string; list: Task[] }[]; setup: SetupStep[] | null; reminders: DueReminder[] }) {
   const setupLeft = setup ? setup.filter((s) => !s.optional && !s.done).length : 0;
@@ -103,10 +103,10 @@ export default function AgentPanel({ groups, setup, reminders }: { groups: { key
     <section className="relative overflow-hidden rounded-2xl border bg-white p-5">
       <div className="mb-3 flex flex-wrap items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-ink to-slate-500 text-white shadow-md shadow-black/20">
-          <Bot size={18} />
+          <ClipboardList size={18} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold text-gray-900"><T>Agent HRD</T></h3>
+          <h3 className="text-[15px] font-semibold text-gray-900"><T>Task Admin</T></h3>
           <p className="truncate text-xs text-gray-500"><T>{greeting}</T></p>
         </div>
         {setup && (

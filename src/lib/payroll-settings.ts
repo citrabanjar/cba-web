@@ -5,7 +5,10 @@ import { TAX_SETTING_KEY, TER_SETTING_KEY, type TaxYearConfig, type TerVersion }
 // Setelan payroll yang tersimpan, dilengkapi nilai bawaan untuk isian yang belum ada.
 export async function getPayrollSettings(): Promise<PayrollSettings> {
   const row = await prisma.appSetting.findUnique({ where: { key: PAYROLL_SETTING_KEY } });
-  const saved = (row?.value ?? {}) as Partial<PayrollSettings>;
+  // Setelan lama bisa masih menyimpan wilayah/UMK/UMP; tidak dipakai lagi.
+  const saved = Object.fromEntries(
+    Object.entries((row?.value ?? {}) as Record<string, unknown>).filter(([k]) => !["region", "umk", "ump"].includes(k)),
+  ) as Partial<PayrollSettings>;
   return { ...DEFAULT_PAYROLL_SETTINGS, ...saved };
 }
 

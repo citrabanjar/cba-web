@@ -64,7 +64,7 @@ export const PAY_BASES = [
 export type Tier = { upTo: number | null; x: number };
 export type PayParams = {
   prorate?: boolean; // ikut prorata karyawan masuk/keluar/berhenti dapat di tengah periode
-  fixedWage?: boolean; // termasuk upah tetap (dasar lembur, THR, BPJS, cek UMK)
+  fixedWage?: boolean; // termasuk upah tetap (dasar lembur, THR, BPJS)
   min?: number; // Nominal x Parameter: syarat minimal parameter (jam lembur dicek per lembur)
   step?: number; // Nominal x Parameter: berlaku kelipatan
   divisor?: number; work?: Tier[]; rest?: Tier[] | null; // upah lembur; rest null = tarif hari libur sama dengan hari kerja
@@ -139,7 +139,6 @@ export type PayComponentInput = {
 
 // Setelan umum payroll (disimpan di AppSetting "payroll.settings").
 export type PayrollSettings = {
-  region: string; umk: number; ump: number;
   periodStartDay: number; // tanggal mulai periode gaji (1 = sebulan kalender)
   payDay: number; // tanggal gajian (0 = hari kerja terakhir bulan itu)
   overtimeDivisor: number; // pembagi upah sejam lembur
@@ -151,7 +150,6 @@ export type PayrollSettings = {
 
 export const PAYROLL_SETTING_KEY = "payroll.settings";
 export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
-  region: "Kota Banjarmasin", umk: 3855894, ump: 3725000,
   periodStartDay: 1, payDay: 0, overtimeDivisor: 173, workDaysPerWeek: 6, prorate: "HARI_KERJA", rounding: 1, weekStartDay: 1,
 };
 

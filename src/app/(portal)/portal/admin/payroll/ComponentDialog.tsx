@@ -282,7 +282,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                 {check(!!p.prorate, (v) => setParam({ prorate: v }), "Prorata",
                   "Dihitung sebagian bila karyawan masuk, keluar, atau berhenti dapat komponen ini di tengah periode.")}
                 {check(!!p.fixedWage, (v) => setParam({ fixedWage: v }), "Termasuk upah tetap",
-                  "Ikut jadi dasar upah lembur, THR, BPJS, dan cek UMK (PP 36/2021).")}
+                  "Ikut jadi dasar upah lembur, THR, dan BPJS (PP 36/2021).")}
               </>
             )}
             {check(form.isActive, (v) => set("isActive", v), "Aktif", "Komponen nonaktif tidak dipakai saat menghitung gaji.")}

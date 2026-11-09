@@ -47,7 +47,7 @@ async function loadSetup(): Promise<SetupStep[]> {
       done: holidays > 0, note: `${holidays} hari libur`, href: "/portal/admin/schedule" },
     { key: "leave", phase: "2. Kebijakan", title: "Setup Leave (jenis cuti)", hint: "Kebijakan cuti dan jatahnya.",
       done: policies > 0, note: `${policies} jenis cuti`, href: "/portal/admin/leave" },
-    { key: "pay", phase: "3. Payroll", title: "Komponen gaji & pengaturan payroll", hint: "Komponen Input/Rumus, UMK, periode gaji, tanggal gajian.",
+    { key: "pay", phase: "3. Payroll", title: "Komponen gaji & pengaturan payroll", hint: "Komponen Input/Rumus, periode gaji, tanggal gajian.",
       done: components > 0 && !!payrollSetting, note: payrollSetting ? `${components} komponen` : "Pengaturan Payroll belum disimpan", href: "/portal/admin/payroll" },
     { key: "tax", phase: "3. Payroll", title: `PTKP & tarif PPh 21 tahun ${year}`, hint: "Simpan Pengaturan PPh 21 tahun berjalan (dan cek tarif TER).",
       done: taxYears.includes(String(year)), href: "/portal/admin/payroll" },

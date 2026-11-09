@@ -38,13 +38,10 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-ink to-slate-500 text-white"><Settings2 size={17} /></span>
         <div>
           <h3 className="font-semibold text-gray-900"><T>Pengaturan Payroll</T></h3>
-          <p className="text-xs text-gray-400"><T>Upah minimum, periode gaji, dan aturan hitung yang berlaku untuk semua karyawan.</T></p>
+          <p className="text-xs text-gray-400"><T>Periode gaji, tanggal gajian, dan aturan hitung yang berlaku untuk semua karyawan.</T></p>
         </div>
       </div>
       <div className="grid gap-5 p-5 md:grid-cols-3">
-        {field("Wilayah upah minimum", "Lokasi kerja yang menjadi dasar UMK.", <Input value={form.region} onChange={(e) => set("region", e.target.value)} />)}
-        {field("UMK (Rp)", "UMK Kota Banjarmasin 2026: Rp3.855.894 (SK Gubernur Kalsel 2025).", <Input type="number" value={form.umk} onChange={(e) => set("umk", Number(e.target.value))} />)}
-        {field("UMP (Rp)", "UMP Kalimantan Selatan 2026: Rp3.725.000.", <Input type="number" value={form.ump} onChange={(e) => set("ump", Number(e.target.value))} />)}
         {field("Periode gaji mulai tanggal", "1 = sebulan penuh (1 s/d akhir bulan). Isi mis. 21 bila periode 21 s/d 20 bulan berikutnya.",
           <Input type="number" min={1} max={28} value={form.periodStartDay} onChange={(e) => set("periodStartDay", Number(e.target.value))} />)}
         {field("Tanggal gajian", "0 = hari kerja terakhir bulan itu.", <Input type="number" min={0} max={31} value={form.payDay} onChange={(e) => set("payDay", Number(e.target.value))} />)}
@@ -77,7 +74,7 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
 function SimulationTab({ components, settings }: { components: Component[]; settings: PayrollSettings }) {
   const t = useT();
   const [v, setV] = useState({
-    basic: settings.umk, fixedAllowance: 0, bpjsBase: "", daysPresent: 22, monthsOfService: 12, absentDays: 0, workDaysInMonth: 25,
+    basic: 5000000, fixedAllowance: 0, bpjsBase: "", daysPresent: 22, monthsOfService: 12, absentDays: 0, workDaysInMonth: 25,
     tripDays: 0, trips: 0, leaveDays: 0, overtimeWork: "", overtimeRest: "",
   });
   const res = useMemo(() => simulate(components, settings, {
@@ -123,9 +120,6 @@ function SimulationTab({ components, settings }: { components: Component[]; sett
           {n("absentDays", "Hari mangkir")}{n("leaveDays", "Hari cuti disetujui")}
           {n("tripDays", "Hari dinas luar")}{n("trips", "Kegiatan dinas luar (kali)")}
         </div>
-        {v.basic + v.fixedAllowance < settings.umk && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700"><T>Upah di bawah UMK</T> {rupiah(settings.umk)}.</p>
-        )}
       </section>
       <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
         {group("PENDAPATAN", "Pendapatan")}
@@ -148,12 +142,13 @@ export default function PayrollClient({ components, settings, runs, employees, n
   components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[];
   taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[];
 }) {
+  const t = useT();
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "simulasi">("proses");
   const active = components.filter((c) => c.isActive);
   const bpjsEmployer = active.filter((c) => c.kind === "BENEFIT" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
   const bpjsEmployee = active.filter((c) => c.kind === "POTONGAN" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
   const stats = [
-    { label: "UMK", value: rupiah(settings.umk), icon: Landmark, tone: "from-brand to-rose-400" },
+    { label: "Tanggal Gajian", value: settings.payDay ? `${t("Tanggal")} ${settings.payDay}` : t("Hari kerja terakhir"), icon: Landmark, tone: "from-brand to-rose-400" },
     { label: "Komponen Aktif", value: String(active.length), icon: Wallet, tone: "from-emerald-500 to-teal-400" },
     { label: "BPJS Perusahaan", value: `${bpjsEmployer.toFixed(2).replace(".", ",")}%`, icon: ShieldCheck, tone: "from-indigo-500 to-violet-400" },
     { label: "BPJS Karyawan", value: `${bpjsEmployee.toFixed(2).replace(".", ",")}%`, icon: HandCoins, tone: "from-amber-500 to-orange-400" },

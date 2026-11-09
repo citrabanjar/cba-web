@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { changeAdminPassword } from "./actions";
-import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, LayoutDashboard, UserCog } from "lucide-react";
+import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, ClipboardList, LayoutDashboard, UserCog } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -56,10 +56,10 @@ export default function SettingsClient({
   name, employeeId, role, indicatorHidden, agentSettings,
 }: { name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
-  // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Agent HRD & Beranda hanya untuk Super Admin.
+  // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Task Admin & Running Indikator hanya untuk Super Admin.
   const tabs = [
     { key: "akun", label: "Akun", icon: UserCog },
-    ...(agentSettings ? [{ key: "agent", label: "Agent HRD", icon: Bot }] : []),
+    ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
     ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),
   ];
   const [tab, setTab] = useState("akun");
