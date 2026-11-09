@@ -17,7 +17,7 @@ export type LineInputs = {
   otWork: number[]; otRest: number[]; // jam lembur per pengajuan (hari kerja / hari libur)
   values: Record<string, number>; // nilai komponen input tiap periode, per kode (mis. BNS, KSB)
 };
-export type LineItem = { code: string; name: string; kind: string; amount: number; detail: string; taxable: boolean };
+export type LineItem = { code: string; name: string; kind: string; amount: number; detail: string; taxable: boolean; refs?: string[] };
 
 // Masukan lama (sebelum komponen fleksibel) dibaca ulang ke bentuk baru.
 export function normalizeInputs(raw: unknown): Partial<LineInputs> {
@@ -63,7 +63,11 @@ async function loadContext(period: string) {
   const year = Number(iso(end).slice(0, 4));
   // Mingguan: komponen bulanan (input profil, flat, BPJS/persen) dibayar di minggu yang memuat akhir bulan.
   let monthEnd = false;
-  for (let t = start.getTime(); t <= end.getTime(); t += DAY) if (new Date(t + DAY).getUTCDate() === 1) monthEnd = true;
+  // Angsuran pinjaman per bulan: proses bulanan = periodenya; mingguan = bulan yang berakhir di minggu itu.
+  let loanPeriod: string | null = weekly ? null : period;
+  for (let t = start.getTime(); t <= end.getTime(); t += DAY) {
+    if (new Date(t + DAY).getUTCDate() === 1) { monthEnd = true; if (weekly) loanPeriod = iso(new Date(t)).slice(0, 7); }
+  }
   const [components, priorLines, taxAll, terAll] = await Promise.all([
     prisma.payComponent.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     // Gaji final bulan-bulan sebelumnya di tahun yang sama (untuk hitung ulang PPh 21 Desember).
@@ -75,7 +79,7 @@ async function loadContext(period: string) {
     getTerSettings(),
   ]);
   return {
-    period, settings, start, end, year, weekly, monthEnd: !weekly || monthEnd, components, priorLines,
+    period, settings, start, end, year, weekly, monthEnd: !weekly || monthEnd, loanPeriod, components, priorLines,
     tax: taxYearConfig(taxAll, year), ter: terVersionAt(terAll, iso(end)),
   };
 }
@@ -255,6 +259,21 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     add(d.code && !items.some((x) => x.code === d.code) ? d.code : `PT${i + 1}`, d.name, "POTONGAN", d.amount, "potongan tetap karyawan", m?.taxable ?? false);
   });
 
+  // Angsuran pinjaman karyawan periode ini (bukan objek pajak). Ditandai terpotong saat gaji difinalkan.
+  if (ctx.loanPeriod) {
+    const inst = await prisma.loanInstallment.findMany({
+      where: { period: ctx.loanPeriod, status: "BELUM", loan: { userId, status: "BERJALAN" } },
+      include: { loan: { select: { tenor: true } } }, orderBy: { seq: "asc" },
+    });
+    const total = inst.reduce((a, i) => a + i.amount, 0);
+    if (total > 0) {
+      items.push({
+        code: "PJM", name: "Angsuran Pinjaman", kind: "POTONGAN", amount: round(total), taxable: false,
+        detail: inst.map((i) => `angsuran ke-${i.seq} dari ${i.loan.tenor}`).join(", "), refs: inst.map((i) => i.id),
+      });
+    }
+  }
+
   // PPh 21: bruto = pendapatan + benefit objek pajak (premi asuransi perusahaan), dikurangi potongan berkategori Gaji (mis. mangkir).
   const catOf = new Map(ctx.components.map((c) => [c.code, c.category]));
   const pensionCodes = new Set(["JHTK", "JPK", ...ctx.components.filter((c) => c.category === "IURAN_PENSIUN").map((c) => c.code)]);
@@ -389,9 +408,20 @@ export async function finalizeRun(runId: string, by: string | null) {
       update: data, create: { ...data, userId: l.userId, period: run.period },
     });
   });
+  // Angsuran pinjaman yang ikut terpotong ditandai lunas; pinjaman tanpa sisa angsuran menjadi LUNAS.
+  const refs = run.lines.flatMap((l) => (l.items as LineItem[]).filter((i) => i.code === "PJM").flatMap((i) => i.refs ?? []));
+  const paidAt = new Date();
   await prisma.$transaction([
     ...ops,
-    prisma.payrollRun.update({ where: { id: runId }, data: { status: "FINAL", finalizedBy: by, finalizedAt: new Date() } }),
+    prisma.loanInstallment.updateMany({ where: { id: { in: refs }, status: "BELUM" }, data: { status: "LUNAS", paidRunId: runId, paidAt } }),
+    prisma.payrollRun.update({ where: { id: runId }, data: { status: "FINAL", finalizedBy: by, finalizedAt: paidAt } }),
   ]);
+  if (refs.length) {
+    const loans = await prisma.employeeLoan.findMany({
+      where: { status: "BERJALAN", installments: { some: { id: { in: refs } } } }, select: { id: true, installments: { select: { status: true } } },
+    });
+    const done = loans.filter((l) => l.installments.every((i) => i.status === "LUNAS")).map((l) => l.id);
+    if (done.length) await prisma.employeeLoan.updateMany({ where: { id: { in: done } }, data: { status: "LUNAS" } });
+  }
   return ops.length;
 }

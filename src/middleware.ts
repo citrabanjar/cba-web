@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { isSuperAdmin } from "@/lib/roles";
 
 // Halaman pribadi karyawan. SUPER_ADMIN bukan karyawan, jadi tidak punya data di sini.
-const EMPLOYEE_ONLY = ["/portal/absensi", "/portal/cuti", "/portal/dinas", "/portal/payslip", "/portal/pph21"];
+const EMPLOYEE_ONLY = ["/portal/absensi", "/portal/cuti", "/portal/dinas", "/portal/payslip", "/portal/pph21", "/portal/pinjaman"];
 
 const COMING_SOON = process.env.COMING_SOON === "true";
 

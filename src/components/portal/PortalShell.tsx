@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -39,6 +39,7 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
       items: [
         { href: "/portal/payslip", label: "Slip Gaji", icon: FileText },
         { href: "/portal/pph21", label: "PPh 21", icon: Receipt },
+        { href: "/portal/pinjaman", label: "Pinjaman", icon: HandCoins },
       ],
     },
   );
@@ -56,10 +57,13 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
 
   // Setup payroll untuk yang punya akses Gaji & Payroll, masuk ke bagian FINANCE.
   if (hasMenu({ role, menuAccess }, "gaji")) {
-    const payroll = { href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark };
+    const payroll = [
+      { href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark },
+      { href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins },
+    ];
     const finance = sections.find((s) => s.section === "FINANCE");
-    if (finance) finance.items.push(payroll);
-    else sections.push({ section: "FINANCE", items: [payroll] });
+    if (finance) finance.items.push(...payroll);
+    else sections.push({ section: "FINANCE", items: payroll });
   }
 
   if (hasMenu({ role, menuAccess }, "karyawan")) {

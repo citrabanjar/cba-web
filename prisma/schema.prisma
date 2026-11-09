@@ -140,20 +140,21 @@ model User {
   bpjsKesNumber String?
   bpjsKesActive Boolean @default(false)
 
-  department       Department?         @relation(fields: [departmentId], references: [id])
-  manager          User?               @relation("Atasan", fields: [managerId], references: [id], onDelete: SetNull)
-  reports          User[]              @relation("Atasan")
+  department       Department?            @relation(fields: [departmentId], references: [id])
+  manager          User?                  @relation("Atasan", fields: [managerId], references: [id], onDelete: SetNull)
+  reports          User[]                 @relation("Atasan")
   salaries         EmployeeSalary[]
   changeLogs       EmployeeChangeLog[]
   family           FamilyMember[]
   photo            EmployeePhoto?
   employmentEvents EmploymentEvent[]
-  workLocations    WorkLocation[]      @relation("UserWorkLocations")
+  workLocations    WorkLocation[]         @relation("UserWorkLocations")
   schedules        EmployeeSchedule[]
   shiftDays        EmployeeShiftDay[]
   leaveBalances    LeaveBalanceEntry[]
   payrollLines     PayrollLine[]
   payComponents    EmployeePayComponent[]
+  loans            EmployeeLoan[]
   accounts         Account[]
   sessions         Session[]
   attendances      Attendance[]
@@ -660,17 +661,17 @@ model PayrollRun {
 
 // Hasil hitung gaji satu karyawan dalam satu periode.
 model PayrollLine {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   runId      String
   userId     String
   inputs     Json // hari hadir, mangkir, jam lembur, bonus, kasbon, dst.
   items      Json // rincian komponen [{code,name,kind,amount,detail,taxable}]
-  gross      Float   @default(0) // penghasilan bruto untuk PPh 21
-  earnings   Float   @default(0)
-  deductions Float   @default(0)
-  benefits   Float   @default(0)
-  pph21      Float   @default(0)
-  netPay     Float   @default(0)
+  gross      Float    @default(0) // penghasilan bruto untuk PPh 21
+  earnings   Float    @default(0)
+  deductions Float    @default(0)
+  benefits   Float    @default(0)
+  pph21      Float    @default(0)
+  netPay     Float    @default(0)
   ptkp       String?
   terRate    Float?
   warning    String?
@@ -685,15 +686,15 @@ model PayrollLine {
 
 // Komponen payroll yang ditempel ke karyawan. Hanya komponen yang ditempel yang dihitung saat payroll run.
 model EmployeePayComponent {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   componentId String
   startDate   DateTime? @db.Date // mulai dapat komponen; kosong = sejak awal
   endDate     DateTime? @db.Date // berhenti dapat (mis. demosi); kosong = masih berlaku
   note        String? // keterangan, mis. nomor SK promosi/demosi
   createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   component PayComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
@@ -702,3 +703,47 @@ model EmployeePayComponent {
   @@index([componentId])
 }
 
+// ─── Pinjaman Karyawan ───────────────────────────────────────────────────────
+// Tanpa bunga. Karyawan mengajukan, admin menyetujui; angsuran dipotong otomatis di Proses Gaji.
+// isOpening = saldo awal dari aplikasi lama saat migrasi (principal = sisa pinjaman per tanggal migrasi).
+model EmployeeLoan {
+  id             String    @id @default(cuid())
+  userId         String
+  principal      Float // jumlah pinjaman (saldo awal: sisa pinjaman)
+  tenor          Int // jumlah angsuran
+  startPeriod    String // periode potongan pertama, "2026-12"
+  purpose        String?   @db.Text
+  status         String    @default("PENDING") // PENDING | BERJALAN | LUNAS | DITOLAK | BATAL
+  isOpening      Boolean   @default(false)
+  originalAmount Float? // saldo awal: jumlah pinjaman semula (informasi)
+  note           String?   @db.Text
+  createdBy      String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installments LoanInstallment[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+// Tabel angsuran. Nominal dan periode angsuran yang belum dibayar bisa diubah admin.
+model LoanInstallment {
+  id        String    @id @default(cuid())
+  loanId    String
+  seq       Int // angsuran ke-
+  period    String // periode potongan, "2026-12"
+  amount    Float
+  status    String    @default("BELUM") // BELUM | LUNAS
+  paidRunId String? // Proses Gaji yang memotong angsuran ini
+  paidAt    DateTime?
+  note      String?
+
+  loan EmployeeLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@unique([loanId, seq])
+  @@index([period, status])
+}
