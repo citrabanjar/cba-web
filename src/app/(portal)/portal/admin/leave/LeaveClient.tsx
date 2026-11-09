@@ -61,6 +61,10 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const set = <K extends keyof LeavePolicyInput>(k: K, v: LeavePolicyInput[K]) => setForm((f) => ({ ...f, [k]: v }));
+  // Cuti Tahunan: langsung jatah per tahun (bawaan 12 hari kerja, diperbarui 1 Januari) supaya isiannya muncul.
+  const pickCategory = (category: string) => setForm((f) => (category === "TAHUNAN" && f.period !== "TAHUN" && !(f.accrualPerMonth > 0)
+    ? { ...f, category, period: "TAHUN", unit: "HARI_KERJA", quota: f.quota && f.quota > 1 ? f.quota : 12, renewal: "JANUARI" }
+    : { ...f, category }));
 
   function save() {
     setError(null);
@@ -91,7 +95,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
             <div className="space-y-1.5"><Label className="text-xs"><T>Nama</T></Label>
               <Input value={form.name} onChange={(e) => set("name", e.target.value)} /></div>
             <div className="space-y-1.5"><Label className="text-xs"><T>Kategori</T></Label>
-              <select value={form.category} onChange={(e) => set("category", e.target.value)} className={select}>
+              <select value={form.category} onChange={(e) => pickCategory(e.target.value)} className={select}>
                 {LEAVE_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{t(c.label)}</option>)}
               </select></div>
           </div>
@@ -104,13 +108,16 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
             </label>
             {!unlimited && (
               <div className="grid gap-3 sm:grid-cols-3">
-                <Input type="number" min={0} value={form.quota ?? 0} onChange={(e) => set("quota", Number(e.target.value))} />
-                <select value={form.unit} onChange={(e) => set("unit", e.target.value)} className={select}>
-                  {LEAVE_UNITS.map((u) => <option key={u.key} value={u.key}>{t(u.label)}</option>)}
-                </select>
-                <select value={form.period} onChange={(e) => set("period", e.target.value)} className={select}>
-                  {LEAVE_PERIODS.map((p) => <option key={p.key} value={p.key}>{t(p.label)}</option>)}
-                </select>
+                <div className="space-y-1"><Label className="text-[11px] text-gray-500"><T>Jumlah</T></Label>
+                  <Input type="number" min={0} value={form.quota ?? 0} onChange={(e) => set("quota", Number(e.target.value))} /></div>
+                <div className="space-y-1"><Label className="text-[11px] text-gray-500"><T>Satuan</T></Label>
+                  <select value={form.unit} onChange={(e) => set("unit", e.target.value)} className={select}>
+                    {LEAVE_UNITS.map((u) => <option key={u.key} value={u.key}>{t(u.label)}</option>)}
+                  </select></div>
+                <div className="space-y-1"><Label className="text-[11px] text-gray-500"><T>Berlaku</T></Label>
+                  <select value={form.period} onChange={(e) => set("period", e.target.value)} className={select}>
+                    {LEAVE_PERIODS.map((p) => <option key={p.key} value={p.key}>{t(p.label)}</option>)}
+                  </select></div>
               </div>
             )}
           </div>

@@ -287,6 +287,8 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Jumlah": "Amount",
+  "Satuan": "Unit",
   "Diperbarui 1 Januari": "Renews 1 January",
   "Diperbarui ulang tahun kerja": "Renews on work anniversary",
   "Bisa setengah hari": "Half days allowed",
