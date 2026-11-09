@@ -4,6 +4,7 @@ import { Fragment, useState, useTransition } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { parseHours, rupiah } from "@/lib/payroll";
+import { isWeekly, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
 import { deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
 
@@ -14,7 +15,7 @@ export type RunLine = {
 };
 export type NonRoutine = { code: string; name: string };
 export type Run = {
-  id: string; period: string; label: string; status: string; extraCodes: string[];
+  id: string; period: string; label: string; status: string; frequency: string; extraCodes: string[];
   finalizedBy: string | null; finalizedAt: string | null; lines: RunLine[];
 };
 
@@ -49,9 +50,17 @@ function HoursCell({ value, disabled, onSave }: { value: number[]; disabled: boo
 
 // Proses gaji bulanan: hitung draft dari komponen yang ditempel ke tiap karyawan; pilih komponen tidak rutin; isi jam lembur;
 // lalu finalkan untuk mengunci angka dan menerbitkan slip gaji.
-export default function RunTab({ runs, nonRoutine }: { runs: Run[]; nonRoutine: NonRoutine[] }) {
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+
+export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]; nonRoutine: NonRoutine[]; weekStartDay: number }) {
   const t = useT();
-  const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT")?.period ?? thisMonth());
+  const [weekly, setWeekly] = useState(false);
+  const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT" && !isWeekly(r.period))?.period ?? thisMonth());
+  const switchFreq = (w: boolean) => {
+    setWeekly(w); setMsg(null);
+    const p = runs.find((r) => r.status === "DRAFT" && isWeekly(r.period) === w)?.period ?? (w ? weekStartOf(today(), weekStartDay) : thisMonth());
+    setPeriod(p); setExtra(runs.find((r) => r.period === p)?.extraCodes ?? []);
+  };
   const run = runs.find((r) => r.period === period);
   const [extra, setExtra] = useState<string[]>(run?.extraCodes ?? []);
   const [open, setOpen] = useState<string | null>(null);
@@ -74,8 +83,21 @@ export default function RunTab({ runs, nonRoutine }: { runs: Run[]; nonRoutine: 
     <div className="space-y-4">
       <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500"><T>Periode</T></p>
-          <input type="month" value={period} onChange={(e) => { setPeriod(e.target.value); setMsg(null); setExtra(runs.find((r) => r.period === e.target.value)?.extraCodes ?? []); }}
+          <p className="text-xs font-medium text-gray-500"><T>Jadwal bayar</T></p>
+          <div className="flex h-9 gap-1 rounded-full bg-gray-100 p-1">
+            {([[false, "Bulanan"], [true, "Mingguan"]] as const).map(([w, l]) => (
+              <button key={l} type="button" onClick={() => switchFreq(w)}
+                className={`rounded-full px-3 text-xs ${weekly === w ? "bg-white font-semibold text-gray-900 shadow-sm" : "text-gray-500"}`}><T>{l}</T></button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-gray-500"><T>Periode</T>{weekly && <span className="ml-1 font-normal text-gray-400">{periodLabel(period)}</span>}</p>
+          <input type={weekly ? "date" : "month"} value={period}
+            onChange={(e) => {
+              const p = weekly && e.target.value ? weekStartOf(e.target.value, weekStartDay) : e.target.value;
+              setPeriod(p); setMsg(null); setExtra(runs.find((r) => r.period === p)?.extraCodes ?? []);
+            }}
             className="h-9 rounded-lg border border-gray-200 px-3 text-sm" />
         </div>
         {nonRoutine.length > 0 && (
@@ -119,7 +141,7 @@ export default function RunTab({ runs, nonRoutine }: { runs: Run[]; nonRoutine: 
 
       {!run ? (
         <p className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-10 text-center text-sm text-gray-500">
-          <T>Belum ada proses gaji untuk</T> {MONTHS[Number(period.slice(5)) - 1]} {period.slice(0, 4)}. <T>Klik Hitung Gaji.</T>
+          <T>Belum ada proses gaji untuk</T> {weekly ? periodLabel(period) : `${MONTHS[Number(period.slice(5, 7)) - 1]} ${period.slice(0, 4)}`}. <T>Klik Hitung Gaji.</T>
         </p>
       ) : (
         <>

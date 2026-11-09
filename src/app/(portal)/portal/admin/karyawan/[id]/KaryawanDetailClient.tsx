@@ -35,7 +35,7 @@ import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 
 type Salary = {
-  id: string; effectiveDate: Date; basicSalary: number; bpjsTkBase: number | null;
+  id: string; effectiveDate: Date; basicSalary: number; dailyWage: number | null; monthlyFactor: number | null; bpjsTkBase: number | null;
   bpjsKesBase: number | null; note: string | null; createdBy: string | null;
   components: { id: string; type: string; name: string; amount: number; code: string | null }[];
 };
@@ -99,8 +99,7 @@ const TAB_LIST = [
   { key: "pekerjaan", label: "Pekerjaan" },
   { key: "absensi", label: "Kehadiran & Shift" },
   { key: "cuti", label: "Cuti & Dinas" },
-  { key: "gaji", label: "Gaji & Tunjangan" },
-  { key: "pajak", label: "Pajak & BPJS" },
+  { key: "gaji", label: "Payroll" },
   { key: "payslip", label: "Slip Gaji" },
   { key: "akses", label: "Akses" },
 ];
@@ -349,7 +348,8 @@ function SalaryCard({ salary }: { salary: Salary }) {
   const benefits = salary.components.filter((c) => c.type === "TUNJANGAN");
   const deductions = salary.components.filter((c) => c.type === "POTONGAN");
   const rows = [
-    { label: "Gaji Pokok", value: salary.basicSalary },
+    ...(salary.dailyWage ? [{ label: `Gaji harian x ${salary.monthlyFactor ?? 0} (pengali bulanan)`, value: salary.dailyWage }] : []),
+    { label: salary.dailyWage ? "Gaji Pokok (setara bulanan)" : "Gaji Pokok", value: salary.basicSalary },
     ...benefits.map((c) => ({ label: c.name, value: c.amount })),
     ...deductions.map((c) => ({ label: `Potongan: ${c.name}`, value: -c.amount })),
   ];
@@ -591,6 +591,11 @@ function SalaryDialog({
   const t = useT();
   const [effectiveDate, setEffectiveDate] = useState("");
   const [basicSalary, setBasicSalary] = useState(String(current?.basicSalary ?? ""));
+  // Karyawan dengan jadwal bayar Mingguan diisi gaji harian; gaji bulanan = gaji harian x pengali.
+  const harian = employee.paymentSchedule === "Mingguan";
+  const [dailyWage, setDailyWage] = useState(String(current?.dailyWage ?? ""));
+  const [monthlyFactor, setMonthlyFactor] = useState(String(current?.monthlyFactor ?? "25"));
+  const monthlyEq = (Number(dailyWage) || 0) * (Number(monthlyFactor) || 0);
   const [note, setNote] = useState("");
   const [components, setComponents] = useState<Component[]>(
     (current?.components ?? []).map((c) => ({
@@ -608,7 +613,9 @@ function SalaryDialog({
       try {
         await addSalaryAdjustment(employee.id, {
           effectiveDate,
-          basicSalary: Number(basicSalary),
+          basicSalary: harian ? monthlyEq : Number(basicSalary),
+          dailyWage: harian ? Number(dailyWage) : null,
+          monthlyFactor: harian ? Number(monthlyFactor) : null,
           bpjsTkBase: current?.bpjsTkBase ?? undefined,
           bpjsKesBase: current?.bpjsKesBase ?? undefined,
           note,
@@ -635,11 +642,25 @@ function SalaryDialog({
               <Label className="text-xs"><T>Tanggal Berlaku *</T></Label>
               <Input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs"><T>Gaji Pokok *</T></Label>
-              <Input type="number" value={basicSalary} onChange={(e) => setBasicSalary(e.target.value)} />
-            </div>
+            {!harian && (
+              <div className="space-y-1.5">
+                <Label className="text-xs"><T>Gaji Pokok *</T></Label>
+                <Input type="number" value={basicSalary} onChange={(e) => setBasicSalary(e.target.value)} />
+              </div>
+            )}
           </div>
+          {harian && (
+            <div className="space-y-2 rounded-xl bg-gray-50 p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><Label className="text-xs"><T>Gaji Harian *</T></Label>
+                  <Input type="number" value={dailyWage} onChange={(e) => setDailyWage(e.target.value)} /></div>
+                <div className="space-y-1.5"><Label className="text-xs"><T>Pengali bulanan *</T></Label>
+                  <Input type="number" step="0.5" value={monthlyFactor} onChange={(e) => setMonthlyFactor(e.target.value)} /></div>
+              </div>
+              <p className="text-xs text-gray-600"><T>Gaji bulanan (dasar lembur, BPJS, THR)</T>: <b>{formatRupiah(monthlyEq)}</b></p>
+              <p className="text-[11px] text-gray-400"><T>Payroll mingguan membayar gaji harian x hari kerja terjadwal di minggu itu.</T></p>
+            </div>
+          )}
           <div className="space-y-2">
             <Label className="text-xs"><T>Tunjangan dan Potongan</T></Label>
             <p className="text-[11px] text-gray-400"><T>Pilih dari komponen di Payroll & Benefit supaya sifat pajak dan dasar hitungnya ikut aturan komponen.</T></p>
@@ -734,7 +755,7 @@ export default function KaryawanDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const tabs = TAB_LIST.filter(
-    (t) => (!["gaji", "payslip"].includes(t.key) || canSeePay) && (t.key !== "akses" || isSuper),
+    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "akses" || isSuper),
   );
 
   const fields = useMemo<Record<Section, FormField[]>>(() => ({
@@ -1043,11 +1064,38 @@ export default function KaryawanDetailClient({
           </div>
         )}
 
-        {tab === "gaji" && canSeePay && (
+        {tab === "gaji" && (
           <div className="section-stack space-y-5">
-            <SectionCard title="Payroll" onEdit={edit("payroll")} grid>
-              <Field label="Payroll">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
+            {canSeePay && (
+              <SectionCard title="Payroll" onEdit={edit("payroll")} grid>
+                <Field label="Jadwal Bayar">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
+                {emp.paymentSchedule === "Mingguan" && (
+                  <>
+                    <Field label="Gaji Harian">{currentSalary?.dailyWage ? formatRupiah(currentSalary.dailyWage) : null}</Field>
+                    <Field label="Pengali Bulanan">{currentSalary?.monthlyFactor ? `${currentSalary.monthlyFactor} x` : null}</Field>
+                  </>
+                )}
+              </SectionCard>
+            )}
+            <SectionCard title="Pajak" onEdit={edit("pajak")} grid>
+              <Field label="NPWP">{emp.npwp}</Field>
+              <Field label="Status PTKP">{emp.ptkpStatus}</Field>
+              <Field label="Taxability">{emp.taxability}</Field>
+              <Field label="Status Pajak">{emp.taxStatus}</Field>
+              <Field label="Kode Objek Pajak">{emp.taxObjectCode}</Field>
             </SectionCard>
+            <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
+              <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
+              <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
+              {canSeePay && (
+                <Field label="Dasar Upah BPJS Ketenagakerjaan">
+                  {currentSalary?.bpjsTkBase ? formatRupiah(currentSalary.bpjsTkBase) : null}
+                </Field>
+              )}
+              <Field label="No BPJS Kesehatan">{emp.bpjsKesNumber}</Field>
+              <Field label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
+            </SectionCard>
+            {canSeePay && (<>
 
             <SectionCard
               title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
@@ -1065,6 +1113,7 @@ export default function KaryawanDetailClient({
             <PayComponentsCard userId={emp.id} rows={payComponents} />
 
             {emp.salaries.length > 0 && <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} />}
+            </>)}
           </div>
         )}
 
@@ -1119,29 +1168,6 @@ export default function KaryawanDetailClient({
               <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
             </SectionCard>
 
-          </div>
-        )}
-
-        {tab === "pajak" && (
-          <div className="section-stack space-y-5">
-            <SectionCard title="Pajak" onEdit={edit("pajak")} grid>
-              <Field label="NPWP">{emp.npwp}</Field>
-              <Field label="Status PTKP">{emp.ptkpStatus}</Field>
-              <Field label="Taxability">{emp.taxability}</Field>
-              <Field label="Status Pajak">{emp.taxStatus}</Field>
-              <Field label="Kode Objek Pajak">{emp.taxObjectCode}</Field>
-            </SectionCard>
-            <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
-              <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
-              <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
-              {canSeePay && (
-                <Field label="Dasar Upah BPJS Ketenagakerjaan">
-                  {currentSalary?.bpjsTkBase ? formatRupiah(currentSalary.bpjsTkBase) : null}
-                </Field>
-              )}
-              <Field label="No BPJS Kesehatan">{emp.bpjsKesNumber}</Field>
-              <Field label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
-            </SectionCard>
           </div>
         )}
 

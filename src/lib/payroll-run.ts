@@ -1,12 +1,12 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { evaluate, type PayContext, type PayParams, type PayrollSettings } from "@/lib/payroll";
-import { getPayrollSettings, getTaxSettings } from "@/lib/payroll-settings";
+import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { countLeaveDays } from "@/lib/leave-balance";
-import { pph21Final, pph21Monthly, taxYearConfig } from "@/lib/pph21";
+import { isWeekly, periodLabel } from "@/lib/payroll-run-period";
+import { pph21Daily, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
 
 const DAY = 86_400_000;
-const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const utc = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 
 // Masukan satu karyawan per periode. Angka otomatis (hadir, dinas, cuti) diambil dari data portal;
@@ -36,13 +36,16 @@ export function normalizeInputs(raw: unknown): Partial<LineInputs> {
   return out;
 }
 
-export const periodLabel = (period: string) => {
-  const [y, m] = period.split("-").map(Number);
-  return `${MONTHS[m - 1]} ${y}`;
-};
+export { isWeekly, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
+const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-// Rentang tanggal periode gaji. periodStartDay 1 = sebulan kalender; 21 = 21 bulan lalu s/d 20 bulan ini.
+// Rentang tanggal periode gaji. Mingguan: 7 hari dari tanggal mulai. Bulanan: periodStartDay 1 = sebulan
+// kalender; 21 = 21 bulan lalu s/d 20 bulan ini.
 export function periodRange(period: string, s: PayrollSettings) {
+  if (isWeekly(period)) {
+    const start = new Date(`${period}T00:00:00Z`);
+    return { start, end: new Date(start.getTime() + 6 * DAY) };
+  }
   const [y, m] = period.split("-").map(Number);
   if (s.periodStartDay <= 1) return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 0)) };
   return { start: new Date(Date.UTC(y, m - 2, s.periodStartDay)), end: new Date(Date.UTC(y, m - 1, s.periodStartDay - 1)) };
@@ -56,17 +59,25 @@ type Ctx = Awaited<ReturnType<typeof loadContext>>;
 async function loadContext(period: string) {
   const settings = await getPayrollSettings();
   const { start, end } = periodRange(period, settings);
-  const year = Number(period.slice(0, 4));
-  const [components, priorLines, taxAll] = await Promise.all([
+  const weekly = isWeekly(period);
+  const year = Number(iso(end).slice(0, 4));
+  // Mingguan: komponen bulanan (input profil, flat, BPJS/persen) dibayar di minggu yang memuat akhir bulan.
+  let monthEnd = false;
+  for (let t = start.getTime(); t <= end.getTime(); t += DAY) if (new Date(t + DAY).getUTCDate() === 1) monthEnd = true;
+  const [components, priorLines, taxAll, terAll] = await Promise.all([
     prisma.payComponent.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     // Gaji final bulan-bulan sebelumnya di tahun yang sama (untuk hitung ulang PPh 21 Desember).
-    prisma.payrollLine.findMany({
-      where: { run: { status: "FINAL", period: { gte: `${year}-01`, lt: period } } },
+    weekly ? Promise.resolve([]) : prisma.payrollLine.findMany({
+      where: { run: { status: "FINAL", frequency: "BULANAN", period: { gte: `${year}-01`, lt: period } } },
       select: { userId: true, gross: true, pph21: true, items: true },
     }),
     getTaxSettings(),
+    getTerSettings(),
   ]);
-  return { period, settings, start, end, year, components, priorLines, tax: taxYearConfig(taxAll, year) };
+  return {
+    period, settings, start, end, year, weekly, monthEnd: !weekly || monthEnd, components, priorLines,
+    tax: taxYearConfig(taxAll, year), ter: terVersionAt(terAll, iso(end)),
+  };
 }
 
 // Hitung gaji satu karyawan dari komponen yang ditempel ke karyawan itu.
@@ -117,7 +128,11 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   if (!salary) warnings.push("Gaji pokok belum diisi");
   if (components.length === 0) warnings.push("Belum ada komponen yang ditempel");
 
-  const basicFull = salary?.basicSalary ?? 0;
+  // Karyawan harian (payroll mingguan): gaji bulanan = gaji harian x pengali (dasar lembur, BPJS, THR).
+  const weekly = ctx.weekly;
+  const daily = salary?.dailyWage ?? 0, monthlyFactor = salary?.monthlyFactor ?? 0;
+  if (weekly && salary && !(daily > 0 && monthlyFactor > 0)) warnings.push("Gaji harian / pengali belum diisi");
+  const basicFull = weekly && daily > 0 && monthlyFactor > 0 ? daily * monthlyFactor : salary?.basicSalary ?? 0;
   // Isian profil yang tertaut ke komponen master hanya berlaku selama komponennya tertempel.
   const masterCodes = new Set(ctx.components.map((c) => c.code));
   const live = (c: { code: string | null }) => !c.code || !masterCodes.has(c.code) || tempel.has(c.code);
@@ -131,7 +146,8 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   // Prorata untuk karyawan yang masuk/keluar di tengah periode.
   const calDays = Math.round((end.getTime() - start.getTime()) / DAY) + 1;
   const calHere = from <= to ? Math.round((to.getTime() - from.getTime()) / DAY) + 1 : 0;
-  const factor = s.prorate === "HARI_KALENDER" ? calHere / calDays : workDaysFull ? workDaysHere / workDaysFull : 1;
+  // Mingguan: gaji pokok sudah = gaji harian x hari kerja terjadwal, jadi tidak diprorata lagi.
+  const factor = weekly ? 1 : s.prorate === "HARI_KALENDER" ? calHere / calDays : workDaysFull ? workDaysHere / workDaysFull : 1;
   const prorate = (n: number) => (factor < 1 ? n * factor : n);
   if (factor < 1) warnings.push(`Gaji prorata ${Math.round(factor * 100)}%`);
 
@@ -191,7 +207,9 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
       HARI_DINAS: inputs.tripDays, KALI_DINAS: inputs.trips, HARI_CUTI: inputs.leaveDays,
     },
     overtimeWork: inputs.otWork, overtimeRest: inputs.otRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor, nonRoutine,
+    prorataDays: weekly && monthlyFactor > 0 ? monthlyFactor : undefined,
   };
+  const monthlyItem = (c: { method: string; code: string }) => c.method === "NOMINAL" || c.method === "PERSEN" || (c.method === "INPUT" && c.code !== "GP");
 
   const used = new Set<string>();
   const join2 = (...x: string[]) => x.filter(Boolean).join(" · ");
@@ -200,6 +218,11 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     const earning = c.kind === "PENDAPATAN";
     if (c.method === "PPH21") continue;
     used.add(c.code);
+    if (weekly && !ctx.monthEnd && monthlyItem(c)) continue;
+    if (weekly && c.code === "GP") {
+      add(c.code, c.name, c.kind, daily * workDaysHere, `${Math.round(daily).toLocaleString("id-ID")} x ${workDaysHere} hari kerja terjadwal`, c.taxable);
+      continue;
+    }
     // Data parameter mengikuti masa berlaku tempelan (kecuali BPJS/persen); nominal diprorata hanya bila dicentang Prorata.
     const w = c.method === "PERSEN" ? { factor, ctx: pctx, label: "" } : await windowFor(c.code, pctx);
     if (!w.ctx) continue;
@@ -221,11 +244,13 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   const master = new Map(ctx.components.map((c) => [c.code, c]));
   allowances.forEach((a, i) => {
     if (a.code && (used.has(a.code) || master.has(a.code))) return;
+    if (!ctx.monthEnd) return;
     const m = a.code ? master.get(a.code) : undefined;
     add(a.code && !items.some((x) => x.code === a.code) ? a.code : `TJ${i + 1}`, a.name, "PENDAPATAN", prorate(a.amount), "tunjangan tetap karyawan", m?.taxable ?? true);
   });
   fixedDeductions.forEach((d, i) => {
     if (d.code && (used.has(d.code) || master.has(d.code))) return;
+    if (!ctx.monthEnd) return;
     const m = d.code ? master.get(d.code) : undefined;
     add(d.code && !items.some((x) => x.code === d.code) ? d.code : `PT${i + 1}`, d.name, "POTONGAN", d.amount, "potongan tetap karyawan", m?.taxable ?? false);
   });
@@ -236,10 +261,15 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   const gross = items.filter((i) => i.taxable && (i.kind === "PENDAPATAN" || i.kind === "BENEFIT")).reduce((a, i) => a + i.amount, 0)
     - items.filter((i) => i.kind === "POTONGAN" && catOf.get(i.code) === "GAJI").reduce((a, i) => a + i.amount, 0);
   const pension = items.filter((i) => pensionCodes.has(i.code)).reduce((a, i) => a + i.amount, 0);
-  const lastMonth = ctx.period.endsWith("-12") || (resign !== null && resign <= end);
+  const lastMonth = !weekly && (ctx.period.endsWith("-12") || (resign !== null && resign <= end));
   let pph21 = 0, rate: number | null = null;
   if (components.some((c) => c.method === "PPH21")) {
-    if (lastMonth) {
+    if (weekly) {
+      // Karyawan harian: TER harian atas rata-rata penghasilan sehari (PP 58/2023).
+      const t = pph21Daily(gross, workDaysHere, ctx.ter);
+      pph21 = t.tax; rate = t.rate;
+      add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, `TER harian ${t.rate}% · rata-rata ${Math.round(t.perDay).toLocaleString("id-ID")} sehari`, false);
+    } else if (lastMonth) {
       const prior = ctx.priorLines.filter((l) => l.userId === userId);
       const priorPension = prior.reduce((a, l) => a + (l.items as LineItem[]).filter((i) => pensionCodes.has(i.code)).reduce((x, i) => x + i.amount, 0), 0);
       const months = prior.length + 1;
@@ -252,7 +282,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
       // Kelebihan potong PPh 21 bulan-bulan sebelumnya dikembalikan ke karyawan (PMK 168/2023).
       add("PPHRF", "Pengembalian lebih potong PPh 21", "PENDAPATAN", f.refund, `pajak setahun ${f.yearTax.toLocaleString("id-ID")}, sudah dipotong ${Math.round(f.yearTax + f.refund).toLocaleString("id-ID")}`, false);
     } else {
-      const t = pph21Monthly(gross, user?.ptkpStatus);
+      const t = pph21Monthly(gross, user?.ptkpStatus, ctx.ter);
       pph21 = t.tax; rate = t.rate;
       add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, `TER ${t.rate}% x ${Math.round(gross).toLocaleString("id-ID")} (${user?.ptkpStatus ?? "TK/0"})`, false);
     }
@@ -281,12 +311,20 @@ export async function generateRun(period: string, extraCodes: string[], by: stri
   if (existing?.status === "FINAL") throw new Error("Periode ini sudah final.");
   const run = existing
     ? await prisma.payrollRun.update({ where: { id: existing.id }, data: { extraCodes, includeThr: extraCodes.includes("THR") } })
-    : await prisma.payrollRun.create({ data: { period, extraCodes, includeThr: extraCodes.includes("THR"), createdBy: by } });
+    : await prisma.payrollRun.create({
+        data: { period, extraCodes, includeThr: extraCodes.includes("THR"), frequency: isWeekly(period) ? "MINGGUAN" : "BULANAN", createdBy: by },
+      });
   const ctx = await loadContext(period);
+  // Jadwal bayar di profil karyawan menentukan ikut proses bulanan atau mingguan.
   const employees = await prisma.user.findMany({
-    where: { role: { not: "SUPER_ADMIN" }, OR: [{ isActive: true }, { resignDate: { gte: ctx.start } }] },
+    where: {
+      role: { not: "SUPER_ADMIN" }, OR: [{ isActive: true }, { resignDate: { gte: ctx.start } }],
+      AND: [ctx.weekly ? { paymentSchedule: "Mingguan" } : { OR: [{ paymentSchedule: null }, { paymentSchedule: { not: "Mingguan" } }] }],
+    },
     select: { id: true },
   });
+  // Karyawan yang tidak lagi ikut periode ini (mis. jadwal bayar berubah) dikeluarkan dari draft.
+  await prisma.payrollLine.deleteMany({ where: { runId: run.id, userId: { notIn: employees.map((e) => e.id) } } });
   for (const e of employees) {
     const prev = existing?.lines.find((l) => l.userId === e.id)?.inputs;
     const r = await computeLine(ctx, e.id, extraCodes, prev ? manualOf(prev) : undefined);

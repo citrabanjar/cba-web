@@ -108,7 +108,7 @@ export default async function KaryawanDetailPage({
         where: { userId: id },
         orderBy: { effectiveDate: "desc" },
         select: {
-          id: true, effectiveDate: true, basicSalary: true, bpjsTkBase: true,
+          id: true, effectiveDate: true, basicSalary: true, dailyWage: true, monthlyFactor: true, bpjsTkBase: true,
           bpjsKesBase: true, note: true, createdBy: true,
           components: { select: { id: true, type: true, name: true, amount: true, code: true } },
         },

@@ -77,15 +77,38 @@ export function ptkpOf(status: string | null | undefined, cfg: TaxYearConfig = D
   return cfg.ptkpSelf + (married ? cfg.ptkpMarried : 0) + Math.min(dependents, cfg.maxDependents) * cfg.ptkpDependent;
 }
 
-export function terRate(gross: number, status: string | null | undefined) {
-  const table = { A: TER_A, B: TER_B, C: TER_C }[terCategory(status)];
-  return (table.find(([upTo]) => gross <= upTo) ?? table[table.length - 1])[1];
+// Tarif TER yang bisa diatur dengan tanggal berlaku. Bawaan: Lampiran PP 58/2023 (berlaku 1 Januari 2024).
+export type TerRow = { upTo: number | null; rate: number }; // penghasilan s/d upTo → rate %; upTo null = baris terakhir
+export type TerVersion = { effectiveDate: string; A: TerRow[]; B: TerRow[]; C: TerRow[]; daily: TerRow[] };
+export const TER_SETTING_KEY = "pph21.ter";
+const toRows = (t: Bracket[]): TerRow[] => t.map(([upTo, rate]) => ({ upTo: Number.isFinite(upTo) ? upTo : null, rate }));
+export const DEFAULT_TER: TerVersion = {
+  effectiveDate: "2024-01-01", A: toRows(TER_A), B: toRows(TER_B), C: toRows(TER_C),
+  // TER harian pegawai tidak tetap: s/d Rp450.000 sehari 0%, di atasnya 0,5% (s/d Rp2.500.000 sehari).
+  daily: [{ upTo: 450_000, rate: 0 }, { upTo: null, rate: 0.5 }],
+};
+// Versi TER yang berlaku pada tanggal tertentu (YYYY-MM-DD).
+export function terVersionAt(list: TerVersion[] | null | undefined, date: string): TerVersion {
+  const ok = (list ?? []).filter((v) => v.effectiveDate <= date).sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+  return ok[0] ?? DEFAULT_TER;
+}
+const pick = (rows: TerRow[], amount: number) => (rows.find((r) => r.upTo === null || amount <= r.upTo) ?? rows[rows.length - 1])?.rate ?? 0;
+
+export function terRate(gross: number, status: string | null | undefined, ter: TerVersion = DEFAULT_TER) {
+  return pick(ter[terCategory(status)], gross);
 }
 
 // PPh 21 bulanan Januari-November: penghasilan bruto sebulan x tarif TER (PP 58/2023).
-export function pph21Monthly(gross: number, status: string | null | undefined) {
-  const rate = terRate(gross, status);
+export function pph21Monthly(gross: number, status: string | null | undefined, ter: TerVersion = DEFAULT_TER) {
+  const rate = terRate(gross, status, ter);
   return { rate, tax: Math.floor((gross * rate) / 100) };
+}
+
+// PPh 21 karyawan harian/mingguan: tarif TER harian dari rata-rata penghasilan sehari.
+export function pph21Daily(gross: number, days: number, ter: TerVersion = DEFAULT_TER) {
+  const perDay = days > 0 ? gross / days : gross;
+  const rate = pick(ter.daily, perDay);
+  return { rate, perDay, tax: Math.floor((gross * rate) / 100) };
 }
 
 // Tarif progresif Pasal 17 atas PKP setahun.

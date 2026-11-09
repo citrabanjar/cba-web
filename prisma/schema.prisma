@@ -336,7 +336,9 @@ model EmployeeSalary {
   id            String   @id @default(cuid())
   userId        String
   effectiveDate DateTime @db.Date
-  basicSalary   Float
+  basicSalary   Float // gaji bulanan; karyawan harian = gaji harian x pengali
+  dailyWage     Float? // karyawan harian (payroll mingguan)
+  monthlyFactor Float? // pengali gaji harian menjadi bulanan (dasar lembur, BPJS, THR)
   bpjsTkBase    Float?
   bpjsKesBase   Float?
   note          String?
@@ -645,6 +647,7 @@ model PayrollRun {
   status      String    @default("DRAFT") // DRAFT | FINAL
   includeThr  Boolean   @default(false) // lama; diganti extraCodes
   extraCodes  String[]  @default([]) // komponen tidak rutin (THR, bonus) yang disertakan periode ini
+  frequency   String    @default("BULANAN") // BULANAN (period 2026-11) | MINGGUAN (period = tanggal mulai minggu, 2026-11-09)
   note        String?
   createdBy   String?
   finalizedBy String?

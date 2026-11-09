@@ -10,7 +10,8 @@ import { parseHours, rupiah, simulate, type PayrollSettings } from "@/lib/payrol
 import { savePayrollSettings } from "./actions";
 import RunTab, { type NonRoutine, type Run } from "./RunTab";
 import TaxSettings from "./TaxSettings";
-import type { TaxYearConfig } from "@/lib/pph21";
+import TerSettings from "./TerSettings";
+import type { TaxYearConfig, TerVersion } from "@/lib/pph21";
 import ComponentsTab, { type Component, type PayEmployee } from "./ComponentsTab";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
@@ -55,6 +56,10 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
         {field("Gaji masuk/keluar di tengah periode", "Cara menghitung gaji prorata.",
           <select value={form.prorate} onChange={(e) => set("prorate", e.target.value === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA")} className={select}>
             <option value="HARI_KERJA">{t("Per hari kerja")}</option><option value="HARI_KALENDER">{t("Per hari kalender")}</option>
+          </select>)}
+        {field("Payroll mingguan mulai hari", "Untuk karyawan dengan jadwal bayar Mingguan (gaji harian).",
+          <select value={form.weekStartDay} onChange={(e) => set("weekStartDay", Number(e.target.value))} className={select}>
+            {["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].map((d, i) => <option key={d} value={i}>{t(d)}</option>)}
           </select>)}
         {field("Pembulatan", "Pembulatan nominal setiap komponen.",
           <select value={form.rounding} onChange={(e) => set("rounding", Number(e.target.value))} className={select}>
@@ -139,9 +144,9 @@ function SimulationTab({ components, settings }: { components: Component[]; sett
   );
 }
 
-export default function PayrollClient({ components, settings, runs, employees, nonRoutine, taxSettings }: {
+export default function PayrollClient({ components, settings, runs, employees, nonRoutine, taxSettings, terSettings }: {
   components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[];
-  taxSettings: Record<string, TaxYearConfig>;
+  taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[];
 }) {
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "simulasi">("proses");
   const active = components.filter((c) => c.isActive);
@@ -179,9 +184,9 @@ export default function PayrollClient({ components, settings, runs, employees, n
             </button>
           ))}
         </div>
-        {tab === "proses" && <RunTab runs={runs} nonRoutine={nonRoutine} />}
+        {tab === "proses" && <RunTab runs={runs} nonRoutine={nonRoutine} weekStartDay={settings.weekStartDay} />}
         {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={settings.workDaysPerWeek} />}
-        {tab === "pengaturan" && <><SettingsTab settings={settings} /><TaxSettings all={taxSettings} /></>}
+        {tab === "pengaturan" && <><SettingsTab settings={settings} /><TaxSettings all={taxSettings} /><TerSettings versions={terSettings} /></>}
         {tab === "simulasi" && <SimulationTab components={components} settings={settings} />}
       </main>
     </div>

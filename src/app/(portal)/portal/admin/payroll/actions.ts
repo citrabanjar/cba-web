@@ -9,8 +9,8 @@ import {
   NEEDS_BASE, NEEDS_PARAM, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, PAYROLL_SETTING_KEY, isOneOf, isTaxableCategory,
   type PayComponentInput, type PayParams, type PayrollSettings, type Tier,
 } from "@/lib/payroll";
-import { TAX_SETTING_KEY, type TaxYearConfig } from "@/lib/pph21";
-import { getTaxSettings } from "@/lib/payroll-settings";
+import { TAX_SETTING_KEY, TER_SETTING_KEY, type TaxYearConfig, type TerRow, type TerVersion } from "@/lib/pph21";
+import { getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { finalizeRun, generateRun, recomputeLine, type LineInputs } from "@/lib/payroll-run";
 
 const PATH = "/portal/admin/payroll";
@@ -138,6 +138,7 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
     overtimeDivisor: n(input.overtimeDivisor, 1, 400), workDaysPerWeek: input.workDaysPerWeek === 5 ? 5 : 6,
     prorate: input.prorate === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA",
     rounding: [1, 100, 1000].includes(Number(input.rounding)) ? Number(input.rounding) : 1,
+    weekStartDay: n(input.weekStartDay, 0, 6),
   };
   if (value.umk <= 0) return { error: "UMK wajib diisi." };
   await prisma.appSetting.upsert({
@@ -153,7 +154,7 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
 
 export async function generatePayroll(period: string, extraCodes: string[]): Promise<Result> {
   const access = await requirePayroll();
-  if (!/^\d{4}-\d{2}$/.test(period)) return { error: "Periode tidak valid." };
+  if (!/^\d{4}-\d{2}(-\d{2})?$/.test(period)) return { error: "Periode tidak valid." };
   try {
     const valid = await prisma.payComponent.findMany({ where: { code: { in: extraCodes }, method: "THR" }, select: { code: true } });
     await generateRun(period, valid.map((c) => c.code), access.name ?? null);
@@ -222,6 +223,42 @@ export async function saveTaxYear(year: number, cfg: TaxYearConfig): Promise<Res
     where: { key: TAX_SETTING_KEY },
     update: { value: all, updatedBy: access.name ?? null },
     create: { key: TAX_SETTING_KEY, value: all, updatedBy: access.name ?? null },
+  });
+  revalidatePath(PATH);
+  return {};
+}
+
+// Simpan satu versi tarif TER (berlaku mulai tanggal tertentu). originalDate = tanggal versi yang diubah.
+export async function saveTerVersion(originalDate: string | null, v: TerVersion): Promise<Result> {
+  const access = await requirePayroll();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v.effectiveDate)) return { error: "Tanggal berlaku wajib diisi." };
+  const clean = (rows: TerRow[] | undefined) => {
+    const r = (rows ?? []).slice(0, 80).map((x, i, all) => ({
+      upTo: i === all.length - 1 ? null : Math.max(0, Number(x.upTo) || 0), rate: Math.max(0, Math.min(100, Number(x.rate) || 0)),
+    }));
+    for (let i = 1; i < r.length - 1; i++) if ((r[i].upTo ?? 0) <= (r[i - 1].upTo ?? 0)) return null;
+    return r.length ? r : null;
+  };
+  const A = clean(v.A), B = clean(v.B), C = clean(v.C), daily = clean(v.daily);
+  if (!A || !B || !C || !daily) return { error: "Batas penghasilan tiap tabel TER harus naik dari baris ke baris." };
+  const list = (await getTerSettings()).filter((x) => x.effectiveDate !== originalDate && x.effectiveDate !== v.effectiveDate);
+  const all = [...list, { effectiveDate: v.effectiveDate, A, B, C, daily }].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+  await prisma.appSetting.upsert({
+    where: { key: TER_SETTING_KEY },
+    update: { value: all, updatedBy: access.name ?? null },
+    create: { key: TER_SETTING_KEY, value: all, updatedBy: access.name ?? null },
+  });
+  revalidatePath(PATH);
+  return {};
+}
+
+export async function deleteTerVersion(effectiveDate: string): Promise<Result> {
+  const access = await requirePayroll();
+  const all = (await getTerSettings()).filter((x) => x.effectiveDate !== effectiveDate);
+  await prisma.appSetting.upsert({
+    where: { key: TER_SETTING_KEY },
+    update: { value: all, updatedBy: access.name ?? null },
+    create: { key: TER_SETTING_KEY, value: all, updatedBy: access.name ?? null },
   });
   revalidatePath(PATH);
   return {};

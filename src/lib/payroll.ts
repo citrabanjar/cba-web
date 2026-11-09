@@ -146,12 +146,13 @@ export type PayrollSettings = {
   workDaysPerWeek: 5 | 6; // dipakai untuk tarif bawaan lembur hari istirahat
   prorate: "HARI_KERJA" | "HARI_KALENDER"; // gaji karyawan masuk/keluar di tengah periode
   rounding: number; // pembulatan rupiah (1, 100, 1000)
+  weekStartDay: number; // payroll mingguan: hari mulai minggu (0 = Minggu, 1 = Senin, ... 6 = Sabtu)
 };
 
 export const PAYROLL_SETTING_KEY = "payroll.settings";
 export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
   region: "Kota Banjarmasin", umk: 3855894, ump: 3725000,
-  periodStartDay: 1, payDay: 0, overtimeDivisor: 173, workDaysPerWeek: 6, prorate: "HARI_KERJA", rounding: 1,
+  periodStartDay: 1, payDay: 0, overtimeDivisor: 173, workDaysPerWeek: 6, prorate: "HARI_KERJA", rounding: 1, weekStartDay: 1,
 };
 
 export const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
@@ -166,6 +167,7 @@ export type PayContext = {
   overtimeWork: number[]; overtimeRest: number[]; // jam lembur per pengajuan (hari kerja / hari libur)
   workDaysPerWeek: 5 | 6; overtimeDivisor: number;
   nonRoutine: string[]; // kode komponen tidak rutin (THR, bonus) yang disertakan periode ini
+  prorataDays?: number; // pembagi "dasar nilai / hari kerja" (karyawan harian: pengali gaji harian → bulanan)
 };
 
 type EvalComponent = Pick<PayComponentInput, "code" | "name" | "kind" | "category" | "method" | "param" | "amount" | "rate" | "base" | "capAmount" | "floorAmount" | "params" | "baseCodes">;
@@ -206,7 +208,7 @@ export function evaluate(c: EvalComponent, ctx: PayContext): { amount: number; d
       return { amount: (b * (c.rate ?? 0)) / 100, detail: `${num(c.rate ?? 0)}% x ${rupiah(b)}` };
     }
     case "PRORATA": {
-      const days = ctx.qty.HARI_KERJA || 0, q = paramTotal(c.param, ctx), b = baseValue(c, ctx);
+      const days = ctx.prorataDays || ctx.qty.HARI_KERJA || 0, q = paramTotal(c.param, ctx), b = baseValue(c, ctx);
       return { amount: days ? (b / days) * q : 0, detail: `${rupiah(b)} / ${days} hari x ${num(q)} ${paramUnit(c.param)}` };
     }
     case "LEMBUR": {

@@ -432,6 +432,8 @@ export async function addSalaryAdjustment(
   data: {
     effectiveDate: string;
     basicSalary: number;
+    dailyWage?: number | null; // karyawan harian: gaji harian x pengali = gaji bulanan
+    monthlyFactor?: number | null;
     bpjsTkBase?: number;
     bpjsKesBase?: number;
     note?: string;
@@ -439,14 +441,20 @@ export async function addSalaryAdjustment(
   },
 ) {
   const actor = await requireMenu("gaji");
-  if (!data.effectiveDate || !(data.basicSalary > 0)) {
+  const daily = Number(data.dailyWage) > 0 ? Number(data.dailyWage) : null;
+  const factor = daily && Number(data.monthlyFactor) > 0 ? Math.min(31, Number(data.monthlyFactor)) : null;
+  if (daily && !factor) throw new Error("Pengali gaji harian wajib diisi");
+  const basic = daily && factor ? daily * factor : data.basicSalary;
+  if (!data.effectiveDate || !(basic > 0)) {
     throw new Error("Tanggal berlaku dan gaji pokok wajib diisi");
   }
   await prisma.employeeSalary.create({
     data: {
       userId,
       effectiveDate: new Date(data.effectiveDate),
-      basicSalary: data.basicSalary,
+      basicSalary: basic,
+      dailyWage: daily,
+      monthlyFactor: factor,
       bpjsTkBase: data.bpjsTkBase ?? null,
       bpjsKesBase: data.bpjsKesBase ?? null,
       note: data.note?.trim() || null,
