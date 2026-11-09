@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -74,7 +74,10 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
   if (hasMenu({ role, menuAccess }, "karyawan")) {
     sections.push({
       section: "EMPLOYEE",
-      items: [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }],
+      items: [
+        { href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users },
+        { href: "/portal/admin/onboarding", label: "Onboarding", icon: UserPlus },
+      ],
     });
   }
 

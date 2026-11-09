@@ -756,3 +756,30 @@ model LoanInstallment {
   @@unique([loanId, seq])
   @@index([period, status])
 }
+
+// Calon karyawan (Onboarding): HRD mengundang (nama, email, no. WA), calon login dengan OTP lalu
+// mengisi data pribadi, HRD memeriksa dengan dokumen fisik dan mengisi data pekerjaan, lalu
+// disetujui pemilik (sementara Super Admin) dan dibuat menjadi karyawan.
+model Candidate {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  phone       String
+  status      String    @default("DIUNDANG") // DIUNDANG | DIKIRIM | DIKEMBALIKAN | MENUNGGU_APPROVAL | DISETUJUI | DITOLAK
+  data        Json? // isian calon: data diri, alamat, keluarga, rekening, pajak, BPJS
+  job         Json? // isian HRD: employeeId, branch, departmentName, position, employmentStatus, joinDate, contractEndDate
+  note        String?   @db.Text // catatan pengembalian / penolakan
+  otpCode     String? // kode OTP terakhir (berlaku singkat)
+  otpExpires  DateTime?
+  otpTries    Int       @default(0)
+  submittedAt DateTime?
+  invitedBy   String?
+  reviewedBy  String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  userId      String?   @unique // karyawan yang dibuat saat disetujui
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+}

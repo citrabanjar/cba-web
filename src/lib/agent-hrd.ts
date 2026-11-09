@@ -23,6 +23,10 @@ export const MONITOR_CHECKS = [
   { key: "pay-tax-year", group: "Payroll & Pajak", title: "PTKP / tarif PPh 21 tahun depan belum disimpan" },
   { key: "pay-loan-contract", group: "Payroll & Pajak", title: "Angsuran pinjaman melewati akhir kontrak" },
   { key: "data", group: "Data Karyawan", title: "Kelengkapan data karyawan" },
+  { key: "emp-no-pay", group: "Data Karyawan", title: "Karyawan belum ditempel komponen payroll" },
+  { key: "emp-no-shift", group: "Data Karyawan", title: "Karyawan belum punya jadwal kerja / shift" },
+  { key: "onb-review", group: "Harian", title: "Calon karyawan menunggu pemeriksaan HRD" },
+  { key: "onb-approval", group: "Harian", title: "Calon karyawan menunggu approval" },
 ] as const;
 
 // Pengingat SOP buatan Super Admin. MONTHLY: setiap tanggal `day`; YEARLY: setiap `day` bulan `month`;

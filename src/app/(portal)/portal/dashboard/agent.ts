@@ -145,6 +145,22 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
     hint: "Jatah Cuti Tahunan prorata sudah masuk otomatis. Sisa Cuti Masa Kontrak diatur lewat penyesuaian saldo sesuai kesepakatan manajemen.",
     count: appointedTodo.length, unit: "karyawan", href: "/portal/admin/leave",
   };
+  // Onboarding & karyawan yang belum di-setup payroll / jadwal.
+  const activeEmp = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
+  const [onbReview, onbApproval, noPay, noShift] = await Promise.all([
+    prisma.candidate.count({ where: { status: "DIKIRIM" } }),
+    prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }),
+    prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
+    prisma.user.findMany({ where: { ...activeEmp, schedules: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
+  ]);
+  const onboardingTasks: Task[] = [
+    { key: "onb-review", title: "Periksa data calon karyawan", hint: "Cocokkan isian calon dengan dokumen fisik, lengkapi data pekerjaan, lalu ajukan approval.", count: onbReview, unit: "calon", href: "/portal/admin/onboarding" },
+    { key: "onb-approval", title: "Setujui calon karyawan", hint: "Calon yang sudah diperiksa HRD menunggu approval Owner / Super Admin.", count: onbApproval, unit: "calon", href: "/portal/admin/onboarding" },
+  ];
+  const setupTasks: Task[] = [
+    { key: "emp-no-pay", title: "Tempel komponen payroll", hint: "Karyawan aktif yang belum ditempel komponen gaji tidak ikut terhitung di Proses Gaji.", count: noPay.length, unit: "karyawan", href: noPay[0] ? `/portal/admin/karyawan/${noPay[0].id}` : "/portal/admin/payroll" },
+    { key: "emp-no-shift", title: "Atur jadwal kerja / shift", hint: "Karyawan tanpa pola kerja atau jadwal manual tidak bisa dinilai kehadirannya.", count: noShift.length, unit: "karyawan", href: noShift[0] ? `/portal/admin/karyawan/${noShift[0].id}` : "/portal/admin/schedule" },
+  ];
   const on = new Set(settings.enabled);
   const keep = (list: Task[]) => list.filter((t) => on.has(t.key));
   const monthly = insights.monthly.map((t) => (t.key === "contract"
@@ -154,10 +170,10 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
     insights,
     agent: {
       groups: [
-        { key: "daily", label: "Harian", list: keep([...insights.daily, appointedTask]) },
+        { key: "daily", label: "Harian", list: keep([...insights.daily, appointedTask, ...onboardingTasks]) },
         { key: "monthly", label: "Bulanan", list: keep(monthly) },
         { key: "payroll", label: "Payroll & Pajak", list: keep(payroll) },
-        { key: "data", label: "Data Karyawan", list: on.has("data") ? insights.data : [] },
+        { key: "data", label: "Data Karyawan", list: [...(on.has("data") ? insights.data : []), ...keep(setupTasks)] },
       ],
       setup,
       reminders: dueReminders(settings, todayKey()),
