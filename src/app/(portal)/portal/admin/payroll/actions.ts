@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin } from "@/lib/roles";
-import type { Prisma } from "@prisma/client";
+import { hasMenu } from "@/lib/roles";
+import { Prisma } from "@prisma/client";
 import {
-  PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAYROLL_SETTING_KEY, isOneOf,
-  type PayComponentInput, type PayParams, type PayrollSettings,
+  NEEDS_BASE, NEEDS_PARAM, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, PAYROLL_SETTING_KEY, isOneOf,
+  type PayComponentInput, type PayrollSettings,
 } from "@/lib/payroll";
 import { finalizeRun, generateRun, recomputeLine, type LineInputs } from "@/lib/payroll-run";
 
@@ -24,7 +24,7 @@ const num = (v: number | null, min: number, max: number) =>
   v === null || v === undefined || Number.isNaN(Number(v)) ? null : Math.max(min, Math.min(max, Number(v)));
 const text = (v: string | null | undefined) => (v ?? "").trim() || null;
 
-export async function savePayComponent(id: string | null, input: PayComponentInput): Promise<Result> {
+export async function savePayComponent(id: string | null, input: PayComponentInput): Promise<Result & { id?: string }> {
   const access = await requirePayroll();
   const code = input.code.trim().toUpperCase();
   const name = input.name.trim();
@@ -33,47 +33,61 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
   if (!isOneOf(PAY_KINDS, input.kind) || !isOneOf(PAY_CATEGORIES, input.category) || !isOneOf(PAY_METHODS, input.method)) {
     return { error: "Jenis, kategori, atau cara hitung tidak valid." };
   }
-  if (input.base && !isOneOf(PAY_BASES, input.base)) return { error: "Dasar perhitungan tidak valid." };
+  if (input.base && !isOneOf(PAY_BASES, input.base)) return { error: "Dasar nilai tidak valid." };
+  const param = NEEDS_PARAM.includes(input.method) ? input.param : input.method === "LEMBUR" ? "JAM_LEMBUR" : input.method === "THR" ? "MASA_KERJA" : null;
+  if (NEEDS_PARAM.includes(input.method) && !isOneOf(PAY_PARAMS, param)) return { error: "Pilih parameter rumus." };
+  if (input.method === "KELIPATAN" && !(Number(input.rate) > 0)) return { error: "Isi angka kelipatan." };
   const clash = await prisma.payComponent.findFirst({ where: { code, NOT: id ? { id } : undefined }, select: { id: true } });
   if (clash) return { error: "Kode sudah dipakai komponen lain." };
 
-  // Dasar perhitungan boleh diatur admin payroll; angka koefisien hanya super admin.
-  const superAdmin = isSuperAdmin(access.role);
-  const old = id ? await prisma.payComponent.findUnique({ where: { id } }) : null;
   const pickNums = (arr: unknown, len: number) =>
     Array.isArray(arr) && arr.length === len && arr.every((x) => Number(x) > 0) ? arr.map((x) => Math.min(10, Number(x))) : undefined;
-  const coef = superAdmin
-    ? {
-        amount: num(input.amount, 0, 1e10), rate: num(input.rate, 0, 100),
-        capAmount: num(input.capAmount, 0, 1e10), floorAmount: num(input.floorAmount, 0, 1e10),
-        params: input.params
-          ? {
-              ...(input.params.divisor ? { divisor: Math.max(1, Math.min(400, Number(input.params.divisor))) } : {}),
-              ...(pickNums(input.params.workday, 2) ? { workday: pickNums(input.params.workday, 2) } : {}),
-              ...(pickNums(input.params.rest6, 3) ? { rest6: pickNums(input.params.rest6, 3) } : {}),
-              ...(pickNums(input.params.rest5, 3) ? { rest5: pickNums(input.params.rest5, 3) } : {}),
-              ...(input.params.months ? { months: Math.max(0, Math.min(12, Number(input.params.months))) } : {}),
-            }
-          : null,
-      }
-    : {
-        amount: old?.amount ?? null, rate: old?.rate ?? null, capAmount: old?.capAmount ?? null, floorAmount: old?.floorAmount ?? null,
-        params: (old?.params as PayParams | null) ?? null,
-      };
+  const coef = {
+    amount: num(input.amount, 0, 1e10), rate: num(input.rate, 0, 100),
+    capAmount: num(input.capAmount, 0, 1e10), floorAmount: num(input.floorAmount, 0, 1e10),
+    params: input.params
+      ? {
+          ...(input.params.divisor ? { divisor: Math.max(1, Math.min(400, Number(input.params.divisor))) } : {}),
+          ...(pickNums(input.params.workday, 2) ? { workday: pickNums(input.params.workday, 2) } : {}),
+          ...(pickNums(input.params.rest6, 3) ? { rest6: pickNums(input.params.rest6, 3) } : {}),
+          ...(pickNums(input.params.rest5, 3) ? { rest5: pickNums(input.params.rest5, 3) } : {}),
+          ...(input.params.months ? { months: Math.max(0, Math.min(12, Number(input.params.months))) } : {}),
+          ...(input.method === "KELIPATAN" && Number(input.params.min) > 0 ? { min: Math.min(1e6, Number(input.params.min)) } : {}),
+          ...(input.method === "INPUT" && input.params.perPeriod ? { perPeriod: true } : {}),
+        }
+      : null,
+  };
   const codes = await prisma.payComponent.findMany({ select: { code: true } });
   const known = new Set(["GP", ...codes.map((c) => c.code)]);
   const data = {
-    code, name, kind: input.kind, category: input.category, method: input.method,
-    base: input.base || null, baseCodes: input.base === "KOMPONEN" ? input.baseCodes.filter((c) => known.has(c)) : [],
+    code, name, kind: input.kind, category: input.category, method: input.method, param,
+    base: NEEDS_BASE.includes(input.method) ? input.base || "UPAH_TETAP" : null,
+    baseCodes: NEEDS_BASE.includes(input.method) && input.base === "KOMPONEN" ? input.baseCodes.filter((c) => known.has(c) && c !== code) : [],
     ...coef, params: (coef.params ?? undefined) as Prisma.InputJsonValue | undefined,
     taxable: !!input.taxable, legalBasis: text(input.legalBasis), note: text(input.note), isActive: !!input.isActive,
     updatedBy: access.name ?? null,
   };
-  if (id) await prisma.payComponent.update({ where: { id }, data });
+  let savedId = id;
+  if (id) await prisma.payComponent.update({ where: { id }, data: { ...data, params: data.params ?? Prisma.DbNull } });
   else {
     const last = await prisma.payComponent.aggregate({ _max: { sortOrder: true } });
-    await prisma.payComponent.create({ data: { ...data, sortOrder: (last._max.sortOrder ?? 0) + 1 } });
+    savedId = (await prisma.payComponent.create({ data: { ...data, sortOrder: (last._max.sortOrder ?? 0) + 1 } })).id;
   }
+  revalidatePath(PATH);
+  return { id: savedId ?? undefined };
+}
+
+// Tempel komponen ke karyawan: daftar karyawan yang dicentang menggantikan daftar sebelumnya.
+export async function setComponentAssignments(componentId: string, userIds: string[]): Promise<Result> {
+  const access = await requirePayroll();
+  const valid = await prisma.user.findMany({ where: { id: { in: userIds }, role: { not: "SUPER_ADMIN" } }, select: { id: true } });
+  const ids = valid.map((u) => u.id);
+  await prisma.$transaction([
+    prisma.employeePayComponent.deleteMany({ where: { componentId, userId: { notIn: ids } } }),
+    prisma.employeePayComponent.createMany({
+      data: ids.map((userId) => ({ userId, componentId, createdBy: access.name ?? null })), skipDuplicates: true,
+    }),
+  ]);
   revalidatePath(PATH);
   return {};
 }
@@ -123,8 +137,14 @@ export async function generatePayroll(period: string, includeThr: boolean): Prom
 export async function updatePayrollLine(lineId: string, inputs: Partial<LineInputs>): Promise<Result> {
   await requirePayroll();
   const clean: Partial<LineInputs> = {};
-  for (const k of ["overtimeHours", "restOvertimeHours", "bonus", "kasbon", "daysPresent", "absentDays", "overtimeMeals"] as const) {
-    if (inputs[k] !== undefined) clean[k] = Math.max(0, Number(inputs[k]) || 0);
+  for (const k of ["daysPresent", "absentDays", "tripDays", "trips", "leaveDays"] as const) {
+    if (inputs[k] !== undefined) clean[k] = Math.max(0, Math.min(366, Number(inputs[k]) || 0));
+  }
+  const hours = (v: unknown) => (Array.isArray(v) ? v.map(Number).filter((x) => x > 0 && x <= 24).slice(0, 62) : undefined);
+  if (inputs.otWork) clean.otWork = hours(inputs.otWork);
+  if (inputs.otRest) clean.otRest = hours(inputs.otRest);
+  if (inputs.values && typeof inputs.values === "object") {
+    clean.values = Object.fromEntries(Object.entries(inputs.values).filter(([k]) => /^[A-Z0-9]{1,8}$/.test(k)).map(([k, v]) => [k, Math.max(0, Math.min(1e10, Number(v) || 0))]));
   }
   try {
     await recomputeLine(lineId, clean);

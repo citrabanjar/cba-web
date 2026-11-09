@@ -153,6 +153,7 @@ model User {
   shiftDays        EmployeeShiftDay[]
   leaveBalances    LeaveBalanceEntry[]
   payrollLines     PayrollLine[]
+  payComponents    EmployeePayComponent[]
   accounts         Account[]
   sessions         Session[]
   attendances      Attendance[]
@@ -616,7 +617,7 @@ model PayComponent {
   name        String
   kind        String // PENDAPATAN | POTONGAN | BENEFIT (ditanggung perusahaan, tidak mengurangi gaji)
   category    String // GAJI_POKOK | TUNJANGAN_TETAP | TUNJANGAN_TIDAK_TETAP | LEMBUR | THR | BONUS | BPJS_TK | BPJS_KES | PAJAK | POTONGAN_LAIN
-  method      String // TETAP | PER_HADIR | PERSEN | RUMUS_LEMBUR | RUMUS_THR | PPH21_TER | PRORATA_MANGKIR
+  method      String // INPUT | NOMINAL | PER_SATUAN | KELIPATAN | PERSEN | PRORATA | LEMBUR | THR | PPH21
   amount      Float? // nominal bawaan (mis. uang makan per hari)
   rate        Float? // persen (mis. 3.7)
   base        String? // GAJI_POKOK | UPAH_TETAP (pokok + tunjangan tetap) | UPAH_BPJS
@@ -624,6 +625,7 @@ model PayComponent {
   floorAmount Float? // batas bawah dasar perhitungan
   params      Json? // koefisien rumus, mis. lembur {divisor, workday:[1.5,2], rest6:[2,3,4], rest5:[2,3,4]}, THR {months}
   baseCodes   String[] @default([]) // dasar = komponen yang dicentang (bila base = KOMPONEN)
+  param       String? // parameter rumus: HARI_HADIR, HARI_MANGKIR, HARI_CUTI, HARI_DINAS, KALI_DINAS, HARI_KERJA, MASA_KERJA, JAM_LEMBUR
   taxable     Boolean  @default(true) // objek PPh 21
   legalBasis  String?
   note        String?  @db.Text
@@ -632,6 +634,8 @@ model PayComponent {
   updatedBy   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  employees EmployeePayComponent[]
 }
 
 // Proses gaji bulanan. DRAFT bisa dihitung ulang dan diubah; FINAL mengunci angka dan menerbitkan slip gaji.
@@ -673,5 +677,20 @@ model PayrollLine {
 
   @@unique([runId, userId])
   @@index([userId])
+}
+
+// Komponen payroll yang ditempel ke karyawan. Hanya komponen yang ditempel yang dihitung saat payroll run.
+model EmployeePayComponent {
+  id          String   @id @default(cuid())
+  userId      String
+  componentId String
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  component PayComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, componentId])
+  @@index([componentId])
 }
 

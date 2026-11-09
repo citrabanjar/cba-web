@@ -3,12 +3,12 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import { hasMenu } from "@/lib/roles";
 import type { PayParams } from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
 import { getPayrollSettings } from "@/lib/payroll-settings";
 import PayrollClient from "./PayrollClient";
-import { periodLabel, type LineInputs, type LineItem } from "@/lib/payroll-run";
+import { normalizeInputs, periodLabel, type LineInputs, type LineItem } from "@/lib/payroll-run";
 
 export const metadata: Metadata = { title: "Payroll & Benefit" };
 
@@ -18,18 +18,28 @@ export default async function PayrollPage() {
   if (!access) redirect("/portal");
   if (!hasMenu(access, "gaji")) redirect("/portal/dashboard");
 
-  const [components, settings, runs] = await Promise.all([
-    prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }] }),
+  const [components, settings, runs, employees] = await Promise.all([
+    prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { employees: { select: { userId: true } } } }),
     getPayrollSettings(),
     prisma.payrollRun.findMany({
       orderBy: { period: "desc" }, take: 24,
       include: { lines: { include: { user: { select: { name: true, employeeId: true, department: { select: { name: true } } } } } } },
     }),
+    prisma.user.findMany({
+      where: { isActive: true, role: { not: "SUPER_ADMIN" } }, orderBy: { name: "asc" },
+      select: { id: true, name: true, employeeId: true, department: { select: { name: true } } },
+    }),
   ]);
   return (
     <PayrollClient
-      components={components.map((c) => ({ ...c, params: (c.params as PayParams | null) ?? null, createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString() }))}
-      isSuper={isSuperAdmin(access.role)}
+      components={components.map(({ employees: assigned, createdAt, updatedAt, ...c }) => ({
+        ...c, params: (c.params as PayParams | null) ?? null, employeeIds: assigned.map((e) => e.userId),
+        createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString(),
+      }))}
+      employees={employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId ?? "", department: e.department?.name ?? null }))}
+      periodInputs={components
+        .filter((c) => c.isActive && c.method === "INPUT" && (c.params as PayParams | null)?.perPeriod)
+        .map((c) => ({ code: c.code, name: c.name, kind: c.kind }))}
       settings={settings}
       runs={runs.map((r) => ({
         id: r.id, period: r.period, label: periodLabel(r.period), status: r.status, includeThr: r.includeThr,
@@ -37,7 +47,7 @@ export default async function PayrollPage() {
         lines: r.lines
           .map((l) => ({
             id: l.id, userId: l.userId, name: l.user.name, employeeId: l.user.employeeId ?? "", department: l.user.department?.name ?? null,
-            inputs: l.inputs as LineInputs, items: l.items as LineItem[], gross: l.gross, earnings: l.earnings, deductions: l.deductions,
+            inputs: normalizeInputs(l.inputs) as LineInputs, items: l.items as LineItem[], gross: l.gross, earnings: l.earnings, deductions: l.deductions,
             benefits: l.benefits, pph21: l.pph21, netPay: l.netPay, ptkp: l.ptkp, terRate: l.terRate, warning: l.warning,
           }))
           .sort((a, b) => a.name.localeCompare(b.name)),

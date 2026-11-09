@@ -456,6 +456,12 @@ export async function addSalaryAdjustment(
       },
     },
   });
+  // Komponen master yang dipilih di profil otomatis ditempel ke karyawan ini (beserta gaji pokok).
+  const codes = ["GP", ...data.components.map((c) => c.code?.trim()).filter((c): c is string => !!c)];
+  const masters = await prisma.payComponent.findMany({ where: { code: { in: codes } }, select: { id: true } });
+  if (masters.length) {
+    await prisma.employeePayComponent.createMany({ data: masters.map((m) => ({ userId, componentId: m.id, createdBy: "Profil" })), skipDuplicates: true });
+  }
   revalidatePath(`${LIST_PATH}/${userId}`);
   return { success: true };
 }

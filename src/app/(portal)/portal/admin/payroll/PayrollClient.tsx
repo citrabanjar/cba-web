@@ -1,285 +1,18 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import {
-  Calculator, CheckCircle2, Coins, FileText, HandCoins, KeyRound, Landmark, Loader2, MinusCircle, Pencil, Play, Plus, Settings2,
-  ShieldCheck, Trash2, Wallet,
-} from "lucide-react";
+import { Calculator, CheckCircle2, HandCoins, Landmark, Loader2, Play, Settings2, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
-import {
-  PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, USES_BASE, baseLabel, categoryLabel, legalWarning, methodLabel, missingCoefficient, rupiah, simulate,
-  type PayComponentInput, type PayParams, type PayrollSettings,
-} from "@/lib/payroll";
-import { deletePayComponent, savePayComponent, savePayrollSettings } from "./actions";
-import RunTab, { type Run } from "./RunTab";
-
-export type Component = Omit<PayComponentInput, "legalBasis" | "note"> & {
-  id: string; legalBasis: string | null; note: string | null; sortOrder: number; updatedBy: string | null;
-};
-
-const EMPTY: PayComponentInput = {
-  code: "", name: "", kind: "PENDAPATAN", category: "TUNJANGAN_TETAP", method: "TETAP",
-  amount: null, rate: null, base: null, capAmount: null, floorAmount: null, params: null, baseCodes: [], taxable: true, legalBasis: "", note: "", isActive: true,
-};
-
-const KIND_TONE: Record<string, { color: string; icon: React.ElementType }> = {
-  PENDAPATAN: { color: "#10b981", icon: Coins },
-  POTONGAN: { color: "#f43f5e", icon: MinusCircle },
-  BENEFIT: { color: "#6366f1", icon: ShieldCheck },
-};
+import { parseHours, rupiah, simulate, type PayrollSettings } from "@/lib/payroll";
+import { savePayrollSettings } from "./actions";
+import RunTab, { type PeriodInput, type Run } from "./RunTab";
+import ComponentsTab, { type Component, type PayEmployee } from "./ComponentsTab";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
 
-// Ringkasan nilai komponen, mis. "3,7% x Upah BPJS (maks Rp11.086.300)".
-function baseText(c: Pick<Component, "base" | "baseCodes">, t: (s: string) => string) {
-  return c.base === "KOMPONEN" ? (c.baseCodes.length ? c.baseCodes.join(" + ") : t("komponen belum dipilih")) : t(baseLabel(c.base ?? "UPAH_TETAP"));
-}
-const n = (x: number) => String(x).replace(".", ",");
-function valueText(c: Pick<Component, "method" | "amount" | "rate" | "base" | "capAmount" | "floorAmount" | "params" | "baseCodes">, t: (s: string) => string) {
-  if (c.method === "PERSEN") {
-    const extra = [c.floorAmount ? `${t("min")} ${rupiah(c.floorAmount)}` : "", c.capAmount ? `${t("maks")} ${rupiah(c.capAmount)}` : ""].filter(Boolean).join(", ");
-    return `${n(c.rate ?? 0)}% x ${baseText(c, t)}${extra ? ` (${extra})` : ""}`;
-  }
-  if (c.method === "NOMINAL_BULANAN") return `${rupiah(c.amount ?? 0)} / ${t("bulan")}`;
-  if (c.method === "RUMUS_LEMBUR") {
-    const p = c.params ?? {};
-    return `1/${p.divisor ?? "?"} x ${baseText(c, t)} · ${(p.workday ?? []).map(n).join("x / ")}x · ${t("libur")} ${(p.rest6 ?? []).map(n).join("x / ")}x`;
-  }
-  if (c.method === "RUMUS_THR") return `${n(c.params?.months ?? 0)} ${t("bulan")} x ${baseText(c, t)}`;
-  if (c.method === "PRORATA_MANGKIR") return `${baseText(c, t)} / ${t("hari kerja")} x ${t("hari mangkir")}`;
-  if (c.method === "PER_HADIR") return c.amount ? `${rupiah(c.amount)} / ${t("hari hadir")}` : t("Nominal per hari belum diisi");
-  if (c.method === "PER_LEMBUR") return `${rupiah(c.amount ?? 0)} / ${t("kelipatan")} ${c.rate ?? 4} ${t("jam lembur")}`;
-  return t(methodLabel(c.method));
-}
-
-function ComponentDialog({ comp, all, isSuper, onClose }: { comp: Component | "new"; all: Component[]; isSuper: boolean; onClose: () => void }) {
-  const t = useT();
-  const [form, setForm] = useState<PayComponentInput>(() => comp === "new" ? EMPTY : {
-    ...comp, legalBasis: comp.legalBasis ?? "", note: comp.note ?? "",
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-  const set = <K extends keyof PayComponentInput>(k: K, v: PayComponentInput[K]) => setForm((f) => ({ ...f, [k]: v }));
-  const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
-  const setParam = (k: keyof PayParams, v: unknown) => setForm((f) => ({ ...f, params: { ...(f.params ?? {}), [k]: v } }));
-  const setParamAt = (k: "workday" | "rest6" | "rest5", i: number, len: number, v: string) =>
-    setForm((f) => {
-      const arr = [...((f.params?.[k] as number[] | undefined) ?? Array(len).fill(0))];
-      arr[i] = Number(v.replace(",", ".")) || 0;
-      return { ...f, params: { ...(f.params ?? {}), [k]: arr } };
-    });
-  const missing = missingCoefficient(form);
-  const legal = legalWarning(form);
-  // Komponen yang bisa dicentang sebagai dasar: gaji pokok + pendapatan tetap.
-  const baseOptions = [{ code: "GP", name: "Gaji Pokok" }, ...all.filter((c) => c.kind === "PENDAPATAN" && c.code !== "GP" && (c.method === "TETAP" || c.method === "NOMINAL_BULANAN") && c.category !== "BONUS")];
-
-  function save() {
-    setError(null);
-    start(async () => {
-      const r = await savePayComponent(comp === "new" ? null : comp.id, form);
-      if (r.error) setError(r.error);
-      else onClose();
-    });
-  }
-
-  return (
-    <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle><T>{comp === "new" ? "Tambah Komponen" : "Ubah Komponen"}</T></DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
-            <div className="space-y-1.5"><Label className="text-xs"><T>Kode</T></Label>
-              <Input value={form.code} maxLength={8} onChange={(e) => set("code", e.target.value.toUpperCase())} /></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Nama</T></Label>
-              <Input value={form.name} onChange={(e) => set("name", e.target.value)} /></div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5"><Label className="text-xs"><T>Jenis</T></Label>
-              <select value={form.kind} onChange={(e) => set("kind", e.target.value)} className={select}>
-                {PAY_KINDS.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
-              </select></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Kategori</T></Label>
-              <select value={form.category} onChange={(e) => set("category", e.target.value)} className={select}>
-                {PAY_CATEGORIES.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
-              </select></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Dasar perhitungan</T></Label>
-              <select value={form.method} onChange={(e) => set("method", e.target.value)} className={select}>
-                {PAY_METHODS.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
-              </select></div>
-          </div>
-
-          {USES_BASE.includes(form.method) && (
-            <div className="space-y-2 rounded-xl border border-gray-200 p-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label className="text-xs"><T>Dihitung dari</T></Label>
-                  <select value={form.base ?? "UPAH_TETAP"} onChange={(e) => set("base", e.target.value)} className={select}>
-                    {PAY_BASES.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
-                  </select></div>
-              </div>
-              {form.base === "KOMPONEN" && (
-                <div className="flex flex-wrap gap-2">
-                  {baseOptions.map((o) => (
-                    <label key={o.code} className="flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1 text-xs">
-                      <input type="checkbox" checked={form.baseCodes.includes(o.code)} className="h-3.5 w-3.5 accent-[var(--color-brand)]"
-                        onChange={(e) => set("baseCodes", e.target.checked ? [...form.baseCodes, o.code] : form.baseCodes.filter((x) => x !== o.code))} />
-                      <b>{o.code}</b> {t(o.name)}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <fieldset disabled={!isSuper} className="space-y-3 rounded-xl bg-gray-50 p-3 disabled:opacity-80">
-            <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold text-gray-600">
-              <KeyRound size={13} /> <T>Koefisien</T> {!isSuper && <span className="font-normal text-gray-400">— <T>hanya bisa diisi super admin</T></span>}
-            </legend>
-            {(form.method === "NOMINAL_BULANAN" || form.method === "PER_HADIR" || form.method === "PER_LEMBUR") && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label className="text-xs">
-                  <T>{form.method === "PER_HADIR" ? "Nominal per hari hadir (Rp)" : form.method === "PER_LEMBUR" ? "Nominal per kali (Rp)" : "Nominal per bulan (Rp)"}</T></Label>
-                  <Input type="number" min={0} value={form.amount ?? ""} onChange={(e) => set("amount", numOrNull(e.target.value))} /></div>
-                {form.method === "PER_LEMBUR" && (
-                  <div className="space-y-1.5"><Label className="text-xs"><T>Per kelipatan jam lembur</T></Label>
-                    <Input type="number" min={1} value={form.rate ?? ""} onChange={(e) => set("rate", numOrNull(e.target.value))} />
-                    <p className="text-[11px] text-gray-400"><T>Contoh 4: lembur 4-7 jam = 1x, 8-11 jam = 2x, per pengajuan.</T></p></div>
-                )}
-              </div>
-            )}
-            {form.method === "PERSEN" && (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5"><Label className="text-xs"><T>Persen (%)</T></Label>
-                  <Input type="number" step="0.01" min={0} value={form.rate ?? ""} onChange={(e) => set("rate", numOrNull(e.target.value))} /></div>
-                <div className="space-y-1.5"><Label className="text-xs"><T>Batas bawah (Rp)</T></Label>
-                  <Input type="number" min={0} value={form.floorAmount ?? ""} onChange={(e) => set("floorAmount", numOrNull(e.target.value))} /></div>
-                <div className="space-y-1.5"><Label className="text-xs"><T>Batas atas (Rp)</T></Label>
-                  <Input type="number" min={0} value={form.capAmount ?? ""} onChange={(e) => set("capAmount", numOrNull(e.target.value))} /></div>
-              </div>
-            )}
-            {form.method === "RUMUS_LEMBUR" && (
-              <div className="space-y-2 text-xs">
-                <div className="flex flex-wrap items-center gap-2"><span className="w-44 text-gray-600"><T>Upah sejam = 1 / pembagi</T></span>
-                  <Input type="number" className="h-8 w-20" value={form.params?.divisor ?? ""} onChange={(e) => setParam("divisor", Number(e.target.value))} /></div>
-                {([["workday", 2, "Hari kerja: jam ke-1, jam berikutnya"], ["rest6", 3, "Libur (6 hari kerja): jam 1-7, jam ke-8, jam 9-10"], ["rest5", 3, "Libur (5 hari kerja): jam 1-8, jam ke-9, jam 10-11"]] as const).map(([k, len, label]) => (
-                  <div key={k} className="flex flex-wrap items-center gap-2"><span className="w-44 text-gray-600"><T>{label}</T></span>
-                    {Array.from({ length: len }, (_, i) => (
-                      <Input key={i} type="number" step="0.5" className="h-8 w-16" value={(form.params?.[k] as number[] | undefined)?.[i] ?? ""}
-                        onChange={(e) => setParamAt(k, i, len, e.target.value)} />
-                    ))}<span className="text-gray-400">x</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {form.method === "RUMUS_THR" && (
-              <div className="space-y-1.5 sm:w-1/2"><Label className="text-xs"><T>Berapa bulan upah (masa kerja 12 bulan atau lebih)</T></Label>
-                <Input type="number" step="0.5" min={0} value={form.params?.months ?? ""} onChange={(e) => setParam("months", Number(e.target.value))} />
-                <p className="text-[11px] text-gray-400"><T>Masa kerja kurang dari 12 bulan otomatis proporsional.</T></p></div>
-            )}
-            {!["NOMINAL_BULANAN", "PER_HADIR", "PER_LEMBUR", "PERSEN", "RUMUS_LEMBUR", "RUMUS_THR"].includes(form.method) && (
-              <p className="text-xs text-gray-500"><T>Dasar perhitungan ini tidak memakai koefisien.</T></p>
-            )}
-            {missing && <p className="text-xs text-amber-700"><T>Koefisien belum lengkap</T>: {t(missing)}. <T>Komponen belum ikut dihitung.</T></p>}
-            {legal && <p className="text-xs text-red-600">{t(legal)}</p>}
-          </fieldset>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 px-3 py-2">
-              <input type="checkbox" checked={form.taxable} onChange={(e) => set("taxable", e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
-              <span><span className="block text-sm font-medium text-gray-800"><T>Objek PPh 21</T></span>
-                <span className="block text-[11px] text-gray-400"><T>Ikut dihitung sebagai penghasilan kena pajak.</T></span></span>
-            </label>
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 px-3 py-2">
-              <input type="checkbox" checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
-              <span><span className="block text-sm font-medium text-gray-800"><T>Aktif</T></span>
-                <span className="block text-[11px] text-gray-400"><T>Komponen nonaktif tidak dipakai saat menghitung gaji.</T></span></span>
-            </label>
-          </div>
-          <div className="space-y-1.5"><Label className="text-xs"><T>Dasar hukum</T></Label>
-            <Input value={form.legalBasis} onChange={(e) => set("legalBasis", e.target.value)} /></div>
-          <div className="space-y-1.5"><Label className="text-xs"><T>Catatan / ketentuan perusahaan</T></Label>
-            <textarea value={form.note} rows={3} onChange={(e) => set("note", e.target.value)} className="w-full rounded-lg border border-input px-3 py-2 text-sm" /></div>
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}><T>Batal</T></Button>
-          <Button onClick={save} disabled={pending} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T></Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ComponentsTab({ components, isSuper }: { components: Component[]; isSuper: boolean }) {
-  const t = useT();
-  const [editing, setEditing] = useState<Component | "new" | null>(null);
-  const [pending, start] = useTransition();
-  function remove(c: Component) {
-    if (!window.confirm(t("Hapus komponen ini?"))) return;
-    start(async () => { await deletePayComponent(c.id); });
-  }
-  return (
-    <section className="rounded-2xl border border-gray-200 bg-white">
-      <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Wallet size={17} /></span>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900"><T>Komponen Gaji & Benefit</T></h3>
-          <p className="text-xs text-gray-400"><T>Pendapatan, potongan, dan benefit yang ditanggung perusahaan, lengkap dengan cara hitung dan dasar hukumnya.</T></p>
-        </div>
-        <button type="button" onClick={() => setEditing("new")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-          <Plus size={14} /> <T>Tambah Komponen</T>
-        </button>
-      </div>
-      {PAY_KINDS.map((k) => {
-        const list = components.filter((c) => c.kind === k.key);
-        if (list.length === 0) return null;
-        const tone = KIND_TONE[k.key];
-        return (
-          <div key={k.key} className="border-b border-gray-100 p-4 last:border-b-0">
-            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              <tone.icon size={14} style={{ color: tone.color }} /> <T>{k.label}</T> <span className="text-gray-300">{list.length}</span>
-            </p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {list.map((c) => (
-                <div key={c.id} className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white ${c.isActive ? "" : "opacity-55"}`}>
-                  <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: tone.color }} />
-                  <div className="p-4 pl-5">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 min-w-12 items-center justify-center rounded-xl px-2 text-[11px] font-bold text-white" style={{ background: tone.color }}>{c.code}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-gray-900">{t(c.name)}</p>
-                        <p className="text-xs text-gray-500"><T>{categoryLabel(c.category)}</T>{!c.isActive && <> · <T>Nonaktif</T></>}</p>
-                      </div>
-                      <button type="button" onClick={() => setEditing(c)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>
-                      <button type="button" onClick={() => remove(c)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>
-                    </div>
-                    <p className="mt-3 text-sm font-semibold text-gray-900">{valueText(c, t)}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.taxable ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
-                        <T>{c.taxable ? "Objek PPh 21" : "Bukan objek PPh 21"}</T>
-                      </span>
-                      {missingCoefficient(c) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><T>Menunggu koefisien super admin</T></span>}
-                      {legalWarning(c) && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">{t(legalWarning(c)!)}</span>}
-                    </div>
-                    {c.note && <p className="mt-2 text-xs leading-relaxed text-gray-500">{t(c.note)}</p>}
-                    {c.legalBasis && (
-                      <p className="mt-2 flex items-start gap-1.5 border-t border-gray-100 pt-2 text-[11px] text-gray-400"><FileText size={12} className="mt-0.5 shrink-0" /> {c.legalBasis}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-      {editing && <ComponentDialog comp={editing} all={components} isSuper={isSuper} onClose={() => setEditing(null)} />}
-    </section>
-  );
-}
 
 function SettingsTab({ settings }: { settings: PayrollSettings }) {
   const t = useT();
@@ -336,11 +69,18 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
 
 function SimulationTab({ components, settings }: { components: Component[]; settings: PayrollSettings }) {
   const t = useT();
-  const [v, setV] = useState({ basic: settings.umk, fixedAllowance: 0, bpjsBase: "", daysPresent: 22, overtimeHours: 0, restDayOvertimeHours: 0, monthsOfService: 12, absentDays: 0, workDaysInMonth: 25 });
-  const res = useMemo(() => simulate(components, settings, { ...v, bpjsBase: v.bpjsBase === "" ? null : Number(v.bpjsBase) }), [components, settings, v]);
-  const n = (k: keyof typeof v, label: string) => (
+  const [v, setV] = useState({
+    basic: settings.umk, fixedAllowance: 0, bpjsBase: "", daysPresent: 22, monthsOfService: 12, absentDays: 0, workDaysInMonth: 25,
+    tripDays: 0, trips: 0, leaveDays: 0, overtimeWork: "", overtimeRest: "",
+  });
+  const res = useMemo(() => simulate(components, settings, {
+    ...v, bpjsBase: v.bpjsBase === "" ? null : Number(v.bpjsBase), overtimeWork: parseHours(v.overtimeWork), overtimeRest: parseHours(v.overtimeRest),
+  }), [components, settings, v]);
+  const TEXT = ["bpjsBase", "overtimeWork", "overtimeRest"];
+  const n = (k: keyof typeof v, label: string, hint?: string) => (
     <div className="space-y-1.5"><Label className="text-xs"><T>{label}</T></Label>
-      <Input type="number" min={0} value={v[k]} onChange={(e) => setV((x) => ({ ...x, [k]: k === "bpjsBase" ? e.target.value : Number(e.target.value) }))} /></div>
+      <Input type={k === "overtimeWork" || k === "overtimeRest" ? "text" : "number"} min={0} value={v[k]} placeholder={hint}
+        onChange={(e) => setV((x) => ({ ...x, [k]: TEXT.includes(k) ? e.target.value : Number(e.target.value) }))} /></div>
   );
   const group = (kind: string, title: string) => {
     const lines = res.lines.filter((l) => l.kind === kind);
@@ -372,8 +112,9 @@ function SimulationTab({ components, settings }: { components: Component[]; sett
           {n("basic", "Gaji pokok (Rp)")}{n("fixedAllowance", "Tunjangan tetap (Rp)")}
           {n("bpjsBase", "Upah BPJS (Rp, kosong = pokok + tetap)")}{n("monthsOfService", "Masa kerja (bulan) untuk THR")}
           {n("daysPresent", "Hari hadir")}{n("workDaysInMonth", "Hari kerja sebulan")}
-          {n("overtimeHours", "Jam lembur hari kerja")}{n("restDayOvertimeHours", "Jam lembur hari libur")}
-          {n("absentDays", "Hari mangkir")}
+          {n("overtimeWork", "Jam lembur hari kerja (per pengajuan)", "4, 9")}{n("overtimeRest", "Jam lembur hari libur (per pengajuan)", "8")}
+          {n("absentDays", "Hari mangkir")}{n("leaveDays", "Hari cuti disetujui")}
+          {n("tripDays", "Hari dinas luar")}{n("trips", "Kegiatan dinas luar (kali)")}
         </div>
         {v.basic + v.fixedAllowance < settings.umk && (
           <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700"><T>Upah di bawah UMK</T> {rupiah(settings.umk)}.</p>
@@ -390,13 +131,15 @@ function SimulationTab({ components, settings }: { components: Component[]; sett
           <p className="flex justify-between"><T>Biaya perusahaan</T> <b className="tabular-nums">{rupiah(res.employerCost)}</b></p>
         </div>
         <p className="flex items-start gap-1.5 text-[11px] text-gray-400"><Landmark size={12} className="mt-0.5 shrink-0" />
-          <T>PPh 21 (TER), bonus, dan kasbon belum ikut disimulasikan.</T></p>
+          <T>PPh 21 (TER) dan komponen input tiap periode (bonus, kasbon) belum ikut disimulasikan. Semua komponen aktif dihitung seolah ditempel.</T></p>
       </section>
     </div>
   );
 }
 
-export default function PayrollClient({ components, settings, runs, isSuper }: { components: Component[]; settings: PayrollSettings; runs: Run[]; isSuper: boolean }) {
+export default function PayrollClient({ components, settings, runs, employees, periodInputs }: {
+  components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; periodInputs: PeriodInput[];
+}) {
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "simulasi">("proses");
   const active = components.filter((c) => c.isActive);
   const bpjsEmployer = active.filter((c) => c.kind === "BENEFIT" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
@@ -433,8 +176,8 @@ export default function PayrollClient({ components, settings, runs, isSuper }: {
             </button>
           ))}
         </div>
-        {tab === "proses" && <RunTab runs={runs} />}
-        {tab === "komponen" && <ComponentsTab components={components} isSuper={isSuper} />}
+        {tab === "proses" && <RunTab runs={runs} periodInputs={periodInputs} />}
+        {tab === "komponen" && <ComponentsTab components={components} employees={employees} />}
         {tab === "pengaturan" && <SettingsTab settings={settings} />}
         {tab === "simulasi" && <SimulationTab components={components} settings={settings} />}
       </main>

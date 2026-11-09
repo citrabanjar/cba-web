@@ -164,10 +164,10 @@ export default async function KaryawanDetailPage({
       patterns={patterns}
       shiftDays={shiftDays}
       leaveBalances={await computeBalances([id])}
-      payOptions={await prisma.payComponent.findMany({
-        where: { isActive: true, method: "TETAP", kind: { in: ["PENDAPATAN", "POTONGAN"] }, NOT: { category: "GAJI_POKOK" } },
-        orderBy: { sortOrder: "asc" }, select: { code: true, name: true, kind: true },
-      })}
+      payOptions={(await prisma.payComponent.findMany({
+        where: { isActive: true, method: "INPUT", kind: { in: ["PENDAPATAN", "POTONGAN"] }, NOT: { category: "GAJI_POKOK" } },
+        orderBy: { sortOrder: "asc" }, select: { code: true, name: true, kind: true, params: true },
+      })).filter((c) => !(c.params as { perPeriod?: boolean } | null)?.perPeriod).map((c) => ({ code: c.code, name: c.name, kind: c.kind }))}
     />
   );
 }

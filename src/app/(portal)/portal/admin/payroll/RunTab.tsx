@@ -3,7 +3,7 @@
 import { Fragment, useState, useTransition } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
-import { rupiah } from "@/lib/payroll";
+import { parseHours, rupiah } from "@/lib/payroll";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
 import { deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
 
@@ -12,6 +12,7 @@ export type RunLine = {
   inputs: LineInputs; items: LineItem[]; gross: number; earnings: number; deductions: number; benefits: number;
   pph21: number; netPay: number; ptkp: string | null; terRate: number | null; warning: string | null;
 };
+export type PeriodInput = { code: string; name: string; kind: string };
 export type Run = {
   id: string; period: string; label: string; status: string; includeThr: boolean;
   finalizedBy: string | null; finalizedAt: string | null; lines: RunLine[];
@@ -32,9 +33,23 @@ function NumberCell({ value, disabled, onSave }: { value: number; disabled: bool
   );
 }
 
-// Proses gaji bulanan: hitung draft dari data gaji, absensi, dan komponen; ubah lembur/bonus/kasbon;
+// Jam lembur per pengajuan, mis. "4, 9" = dua pengajuan 4 jam dan 9 jam.
+function HoursCell({ value, disabled, onSave }: { value: number[]; disabled: boolean; onSave: (v: number[]) => void }) {
+  const text = value.join(", ");
+  const [v, setV] = useState(text);
+  const [prev, setPrev] = useState(text);
+  if (prev !== text) { setPrev(text); setV(text); }
+  return (
+    <input type="text" inputMode="decimal" value={v} disabled={disabled} placeholder="4, 9"
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => { const h = parseHours(v); if (h.join(", ") !== text) onSave(h); else setV(text); }}
+      className="h-8 w-24 rounded-lg border border-gray-200 bg-white px-2 text-right text-xs tabular-nums disabled:border-transparent disabled:bg-transparent" />
+  );
+}
+
+// Proses gaji bulanan: hitung draft dari komponen yang ditempel ke tiap karyawan; isi jam lembur dan input tiap periode;
 // lalu finalkan untuk mengunci angka dan menerbitkan slip gaji.
-export default function RunTab({ runs }: { runs: Run[] }) {
+export default function RunTab({ runs, periodInputs }: { runs: Run[]; periodInputs: PeriodInput[] }) {
   const t = useT();
   const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT")?.period ?? thisMonth());
   const run = runs.find((r) => r.period === period);
@@ -124,11 +139,10 @@ export default function RunTab({ runs }: { runs: Run[] }) {
                   <th className="px-3 py-2"><T>Karyawan</T></th>
                   <th className="px-2 py-2 text-right"><T>Hadir</T></th>
                   <th className="px-2 py-2 text-right"><T>Mangkir</T></th>
-                  <th className="px-2 py-2 text-right"><T>Lembur HK (jam)</T></th>
-                  <th className="px-2 py-2 text-right"><T>Lembur HL (jam)</T></th>
-                  <th className="px-2 py-2 text-right"><T>Makan Lembur (kali)</T></th>
-                  <th className="px-2 py-2 text-right"><T>Bonus</T></th>
-                  <th className="px-2 py-2 text-right"><T>Kasbon</T></th>
+                  <th className="px-2 py-2 text-right"><T>Dinas (hari / kali)</T></th>
+                  <th className="px-2 py-2 text-right" title={t("Jam per pengajuan, pisahkan dengan koma")}><T>Lembur HK (jam)</T></th>
+                  <th className="px-2 py-2 text-right" title={t("Jam per pengajuan, pisahkan dengan koma")}><T>Lembur HL (jam)</T></th>
+                  {periodInputs.map((c) => <th key={c.code} className="px-2 py-2 text-right">{t(c.name)}</th>)}
                   <th className="px-2 py-2 text-right"><T>Pendapatan</T></th>
                   <th className="px-2 py-2 text-right"><T>Potongan</T></th>
                   <th className="px-2 py-2 text-right"><T>PPh 21</T></th>
@@ -151,11 +165,14 @@ export default function RunTab({ runs }: { runs: Run[] }) {
                       </td>
                       <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.daysPresent} disabled={final} onSave={(v) => save(l.id, { daysPresent: v })} /></td>
                       <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.absentDays} disabled={final} onSave={(v) => save(l.id, { absentDays: v })} /></td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.overtimeHours} disabled={final} onSave={(v) => save(l.id, { overtimeHours: v })} /></td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.restOvertimeHours} disabled={final} onSave={(v) => save(l.id, { restOvertimeHours: v })} /></td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.overtimeMeals ?? 0} disabled={final} onSave={(v) => save(l.id, { overtimeMeals: v })} /></td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.bonus} disabled={final} onSave={(v) => save(l.id, { bonus: v })} /></td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.kasbon} disabled={final} onSave={(v) => save(l.id, { kasbon: v })} /></td>
+                      <td className="px-2 py-2 text-right tabular-nums text-gray-600">{l.inputs.tripDays ?? 0} / {l.inputs.trips ?? 0}</td>
+                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otWork ?? []} disabled={final} onSave={(v) => save(l.id, { otWork: v })} /></td>
+                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otRest ?? []} disabled={final} onSave={(v) => save(l.id, { otRest: v })} /></td>
+                      {periodInputs.map((c) => (
+                        <td key={c.code} className="px-2 py-2 text-right">
+                          <NumberCell value={l.inputs.values?.[c.code] ?? 0} disabled={final} onSave={(v) => save(l.id, { values: { [c.code]: v } })} />
+                        </td>
+                      ))}
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.earnings)}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-rose-600">{rupiah(l.deductions - l.pph21)}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.pph21)}{l.terRate !== null && <span className="block text-[10px] text-gray-400">TER {l.terRate}%</span>}</td>
@@ -163,7 +180,7 @@ export default function RunTab({ runs }: { runs: Run[] }) {
                     </tr>
                     {open === l.id && (
                       <tr className="bg-gray-50/60">
-                        <td colSpan={12} className="px-6 py-3">
+                        <td colSpan={10 + periodInputs.length} className="px-6 py-3">
                           <div className="grid gap-4 md:grid-cols-3">
                             {(["PENDAPATAN", "POTONGAN", "BENEFIT"] as const).map((k) => (
                               <div key={k}>
