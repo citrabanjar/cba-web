@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
 import { deleteMasterItem, saveMasterItem, type MasterKind } from "./actions";
+import OrgImport from "./OrgImport";
 
 type Item = { id: string; name: string; used: number };
 
@@ -122,11 +123,14 @@ export default function SetupClient({
 }) {
   return (
     <div className="bg-gray-50 min-h-full">
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h2 className="font-bold text-gray-800"><T>Organisasi</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5">
-          <T>Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.</T>
-        </p>
+      <div className="bg-white border-b border-gray-100 px-6 py-4 flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-bold text-gray-800"><T>Organisasi</T></h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            <T>Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.</T>
+          </p>
+        </div>
+        <OrgImport existing={{ branch: branches.map((x) => x.name), department: departments.map((x) => x.name), position: positions.map((x) => x.name) }} />
       </div>
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
         {/* Ringkasan jumlah, gaya kartu angka seperti Data Karyawan */}

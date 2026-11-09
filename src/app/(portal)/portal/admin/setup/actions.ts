@@ -60,3 +60,28 @@ export async function deleteMasterItem(kind: MasterKind, id: string) {
   refresh();
   return {};
 }
+
+// Upload template Parameter Organisasi: nama baru ditambahkan; yang sudah ada (tanpa beda huruf besar/kecil) dilewati.
+export async function importOrgParameters(data: Record<MasterKind, string[]>) {
+  await requireSuperAdmin();
+  const result: Record<MasterKind, { added: number; skipped: number }> = {
+    branch: { added: 0, skipped: 0 }, department: { added: 0, skipped: 0 }, position: { added: 0, skipped: 0 },
+  };
+  for (const kind of ["branch", "department", "position"] as MasterKind[]) {
+    const existing = new Set((await table(kind).findMany({ select: { name: true } })).map((x) => x.name.toLowerCase()));
+    const seen = new Set<string>();
+    const fresh: string[] = [];
+    for (const raw of data[kind] ?? []) {
+      const name = String(raw ?? "").trim().replace(/\s+/g, " ").slice(0, 100);
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (existing.has(key) || seen.has(key)) { result[kind].skipped++; continue; }
+      seen.add(key);
+      fresh.push(name);
+    }
+    if (fresh.length) await table(kind).createMany({ data: fresh.map((name) => ({ name })), skipDuplicates: true });
+    result[kind].added = fresh.length;
+  }
+  refresh();
+  return { result };
+}
