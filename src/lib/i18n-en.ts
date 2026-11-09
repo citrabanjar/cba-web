@@ -287,6 +287,8 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Tampilkan komponen": "Show components",
+  "belum ditempel": "not assigned",
   "Syarat minimal": "Minimum requirement",
   "tanpa syarat": "no requirement",
   "Dicek per lembur; lembur di bawah syarat tidak dihitung.": "Checked per overtime; overtime below the requirement isn't counted.",

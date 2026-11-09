@@ -90,23 +90,25 @@ function AssignDialog({ userId, row, onClose }: { userId: string; row: PayCompon
 // Komponen gaji yang tertempel ke karyawan ini beserta masa berlakunya.
 export default function PayComponentsCard({ userId, rows }: { userId: string; rows: PayComponentRow[] }) {
   const t = useT();
-  const [showAll, setShowAll] = useState(false);
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PayComponentRow | null>(null);
-  const visible = rows.filter((r) => showAll || r.assigned);
+  // Tertempel lebih dulu, yang belum tertempel di bawah tiap kelompok.
+  const visible = [...rows.filter((r) => r.assigned), ...rows.filter((r) => !r.assigned)];
+  const notAssigned = rows.filter((r) => !r.assigned).length;
   const activeCount = rows.filter((r) => status(r.assigned).active).length;
   return (
     <section className="rounded-2xl border border-gray-200 bg-white">
       <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900"><T>Komponen Gaji</T> <span className="text-xs font-normal text-gray-400">{activeCount} <T>berlaku</T></span></h3>
+          <h3 className="font-semibold text-gray-900"><T>Komponen Gaji</T> <span className="text-xs font-normal text-gray-400">{activeCount} <T>berlaku</T>{notAssigned > 0 && <> · {notAssigned} <T>belum ditempel</T></>}</span></h3>
           <p className="text-xs text-gray-400"><T>Komponen yang dihitung saat Proses Gaji. Untuk demosi/promosi, atur tanggal Sampai/Mulai; komponennya sendiri tidak diubah.</T></p>
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600">
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
-          <T>Tampilkan semua komponen</T>
+          <input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
+          <T>Tampilkan komponen</T>
         </label>
       </div>
-      <div className="grid gap-4 p-4 md:grid-cols-3">
+      {open && <div className="grid gap-4 p-4 md:grid-cols-3">
         {KINDS.map((k) => {
           const list = visible.filter((r) => r.kind === k.key);
           return (
@@ -136,7 +138,7 @@ export default function PayComponentsCard({ userId, rows }: { userId: string; ro
             </div>
           );
         })}
-      </div>
+      </div>}
       {editing && <AssignDialog key={editing.componentId} userId={userId} row={editing} onClose={() => setEditing(null)} />}
     </section>
   );
