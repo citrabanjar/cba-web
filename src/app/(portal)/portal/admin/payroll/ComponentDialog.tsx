@@ -94,10 +94,11 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
   function chooseMethod(m: string) {
     setForm((f) => ({
       ...f, method: m,
-      param: NEEDS_PARAM.includes(m) ? f.param ?? (m === "PRORATA" ? "HARI_MANGKIR" : "HARI_HADIR") : m === "LEMBUR" ? "JAM_LEMBUR" : m === "THR" ? "MASA_KERJA" : null,
+      param: NEEDS_PARAM.includes(m) ? (m === "PER_JAM" ? "JAM_TELAT_PULANG_CEPAT" : f.param ?? (m === "PRORATA" ? "HARI_MANGKIR" : "HARI_HADIR")) : m === "LEMBUR" ? "JAM_LEMBUR" : m === "THR" ? "MASA_KERJA" : null,
       base: NEEDS_BASE.includes(m) ? f.base ?? "UPAH_TETAP" : null,
       params: m === "LEMBUR" ? { divisor: 173, work: tiers.work, rest: tiers.rest, ...(f.params ?? {}) }
-        : m === "THR" ? { months: 1, minMonths: 1, proportional: true, ...(f.params ?? {}) } : f.params,
+        : m === "THR" ? { months: 1, minMonths: 1, proportional: true, ...(f.params ?? {}) }
+        : m === "PER_JAM" ? { hoursPerDay: 8, ...(f.params ?? {}) } : f.params,
     }));
   }
 
@@ -252,6 +253,11 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                       )}
                     </div>
                   )}
+                  {form.method === "PER_JAM" && (
+                    <div className="space-y-1.5 sm:w-1/2"><Label className="text-xs"><T>Jam kerja per hari</T></Label>
+                      <Input type="number" min={1} max={24} step="0.5" value={p.hoursPerDay ?? 8} onChange={(e) => setParam({ hoursPerDay: Number(e.target.value) })} />
+                      <p className="text-[11px] text-gray-400"><T>Pembagi hari mengikuti jumlah hari bulan berjalan (28-31).</T></p></div>
+                  )}
                   {form.method === "THR" && (
                     <div className="space-y-3">
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -283,6 +289,8 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                   "Ikut jadi dasar upah lembur, THR, dan BPJS (PP 36/2021).")}
               </>
             )}
+            {form.kind === "POTONGAN" && check(!!p.reducesGross, (v) => setParam({ reducesGross: v }), "Mengurangi penghasilan bruto (pajak)",
+              "Potongan ini mengurangi bruto sebelum PPh 21 dihitung, mis. potongan mangkir atau terlambat.")}
             {check(form.isActive, (v) => set("isActive", v), "Aktif", "Komponen nonaktif tidak dipakai saat menghitung gaji.")}
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}

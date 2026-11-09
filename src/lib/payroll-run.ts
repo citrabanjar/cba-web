@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { evaluate, type PayContext, type PayParams, type PayrollSettings } from "@/lib/payroll";
 import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { countLeaveDays } from "@/lib/leave-balance";
+import { getShiftCalendar } from "@/lib/schedule";
+import { dayPenalty } from "@/lib/attendance-penalty";
 import { isWeekly, periodLabel } from "@/lib/payroll-run-period";
 import { pph21Daily, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
 
@@ -125,6 +127,21 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     return { all, unpaid };
   };
 
+  // Terlambat / pulang cepat per hari dari jam absen dibanding jam shift.
+  const [attTimes, shiftCal] = await Promise.all([
+    prisma.attendance.findMany({ where: { userId, date: { gte: start, lte: end }, checkIn: { not: null } }, select: { date: true, checkIn: true, checkOut: true } }),
+    getShiftCalendar(userId, start, end),
+  ]);
+  const penalties = attTimes.map((a) => {
+    const k = a.date.toISOString().slice(0, 10);
+    return { t: utc(a.date).getTime(), p: dayPenalty(shiftCal[k], k, a.checkIn, a.checkOut) };
+  });
+  const penaltyQty = (a: Date, b: Date) => {
+    const in_ = penalties.filter((x) => x.p && x.t >= a.getTime() && x.t <= b.getTime()).map((x) => x.p!);
+    const late = in_.reduce((s2, p) => s2 + p.lateHours, 0), early = in_.reduce((s2, p) => s2 + p.earlyHours, 0);
+    return { JAM_TERLAMBAT: late, JAM_PULANG_CEPAT: early, JAM_TELAT_PULANG_CEPAT: late + early, KALI_TERLAMBAT: in_.filter((p) => p.late).length };
+  };
+
   // Masukan otomatis: hari kerja dari jadwal, hadir/mangkir dari absensi, dinas & cuti yang disetujui.
   const tripDates = new Set<number>();
   for (const t of trips) { const { a, b } = clip(t.startDate, t.endDate); for (let d = a.getTime(); d <= b.getTime(); d += DAY) tripDates.add(d); }
@@ -207,6 +224,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
             ...base,
             qty: {
               ...base.qty, HARI_HADIR: cnt(["HADIR", "DINAS"]), HARI_MANGKIR: cnt(["ALPHA"]), HARI_CUTI: leaveW.all, HARI_CUTI_TANPA_UPAH: leaveW.unpaid, HARI_DINAS: dates,
+              ...penaltyQty(w.a, w.b),
               KALI_DINAS: trips.filter((t) => utc(t.startDate) >= w.a && utc(t.startDate) <= w.b).length,
             },
           },
@@ -225,7 +243,9 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     qty: {
       HARI_HADIR: inputs.daysPresent, HARI_MANGKIR: inputs.absentDays, HARI_KERJA: inputs.workDays, MASA_KERJA: inputs.monthsOfService,
       HARI_DINAS: inputs.tripDays, KALI_DINAS: inputs.trips, HARI_CUTI: inputs.leaveDays, HARI_CUTI_TANPA_UPAH: inputs.unpaidLeaveDays ?? 0,
+      ...penaltyQty(start, end),
     },
+    periodDays: calDays,
     overtimeWork: inputs.otWork, overtimeRest: inputs.otRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor, nonRoutine,
     prorataDays: weekly && monthlyFactor > 0 ? monthlyFactor : undefined,
   };
@@ -298,9 +318,10 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
 
   // PPh 21: bruto = pendapatan + benefit objek pajak (premi asuransi perusahaan), dikurangi potongan berkategori Gaji (mis. mangkir).
   const catOf = new Map(ctx.components.map((c) => [c.code, c.category]));
+  const reduces = new Set(ctx.components.filter((c) => (c.params as PayParams | null)?.reducesGross).map((c) => c.code));
   const pensionCodes = new Set(["JHTK", "JPK", ...ctx.components.filter((c) => c.category === "IURAN_PENSIUN").map((c) => c.code)]);
   let gross = items.filter((i) => i.taxable && (i.kind === "PENDAPATAN" || i.kind === "BENEFIT")).reduce((a, i) => a + i.amount, 0)
-    - items.filter((i) => i.kind === "POTONGAN" && catOf.get(i.code) === "GAJI").reduce((a, i) => a + i.amount, 0);
+    - items.filter((i) => i.kind === "POTONGAN" && (catOf.get(i.code) === "GAJI" || reduces.has(i.code))).reduce((a, i) => a + i.amount, 0);
   const pension = items.filter((i) => pensionCodes.has(i.code)).reduce((a, i) => a + i.amount, 0);
   const lastMonth = !weekly && (ctx.period.endsWith("-12") || (resign !== null && resign <= end));
   const prior = ctx.priorLines.filter((l) => l.userId === userId);

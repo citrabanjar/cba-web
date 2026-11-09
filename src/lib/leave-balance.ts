@@ -185,14 +185,14 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
           const months = 12 - start.getUTCMonth();
           const prorata = Math.floor(((quota * months) / 12) * 2) / 2;
           if (start > today) { nextDate = start; nextDays = prorata; }
-          else if (after(start)) evs.push({ t: start.getTime(), kind: "grant", days: prorata, label: `Jatah prorata ${months} bulan (mulai berhak ${keyOf(start)})` });
+          else if (after(start)) evs.push({ t: start.getTime(), kind: "grant", days: prorata, label: `Hak Cuti prorata ${months} bulan (mulai berhak ${keyOf(start)})` });
         }
         const [mm, dd] = (p.carryOverExpiry ?? "").split("-").map(Number);
         for (let y = isJan1 ? start.getUTCFullYear() : start.getUTCFullYear() + 1; y < start.getUTCFullYear() + 100 && !nextDate; y++) {
           const d = new Date(Date.UTC(y, 0, 1));
           if (d > today) { nextDate = d; nextDays = quota; break; }
           if (!after(d)) continue;
-          evs.push({ t: d.getTime(), kind: "reset", days: quota, label: `Jatah cuti tahun ${y}` });
+          evs.push({ t: d.getTime(), kind: "reset", days: quota, label: `Hak Cuti tahun ${y}` });
           // Sisa bawaan berlaku sampai tanggal batas; keesokan harinya yang belum terpakai hangus.
           if (p.carryOverExpires && p.carryOverDays > 0 && mm && dd) {
             const x = new Date(Date.UTC(y, mm - 1, dd + 1));
@@ -204,7 +204,7 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
         for (let n = first; n < 1200; n += 12) {
           const d = addMonths(join, n);
           if (d > today) { nextDate = d; nextDays = p.quota ?? 0; break; }
-          if (d > from) evs.push({ t: d.getTime(), kind: "reset", days: p.quota ?? 0, label: `Jatah cuti setahun (masa kerja ${Math.round(n / 12)} tahun)` });
+          if (d > from) evs.push({ t: d.getTime(), kind: "reset", days: p.quota ?? 0, label: `Hak Cuti setahun (masa kerja ${Math.round(n / 12)} tahun)` });
         }
       }
       for (const r of requests) {

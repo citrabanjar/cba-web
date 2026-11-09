@@ -33,6 +33,7 @@ export const PAY_METHODS = [
   { key: "PER_SATUAN", label: "Nominal x Parameter", hint: "Contoh: uang saku dinas Rp100.000 x kegiatan dinas. Bisa diberi syarat minimal, lalu centang \"Berlaku kelipatan\" bila dibayar per kelipatan (mis. uang makan lembur Rp15.000 tiap 4 jam, minimal 4 jam)." },
   { key: "PERSEN", label: "Persen dari dasar nilai", hint: "Contoh: BPJS 1% x upah, dengan batas atas/bawah." },
   { key: "PRORATA", label: "Dasar nilai / hari kerja x parameter", hint: "Contoh: potongan mangkir = upah / hari kerja x hari mangkir." },
+  { key: "PER_JAM", label: "Dasar nilai / hari sebulan / jam x parameter", hint: "Contoh: potongan terlambat = gaji pokok / jumlah hari bulan berjalan (28-31) / 8 jam x jam terlambat." },
   { key: "LEMBUR", label: "Upah lembur", hint: "Dasar nilai / pembagi x tarif per jam. Tarif bawaan mengikuti PP 35/2021; baris tarif bisa diubah atau dihapus." },
   { key: "THR", label: "Kelipatan upah, tidak rutin (THR, Bonus)", hint: "Dasar nilai x jumlah bulan upah. Hanya dihitung bila dipilih saat Proses Gaji." },
 ] as const;
@@ -45,13 +46,17 @@ export const PAY_PARAMS = [
   { key: "KALI_DINAS", label: "Kegiatan dinas luar (kali)", unit: "kali" },
   { key: "HARI_HADIR", label: "Hari hadir", unit: "hari" },
   { key: "HARI_MANGKIR", label: "Hari mangkir", unit: "hari" },
+  { key: "JAM_TELAT_PULANG_CEPAT", label: "Jam terlambat + pulang cepat", unit: "jam" },
+  { key: "JAM_TERLAMBAT", label: "Jam terlambat (lebih dari 30 menit)", unit: "jam" },
+  { key: "JAM_PULANG_CEPAT", label: "Jam pulang cepat", unit: "jam" },
+  { key: "KALI_TERLAMBAT", label: "Kali terlambat (lewat toleransi)", unit: "kali" },
   { key: "HARI_CUTI", label: "Hari cuti disetujui", unit: "hari" },
   { key: "HARI_CUTI_TANPA_UPAH", label: "Hari cuti di luar tanggungan", unit: "hari" },
   { key: "HARI_KERJA", label: "Hari kerja sebulan", unit: "hari" },
   { key: "MASA_KERJA", label: "Masa kerja", unit: "bulan" },
 ] as const;
-export const NEEDS_PARAM = ["PER_SATUAN", "PRORATA"];
-export const NEEDS_BASE = ["PERSEN", "PRORATA", "LEMBUR", "THR"];
+export const NEEDS_PARAM = ["PER_SATUAN", "PRORATA", "PER_JAM"];
+export const NEEDS_BASE = ["PERSEN", "PRORATA", "LEMBUR", "THR", "PER_JAM"];
 
 export const PAY_BASES = [
   { key: "GAJI_POKOK", label: "Gaji pokok" },
@@ -70,6 +75,8 @@ export type PayParams = {
   step?: number; // Nominal x Parameter: berlaku kelipatan
   divisor?: number; work?: Tier[]; rest?: Tier[] | null; // upah lembur; rest null = tarif hari libur sama dengan hari kerja
   months?: number; minMonths?: number; proportional?: boolean; // THR / bonus
+  hoursPerDay?: number; // dasar nilai / hari sebulan / jam: jam kerja per hari (bawaan 8)
+  reducesGross?: boolean; // potongan mengurangi penghasilan bruto PPh 21
   workday?: number[]; rest6?: number[]; rest5?: number[]; // format lama lembur
 };
 export const DEFAULT_WORK_TIERS: Tier[] = [{ upTo: 1, x: 1.5 }, { upTo: null, x: 2 }];
@@ -167,6 +174,7 @@ export type PayContext = {
   workDaysPerWeek: 5 | 6; overtimeDivisor: number;
   nonRoutine: string[]; // kode komponen tidak rutin (THR, bonus) yang disertakan periode ini
   prorataDays?: number; // pembagi "dasar nilai / hari kerja" (karyawan harian: pengali gaji harian → bulanan)
+  periodDays?: number; // jumlah hari kalender periode (bulan berjalan: 28-31)
 };
 
 type EvalComponent = Pick<PayComponentInput, "code" | "name" | "kind" | "category" | "method" | "param" | "amount" | "rate" | "base" | "capAmount" | "floorAmount" | "params" | "baseCodes">;
@@ -210,6 +218,10 @@ export function evaluate(c: EvalComponent, ctx: PayContext): { amount: number; d
       const days = ctx.prorataDays || ctx.qty.HARI_KERJA || 0, q = paramTotal(c.param, ctx), b = baseValue(c, ctx);
       return { amount: days ? (b / days) * q : 0, detail: `${rupiah(b)} / ${days} hari x ${num(q)} ${paramUnit(c.param)}` };
     }
+    case "PER_JAM": {
+      const days = ctx.periodDays || 30, hours = p.hoursPerDay || 8, q = paramTotal(c.param, ctx), b = baseValue(c, ctx);
+      return { amount: (b / days / hours) * q, detail: `${rupiah(b)} / ${days} hari / ${num(hours)} jam x ${num(q)} ${paramUnit(c.param)}` };
+    }
     case "LEMBUR": {
       const hourly = baseValue(c, ctx) / (p.divisor ?? ctx.overtimeDivisor);
       const t = overtimeTiers(p, ctx.workDaysPerWeek);
@@ -246,6 +258,7 @@ export function describe(c: EvalComponent & { params?: PayParams | null }, workD
       return `${num(c.rate ?? 0)}% x ${b}${extra ? ` (${extra})` : ""}`;
     }
     case "PRORATA": return `${b} / hari kerja x ${paramLabel(c.param)}`;
+    case "PER_JAM": return `${b} / hari bulan berjalan / ${num(p.hoursPerDay || 8)} jam x ${paramLabel(c.param)}`;
     case "LEMBUR": {
       const t = overtimeTiers(p, workDaysPerWeek);
       return `1/${p.divisor ?? 173} x ${b} · ${t.rest ? "hari kerja " : ""}${tiers(t.work)}${t.rest ? ` · hari libur ${tiers(t.rest)}` : ""}`;

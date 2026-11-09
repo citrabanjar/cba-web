@@ -48,19 +48,6 @@ function Chip({ children, tone = "gray" }: { children: React.ReactNode; tone?: "
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{children}</span>;
 }
 
-// Penjelasan singkat tiap kategori, tampil di bawah pilihan Kategori.
-const CATEGORY_HINT: Record<string, string> = {
-  TAHUNAN: "Cuti dengan saldo: jatah per tahun (Cuti Tahunan) atau bertambah tiap bulan (Cuti Masa Kontrak).",
-  ISTIRAHAT_PANJANG: "Istirahat panjang setelah masa kerja tertentu.",
-  KHUSUS: "Cuti karena keperluan tertentu (menikah, duka, dan sebagainya), jatah per kejadian.",
-  MELAHIRKAN: "Cuti melahirkan atau keguguran.",
-  SAKIT: "Izin sakit, biasanya dengan surat dokter.",
-  IBADAH: "Cuti untuk menjalankan ibadah.",
-  DINAS: "Dinas luar kantor.",
-  TANPA_UPAH: "Cuti di luar tanggungan perusahaan.",
-  LAINNYA: "Jenis cuti lain.",
-};
-
 function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: () => void }) {
   const t = useT();
   const [form, setForm] = useState<LeavePolicyInput>(() => policy === "new" ? EMPTY : {
@@ -74,7 +61,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   const [expMonth, expDay] = (form.carryOverExpiry || "03-31").split("-").map(Number);
   const setExpiry = (m: number, d: number) => set("carryOverExpiry", `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
 
-  // Kategori Cuti Tahunan punya dua cara dapat saldo; kategori lain memakai jatah per kejadian / per tahun biasa.
+  // Kategori Cuti Tahunan punya dua cara dapat saldo; kategori lain memakai Hak Cuti per kejadian / per tahun biasa.
   const saldo = form.category === "TAHUNAN";
   const monthly = form.accrualPerMonth > 0;
 
@@ -146,15 +133,14 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
           <div className="space-y-1.5"><Label className="text-xs"><T>Kategori</T></Label>
             <select value={form.category} onChange={(e) => pickCategory(e.target.value)} className={select}>
               {LEAVE_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{t(c.label)}</option>)}
-            </select>
-            {CATEGORY_HINT[form.category] && <p className="text-[11px] text-gray-400"><T>{CATEGORY_HINT[form.category]}</T></p>}</div>
+            </select></div>
 
           {saldo ? (
             <div className="space-y-3 rounded-xl border border-gray-200 p-3">
               <p className="text-xs font-semibold text-gray-600"><T>Cara dapat saldo</T></p>
               <div className="flex gap-1 rounded-xl bg-gray-50 p-1">
                 <button type="button" className={tab(!monthly)} onClick={() => pickMode("TAHUN")}>
-                  <b><T>Jatah per tahun</T></b><span className="block text-[11px] opacity-75"><T>Cuti Tahunan karyawan tetap</T></span>
+                  <b><T>Hak Cuti per tahun</T></b><span className="block text-[11px] opacity-75"><T>Cuti Tahunan karyawan tetap</T></span>
                 </button>
                 <button type="button" className={tab(monthly)} onClick={() => pickMode("BULAN")}>
                   <b><T>Bertambah tiap bulan</T></b><span className="block text-[11px] opacity-75"><T>Cuti Masa Kontrak</T></span>
@@ -164,22 +150,22 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
               {!monthly ? (
                 <>
                   <div className="grid gap-3 sm:grid-cols-3">
-                    {field("Jatah per tahun", num("quota"))}
+                    {field("Hak Cuti per tahun", num("quota"))}
                     {field("Satuan", (
                       <select value={form.unit} onChange={(e) => set("unit", e.target.value)} className={select}>
                         {LEAVE_UNITS.filter((u) => u.key !== "BULAN").map((u) => <option key={u.key} value={u.key}>{t(u.label)}</option>)}
                       </select>))}
-                    {field("Jatah diperbarui", (
+                    {field("Hak Cuti diperbarui", (
                       <select value={form.renewal} onChange={(e) => set("renewal", e.target.value)} className={select}>
                         {LEAVE_RENEWALS.map((r) => <option key={r.key} value={r.key}>{t(r.label)}</option>)}
                       </select>))}
                   </div>
                   <p className="text-[11px] text-gray-400"><T>{form.renewal === "JANUARI"
-                    ? "Semua karyawan dapat jatah baru tiap 1 Januari. Saat mulai berhak (mis. diangkat tetap) dapat jatah prorata sampai Desember."
-                    : "Jatah baru masuk di ulang tahun kerja masing-masing karyawan."}</T></p>
+                    ? "Semua karyawan dapat Hak Cuti baru tiap 1 Januari. Saat mulai berhak (mis. diangkat tetap) dapat Hak Cuti prorata sampai Desember."
+                    : "Hak Cuti baru masuk di ulang tahun kerja masing-masing karyawan."}</T></p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {field("Masa kerja minimal (bulan)", num("minServiceMonths"), "Hitungan dari tanggal masuk. 0 = langsung berhak.")}
-                    {field("Sisa boleh dibawa (maksimal hari)", num("carryOverDays"), "0 = semua sisa hangus saat jatah baru masuk.")}
+                    {field("Sisa boleh dibawa (maksimal hari)", num("carryOverDays"), "0 = semua sisa hangus saat Hak Cuti baru masuk.")}
                   </div>
                   {form.renewal === "JANUARI" && form.carryOverDays > 0 && (
                     <div className="flex flex-wrap items-center gap-3">
@@ -222,7 +208,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
             </div>
           ) : (
             <div className="space-y-3 rounded-xl border border-gray-200 p-3">
-              <p className="text-xs font-semibold text-gray-600"><T>Jatah</T></p>
+              <p className="text-xs font-semibold text-gray-600"><T>Hak Cuti</T></p>
               <label className="flex items-center gap-2 text-sm text-gray-700">
                 <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
                 <T>Tanpa batas tetap (sesuai kebutuhan / surat dokter)</T>
@@ -339,7 +325,7 @@ export default function LeaveClient({ policies, balances }: { policies: Policy[]
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Scale size={17} /></span>
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-gray-900"><T>Jenis Cuti & Izin</T></h3>
-              <p className="text-xs text-gray-400"><T>Jatah hari, syarat, upah, dan dasar hukum setiap jenis cuti.</T></p>
+              <p className="text-xs text-gray-400"><T>Hak Cuti, syarat, dan upah setiap jenis cuti.</T></p>
             </div>
             <button type="button" onClick={() => setEditing("new")}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
