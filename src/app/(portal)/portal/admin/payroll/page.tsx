@@ -6,7 +6,7 @@ import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import type { PayParams } from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
-import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
+import { ensureSystemComponents, getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import PayrollClient from "./PayrollClient";
 import { normalizeInputs, periodLabel, type LineInputs, type LineItem } from "@/lib/payroll-run";
 
@@ -19,6 +19,7 @@ export default async function PayrollPage() {
   if (!hasMenu(access, "gaji")) redirect("/portal/dashboard");
 
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
+  await ensureSystemComponents();
   const [components, settings, runs, employees, taxSettings, terSettings] = await Promise.all([
     prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     getPayrollSettings(),

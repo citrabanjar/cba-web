@@ -23,3 +23,23 @@ export async function getTerSettings(): Promise<TerVersion[]> {
   const row = await prisma.appSetting.findUnique({ where: { key: TER_SETTING_KEY } });
   return Array.isArray(row?.value) ? (row.value as unknown as TerVersion[]) : [];
 }
+
+// Komponen sistem PPh 21 harus selalu ada: tidak bisa dibuat dari form Tambah Komponen, dan bisa ikut
+// terhapus saat database dikosongkan. Dipanggil saat halaman Payroll dibuka; aman dipanggil berulang.
+export async function ensureSystemComponents() {
+  const exists = await prisma.payComponent.findFirst({ where: { method: "PPH21" }, select: { id: true } });
+  if (exists) return;
+  const taken = await prisma.payComponent.findUnique({ where: { code: "PPH21" }, select: { id: true } });
+  try {
+    await prisma.payComponent.create({
+      data: {
+        code: taken ? "PPH21S" : "PPH21", name: "PPh Pasal 21", kind: "POTONGAN", category: "PPH21", method: "PPH21", taxable: false,
+        legalBasis: "PP 58/2023 dan PMK 168/2023 (Tarif Efektif Rata-rata); PTKP PMK 101/2016",
+        note: "Januari-November memakai tarif efektif (TER) sesuai PTKP; masa pajak terakhir dihitung ulang setahun dengan tarif Pasal 17 dan biaya jabatan 5% (maks. Rp6 juta setahun).",
+        isActive: true, sortOrder: 999, updatedBy: "Sistem",
+      },
+    });
+  } catch {
+    // Dibuat bersamaan oleh permintaan lain; abaikan.
+  }
+}
