@@ -91,7 +91,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   }
   const components = ctx.components.filter((c) => tempel.has(c.code));
   const [user, salary, trips, leaves] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true, taxability: true } }),
     prisma.employeeSalary.findFirst({ where: { userId, effectiveDate: { lte: end } }, orderBy: { effectiveDate: "desc" }, include: { components: true } }),
     prisma.businessTrip.findMany({ where: { userId, status: "APPROVED", startDate: { lte: end }, endDate: { gte: start } }, select: { startDate: true, endDate: true } }),
     prisma.leaveRequest.findMany({ where: { userId, status: "APPROVED", startDate: { lte: end }, endDate: { gte: start } }, select: { startDate: true, endDate: true } }),
@@ -258,34 +258,56 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   // PPh 21: bruto = pendapatan + benefit objek pajak (premi asuransi perusahaan), dikurangi potongan berkategori Gaji (mis. mangkir).
   const catOf = new Map(ctx.components.map((c) => [c.code, c.category]));
   const pensionCodes = new Set(["JHTK", "JPK", ...ctx.components.filter((c) => c.category === "IURAN_PENSIUN").map((c) => c.code)]);
-  const gross = items.filter((i) => i.taxable && (i.kind === "PENDAPATAN" || i.kind === "BENEFIT")).reduce((a, i) => a + i.amount, 0)
+  let gross = items.filter((i) => i.taxable && (i.kind === "PENDAPATAN" || i.kind === "BENEFIT")).reduce((a, i) => a + i.amount, 0)
     - items.filter((i) => i.kind === "POTONGAN" && catOf.get(i.code) === "GAJI").reduce((a, i) => a + i.amount, 0);
   const pension = items.filter((i) => pensionCodes.has(i.code)).reduce((a, i) => a + i.amount, 0);
   const lastMonth = !weekly && (ctx.period.endsWith("-12") || (resign !== null && resign <= end));
-  let pph21 = 0, rate: number | null = null;
-  if (components.some((c) => c.method === "PPH21")) {
+  const prior = ctx.priorLines.filter((l) => l.userId === userId);
+  const priorPension = prior.reduce((a, l) => a + (l.items as LineItem[]).filter((i) => pensionCodes.has(i.code)).reduce((x, i) => x + i.amount, 0), 0);
+  const months = prior.length + 1;
+  // PPh 21 atas bruto tertentu: TER harian (mingguan), hitung ulang setahun (masa pajak terakhir), atau TER bulanan.
+  const taxOf = (g: number) => {
     if (weekly) {
-      // Karyawan harian: TER harian atas rata-rata penghasilan sehari (PP 58/2023).
-      const t = pph21Daily(gross, workDaysHere, ctx.ter);
-      pph21 = t.tax; rate = t.rate;
-      add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, `TER harian ${t.rate}% · rata-rata ${Math.round(t.perDay).toLocaleString("id-ID")} sehari`, false);
-    } else if (lastMonth) {
-      const prior = ctx.priorLines.filter((l) => l.userId === userId);
-      const priorPension = prior.reduce((a, l) => a + (l.items as LineItem[]).filter((i) => pensionCodes.has(i.code)).reduce((x, i) => x + i.amount, 0), 0);
-      const months = prior.length + 1;
+      const t = pph21Daily(g, workDaysHere, ctx.ter);
+      return { tax: t.tax, rate: t.rate as number | null, refund: 0, detail: `TER harian ${t.rate}% · rata-rata ${Math.round(t.perDay).toLocaleString("id-ID")} sehari`, refundDetail: "" };
+    }
+    if (lastMonth) {
       const f = pph21Final({
-        grossYear: prior.reduce((a, l) => a + l.gross, 0) + gross, pensionDeductYear: priorPension + pension, months,
+        grossYear: prior.reduce((a, l) => a + l.gross, 0) + g, pensionDeductYear: priorPension + pension, months,
         status: user?.ptkpStatus, withheld: prior.reduce((a, l) => a + l.pph21, 0), cfg: ctx.tax,
       });
-      pph21 = f.tax;
-      add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, `hitung ulang setahun (${months} bulan), PTKP ${f.ptkp.toLocaleString("id-ID")}, PKP ${f.pkp.toLocaleString("id-ID")}`, false);
-      // Kelebihan potong PPh 21 bulan-bulan sebelumnya dikembalikan ke karyawan (PMK 168/2023).
-      add("PPHRF", "Pengembalian lebih potong PPh 21", "PENDAPATAN", f.refund, `pajak setahun ${f.yearTax.toLocaleString("id-ID")}, sudah dipotong ${Math.round(f.yearTax + f.refund).toLocaleString("id-ID")}`, false);
-    } else {
-      const t = pph21Monthly(gross, user?.ptkpStatus, ctx.ter);
-      pph21 = t.tax; rate = t.rate;
-      add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, `TER ${t.rate}% x ${Math.round(gross).toLocaleString("id-ID")} (${user?.ptkpStatus ?? "TK/0"})`, false);
+      return {
+        tax: f.tax, rate: null as number | null, refund: f.refund,
+        detail: `hitung ulang setahun (${months} bulan), PTKP ${f.ptkp.toLocaleString("id-ID")}, PKP ${f.pkp.toLocaleString("id-ID")}`,
+        refundDetail: `pajak setahun ${f.yearTax.toLocaleString("id-ID")}, sudah dipotong ${Math.round(f.yearTax + f.refund).toLocaleString("id-ID")}`,
+      };
     }
+    const t = pph21Monthly(g, user?.ptkpStatus, ctx.ter);
+    return { tax: t.tax, rate: t.rate as number | null, refund: 0, detail: `TER ${t.rate}% x ${Math.round(g).toLocaleString("id-ID")} (${user?.ptkpStatus ?? "TK/0"})`, refundDetail: "" };
+  };
+  let pph21 = 0, rate: number | null = null;
+  if (components.some((c) => c.method === "PPH21")) {
+    // Metode pajak per karyawan (isian Taxability di profil): Gross = dipotong dari gaji; Gross Up = perusahaan
+    // memberi Tunjangan PPh sebesar pajaknya; Net = pajak ditanggung perusahaan tanpa tunjangan.
+    const method = (user?.taxability ?? "Gross").toLowerCase().replace(/[\s-]/g, "");
+    let t = taxOf(gross);
+    if (method === "grossup" && t.tax > 0) {
+      // Cari tunjangan T sehingga T = PPh 21 atas (bruto + T).
+      let allowance = t.tax;
+      for (let i = 0; i < 50; i++) {
+        const next = taxOf(gross + allowance).tax;
+        if (next === allowance) break;
+        allowance = i < 40 ? next : Math.max(next, allowance);
+      }
+      add("TPPH", "Tunjangan PPh 21", "PENDAPATAN", allowance, "gross up: ditanggung perusahaan", true);
+      gross += round(allowance);
+      t = taxOf(gross);
+    }
+    pph21 = t.tax; rate = t.rate;
+    if (method === "net") add("PPH21", "PPh Pasal 21 (ditanggung perusahaan)", "BENEFIT", pph21, t.detail, false);
+    else add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, t.detail, false);
+    // Kelebihan potong PPh 21 bulan-bulan sebelumnya dikembalikan ke karyawan (PMK 168/2023).
+    if (t.refund && method === "gross") add("PPHRF", "Pengembalian lebih potong PPh 21", "PENDAPATAN", t.refund, t.refundDetail, false);
     if (!user?.ptkpStatus) warnings.push("Status PTKP kosong, dipakai TK/0");
   }
 
@@ -359,7 +381,7 @@ export async function finalizeRun(runId: string, by: string | null) {
     const otherDed = items.filter((i) => i.kind === "POTONGAN" && !known.includes(i.code)).reduce((a, i) => a + i.amount, 0);
     const data = {
       periodLabel: label, basicSalary: pick("GP"), overtimePay: pick("LBR"), mealAllowance: pick("UM", "UML"), travelAllowance: pick("UT"),
-      otherBenefits: otherEarn, pph21: pick("PPH21"), bpjsKesehatan: pick("KESK"), bpjsKetenagakerjaan: pick("JHTK", "JPK"),
+      otherBenefits: otherEarn, pph21: items.filter((i) => i.code === "PPH21" && i.kind === "POTONGAN").reduce((a, i) => a + i.amount, 0), bpjsKesehatan: pick("KESK"), bpjsKetenagakerjaan: pick("JHTK", "JPK"),
       otherDeductions: otherDed, netPay: l.netPay,
     };
     return prisma.payslip.upsert({

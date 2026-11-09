@@ -200,7 +200,7 @@ export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]
                       <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otWork ?? []} disabled={final} onSave={(v) => save(l.id, { otWork: v })} /></td>
                       <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otRest ?? []} disabled={final} onSave={(v) => save(l.id, { otRest: v })} /></td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.earnings)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums text-rose-600">{rupiah(l.deductions - l.pph21)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-rose-600">{rupiah(l.items.filter((i) => i.kind === "POTONGAN" && i.code !== "PPH21").reduce((a, i) => a + i.amount, 0))}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.pph21)}{l.terRate !== null && <span className="block text-[10px] text-gray-400">TER {l.terRate}%</span>}</td>
                       <td className="px-3 py-2 text-right text-sm font-bold tabular-nums text-gray-900">{rupiah(l.netPay)}</td>
                     </tr>

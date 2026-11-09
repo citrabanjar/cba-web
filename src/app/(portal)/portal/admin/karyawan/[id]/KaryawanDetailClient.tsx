@@ -825,7 +825,7 @@ export default function KaryawanDetailClient({
     pajak: [
       { key: "npwp", label: "NPWP" },
       { key: "ptkpStatus", label: "Status PTKP" },
-      { key: "taxability", label: "Taxability" },
+      { key: "taxability", label: "Metode Pajak (Taxability)", type: "select", options: ["Gross", "Gross Up", "Net"].map((v) => ({ value: v, label: v })) },
       { key: "taxStatus", label: "Status Pajak" },
       { key: "taxObjectCode", label: "Kode Objek Pajak" },
     ],
@@ -1080,7 +1080,7 @@ export default function KaryawanDetailClient({
             <SectionCard title="Pajak" onEdit={edit("pajak")} grid>
               <Field label="NPWP">{emp.npwp}</Field>
               <Field label="Status PTKP">{emp.ptkpStatus}</Field>
-              <Field label="Taxability">{emp.taxability}</Field>
+              <Field label="Metode Pajak (Taxability)">{emp.taxability ?? <span className="text-gray-400">Gross</span>}</Field>
               <Field label="Status Pajak">{emp.taxStatus}</Field>
               <Field label="Kode Objek Pajak">{emp.taxObjectCode}</Field>
             </SectionCard>
