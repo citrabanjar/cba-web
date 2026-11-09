@@ -227,7 +227,12 @@ export function buildTemplate(): XLSX.WorkBook {
     }
     const help = col?.shown ?? col?.note ?? (col?.kind === "date" ? "DD-MMM-YYYY" : "");
     const cell = data[XLSX.utils.encode_cell({ r: 0, c })];
-    if (help) cell.c = [{ a: "Petunjuk", t: col?.shown ? `Pilih: ${help}` : help, hidden: true }];
+    if (help) {
+      // SheetJS membaca "hidden" dari array komentar: catatan baru muncul saat header disorot.
+      const notes: XLSX.Comments = [{ a: "Petunjuk", t: col?.shown ? `Pilih: ${help}` : help }];
+      notes.hidden = true;
+      cell.c = notes;
+    }
   });
   data["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: TEMPLATE_ROWS, c: headers.length - 1 } });
   data["!cols"] = headers.map((h) => ({ wch: Math.max(14, h.length + 2) }));
