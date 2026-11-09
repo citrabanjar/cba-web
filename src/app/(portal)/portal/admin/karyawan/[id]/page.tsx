@@ -178,9 +178,9 @@ export default async function KaryawanDetailPage({
         };
       }) : []}
       payOptions={(await prisma.payComponent.findMany({
-        where: { isActive: true, method: "INPUT", kind: { in: ["PENDAPATAN", "POTONGAN"] }, NOT: { category: "GAJI_POKOK" } },
-        orderBy: { sortOrder: "asc" }, select: { code: true, name: true, kind: true, params: true },
-      })).filter((c) => !(c.params as { perPeriod?: boolean } | null)?.perPeriod).map((c) => ({ code: c.code, name: c.name, kind: c.kind }))}
+        where: { isActive: true, method: "INPUT", kind: { in: ["PENDAPATAN", "POTONGAN"] }, NOT: { code: "GP" } },
+        orderBy: { sortOrder: "asc" }, select: { code: true, name: true, kind: true },
+      }))}
     />
   );
 }

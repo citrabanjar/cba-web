@@ -6,7 +6,7 @@ import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import type { PayParams } from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
-import { getPayrollSettings } from "@/lib/payroll-settings";
+import { getPayrollSettings, getTaxSettings } from "@/lib/payroll-settings";
 import PayrollClient from "./PayrollClient";
 import { normalizeInputs, periodLabel, type LineInputs, type LineItem } from "@/lib/payroll-run";
 
@@ -19,7 +19,7 @@ export default async function PayrollPage() {
   if (!hasMenu(access, "gaji")) redirect("/portal/dashboard");
 
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
-  const [components, settings, runs, employees] = await Promise.all([
+  const [components, settings, runs, employees, taxSettings] = await Promise.all([
     prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     getPayrollSettings(),
     prisma.payrollRun.findMany({
@@ -30,6 +30,7 @@ export default async function PayrollPage() {
       where: { isActive: true, role: { not: "SUPER_ADMIN" } }, orderBy: { name: "asc" },
       select: { id: true, name: true, employeeId: true, department: { select: { name: true } } },
     }),
+    getTaxSettings(),
   ]);
   return (
     <PayrollClient
@@ -38,12 +39,11 @@ export default async function PayrollPage() {
         createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString(),
       }))}
       employees={employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId ?? "", department: e.department?.name ?? null }))}
-      periodInputs={components
-        .filter((c) => c.isActive && c.method === "INPUT" && (c.params as PayParams | null)?.perPeriod)
-        .map((c) => ({ code: c.code, name: c.name, kind: c.kind }))}
+      nonRoutine={components.filter((c) => c.isActive && c.method === "THR").map((c) => ({ code: c.code, name: c.name }))}
+      taxSettings={taxSettings}
       settings={settings}
       runs={runs.map((r) => ({
-        id: r.id, period: r.period, label: periodLabel(r.period), status: r.status, includeThr: r.includeThr,
+        id: r.id, period: r.period, label: periodLabel(r.period), status: r.status, extraCodes: r.extraCodes.length ? r.extraCodes : r.includeThr ? ["THR"] : [],
         finalizedBy: r.finalizedBy, finalizedAt: r.finalizedAt?.toISOString() ?? null,
         lines: r.lines
           .map((l) => ({

@@ -1,8 +1,9 @@
 // Label, setelan bawaan, dan mesin rumus komponen payroll. Aman dipakai di server dan browser.
 //
-// Komponen = kolom hasil saat payroll run. Nilainya:
-// - INPUT: diisi admin (tetap di profil karyawan, atau tiap periode di Proses Gaji), atau
-// - RUMUS: cara hitung + parameter data (jam lembur, hari dinas, hari hadir, masa kerja, nilai komponen lain).
+// Komponen = alat hitung yang menghasilkan satu baris output saat Proses Gaji. Nilainya:
+// - INPUT: diisi admin di profil karyawan (tab Gaji), atau
+// - RUMUS: cara hitung + parameter data (jam lembur, kegiatan dinas, hari hadir, masa kerja, nilai komponen lain).
+// Perubahan per karyawan (promosi/demosi) diatur lewat tempelan komponen, bukan dengan mengubah komponen.
 
 export const PAY_KINDS = [
   { key: "PENDAPATAN", label: "Pendapatan" },
@@ -10,31 +11,32 @@ export const PAY_KINDS = [
   { key: "BENEFIT", label: "Benefit (ditanggung perusahaan)" },
 ] as const;
 
+// Kategori mengikuti baris bukti potong PPh 21 (formulir 1721-A1). Kategori juga menentukan objek pajak.
 export const PAY_CATEGORIES = [
-  { key: "GAJI_POKOK", label: "Gaji Pokok" },
-  { key: "TUNJANGAN_TETAP", label: "Tunjangan Tetap" },
-  { key: "TUNJANGAN_TIDAK_TETAP", label: "Tunjangan Tidak Tetap" },
-  { key: "LEMBUR", label: "Lembur" },
-  { key: "THR", label: "THR" },
-  { key: "BONUS", label: "Bonus / Insentif" },
-  { key: "BPJS_TK", label: "BPJS Ketenagakerjaan" },
-  { key: "BPJS_KES", label: "BPJS Kesehatan" },
-  { key: "PAJAK", label: "Pajak" },
-  { key: "POTONGAN_LAIN", label: "Potongan Lain" },
+  { key: "GAJI", label: "Gaji", hint: "1721-A1 baris 1. Potongan berkategori Gaji (mis. potongan mangkir) mengurangi bruto.", taxable: true },
+  { key: "TUNJANGAN_PPH", label: "Tunjangan PPh", hint: "1721-A1 baris 2.", taxable: true },
+  { key: "TUNJANGAN_LAIN", label: "Tunjangan lainnya, uang lembur, dsb.", hint: "1721-A1 baris 3: tunjangan jabatan, makan, transport, lembur, uang saku dinas.", taxable: true },
+  { key: "HONORARIUM", label: "Honorarium dan imbalan sejenis", hint: "1721-A1 baris 4.", taxable: true },
+  { key: "PREMI_ASURANSI", label: "Premi asuransi dibayar perusahaan", hint: "1721-A1 baris 5: JKK, JKM, BPJS Kesehatan bagian perusahaan.", taxable: true },
+  { key: "NATURA", label: "Natura dan kenikmatan", hint: "1721-A1 baris 6.", taxable: true },
+  { key: "BONUS_THR", label: "Tantiem, bonus, gratifikasi, THR", hint: "1721-A1 baris 7.", taxable: true },
+  { key: "IURAN_PENSIUN", label: "Iuran pensiun / JHT dibayar karyawan", hint: "1721-A1 baris 10: pengurang penghasilan bruto (JHT & JP karyawan).", taxable: false },
+  { key: "PPH21", label: "PPh 21", hint: "Pajak yang dipotong.", taxable: false },
+  { key: "BUKAN_OBJEK", label: "Bukan objek pajak", hint: "Tidak masuk perhitungan PPh 21 (mis. JHT/JP bagian perusahaan, BPJS Kesehatan karyawan, kasbon).", taxable: false },
 ] as const;
+export const isTaxableCategory = (k: string) => PAY_CATEGORIES.find((c) => c.key === k)?.taxable ?? false;
 
-// Cara hitung. INPUT = nilai diisi; sisanya rumus.
+// Cara hitung. INPUT = nilai diisi; sisanya rumus. PPH21 adalah komponen sistem (tidak bisa dipilih).
 export const PAY_METHODS = [
-  { key: "INPUT", label: "Input nilai", hint: "Nilai diisi admin: tetap di profil karyawan, atau tiap periode di Proses Gaji." },
-  { key: "NOMINAL", label: "Nominal sama untuk semua", hint: "Satu nominal per bulan untuk semua karyawan yang ditempel." },
-  { key: "PER_SATUAN", label: "Nominal x jumlah parameter", hint: "Contoh: uang saku dinas Rp100.000 x hari dinas." },
-  { key: "KELIPATAN", label: "Nominal per kelipatan parameter", hint: "Contoh: uang makan lembur Rp15.000 tiap kelipatan 4 jam per pengajuan, minimal 4 jam." },
+  { key: "INPUT", label: "Input nilai", hint: "Nilai diisi admin di profil karyawan (tab Gaji)." },
+  { key: "NOMINAL", label: "Flat for all", hint: "Satu nominal per bulan, sama untuk semua karyawan yang ditempel." },
+  { key: "PER_SATUAN", label: "Nominal x Parameter", hint: "Contoh: uang saku dinas Rp100.000 x kegiatan dinas. Centang \"Berlaku kelipatan\" untuk uang makan lembur Rp15.000 tiap kelipatan 4 jam." },
   { key: "PERSEN", label: "Persen dari dasar nilai", hint: "Contoh: BPJS 1% x upah, dengan batas atas/bawah." },
   { key: "PRORATA", label: "Dasar nilai / hari kerja x parameter", hint: "Contoh: potongan mangkir = upah / hari kerja x hari mangkir." },
-  { key: "LEMBUR", label: "Upah lembur (PP 35/2021)", hint: "Dasar nilai / 173 x pengali jam lembur." },
-  { key: "THR", label: "THR (Permenaker 6/2016)", hint: "Dasar nilai x bulan upah, proporsional bila masa kerja < 12 bulan." },
-  { key: "PPH21", label: "PPh 21 (TER)", hint: "Dihitung otomatis dari bruto dan status PTKP." },
+  { key: "LEMBUR", label: "Upah lembur", hint: "Dasar nilai / pembagi x tarif per jam. Tarif bawaan mengikuti PP 35/2021; baris tarif bisa diubah atau dihapus." },
+  { key: "THR", label: "Kelipatan upah, tidak rutin (THR, Bonus)", hint: "Dasar nilai x jumlah bulan upah. Hanya dihitung bila dipilih saat Proses Gaji." },
 ] as const;
+export const SYSTEM_METHODS = ["PPH21"];
 
 // Parameter data yang bisa dipakai rumus.
 export const PAY_PARAMS = [
@@ -47,23 +49,50 @@ export const PAY_PARAMS = [
   { key: "HARI_KERJA", label: "Hari kerja sebulan", unit: "hari" },
   { key: "MASA_KERJA", label: "Masa kerja", unit: "bulan" },
 ] as const;
-export const NEEDS_PARAM = ["PER_SATUAN", "KELIPATAN", "PRORATA"];
+export const NEEDS_PARAM = ["PER_SATUAN", "PRORATA"];
 export const NEEDS_BASE = ["PERSEN", "PRORATA", "LEMBUR", "THR"];
 
 export const PAY_BASES = [
   { key: "GAJI_POKOK", label: "Gaji pokok" },
-  { key: "UPAH_TETAP", label: "Gaji pokok + tunjangan tetap" },
-  { key: "UPAH_BPJS", label: "Upah BPJS" },
+  { key: "UPAH_TETAP", label: "Upah tetap (gaji pokok + komponen upah tetap)" },
+  { key: "UPAH_BPJS_TK", label: "Upah BPJS Ketenagakerjaan" },
+  { key: "UPAH_BPJS_KES", label: "Upah BPJS Kesehatan" },
   { key: "KOMPONEN", label: "Komponen yang dicentang" },
 ] as const;
 
-export type OvertimeParams = { divisor: number; workday: [number, number]; rest6: [number, number, number]; rest5: [number, number, number] };
+// Tarif lembur bertingkat: jam ke-1 s/d upTo memakai pengali x; baris terakhir upTo = null (jam berikutnya).
+export type Tier = { upTo: number | null; x: number };
 export type PayParams = {
-  divisor?: number; workday?: number[]; rest6?: number[]; rest5?: number[]; months?: number;
-  min?: number; // batas minimal parameter (KELIPATAN)
-  perPeriod?: boolean; // INPUT diisi tiap periode di Proses Gaji
+  prorate?: boolean; // ikut prorata karyawan masuk/keluar/berhenti dapat di tengah periode
+  fixedWage?: boolean; // termasuk upah tetap (dasar lembur, THR, BPJS, cek UMK)
+  step?: number; min?: number; // Nominal x Parameter dengan kelipatan
+  divisor?: number; work?: Tier[]; rest?: Tier[] | null; // upah lembur; rest null = tarif hari libur sama dengan hari kerja
+  months?: number; minMonths?: number; proportional?: boolean; // THR / bonus
+  workday?: number[]; rest6?: number[]; rest5?: number[]; // format lama lembur
 };
-export const DEFAULT_OVERTIME: OvertimeParams = { divisor: 173, workday: [1.5, 2], rest6: [2, 3, 4], rest5: [2, 3, 4] };
+export const DEFAULT_WORK_TIERS: Tier[] = [{ upTo: 1, x: 1.5 }, { upTo: null, x: 2 }];
+export const defaultRestTiers = (workDaysPerWeek: 5 | 6): Tier[] =>
+  workDaysPerWeek === 6 ? [{ upTo: 7, x: 2 }, { upTo: 8, x: 3 }, { upTo: null, x: 4 }] : [{ upTo: 8, x: 2 }, { upTo: 9, x: 3 }, { upTo: null, x: 4 }];
+
+// Tarif lembur komponen (membaca juga format lama workday/rest6/rest5).
+export function overtimeTiers(p: PayParams | null | undefined, workDaysPerWeek: 5 | 6): { work: Tier[]; rest: Tier[] | null } {
+  const q = p ?? {};
+  if (q.work?.length) return { work: q.work, rest: q.rest?.length ? q.rest : null };
+  const work = q.workday?.length === 2 ? [{ upTo: 1, x: q.workday[0] }, { upTo: null, x: q.workday[1] }] : DEFAULT_WORK_TIERS;
+  const old = workDaysPerWeek === 6 ? q.rest6 : q.rest5;
+  const a = workDaysPerWeek === 6 ? 7 : 8;
+  const rest = old?.length === 3 ? [{ upTo: a, x: old[0] }, { upTo: a + 1, x: old[1] }, { upTo: null, x: old[2] }] : defaultRestTiers(workDaysPerWeek);
+  return { work, rest };
+}
+export const tierHours = (hours: number, tiers: Tier[]) => {
+  let total = 0, prev = 0;
+  for (const t of tiers) {
+    const cap = t.upTo ?? Infinity;
+    if (hours > prev) total += (Math.min(hours, cap) - prev) * t.x;
+    prev = cap;
+  }
+  return total;
+};
 
 // Ketentuan undang-undang untuk peringatan bila angkanya diubah.
 const LEGAL_RATES: Record<string, { rate?: number; min?: number; max?: number; source: string }> = {
@@ -72,7 +101,8 @@ const LEGAL_RATES: Record<string, { rate?: number; min?: number; max?: number; s
   JPP: { rate: 2, source: "PP 45/2015" }, JPK: { rate: 1, source: "PP 45/2015" },
   KESP: { rate: 4, source: "Perpres 64/2020" }, KESK: { rate: 1, source: "Perpres 64/2020" },
 };
-export function legalWarning(c: { code: string; method: string; rate: number | null; params?: PayParams | null }): string | null {
+const sameTiers = (a: Tier[] | null, b: Tier[]) => !!a && a.length === b.length && a.every((t, i) => t.upTo === b[i].upTo && t.x === b[i].x);
+export function legalWarning(c: { code: string; method: string; rate: number | null; params?: PayParams | null }, workDaysPerWeek: 5 | 6 = 6): string | null {
   const l = LEGAL_RATES[c.code];
   if (l && c.rate !== null && c.method === "PERSEN") {
     if (l.rate !== undefined && c.rate !== l.rate) return `Berbeda dari ketentuan ${l.source} (${String(l.rate).replace(".", ",")}%)`;
@@ -80,12 +110,12 @@ export function legalWarning(c: { code: string; method: string; rate: number | n
   }
   const p = c.params ?? {};
   if (c.method === "LEMBUR") {
-    const same = (a: number[] | undefined, b: number[]) => !!a && a.length === b.length && a.every((x, i) => x === b[i]);
-    if (p.divisor !== 173 || !same(p.workday, DEFAULT_OVERTIME.workday) || !same(p.rest6, DEFAULT_OVERTIME.rest6) || !same(p.rest5, DEFAULT_OVERTIME.rest5)) {
-      return "Berbeda dari ketentuan PP 35/2021 (1/173; 1,5x lalu 2x; libur 2x/3x/4x)";
+    const t = overtimeTiers(p, workDaysPerWeek);
+    if ((p.divisor ?? 173) !== 173 || !sameTiers(t.work, DEFAULT_WORK_TIERS) || !sameTiers(t.rest, defaultRestTiers(workDaysPerWeek))) {
+      return "Berbeda dari ketentuan PP 35/2021 (1/173; 1,5x lalu 2x; hari libur 2x/3x/4x)";
     }
   }
-  if (c.method === "THR" && p.months !== undefined && p.months < 1) return "Di bawah ketentuan Permenaker 6/2016 (1 bulan upah)";
+  if (c.method === "THR" && c.code === "THR" && ((p.months ?? 1) < 1 || (p.minMonths ?? 1) > 1)) return "Di bawah ketentuan Permenaker 6/2016 (1 bulan upah, masa kerja minimal 1 bulan)";
   return null;
 }
 
@@ -93,7 +123,7 @@ const find = <T extends { key: string; label: string }>(list: readonly T[], k: s
   list.find((x) => x.key === k)?.label ?? k ?? "";
 export const kindLabel = (k: string) => find(PAY_KINDS, k);
 export const categoryLabel = (k: string) => find(PAY_CATEGORIES, k);
-export const methodLabel = (k: string) => find(PAY_METHODS, k);
+export const methodLabel = (k: string) => (k === "PPH21" ? "PPh 21 otomatis" : find(PAY_METHODS, k));
 export const baseLabel = (k: string | null) => find(PAY_BASES, k);
 export const paramLabel = (k: string | null) => find(PAY_PARAMS, k);
 export const paramUnit = (k: string | null) => PAY_PARAMS.find((p) => p.key === k)?.unit ?? "";
@@ -112,7 +142,7 @@ export type PayrollSettings = {
   periodStartDay: number; // tanggal mulai periode gaji (1 = sebulan kalender)
   payDay: number; // tanggal gajian (0 = hari kerja terakhir bulan itu)
   overtimeDivisor: number; // pembagi upah sejam lembur
-  workDaysPerWeek: 5 | 6; // dipakai untuk pengali lembur hari istirahat
+  workDaysPerWeek: 5 | 6; // dipakai untuk tarif bawaan lembur hari istirahat
   prorate: "HARI_KERJA" | "HARI_KALENDER"; // gaji karyawan masuk/keluar di tengah periode
   rounding: number; // pembulatan rupiah (1, 100, 1000)
 };
@@ -126,25 +156,15 @@ export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
 export const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 const num = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
-// Upah lembur (PP 35/2021) dengan pengali dari komponen.
-export function overtimePay(hourly: number, workdayHours: number, restHours: number, workDaysPerWeek: 5 | 6, params?: PayParams | null) {
-  const p = { ...DEFAULT_OVERTIME, ...(params ?? {}) } as OvertimeParams;
-  const [w1, w2] = p.workday;
-  const w = Math.min(1, workdayHours) * w1 + Math.max(0, workdayHours - 1) * w2;
-  const [r1, r2, r3] = workDaysPerWeek === 6 ? p.rest6 : p.rest5;
-  const a = workDaysPerWeek === 6 ? 7 : 8; // pengali pertama sampai jam ke-a, jam berikutnya pengali kedua, sisanya ketiga
-  const r = Math.min(restHours, a) * r1 + Math.min(Math.max(restHours - a, 0), 1) * r2 + Math.max(restHours - a - 1, 0) * r3;
-  return hourly * (w + r);
-}
-
 // Data satu karyawan dalam satu periode yang dipakai rumus.
 export type PayContext = {
-  values: Record<string, number>; // nilai komponen INPUT per kode (GP = gaji pokok)
-  fixedTotal: number; // gaji pokok + tunjangan tetap
+  values: Record<string, number>; // nilai komponen input/flat per kode (GP = gaji pokok)
+  fixedTotal: number; // upah tetap
   bpjsTk: number; bpjsKes: number;
-  qty: Record<string, number>; // jumlah per parameter (HARI_HADIR, HARI_DINAS, MASA_KERJA, ...)
+  qty: Record<string, number>; // jumlah per parameter (HARI_HADIR, KALI_DINAS, MASA_KERJA, ...)
   overtimeWork: number[]; overtimeRest: number[]; // jam lembur per pengajuan (hari kerja / hari libur)
-  workDaysPerWeek: 5 | 6; overtimeDivisor: number; includeThr: boolean;
+  workDaysPerWeek: 5 | 6; overtimeDivisor: number;
+  nonRoutine: string[]; // kode komponen tidak rutin (THR, bonus) yang disertakan periode ini
 };
 
 type EvalComponent = Pick<PayComponentInput, "code" | "name" | "kind" | "category" | "method" | "param" | "amount" | "rate" | "base" | "capAmount" | "floorAmount" | "params" | "baseCodes">;
@@ -153,7 +173,8 @@ const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 
 export function baseValue(c: EvalComponent, ctx: PayContext) {
   if (c.base === "GAJI_POKOK") return ctx.values.GP ?? 0;
-  if (c.base === "UPAH_BPJS") return c.category === "BPJS_KES" ? ctx.bpjsKes : ctx.bpjsTk;
+  if (c.base === "UPAH_BPJS_KES") return ctx.bpjsKes;
+  if (c.base === "UPAH_BPJS_TK" || c.base === "UPAH_BPJS") return ctx.bpjsTk;
   if (c.base === "KOMPONEN") return c.baseCodes.reduce((x, code) => x + (ctx.values[code] ?? 0), 0);
   return ctx.fixedTotal;
 }
@@ -168,16 +189,18 @@ export function paramTotal(param: string | null, ctx: PayContext) {
 export function evaluate(c: EvalComponent, ctx: PayContext): { amount: number; detail: string } | null {
   const p = c.params ?? {};
   switch (c.method) {
-    case "NOMINAL": return { amount: c.amount ?? 0, detail: "nominal per bulan" };
+    case "NOMINAL": return { amount: c.amount ?? 0, detail: "flat per bulan" };
     case "PER_SATUAN": {
+      const step = p.step ?? 0;
+      if (step > 0) {
+        // Berlaku kelipatan: jam lembur dihitung per pengajuan, parameter lain dari jumlah sebulan.
+        const min = p.min ?? step;
+        const occ = c.param === "JAM_LEMBUR" ? [...ctx.overtimeWork, ...ctx.overtimeRest] : [paramTotal(c.param, ctx)];
+        const times = occ.filter((q) => q >= min).reduce((x, q) => x + Math.floor(q / step + 1e-9), 0);
+        return { amount: (c.amount ?? 0) * times, detail: `${rupiah(c.amount ?? 0)} x ${times} (kelipatan ${num(step)} ${paramUnit(c.param)}, min ${num(min)})` };
+      }
       const q = paramTotal(c.param, ctx);
       return { amount: (c.amount ?? 0) * q, detail: `${rupiah(c.amount ?? 0)} x ${num(q)} ${paramUnit(c.param)}` };
-    }
-    case "KELIPATAN": {
-      const step = c.rate ?? 0, min = p.min ?? step;
-      const occ = c.param === "JAM_LEMBUR" ? [...ctx.overtimeWork, ...ctx.overtimeRest] : [paramTotal(c.param, ctx)];
-      const times = step > 0 ? occ.filter((q) => q >= min).reduce((x, q) => x + Math.floor(q / step + 1e-9), 0) : 0;
-      return { amount: (c.amount ?? 0) * times, detail: `${rupiah(c.amount ?? 0)} x ${times} (kelipatan ${num(step)} ${paramUnit(c.param)}, min ${num(min)})` };
     }
     case "PERSEN": {
       let b = baseValue(c, ctx);
@@ -191,38 +214,45 @@ export function evaluate(c: EvalComponent, ctx: PayContext): { amount: number; d
     }
     case "LEMBUR": {
       const hourly = baseValue(c, ctx) / (p.divisor ?? ctx.overtimeDivisor);
+      const t = overtimeTiers(p, ctx.workDaysPerWeek);
       const w = sum(ctx.overtimeWork), r = sum(ctx.overtimeRest);
-      // Pengali dihitung per pengajuan supaya jam pertama tiap lembur hari kerja tetap 1,5x.
-      const amount = ctx.overtimeWork.reduce((x, h) => x + overtimePay(hourly, h, 0, ctx.workDaysPerWeek, p), 0)
-        + ctx.overtimeRest.reduce((x, h) => x + overtimePay(hourly, 0, h, ctx.workDaysPerWeek, p), 0);
+      // Tarif dihitung per pengajuan supaya jam pertama tiap lembur tetap memakai tarif baris pertama.
+      const amount = hourly * (ctx.overtimeWork.reduce((x, h) => x + tierHours(h, t.work), 0) + ctx.overtimeRest.reduce((x, h) => x + tierHours(h, t.rest ?? t.work), 0));
       return { amount, detail: `upah sejam ${rupiah(hourly)} · ${num(w)} jam hari kerja, ${num(r)} jam hari libur` };
     }
     case "THR": {
-      if (!ctx.includeThr) return null;
-      const m = ctx.qty.MASA_KERJA ?? 0, k = p.months ?? 1, b = baseValue(c, ctx);
-      return { amount: m >= 12 ? b * k : m >= 1 ? (b * k * m) / 12 : 0, detail: m >= 12 ? `${num(k)} bulan upah` : `${m}/12 x ${num(k)} bulan upah` };
+      if (!ctx.nonRoutine.includes(c.code)) return null;
+      const m = ctx.qty.MASA_KERJA ?? 0, k = p.months ?? 1, min = p.minMonths ?? 1, b = baseValue(c, ctx);
+      if (m < min) return { amount: 0, detail: `masa kerja ${m} bulan, minimal ${min}` };
+      const prop = p.proportional !== false && m < 12;
+      return { amount: prop ? (b * k * m) / 12 : b * k, detail: prop ? `${m}/12 x ${num(k)} x ${rupiah(b)}` : `${num(k)} x ${rupiah(b)}` };
     }
     default: return null;
   }
 }
 
 // Kalimat ringkas rumus untuk kartu komponen.
-export function describe(c: EvalComponent & { params?: PayParams | null }) {
+export function describe(c: EvalComponent & { params?: PayParams | null }, workDaysPerWeek: 5 | 6 = 6) {
   const p = c.params ?? {};
   const b = c.base === "KOMPONEN" ? (c.baseCodes.length ? c.baseCodes.join(" + ") : "komponen belum dipilih") : baseLabel(c.base ?? "UPAH_TETAP");
+  const tiers = (t: Tier[]) => t.map((x, i) => `${x.upTo === null ? (i ? "berikutnya" : "semua jam") : `s/d jam ${num(x.upTo)}`} ${num(x.x)}x`).join(", ");
   switch (c.method) {
-    case "INPUT": return p.perPeriod ? "Input tiap periode (Proses Gaji)" : "Input tetap per karyawan (profil)";
-    case "NOMINAL": return `${rupiah(c.amount ?? 0)} per bulan`;
-    case "PER_SATUAN": return `${rupiah(c.amount ?? 0)} x ${paramLabel(c.param)}`;
-    case "KELIPATAN": return `${rupiah(c.amount ?? 0)} tiap kelipatan ${num(c.rate ?? 0)} ${paramUnit(c.param)} (${paramLabel(c.param)}, min ${num(p.min ?? c.rate ?? 0)})`;
+    case "INPUT": return c.code === "GP" ? "Gaji pokok di profil karyawan" : "Input di profil karyawan";
+    case "NOMINAL": return `${rupiah(c.amount ?? 0)} per bulan (flat)`;
+    case "PER_SATUAN": return p.step
+      ? `${rupiah(c.amount ?? 0)} tiap kelipatan ${num(p.step)} ${paramUnit(c.param)} (${paramLabel(c.param)}, min ${num(p.min ?? p.step)})`
+      : `${rupiah(c.amount ?? 0)} x ${paramLabel(c.param)}`;
     case "PERSEN": {
       const extra = [c.floorAmount ? `min ${rupiah(c.floorAmount)}` : "", c.capAmount ? `maks ${rupiah(c.capAmount)}` : ""].filter(Boolean).join(", ");
       return `${num(c.rate ?? 0)}% x ${b}${extra ? ` (${extra})` : ""}`;
     }
     case "PRORATA": return `${b} / hari kerja x ${paramLabel(c.param)}`;
-    case "LEMBUR": return `1/${p.divisor ?? 173} x ${b} · ${(p.workday ?? []).map(num).join("x / ")}x · libur ${(p.rest6 ?? []).map(num).join("x / ")}x`;
-    case "THR": return `${num(p.months ?? 1)} bulan x ${b}`;
-    case "PPH21": return "PPh 21 TER otomatis";
+    case "LEMBUR": {
+      const t = overtimeTiers(p, workDaysPerWeek);
+      return `1/${p.divisor ?? 173} x ${b} · ${t.rest ? "hari kerja " : ""}${tiers(t.work)}${t.rest ? ` · hari libur ${tiers(t.rest)}` : ""}`;
+    }
+    case "THR": return `${num(p.months ?? 1)} x ${b} · masa kerja min ${p.minMonths ?? 1} bulan${p.proportional !== false ? ", proporsional < 12 bulan" : ""} · tidak rutin`;
+    case "PPH21": return "PPh 21 otomatis (TER bulanan, setahun di masa pajak terakhir)";
     default: return methodLabel(c.method);
   }
 }
@@ -235,17 +265,18 @@ export type SimInput = {
 export type SimLine = { code: string; name: string; kind: string; amount: number; detail: string };
 export function simulate(components: (EvalComponent & { isActive: boolean })[], s: PayrollSettings, input: SimInput) {
   const round = (n: number) => Math.round(n / s.rounding) * s.rounding;
-  const values: Record<string, number> = { GP: input.basic };
-  const fixedInput = components.find((c) => c.isActive && c.method === "INPUT" && c.category === "TUNJANGAN_TETAP");
-  if (fixedInput) values[fixedInput.code] = input.fixedAllowance;
   const active = components.filter((c) => c.isActive);
+  const values: Record<string, number> = { GP: input.basic };
+  const fixedInput = active.find((c) => c.method === "INPUT" && c.code !== "GP" && c.params?.fixedWage);
+  if (fixedInput) values[fixedInput.code] = input.fixedAllowance;
   for (const c of active) if (c.method === "NOMINAL") values[c.code] = c.amount ?? 0;
   const fixedTotal = input.basic + input.fixedAllowance
-    + active.filter((c) => c.method === "NOMINAL" && c.category === "TUNJANGAN_TETAP").reduce((a, c) => a + (c.amount ?? 0), 0);
+    + active.filter((c) => c.method === "NOMINAL" && c.params?.fixedWage).reduce((a, c) => a + (c.amount ?? 0), 0);
   const ctx: PayContext = {
     values, fixedTotal, bpjsTk: input.bpjsBase ?? fixedTotal, bpjsKes: input.bpjsBase ?? fixedTotal,
     qty: { HARI_HADIR: input.daysPresent, HARI_MANGKIR: input.absentDays, HARI_KERJA: input.workDaysInMonth, MASA_KERJA: input.monthsOfService, HARI_DINAS: input.tripDays, KALI_DINAS: input.trips, HARI_CUTI: input.leaveDays },
-    overtimeWork: input.overtimeWork, overtimeRest: input.overtimeRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor, includeThr: true,
+    overtimeWork: input.overtimeWork, overtimeRest: input.overtimeRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor,
+    nonRoutine: active.filter((c) => c.method === "THR").map((c) => c.code),
   };
   const lines: SimLine[] = [];
   for (const c of active) {
@@ -258,9 +289,10 @@ export function simulate(components: (EvalComponent & { isActive: boolean })[], 
     if (!r || (r.amount === 0 && c.method !== "PERSEN")) continue;
     lines.push({ code: c.code, name: c.name, kind: c.kind, amount: round(r.amount), detail: r.detail });
   }
-  const total = (k: string, excludeThr = false) => lines.filter((l) => l.kind === k && !(excludeThr && l.code === "THR")).reduce((a, l) => a + l.amount, 0);
+  const nonRoutine = new Set(ctx.nonRoutine);
+  const total = (k: string, routineOnly = false) => lines.filter((l) => l.kind === k && !(routineOnly && nonRoutine.has(l.code))).reduce((a, l) => a + l.amount, 0);
   const earnings = total("PENDAPATAN", true), deductions = total("POTONGAN"), benefits = total("BENEFIT");
-  return { lines, hourly: fixedTotal / s.overtimeDivisor, earnings, deductions, benefits, takeHome: earnings - deductions, employerCost: earnings + benefits };
+  return { lines, nonRoutine, hourly: fixedTotal / s.overtimeDivisor, earnings, deductions, benefits, takeHome: earnings - deductions, employerCost: earnings + benefits };
 }
 
 // "4, 9; 5.5" → [4, 9, 5.5] (pemisah koma/spasi/titik koma, desimal pakai titik)

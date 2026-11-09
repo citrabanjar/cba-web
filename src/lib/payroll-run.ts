@@ -1,9 +1,9 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { evaluate, type PayContext, type PayParams, type PayrollSettings } from "@/lib/payroll";
-import { getPayrollSettings } from "@/lib/payroll-settings";
+import { getPayrollSettings, getTaxSettings } from "@/lib/payroll-settings";
 import { countLeaveDays } from "@/lib/leave-balance";
-import { pph21Final, pph21Monthly } from "@/lib/pph21";
+import { pph21Final, pph21Monthly, taxYearConfig } from "@/lib/pph21";
 
 const DAY = 86_400_000;
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -57,19 +57,20 @@ async function loadContext(period: string) {
   const settings = await getPayrollSettings();
   const { start, end } = periodRange(period, settings);
   const year = Number(period.slice(0, 4));
-  const [components, priorLines] = await Promise.all([
+  const [components, priorLines, taxAll] = await Promise.all([
     prisma.payComponent.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     // Gaji final bulan-bulan sebelumnya di tahun yang sama (untuk hitung ulang PPh 21 Desember).
     prisma.payrollLine.findMany({
       where: { run: { status: "FINAL", period: { gte: `${year}-01`, lt: period } } },
       select: { userId: true, gross: true, pph21: true, items: true },
     }),
+    getTaxSettings(),
   ]);
-  return { period, settings, start, end, year, components, priorLines };
+  return { period, settings, start, end, year, components, priorLines, tax: taxYearConfig(taxAll, year) };
 }
 
 // Hitung gaji satu karyawan dari komponen yang ditempel ke karyawan itu.
-async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, override?: Partial<LineInputs>) {
+async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], override?: Partial<LineInputs>) {
   const { settings: s, start, end } = ctx;
   // Komponen yang tertempel ke karyawan ini dan masa berlakunya bersinggungan dengan periode.
   const tempel = new Map<string, { startDate: Date | null; endDate: Date | null }>();
@@ -122,9 +123,11 @@ async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, overri
   const live = (c: { code: string | null }) => !c.code || !masterCodes.has(c.code) || tempel.has(c.code);
   const allowances = salary?.components.filter((c) => c.type === "TUNJANGAN" && live(c)) ?? [];
   const fixedDeductions = salary?.components.filter((c) => c.type === "POTONGAN" && live(c)) ?? [];
-  // Upah tetap = gaji pokok + tunjangan tetap profil + nominal tetap perusahaan yang ditempel.
-  const fixedTotal = basicFull + allowances.reduce((a, c) => a + c.amount, 0)
-    + components.filter((c) => c.method === "NOMINAL" && c.category === "TUNJANGAN_TETAP").reduce((a, c) => a + (c.amount ?? 0), 0);
+  // Upah tetap = gaji pokok + komponen bercentang "upah tetap" (isian profil atau flat) + tunjangan profil yang diketik bebas.
+  const paramsOf = (c: { params: unknown }) => (c.params ?? {}) as PayParams;
+  const fixedCodes = new Set(ctx.components.filter((c) => paramsOf(c).fixedWage).map((c) => c.code));
+  const fixedTotal = basicFull + allowances.filter((a) => !a.code || !masterCodes.has(a.code) || fixedCodes.has(a.code)).reduce((x, a) => x + a.amount, 0)
+    + components.filter((c) => c.method === "NOMINAL" && fixedCodes.has(c.code)).reduce((a, c) => a + (c.amount ?? 0), 0);
   // Prorata untuk karyawan yang masuk/keluar di tengah periode.
   const calDays = Math.round((end.getTime() - start.getTime()) / DAY) + 1;
   const calHere = from <= to ? Math.round((to.getTime() - from.getTime()) / DAY) + 1 : 0;
@@ -180,17 +183,14 @@ async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, overri
   // Nilai komponen input: GP dari gaji pokok, tetap dari profil (pakai kode), tiap periode dari draft.
   const values: Record<string, number> = { GP: basicFull };
   for (const x of [...allowances, ...fixedDeductions]) if (x.code) values[x.code] = (values[x.code] ?? 0) + x.amount;
-  for (const c of components) {
-    if (c.method === "INPUT" && (c.params as PayParams | null)?.perPeriod) values[c.code] = inputs.values[c.code] ?? 0;
-    if (c.method === "NOMINAL") values[c.code] = (values[c.code] ?? 0) + (c.amount ?? 0);
-  }
+  for (const c of components) if (c.method === "NOMINAL") values[c.code] = (values[c.code] ?? 0) + (c.amount ?? 0);
   const pctx: PayContext = {
     values, fixedTotal, bpjsTk: salary?.bpjsTkBase ?? fixedTotal, bpjsKes: salary?.bpjsKesBase ?? fixedTotal,
     qty: {
       HARI_HADIR: inputs.daysPresent, HARI_MANGKIR: inputs.absentDays, HARI_KERJA: inputs.workDays, MASA_KERJA: inputs.monthsOfService,
       HARI_DINAS: inputs.tripDays, KALI_DINAS: inputs.trips, HARI_CUTI: inputs.leaveDays,
     },
-    overtimeWork: inputs.otWork, overtimeRest: inputs.otRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor, includeThr,
+    overtimeWork: inputs.otWork, overtimeRest: inputs.otRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor, nonRoutine,
   };
 
   const used = new Set<string>();
@@ -200,23 +200,21 @@ async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, overri
     const earning = c.kind === "PENDAPATAN";
     if (c.method === "PPH21") continue;
     used.add(c.code);
-    // BPJS, potongan persen, dan input tiap periode tidak diprorata menurut masa berlaku tempelan.
-    const byWindow = !(c.method === "PERSEN" || params?.perPeriod);
-    const w = byWindow ? await windowFor(c.code, pctx) : { factor, ctx: pctx, label: "" };
+    // Data parameter mengikuti masa berlaku tempelan (kecuali BPJS/persen); nominal diprorata hanya bila dicentang Prorata.
+    const w = c.method === "PERSEN" ? { factor, ctx: pctx, label: "" } : await windowFor(c.code, pctx);
     if (!w.ctx) continue;
-    const pr = (n: number) => (w.factor < 1 ? n * w.factor : n);
-    const prLabel = w.label || (w.factor < 1 ? `prorata ${Math.round(w.factor * 100)}%` : "");
+    const doProrate = earning && !!params?.prorate && w.factor < 1;
+    const pr = (n: number) => (doProrate ? n * w.factor : n);
+    const prLabel = doProrate ? w.label || `prorata ${Math.round(w.factor * 100)}%` : "";
     if (c.method === "INPUT") {
-      const v = c.category === "GAJI_POKOK" ? basicFull : values[c.code] ?? 0;
-      const fixed = !params?.perPeriod;
-      add(c.code, c.name, c.kind, fixed && earning ? pr(v) : v,
-        params?.perPeriod ? "input periode ini" : c.category === "GAJI_POKOK" ? prLabel : join2("nilai di profil karyawan", w.label), c.taxable);
+      const v = c.code === "GP" ? basicFull : values[c.code] ?? 0;
+      add(c.code, c.name, c.kind, pr(v), c.code === "GP" ? prLabel : join2("nilai di profil karyawan", prLabel), c.taxable);
       continue;
     }
     if (c.method === "PERSEN" && fixedTotal <= 0) continue;
     const r = evaluate({ ...c, params }, w.ctx);
     if (!r) continue;
-    add(c.code, c.name, c.kind, c.method === "NOMINAL" && earning ? pr(r.amount) : r.amount, join2(r.detail, w.label), c.taxable);
+    add(c.code, c.name, c.kind, pr(r.amount), join2(r.detail, prLabel || w.label), c.taxable);
   }
   // Tunjangan/potongan profil yang diketik bebas (tanpa komponen master) tetap dibayar.
   // Yang tertaut ke komponen master hanya dibayar lewat tempelan yang masih berlaku.
@@ -232,22 +230,25 @@ async function computeLine(ctx: Ctx, userId: string, includeThr: boolean, overri
     add(d.code && !items.some((x) => x.code === d.code) ? d.code : `PT${i + 1}`, d.name, "POTONGAN", d.amount, "potongan tetap karyawan", m?.taxable ?? false);
   });
 
-  // PPh 21: bruto = pendapatan + benefit yang objek pajak (JKK, JKM, BPJS Kesehatan perusahaan).
-  const gross = items.filter((i) => i.taxable && (i.kind === "PENDAPATAN" || i.kind === "BENEFIT")).reduce((a, i) => a + i.amount, 0);
-  const pension = items.filter((i) => i.code === "JHTK" || i.code === "JPK").reduce((a, i) => a + i.amount, 0);
+  // PPh 21: bruto = pendapatan + benefit objek pajak (premi asuransi perusahaan), dikurangi potongan berkategori Gaji (mis. mangkir).
+  const catOf = new Map(ctx.components.map((c) => [c.code, c.category]));
+  const pensionCodes = new Set(["JHTK", "JPK", ...ctx.components.filter((c) => c.category === "IURAN_PENSIUN").map((c) => c.code)]);
+  const gross = items.filter((i) => i.taxable && (i.kind === "PENDAPATAN" || i.kind === "BENEFIT")).reduce((a, i) => a + i.amount, 0)
+    - items.filter((i) => i.kind === "POTONGAN" && catOf.get(i.code) === "GAJI").reduce((a, i) => a + i.amount, 0);
+  const pension = items.filter((i) => pensionCodes.has(i.code)).reduce((a, i) => a + i.amount, 0);
   const lastMonth = ctx.period.endsWith("-12") || (resign !== null && resign <= end);
   let pph21 = 0, rate: number | null = null;
   if (components.some((c) => c.method === "PPH21")) {
     if (lastMonth) {
       const prior = ctx.priorLines.filter((l) => l.userId === userId);
-      const priorPension = prior.reduce((a, l) => a + (l.items as LineItem[]).filter((i) => i.code === "JHTK" || i.code === "JPK").reduce((x, i) => x + i.amount, 0), 0);
+      const priorPension = prior.reduce((a, l) => a + (l.items as LineItem[]).filter((i) => pensionCodes.has(i.code)).reduce((x, i) => x + i.amount, 0), 0);
       const months = prior.length + 1;
       const f = pph21Final({
         grossYear: prior.reduce((a, l) => a + l.gross, 0) + gross, pensionDeductYear: priorPension + pension, months,
-        status: user?.ptkpStatus, withheld: prior.reduce((a, l) => a + l.pph21, 0),
+        status: user?.ptkpStatus, withheld: prior.reduce((a, l) => a + l.pph21, 0), cfg: ctx.tax,
       });
       pph21 = f.tax;
-      add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, `hitung ulang setahun (${months} bulan), PKP ${f.pkp.toLocaleString("id-ID")}`, false);
+      add("PPH21", "PPh Pasal 21", "POTONGAN", pph21, `hitung ulang setahun (${months} bulan), PTKP ${f.ptkp.toLocaleString("id-ID")}, PKP ${f.pkp.toLocaleString("id-ID")}`, false);
       // Kelebihan potong PPh 21 bulan-bulan sebelumnya dikembalikan ke karyawan (PMK 168/2023).
       add("PPHRF", "Pengembalian lebih potong PPh 21", "PENDAPATAN", f.refund, `pajak setahun ${f.yearTax.toLocaleString("id-ID")}, sudah dipotong ${Math.round(f.yearTax + f.refund).toLocaleString("id-ID")}`, false);
     } else {
@@ -270,17 +271,17 @@ const toJson = (v: unknown) => v as Prisma.InputJsonValue;
 // Hanya masukan manual admin yang dibawa saat dihitung ulang; angka otomatis diambil lagi dari data.
 const manualOf = (raw: unknown): Partial<LineInputs> => {
   const n = normalizeInputs(raw);
-  return { otWork: n.otWork, otRest: n.otRest, values: n.values };
+  return { otWork: n.otWork, otRest: n.otRest };
 };
 
-// Buat atau hitung ulang draft satu periode untuk semua karyawan aktif. Masukan manual (jam lembur,
-// nilai input tiap periode) yang sudah diisi di draft dipertahankan.
-export async function generateRun(period: string, includeThr: boolean, by: string | null) {
+// Buat atau hitung ulang draft satu periode untuk semua karyawan aktif. Jam lembur yang sudah diisi di draft
+// dipertahankan. extraCodes = komponen tidak rutin (THR, bonus) yang disertakan periode ini.
+export async function generateRun(period: string, extraCodes: string[], by: string | null) {
   const existing = await prisma.payrollRun.findUnique({ where: { period }, include: { lines: true } });
   if (existing?.status === "FINAL") throw new Error("Periode ini sudah final.");
   const run = existing
-    ? await prisma.payrollRun.update({ where: { id: existing.id }, data: { includeThr } })
-    : await prisma.payrollRun.create({ data: { period, includeThr, createdBy: by } });
+    ? await prisma.payrollRun.update({ where: { id: existing.id }, data: { extraCodes, includeThr: extraCodes.includes("THR") } })
+    : await prisma.payrollRun.create({ data: { period, extraCodes, includeThr: extraCodes.includes("THR"), createdBy: by } });
   const ctx = await loadContext(period);
   const employees = await prisma.user.findMany({
     where: { role: { not: "SUPER_ADMIN" }, OR: [{ isActive: true }, { resignDate: { gte: ctx.start } }] },
@@ -288,7 +289,7 @@ export async function generateRun(period: string, includeThr: boolean, by: strin
   });
   for (const e of employees) {
     const prev = existing?.lines.find((l) => l.userId === e.id)?.inputs;
-    const r = await computeLine(ctx, e.id, includeThr, prev ? manualOf(prev) : undefined);
+    const r = await computeLine(ctx, e.id, extraCodes, prev ? manualOf(prev) : undefined);
     const data = { ...r, inputs: toJson(r.inputs), items: toJson(r.items) };
     await prisma.payrollLine.upsert({ where: { runId_userId: { runId: run.id, userId: e.id } }, update: data, create: { ...data, runId: run.id, userId: e.id } });
   }
@@ -302,7 +303,7 @@ export async function recomputeLine(lineId: string, override: Partial<LineInputs
   const ctx = await loadContext(line.run.period);
   const prev = normalizeInputs(line.inputs);
   const merged: Partial<LineInputs> = { ...prev, ...override, values: { ...(prev.values ?? {}), ...(override.values ?? {}) } };
-  const r = await computeLine(ctx, line.userId, line.run.includeThr, merged);
+  const r = await computeLine(ctx, line.userId, line.run.extraCodes, merged);
   await prisma.payrollLine.update({ where: { id: lineId }, data: { ...r, inputs: toJson(r.inputs), items: toJson(r.items) } });
 }
 

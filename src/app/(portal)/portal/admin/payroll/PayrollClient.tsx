@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
 import { parseHours, rupiah, simulate, type PayrollSettings } from "@/lib/payroll";
 import { savePayrollSettings } from "./actions";
-import RunTab, { type PeriodInput, type Run } from "./RunTab";
+import RunTab, { type NonRoutine, type Run } from "./RunTab";
+import TaxSettings from "./TaxSettings";
+import type { TaxYearConfig } from "@/lib/pph21";
 import ComponentsTab, { type Component, type PayEmployee } from "./ComponentsTab";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
@@ -109,7 +111,7 @@ function SimulationTab({ components, settings }: { components: Component[]; sett
             <p className="text-xs text-gray-400"><T>Coba hitung satu karyawan dengan komponen dan pengaturan di atas.</T></p></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {n("basic", "Gaji pokok (Rp)")}{n("fixedAllowance", "Tunjangan tetap (Rp)")}
+          {n("basic", "Gaji pokok (Rp)")}{n("fixedAllowance", "Tunjangan upah tetap (Rp)")}
           {n("bpjsBase", "Upah BPJS (Rp, kosong = pokok + tetap)")}{n("monthsOfService", "Masa kerja (bulan) untuk THR")}
           {n("daysPresent", "Hari hadir")}{n("workDaysInMonth", "Hari kerja sebulan")}
           {n("overtimeWork", "Jam lembur hari kerja (per pengajuan)", "4, 9")}{n("overtimeRest", "Jam lembur hari libur (per pengajuan)", "8")}
@@ -125,20 +127,21 @@ function SimulationTab({ components, settings }: { components: Component[]; sett
         {group("POTONGAN", "Potongan")}
         {group("BENEFIT", "Benefit ditanggung perusahaan")}
         <div className="grid gap-2 rounded-xl bg-gray-50 p-3 text-sm sm:grid-cols-2">
-          <p className="flex justify-between"><T>Total pendapatan (tanpa THR)</T> <b className="tabular-nums">{rupiah(res.earnings)}</b></p>
+          <p className="flex justify-between"><T>Total pendapatan (tanpa THR/bonus)</T> <b className="tabular-nums">{rupiah(res.earnings)}</b></p>
           <p className="flex justify-between"><T>Total potongan</T> <b className="tabular-nums text-rose-600">-{rupiah(res.deductions)}</b></p>
           <p className="flex justify-between text-base"><T>Gaji bersih (sebelum PPh 21)</T> <b className="tabular-nums text-emerald-700">{rupiah(res.takeHome)}</b></p>
           <p className="flex justify-between"><T>Biaya perusahaan</T> <b className="tabular-nums">{rupiah(res.employerCost)}</b></p>
         </div>
         <p className="flex items-start gap-1.5 text-[11px] text-gray-400"><Landmark size={12} className="mt-0.5 shrink-0" />
-          <T>PPh 21 (TER) dan komponen input tiap periode (bonus, kasbon) belum ikut disimulasikan. Semua komponen aktif dihitung seolah ditempel.</T></p>
+          <T>PPh 21 belum ikut disimulasikan. Semua komponen aktif dihitung seolah ditempel; komponen tidak rutin (THR, bonus) tampil tetapi tidak masuk total.</T></p>
       </section>
     </div>
   );
 }
 
-export default function PayrollClient({ components, settings, runs, employees, periodInputs }: {
-  components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; periodInputs: PeriodInput[];
+export default function PayrollClient({ components, settings, runs, employees, nonRoutine, taxSettings }: {
+  components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[];
+  taxSettings: Record<string, TaxYearConfig>;
 }) {
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "simulasi">("proses");
   const active = components.filter((c) => c.isActive);
@@ -176,9 +179,9 @@ export default function PayrollClient({ components, settings, runs, employees, p
             </button>
           ))}
         </div>
-        {tab === "proses" && <RunTab runs={runs} periodInputs={periodInputs} />}
-        {tab === "komponen" && <ComponentsTab components={components} employees={employees} />}
-        {tab === "pengaturan" && <SettingsTab settings={settings} />}
+        {tab === "proses" && <RunTab runs={runs} nonRoutine={nonRoutine} />}
+        {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={settings.workDaysPerWeek} />}
+        {tab === "pengaturan" && <><SettingsTab settings={settings} /><TaxSettings all={taxSettings} /></>}
         {tab === "simulasi" && <SimulationTab components={components} settings={settings} />}
       </main>
     </div>

@@ -12,9 +12,9 @@ export type RunLine = {
   inputs: LineInputs; items: LineItem[]; gross: number; earnings: number; deductions: number; benefits: number;
   pph21: number; netPay: number; ptkp: string | null; terRate: number | null; warning: string | null;
 };
-export type PeriodInput = { code: string; name: string; kind: string };
+export type NonRoutine = { code: string; name: string };
 export type Run = {
-  id: string; period: string; label: string; status: string; includeThr: boolean;
+  id: string; period: string; label: string; status: string; extraCodes: string[];
   finalizedBy: string | null; finalizedAt: string | null; lines: RunLine[];
 };
 
@@ -47,13 +47,13 @@ function HoursCell({ value, disabled, onSave }: { value: number[]; disabled: boo
   );
 }
 
-// Proses gaji bulanan: hitung draft dari komponen yang ditempel ke tiap karyawan; isi jam lembur dan input tiap periode;
+// Proses gaji bulanan: hitung draft dari komponen yang ditempel ke tiap karyawan; pilih komponen tidak rutin; isi jam lembur;
 // lalu finalkan untuk mengunci angka dan menerbitkan slip gaji.
-export default function RunTab({ runs, periodInputs }: { runs: Run[]; periodInputs: PeriodInput[] }) {
+export default function RunTab({ runs, nonRoutine }: { runs: Run[]; nonRoutine: NonRoutine[] }) {
   const t = useT();
   const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT")?.period ?? thisMonth());
   const run = runs.find((r) => r.period === period);
-  const [thr, setThr] = useState(run?.includeThr ?? false);
+  const [extra, setExtra] = useState<string[]>(run?.extraCodes ?? []);
   const [open, setOpen] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -75,16 +75,26 @@ export default function RunTab({ runs, periodInputs }: { runs: Run[]; periodInpu
       <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4">
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500"><T>Periode</T></p>
-          <input type="month" value={period} onChange={(e) => { setPeriod(e.target.value); setMsg(null); setThr(runs.find((r) => r.period === e.target.value)?.includeThr ?? false); }}
+          <input type="month" value={period} onChange={(e) => { setPeriod(e.target.value); setMsg(null); setExtra(runs.find((r) => r.period === e.target.value)?.extraCodes ?? []); }}
             className="h-9 rounded-lg border border-gray-200 px-3 text-sm" />
         </div>
-        <label className="flex h-9 items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={thr} disabled={final} onChange={(e) => setThr(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
-          <T>Sertakan THR bulan ini</T>
-        </label>
+        {nonRoutine.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500"><T>Sertakan komponen tidak rutin</T></p>
+            <div className="flex h-9 flex-wrap items-center gap-3">
+              {nonRoutine.map((c) => (
+                <label key={c.code} className="flex items-center gap-1.5 text-sm text-gray-700">
+                  <input type="checkbox" checked={extra.includes(c.code)} disabled={final} className="h-4 w-4 accent-[var(--color-brand)]"
+                    onChange={(e) => setExtra((x) => (e.target.checked ? [...x, c.code] : x.filter((k) => k !== c.code)))} />
+                  {t(c.name)}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="ml-auto flex flex-wrap gap-2">
           {!final && (
-            <button type="button" disabled={pending} onClick={() => act(() => generatePayroll(period, thr), "Gaji dihitung.")}
+            <button type="button" disabled={pending} onClick={() => act(() => generatePayroll(period, extra), "Gaji dihitung.")}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85 disabled:opacity-50">
               <Play size={14} /> <T>{run ? "Hitung Ulang" : "Hitung Gaji"}</T>
             </button>
@@ -142,7 +152,6 @@ export default function RunTab({ runs, periodInputs }: { runs: Run[]; periodInpu
                   <th className="px-2 py-2 text-right"><T>Dinas (hari / kali)</T></th>
                   <th className="px-2 py-2 text-right" title={t("Jam per pengajuan, pisahkan dengan koma")}><T>Lembur HK (jam)</T></th>
                   <th className="px-2 py-2 text-right" title={t("Jam per pengajuan, pisahkan dengan koma")}><T>Lembur HL (jam)</T></th>
-                  {periodInputs.map((c) => <th key={c.code} className="px-2 py-2 text-right">{t(c.name)}</th>)}
                   <th className="px-2 py-2 text-right"><T>Pendapatan</T></th>
                   <th className="px-2 py-2 text-right"><T>Potongan</T></th>
                   <th className="px-2 py-2 text-right"><T>PPh 21</T></th>
@@ -168,11 +177,6 @@ export default function RunTab({ runs, periodInputs }: { runs: Run[]; periodInpu
                       <td className="px-2 py-2 text-right tabular-nums text-gray-600">{l.inputs.tripDays ?? 0} / {l.inputs.trips ?? 0}</td>
                       <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otWork ?? []} disabled={final} onSave={(v) => save(l.id, { otWork: v })} /></td>
                       <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otRest ?? []} disabled={final} onSave={(v) => save(l.id, { otRest: v })} /></td>
-                      {periodInputs.map((c) => (
-                        <td key={c.code} className="px-2 py-2 text-right">
-                          <NumberCell value={l.inputs.values?.[c.code] ?? 0} disabled={final} onSave={(v) => save(l.id, { values: { [c.code]: v } })} />
-                        </td>
-                      ))}
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.earnings)}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-rose-600">{rupiah(l.deductions - l.pph21)}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.pph21)}{l.terRate !== null && <span className="block text-[10px] text-gray-400">TER {l.terRate}%</span>}</td>
@@ -180,7 +184,7 @@ export default function RunTab({ runs, periodInputs }: { runs: Run[]; periodInpu
                     </tr>
                     {open === l.id && (
                       <tr className="bg-gray-50/60">
-                        <td colSpan={10 + periodInputs.length} className="px-6 py-3">
+                        <td colSpan={10} className="px-6 py-3">
                           <div className="grid gap-4 md:grid-cols-3">
                             {(["PENDAPATAN", "POTONGAN", "BENEFIT"] as const).map((k) => (
                               <div key={k}>

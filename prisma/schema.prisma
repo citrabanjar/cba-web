@@ -616,7 +616,7 @@ model PayComponent {
   code        String   @unique
   name        String
   kind        String // PENDAPATAN | POTONGAN | BENEFIT (ditanggung perusahaan, tidak mengurangi gaji)
-  category    String // GAJI_POKOK | TUNJANGAN_TETAP | TUNJANGAN_TIDAK_TETAP | LEMBUR | THR | BONUS | BPJS_TK | BPJS_KES | PAJAK | POTONGAN_LAIN
+  category    String // kategori pajak (1721-A1): GAJI | TUNJANGAN_PPH | TUNJANGAN_LAIN | HONORARIUM | PREMI_ASURANSI | NATURA | BONUS_THR | IURAN_PENSIUN | PPH21 | BUKAN_OBJEK
   method      String // INPUT | NOMINAL | PER_SATUAN | KELIPATAN | PERSEN | PRORATA | LEMBUR | THR | PPH21
   amount      Float? // nominal bawaan (mis. uang makan per hari)
   rate        Float? // persen (mis. 3.7)
@@ -643,7 +643,8 @@ model PayrollRun {
   id          String    @id @default(cuid())
   period      String    @unique // "2026-11"
   status      String    @default("DRAFT") // DRAFT | FINAL
-  includeThr  Boolean   @default(false)
+  includeThr  Boolean   @default(false) // lama; diganti extraCodes
+  extraCodes  String[]  @default([]) // komponen tidak rutin (THR, bonus) yang disertakan periode ini
   note        String?
   createdBy   String?
   finalizedBy String?
