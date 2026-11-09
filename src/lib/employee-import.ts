@@ -83,7 +83,7 @@ const COLUMNS: Column[] = [
   { field: "contractEndDate", names: ["Tanggal Akhir Kontrak", "End Date"], kind: "date", example: "31-Des-2026", note: "Isi untuk karyawan KONTRAK." },
   { field: "resignDate", names: ["Tanggal Resign", "Resign Date"], kind: "date", example: "30-Jun-2026" },
   { field: "isActive", names: ["Status Aktif", "Follow Company General Policy"], choices: FLAG, shown: "Aktif, Nonaktif", example: "Aktif", note: "Kalau kosong dianggap Aktif. Karyawan Nonaktif tidak bisa login." },
-  { field: "basicSalary", names: ["Gaji Pokok", "Basic Salary"], kind: "money", required: true, example: "5000000", note: "Angka saja, tanpa Rp dan tanpa titik." },
+  { field: "basicSalary", names: ["Gaji Pokok", "Basic Salary"], kind: "money", required: true, example: "5000000", note: "Angka saja, tanpa Rp dan tanpa titik. Dibaca komponen GP (Gaji Pokok)." },
   { field: "paymentSchedule", names: ["Jadwal Bayar", "Payment Schedule"], choices: { bulanan: "Bulanan", monthly: "Bulanan", mingguan: "Mingguan", weekly: "Mingguan" }, shown: "Bulanan, Mingguan", example: "Bulanan" },
   { field: "bpjsTkNumber", names: ["No BPJS Ketenagakerjaan", "BPJS Ketenagakerjaan Number"], kind: "digits", example: "12345678901" },
   { field: "bpjsTkActive", names: ["Status BPJS Ketenagakerjaan", "BPJS Ketenagakerjaan"], choices: BPJS, shown: "Ikut, Tidak Ikut", example: "Ikut", note: "Kalau kosong dianggap Tidak Ikut." },
@@ -111,15 +111,6 @@ const COLUMNS: Column[] = [
   { field: "emergencyName", names: ["Nama Kontak Darurat", "Emergency Contact Name"], example: "Siti Aminah" },
   { field: "emergencyPhone", names: ["No Kontak Darurat", "Emergency Contact Number"], kind: "phone", example: "081234567891", note: "Tulis sebagai teks." },
   { field: "emergencyRelation", names: ["Hubungan Kontak Darurat", "Relationship with Emergency Contact"], example: "Istri" },
-];
-
-const SALARY_COLUMNS = [
-  { name: "Tunjangan 1", format: "Teks", note: "Nama tunjangan, misalnya Tunjangan Jabatan.", example: "Tunjangan Jabatan" },
-  { name: "Nominal Tunjangan 1", format: "Angka", note: "Angka saja. Harus tepat di sebelah kanan kolom namanya.", example: "500000" },
-  { name: "Tunjangan 2", format: "Teks", note: "Sama seperti Tunjangan 1.", example: "" },
-  { name: "Nominal Tunjangan 2", format: "Angka", note: "Angka saja.", example: "" },
-  { name: "Potongan 1", format: "Teks", note: "Nama potongan tetap di luar pajak dan BPJS.", example: "" },
-  { name: "Nominal Potongan 1", format: "Angka", note: "Angka saja.", example: "" },
 ];
 
 const FORMAT_LABEL: Record<Kind, string> = {
@@ -177,16 +168,14 @@ function toNationality(v: unknown): string | undefined {
   return key(v).startsWith("indonesia") ? "Indonesia" : clean(v) || undefined;
 }
 
+// Tunjangan/potongan tidak lagi diisi di template: diatur lewat komponen di Payroll & Benefit.
+// File lama yang masih punya kolom Tunjangan/Potongan tetap bisa dibaca.
 export function templateHeaders(): string[] {
-  const headers = COLUMNS.map((c) => c.names[0]);
-  headers.splice(headers.indexOf("Gaji Pokok") + 1, 0, ...SALARY_COLUMNS.map((c) => c.name));
-  return headers;
+  return COLUMNS.map((c) => c.names[0]);
 }
 
 function instructionRows(): string[][] {
   const rows = templateHeaders().map((name) => {
-    const salary = SALARY_COLUMNS.find((c) => c.name === name);
-    if (salary) return [name, "Tidak", salary.format, "", salary.example, salary.note];
     const col = COLUMNS.find((c) => c.names[0] === name)!;
     return [
       name,
@@ -205,6 +194,7 @@ function instructionRows(): string[][] {
     ["4. Kolom Pilih salah satu harus diisi persis seperti Pilihan Nilai."],
     ["5. No KTP, NPWP, No Rekening, dan No HP sudah diatur sebagai teks. Saat menempel dari file lain, pakai Paste Values supaya angkanya tidak berubah."],
     ["6. Baris yang salah ditampilkan saat import dan tidak ikut masuk. Baris lain tetap bisa diimport."],
+    ["7. Tunjangan dan potongan tidak diisi di file ini: atur lewat menu Payroll & Benefit (tempel komponen ke karyawan, lalu isi nominalnya di profil)."],
     [],
     ["Kolom", "Wajib", "Format", "Pilihan Nilai", "Contoh", "Catatan"],
     ...rows,
