@@ -109,7 +109,7 @@ export default async function KaryawanDetailPage({
         select: {
           id: true, effectiveDate: true, basicSalary: true, bpjsTkBase: true,
           bpjsKesBase: true, note: true, createdBy: true,
-          components: { select: { id: true, type: true, name: true, amount: true } },
+          components: { select: { id: true, type: true, name: true, amount: true, code: true } },
         },
       })
     : [];
@@ -164,6 +164,10 @@ export default async function KaryawanDetailPage({
       patterns={patterns}
       shiftDays={shiftDays}
       leaveBalances={await computeBalances([id])}
+      payOptions={await prisma.payComponent.findMany({
+        where: { isActive: true, method: "TETAP", kind: { in: ["PENDAPATAN", "POTONGAN"] }, NOT: { category: "GAJI_POKOK" } },
+        orderBy: { sortOrder: "asc" }, select: { code: true, name: true, kind: true },
+      })}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import {
-  Calculator, CheckCircle2, Coins, FileText, HandCoins, Landmark, Loader2, MinusCircle, Pencil, Play, Plus, Settings2,
+  Calculator, CheckCircle2, Coins, FileText, HandCoins, KeyRound, Landmark, Loader2, MinusCircle, Pencil, Play, Plus, Settings2,
   ShieldCheck, Trash2, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import {
-  PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, baseLabel, categoryLabel, methodLabel, rupiah, simulate,
-  type PayComponentInput, type PayrollSettings,
+  PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, USES_BASE, baseLabel, categoryLabel, legalWarning, methodLabel, missingCoefficient, rupiah, simulate,
+  type PayComponentInput, type PayParams, type PayrollSettings,
 } from "@/lib/payroll";
 import { deletePayComponent, savePayComponent, savePayrollSettings } from "./actions";
 import RunTab, { type Run } from "./RunTab";
@@ -23,7 +23,7 @@ export type Component = Omit<PayComponentInput, "legalBasis" | "note"> & {
 
 const EMPTY: PayComponentInput = {
   code: "", name: "", kind: "PENDAPATAN", category: "TUNJANGAN_TETAP", method: "TETAP",
-  amount: null, rate: null, base: null, capAmount: null, floorAmount: null, taxable: true, legalBasis: "", note: "", isActive: true,
+  amount: null, rate: null, base: null, capAmount: null, floorAmount: null, params: null, baseCodes: [], taxable: true, legalBasis: "", note: "", isActive: true,
 };
 
 const KIND_TONE: Record<string, { color: string; icon: React.ElementType }> = {
@@ -35,16 +35,28 @@ const KIND_TONE: Record<string, { color: string; icon: React.ElementType }> = {
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
 
 // Ringkasan nilai komponen, mis. "3,7% x Upah BPJS (maks Rp11.086.300)".
-function valueText(c: Pick<Component, "method" | "amount" | "rate" | "base" | "capAmount" | "floorAmount">, t: (s: string) => string) {
+function baseText(c: Pick<Component, "base" | "baseCodes">, t: (s: string) => string) {
+  return c.base === "KOMPONEN" ? (c.baseCodes.length ? c.baseCodes.join(" + ") : t("komponen belum dipilih")) : t(baseLabel(c.base ?? "UPAH_TETAP"));
+}
+const n = (x: number) => String(x).replace(".", ",");
+function valueText(c: Pick<Component, "method" | "amount" | "rate" | "base" | "capAmount" | "floorAmount" | "params" | "baseCodes">, t: (s: string) => string) {
   if (c.method === "PERSEN") {
     const extra = [c.floorAmount ? `${t("min")} ${rupiah(c.floorAmount)}` : "", c.capAmount ? `${t("maks")} ${rupiah(c.capAmount)}` : ""].filter(Boolean).join(", ");
-    return `${String(c.rate ?? 0).replace(".", ",")}% x ${t(baseLabel(c.base))}${extra ? ` (${extra})` : ""}`;
+    return `${n(c.rate ?? 0)}% x ${baseText(c, t)}${extra ? ` (${extra})` : ""}`;
   }
+  if (c.method === "NOMINAL_BULANAN") return `${rupiah(c.amount ?? 0)} / ${t("bulan")}`;
+  if (c.method === "RUMUS_LEMBUR") {
+    const p = c.params ?? {};
+    return `1/${p.divisor ?? "?"} x ${baseText(c, t)} · ${(p.workday ?? []).map(n).join("x / ")}x · ${t("libur")} ${(p.rest6 ?? []).map(n).join("x / ")}x`;
+  }
+  if (c.method === "RUMUS_THR") return `${n(c.params?.months ?? 0)} ${t("bulan")} x ${baseText(c, t)}`;
+  if (c.method === "PRORATA_MANGKIR") return `${baseText(c, t)} / ${t("hari kerja")} x ${t("hari mangkir")}`;
   if (c.method === "PER_HADIR") return c.amount ? `${rupiah(c.amount)} / ${t("hari hadir")}` : t("Nominal per hari belum diisi");
+  if (c.method === "PER_LEMBUR") return `${rupiah(c.amount ?? 0)} / ${t("kelipatan")} ${c.rate ?? 4} ${t("jam lembur")}`;
   return t(methodLabel(c.method));
 }
 
-function ComponentDialog({ comp, onClose }: { comp: Component | "new"; onClose: () => void }) {
+function ComponentDialog({ comp, all, isSuper, onClose }: { comp: Component | "new"; all: Component[]; isSuper: boolean; onClose: () => void }) {
   const t = useT();
   const [form, setForm] = useState<PayComponentInput>(() => comp === "new" ? EMPTY : {
     ...comp, legalBasis: comp.legalBasis ?? "", note: comp.note ?? "",
@@ -53,6 +65,17 @@ function ComponentDialog({ comp, onClose }: { comp: Component | "new"; onClose: 
   const [pending, start] = useTransition();
   const set = <K extends keyof PayComponentInput>(k: K, v: PayComponentInput[K]) => setForm((f) => ({ ...f, [k]: v }));
   const numOrNull = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
+  const setParam = (k: keyof PayParams, v: unknown) => setForm((f) => ({ ...f, params: { ...(f.params ?? {}), [k]: v } }));
+  const setParamAt = (k: "workday" | "rest6" | "rest5", i: number, len: number, v: string) =>
+    setForm((f) => {
+      const arr = [...((f.params?.[k] as number[] | undefined) ?? Array(len).fill(0))];
+      arr[i] = Number(v.replace(",", ".")) || 0;
+      return { ...f, params: { ...(f.params ?? {}), [k]: arr } };
+    });
+  const missing = missingCoefficient(form);
+  const legal = legalWarning(form);
+  // Komponen yang bisa dicentang sebagai dasar: gaji pokok + pendapatan tetap.
+  const baseOptions = [{ code: "GP", name: "Gaji Pokok" }, ...all.filter((c) => c.kind === "PENDAPATAN" && c.code !== "GP" && (c.method === "TETAP" || c.method === "NOMINAL_BULANAN") && c.category !== "BONUS")];
 
   function save() {
     setError(null);
@@ -83,32 +106,85 @@ function ComponentDialog({ comp, onClose }: { comp: Component | "new"; onClose: 
               <select value={form.category} onChange={(e) => set("category", e.target.value)} className={select}>
                 {PAY_CATEGORIES.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
               </select></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Cara hitung</T></Label>
+            <div className="space-y-1.5"><Label className="text-xs"><T>Dasar perhitungan</T></Label>
               <select value={form.method} onChange={(e) => set("method", e.target.value)} className={select}>
                 {PAY_METHODS.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
               </select></div>
           </div>
 
-          {(form.method === "PER_HADIR" || form.method === "TETAP") && (
-            <div className="space-y-1.5 sm:w-1/2"><Label className="text-xs">
-              <T>{form.method === "PER_HADIR" ? "Nominal per hari hadir (Rp)" : "Nominal bawaan (Rp, opsional)"}</T></Label>
-              <Input type="number" min={0} value={form.amount ?? ""} onChange={(e) => set("amount", numOrNull(e.target.value))} /></div>
-          )}
-          {form.method === "PERSEN" && (
-            <div className="grid gap-3 rounded-xl bg-gray-50 p-3 sm:grid-cols-4">
-              <div className="space-y-1.5"><Label className="text-xs"><T>Persen (%)</T></Label>
-                <Input type="number" step="0.01" min={0} value={form.rate ?? ""} onChange={(e) => set("rate", numOrNull(e.target.value))} /></div>
-              <div className="space-y-1.5"><Label className="text-xs"><T>Dasar</T></Label>
-                <select value={form.base ?? ""} onChange={(e) => set("base", e.target.value || null)} className={select}>
-                  <option value="">—</option>
-                  {PAY_BASES.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
-                </select></div>
-              <div className="space-y-1.5"><Label className="text-xs"><T>Batas bawah (Rp)</T></Label>
-                <Input type="number" min={0} value={form.floorAmount ?? ""} onChange={(e) => set("floorAmount", numOrNull(e.target.value))} /></div>
-              <div className="space-y-1.5"><Label className="text-xs"><T>Batas atas (Rp)</T></Label>
-                <Input type="number" min={0} value={form.capAmount ?? ""} onChange={(e) => set("capAmount", numOrNull(e.target.value))} /></div>
+          {USES_BASE.includes(form.method) && (
+            <div className="space-y-2 rounded-xl border border-gray-200 p-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label className="text-xs"><T>Dihitung dari</T></Label>
+                  <select value={form.base ?? "UPAH_TETAP"} onChange={(e) => set("base", e.target.value)} className={select}>
+                    {PAY_BASES.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
+                  </select></div>
+              </div>
+              {form.base === "KOMPONEN" && (
+                <div className="flex flex-wrap gap-2">
+                  {baseOptions.map((o) => (
+                    <label key={o.code} className="flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1 text-xs">
+                      <input type="checkbox" checked={form.baseCodes.includes(o.code)} className="h-3.5 w-3.5 accent-[var(--color-brand)]"
+                        onChange={(e) => set("baseCodes", e.target.checked ? [...form.baseCodes, o.code] : form.baseCodes.filter((x) => x !== o.code))} />
+                      <b>{o.code}</b> {t(o.name)}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
+          <fieldset disabled={!isSuper} className="space-y-3 rounded-xl bg-gray-50 p-3 disabled:opacity-80">
+            <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold text-gray-600">
+              <KeyRound size={13} /> <T>Koefisien</T> {!isSuper && <span className="font-normal text-gray-400">— <T>hanya bisa diisi super admin</T></span>}
+            </legend>
+            {(form.method === "NOMINAL_BULANAN" || form.method === "PER_HADIR" || form.method === "PER_LEMBUR") && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label className="text-xs">
+                  <T>{form.method === "PER_HADIR" ? "Nominal per hari hadir (Rp)" : form.method === "PER_LEMBUR" ? "Nominal per kali (Rp)" : "Nominal per bulan (Rp)"}</T></Label>
+                  <Input type="number" min={0} value={form.amount ?? ""} onChange={(e) => set("amount", numOrNull(e.target.value))} /></div>
+                {form.method === "PER_LEMBUR" && (
+                  <div className="space-y-1.5"><Label className="text-xs"><T>Per kelipatan jam lembur</T></Label>
+                    <Input type="number" min={1} value={form.rate ?? ""} onChange={(e) => set("rate", numOrNull(e.target.value))} />
+                    <p className="text-[11px] text-gray-400"><T>Contoh 4: lembur 4-7 jam = 1x, 8-11 jam = 2x, per pengajuan.</T></p></div>
+                )}
+              </div>
+            )}
+            {form.method === "PERSEN" && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5"><Label className="text-xs"><T>Persen (%)</T></Label>
+                  <Input type="number" step="0.01" min={0} value={form.rate ?? ""} onChange={(e) => set("rate", numOrNull(e.target.value))} /></div>
+                <div className="space-y-1.5"><Label className="text-xs"><T>Batas bawah (Rp)</T></Label>
+                  <Input type="number" min={0} value={form.floorAmount ?? ""} onChange={(e) => set("floorAmount", numOrNull(e.target.value))} /></div>
+                <div className="space-y-1.5"><Label className="text-xs"><T>Batas atas (Rp)</T></Label>
+                  <Input type="number" min={0} value={form.capAmount ?? ""} onChange={(e) => set("capAmount", numOrNull(e.target.value))} /></div>
+              </div>
+            )}
+            {form.method === "RUMUS_LEMBUR" && (
+              <div className="space-y-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2"><span className="w-44 text-gray-600"><T>Upah sejam = 1 / pembagi</T></span>
+                  <Input type="number" className="h-8 w-20" value={form.params?.divisor ?? ""} onChange={(e) => setParam("divisor", Number(e.target.value))} /></div>
+                {([["workday", 2, "Hari kerja: jam ke-1, jam berikutnya"], ["rest6", 3, "Libur (6 hari kerja): jam 1-7, jam ke-8, jam 9-10"], ["rest5", 3, "Libur (5 hari kerja): jam 1-8, jam ke-9, jam 10-11"]] as const).map(([k, len, label]) => (
+                  <div key={k} className="flex flex-wrap items-center gap-2"><span className="w-44 text-gray-600"><T>{label}</T></span>
+                    {Array.from({ length: len }, (_, i) => (
+                      <Input key={i} type="number" step="0.5" className="h-8 w-16" value={(form.params?.[k] as number[] | undefined)?.[i] ?? ""}
+                        onChange={(e) => setParamAt(k, i, len, e.target.value)} />
+                    ))}<span className="text-gray-400">x</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {form.method === "RUMUS_THR" && (
+              <div className="space-y-1.5 sm:w-1/2"><Label className="text-xs"><T>Berapa bulan upah (masa kerja 12 bulan atau lebih)</T></Label>
+                <Input type="number" step="0.5" min={0} value={form.params?.months ?? ""} onChange={(e) => setParam("months", Number(e.target.value))} />
+                <p className="text-[11px] text-gray-400"><T>Masa kerja kurang dari 12 bulan otomatis proporsional.</T></p></div>
+            )}
+            {!["NOMINAL_BULANAN", "PER_HADIR", "PER_LEMBUR", "PERSEN", "RUMUS_LEMBUR", "RUMUS_THR"].includes(form.method) && (
+              <p className="text-xs text-gray-500"><T>Dasar perhitungan ini tidak memakai koefisien.</T></p>
+            )}
+            {missing && <p className="text-xs text-amber-700"><T>Koefisien belum lengkap</T>: {t(missing)}. <T>Komponen belum ikut dihitung.</T></p>}
+            {legal && <p className="text-xs text-red-600">{t(legal)}</p>}
+          </fieldset>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 px-3 py-2">
@@ -137,7 +213,7 @@ function ComponentDialog({ comp, onClose }: { comp: Component | "new"; onClose: 
   );
 }
 
-function ComponentsTab({ components }: { components: Component[] }) {
+function ComponentsTab({ components, isSuper }: { components: Component[]; isSuper: boolean }) {
   const t = useT();
   const [editing, setEditing] = useState<Component | "new" | null>(null);
   const [pending, start] = useTransition();
@@ -186,6 +262,8 @@ function ComponentsTab({ components }: { components: Component[] }) {
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.taxable ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
                         <T>{c.taxable ? "Objek PPh 21" : "Bukan objek PPh 21"}</T>
                       </span>
+                      {missingCoefficient(c) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><T>Menunggu koefisien super admin</T></span>}
+                      {legalWarning(c) && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">{t(legalWarning(c)!)}</span>}
                     </div>
                     {c.note && <p className="mt-2 text-xs leading-relaxed text-gray-500">{t(c.note)}</p>}
                     {c.legalBasis && (
@@ -198,7 +276,7 @@ function ComponentsTab({ components }: { components: Component[] }) {
           </div>
         );
       })}
-      {editing && <ComponentDialog comp={editing} onClose={() => setEditing(null)} />}
+      {editing && <ComponentDialog comp={editing} all={components} isSuper={isSuper} onClose={() => setEditing(null)} />}
     </section>
   );
 }
@@ -318,7 +396,7 @@ function SimulationTab({ components, settings }: { components: Component[]; sett
   );
 }
 
-export default function PayrollClient({ components, settings, runs }: { components: Component[]; settings: PayrollSettings; runs: Run[] }) {
+export default function PayrollClient({ components, settings, runs, isSuper }: { components: Component[]; settings: PayrollSettings; runs: Run[]; isSuper: boolean }) {
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "simulasi">("proses");
   const active = components.filter((c) => c.isActive);
   const bpjsEmployer = active.filter((c) => c.kind === "BENEFIT" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
@@ -356,7 +434,7 @@ export default function PayrollClient({ components, settings, runs }: { componen
           ))}
         </div>
         {tab === "proses" && <RunTab runs={runs} />}
-        {tab === "komponen" && <ComponentsTab components={components} />}
+        {tab === "komponen" && <ComponentsTab components={components} isSuper={isSuper} />}
         {tab === "pengaturan" && <SettingsTab settings={settings} />}
         {tab === "simulasi" && <SimulationTab components={components} settings={settings} />}
       </main>

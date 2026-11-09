@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
-import { hasMenu } from "@/lib/roles";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import type { PayParams } from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
 import { getPayrollSettings } from "@/lib/payroll-settings";
 import PayrollClient from "./PayrollClient";
@@ -27,7 +28,8 @@ export default async function PayrollPage() {
   ]);
   return (
     <PayrollClient
-      components={components.map((c) => ({ ...c, createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString() }))}
+      components={components.map((c) => ({ ...c, params: (c.params as PayParams | null) ?? null, createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString() }))}
+      isSuper={isSuperAdmin(access.role)}
       settings={settings}
       runs={runs.map((r) => ({
         id: r.id, period: r.period, label: periodLabel(r.period), status: r.status, includeThr: r.includeThr,

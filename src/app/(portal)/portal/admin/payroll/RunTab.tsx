@@ -126,6 +126,7 @@ export default function RunTab({ runs }: { runs: Run[] }) {
                   <th className="px-2 py-2 text-right"><T>Mangkir</T></th>
                   <th className="px-2 py-2 text-right"><T>Lembur HK (jam)</T></th>
                   <th className="px-2 py-2 text-right"><T>Lembur HL (jam)</T></th>
+                  <th className="px-2 py-2 text-right"><T>Makan Lembur (kali)</T></th>
                   <th className="px-2 py-2 text-right"><T>Bonus</T></th>
                   <th className="px-2 py-2 text-right"><T>Kasbon</T></th>
                   <th className="px-2 py-2 text-right"><T>Pendapatan</T></th>
@@ -152,6 +153,7 @@ export default function RunTab({ runs }: { runs: Run[] }) {
                       <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.absentDays} disabled={final} onSave={(v) => save(l.id, { absentDays: v })} /></td>
                       <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.overtimeHours} disabled={final} onSave={(v) => save(l.id, { overtimeHours: v })} /></td>
                       <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.restOvertimeHours} disabled={final} onSave={(v) => save(l.id, { restOvertimeHours: v })} /></td>
+                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.overtimeMeals ?? 0} disabled={final} onSave={(v) => save(l.id, { overtimeMeals: v })} /></td>
                       <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.bonus} disabled={final} onSave={(v) => save(l.id, { bonus: v })} /></td>
                       <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.kasbon} disabled={final} onSave={(v) => save(l.id, { kasbon: v })} /></td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.earnings)}</td>
@@ -161,7 +163,7 @@ export default function RunTab({ runs }: { runs: Run[] }) {
                     </tr>
                     {open === l.id && (
                       <tr className="bg-gray-50/60">
-                        <td colSpan={11} className="px-6 py-3">
+                        <td colSpan={12} className="px-6 py-3">
                           <div className="grid gap-4 md:grid-cols-3">
                             {(["PENDAPATAN", "POTONGAN", "BENEFIT"] as const).map((k) => (
                               <div key={k}>

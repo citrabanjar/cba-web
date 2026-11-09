@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 // Format file data karyawan. Kolom mengikuti kesepakatan (dasar KantorKu), dan file
 // ekspor KantorKu asli juga bisa langsung dibaca lewat nama kolom alternatifnya.
 
-export type ImportComponent = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number };
+export type ImportComponent = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number; code?: string | null };
 
 export type ImportRow = {
   employeeId: string;

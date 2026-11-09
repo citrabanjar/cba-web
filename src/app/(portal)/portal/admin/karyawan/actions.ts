@@ -451,7 +451,9 @@ export async function addSalaryAdjustment(
       bpjsKesBase: data.bpjsKesBase ?? null,
       note: data.note?.trim() || null,
       createdBy: actor.name,
-      components: { create: data.components },
+      components: {
+        create: data.components.map((c) => ({ type: c.type, name: c.name.trim(), amount: c.amount, code: c.code?.trim() || null })),
+      },
     },
   });
   revalidatePath(`${LIST_PATH}/${userId}`);

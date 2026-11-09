@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu } from "@/lib/roles";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import type { Prisma } from "@prisma/client";
 import {
   PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAYROLL_SETTING_KEY, isOneOf,
-  type PayComponentInput, type PayrollSettings,
+  type PayComponentInput, type PayParams, type PayrollSettings,
 } from "@/lib/payroll";
 import { finalizeRun, generateRun, recomputeLine, type LineInputs } from "@/lib/payroll-run";
 
@@ -33,14 +34,38 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
     return { error: "Jenis, kategori, atau cara hitung tidak valid." };
   }
   if (input.base && !isOneOf(PAY_BASES, input.base)) return { error: "Dasar perhitungan tidak valid." };
-  if (input.method === "PERSEN" && (input.rate === null || input.rate <= 0)) return { error: "Isi persen untuk cara hitung persen." };
   const clash = await prisma.payComponent.findFirst({ where: { code, NOT: id ? { id } : undefined }, select: { id: true } });
   if (clash) return { error: "Kode sudah dipakai komponen lain." };
 
+  // Dasar perhitungan boleh diatur admin payroll; angka koefisien hanya super admin.
+  const superAdmin = isSuperAdmin(access.role);
+  const old = id ? await prisma.payComponent.findUnique({ where: { id } }) : null;
+  const pickNums = (arr: unknown, len: number) =>
+    Array.isArray(arr) && arr.length === len && arr.every((x) => Number(x) > 0) ? arr.map((x) => Math.min(10, Number(x))) : undefined;
+  const coef = superAdmin
+    ? {
+        amount: num(input.amount, 0, 1e10), rate: num(input.rate, 0, 100),
+        capAmount: num(input.capAmount, 0, 1e10), floorAmount: num(input.floorAmount, 0, 1e10),
+        params: input.params
+          ? {
+              ...(input.params.divisor ? { divisor: Math.max(1, Math.min(400, Number(input.params.divisor))) } : {}),
+              ...(pickNums(input.params.workday, 2) ? { workday: pickNums(input.params.workday, 2) } : {}),
+              ...(pickNums(input.params.rest6, 3) ? { rest6: pickNums(input.params.rest6, 3) } : {}),
+              ...(pickNums(input.params.rest5, 3) ? { rest5: pickNums(input.params.rest5, 3) } : {}),
+              ...(input.params.months ? { months: Math.max(0, Math.min(12, Number(input.params.months))) } : {}),
+            }
+          : null,
+      }
+    : {
+        amount: old?.amount ?? null, rate: old?.rate ?? null, capAmount: old?.capAmount ?? null, floorAmount: old?.floorAmount ?? null,
+        params: (old?.params as PayParams | null) ?? null,
+      };
+  const codes = await prisma.payComponent.findMany({ select: { code: true } });
+  const known = new Set(["GP", ...codes.map((c) => c.code)]);
   const data = {
     code, name, kind: input.kind, category: input.category, method: input.method,
-    amount: num(input.amount, 0, 1e10), rate: num(input.rate, 0, 100), base: input.base || null,
-    capAmount: num(input.capAmount, 0, 1e10), floorAmount: num(input.floorAmount, 0, 1e10),
+    base: input.base || null, baseCodes: input.base === "KOMPONEN" ? input.baseCodes.filter((c) => known.has(c)) : [],
+    ...coef, params: (coef.params ?? undefined) as Prisma.InputJsonValue | undefined,
     taxable: !!input.taxable, legalBasis: text(input.legalBasis), note: text(input.note), isActive: !!input.isActive,
     updatedBy: access.name ?? null,
   };
@@ -98,7 +123,7 @@ export async function generatePayroll(period: string, includeThr: boolean): Prom
 export async function updatePayrollLine(lineId: string, inputs: Partial<LineInputs>): Promise<Result> {
   await requirePayroll();
   const clean: Partial<LineInputs> = {};
-  for (const k of ["overtimeHours", "restOvertimeHours", "bonus", "kasbon", "daysPresent", "absentDays"] as const) {
+  for (const k of ["overtimeHours", "restOvertimeHours", "bonus", "kasbon", "daysPresent", "absentDays", "overtimeMeals"] as const) {
     if (inputs[k] !== undefined) clean[k] = Math.max(0, Number(inputs[k]) || 0);
   }
   try {

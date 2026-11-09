@@ -36,7 +36,7 @@ import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; bpjsTkBase: number | null;
   bpjsKesBase: number | null; note: string | null; createdBy: string | null;
-  components: { id: string; type: string; name: string; amount: number }[];
+  components: { id: string; type: string; name: string; amount: number; code: string | null }[];
 };
 
 type Employee = {
@@ -89,7 +89,8 @@ type FormField = {
 };
 type Section = "detail" | "unit" | "bank" | "payroll" | "pribadi" | "alamat" | "pajak" | "bpjs";
 type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "TRANSFER";
-type Component = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number };
+type Component = { type: "TUNJANGAN" | "POTONGAN"; name: string; amount: number; code: string | null };
+type PayOption = { code: string; name: string; kind: string };
 type FamilyRow = { name: string; idNumber: string; relation: string };
 
 const TAB_LIST = [
@@ -582,16 +583,17 @@ function AccessPanel({ employee }: { employee: Employee }) {
 }
 
 function SalaryDialog({
-  employee, current, open, onClose,
+  employee, current, open, onClose, payOptions,
 }: {
-  employee: Employee; current?: Salary; open: boolean; onClose: () => void;
+  employee: Employee; current?: Salary; open: boolean; onClose: () => void; payOptions: PayOption[];
 }) {
+  const t = useT();
   const [effectiveDate, setEffectiveDate] = useState("");
   const [basicSalary, setBasicSalary] = useState(String(current?.basicSalary ?? ""));
   const [note, setNote] = useState("");
   const [components, setComponents] = useState<Component[]>(
     (current?.components ?? []).map((c) => ({
-      type: c.type as Component["type"], name: c.name, amount: c.amount,
+      type: c.type as Component["type"], name: c.name, amount: c.amount, code: c.code,
     })),
   );
   const [error, setError] = useState<string | null>(null);
@@ -639,15 +641,35 @@ function SalaryDialog({
           </div>
           <div className="space-y-2">
             <Label className="text-xs"><T>Tunjangan dan Potongan</T></Label>
+            <p className="text-[11px] text-gray-400"><T>Pilih dari komponen di Payroll & Benefit supaya sifat pajak dan dasar hitungnya ikut aturan komponen.</T></p>
             {components.map((c, i) => (
-              <div key={i} className="grid grid-cols-[100px_1fr_110px_auto] gap-2 items-center">
-                <select value={c.type} aria-label="Jenis"
-                  onChange={(e) => patch(i, { type: e.target.value as Component["type"] })}
-                  className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
-                  <option value="TUNJANGAN"><T>Tunjangan</T></option>
-                  <option value="POTONGAN"><T>Potongan</T></option>
-                </select>
-                <Input value={c.name} placeholder="Nama" onChange={(e) => patch(i, { name: e.target.value })} />
+              <div key={i} className="grid grid-cols-[1fr_110px_auto] gap-2 items-center">
+                <div className="space-y-1">
+                  <select value={c.code ?? ""} aria-label={t("Komponen")}
+                    onChange={(e) => {
+                      const o = payOptions.find((x) => x.code === e.target.value);
+                      patch(i, o ? { code: o.code, name: o.name, type: o.kind === "POTONGAN" ? "POTONGAN" : "TUNJANGAN" } : { code: null });
+                    }}
+                    className="h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm">
+                    <option value="">{t("Lainnya (ketik nama)")}</option>
+                    {(["PENDAPATAN", "POTONGAN"] as const).map((k) => (
+                      <optgroup key={k} label={t(k === "PENDAPATAN" ? "Tunjangan" : "Potongan")}>
+                        {payOptions.filter((o) => o.kind === k).map((o) => <option key={o.code} value={o.code}>{o.code} · {t(o.name)}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {!c.code && (
+                    <div className="grid grid-cols-[100px_1fr] gap-2">
+                      <select value={c.type} aria-label="Jenis"
+                        onChange={(e) => patch(i, { type: e.target.value as Component["type"] })}
+                        className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+                        <option value="TUNJANGAN">{t("Tunjangan")}</option>
+                        <option value="POTONGAN">{t("Potongan")}</option>
+                      </select>
+                      <Input value={c.name} placeholder="Nama" onChange={(e) => patch(i, { name: e.target.value })} />
+                    </div>
+                  )}
+                </div>
                 <Input type="number" value={c.amount || ""} placeholder="Nominal"
                   onChange={(e) => patch(i, { amount: Number(e.target.value) })} />
                 <button type="button" aria-label="Hapus baris"
@@ -658,7 +680,7 @@ function SalaryDialog({
               </div>
             ))}
             <Button variant="outline" size="sm" className="gap-1.5"
-              onClick={() => setComponents((prev) => [...prev, { type: "TUNJANGAN", name: "", amount: 0 }])}>
+              onClick={() => setComponents((prev) => [...prev, { type: "TUNJANGAN", name: "", amount: 0, code: null }])}>
               <Plus size={14} /> <T>Tambah Baris</T>
             </Button>
           </div>
@@ -681,7 +703,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, master, canSeePay, isSuper, canEdit,
-  schedules, patterns, shiftDays, leaveBalances,
+  schedules, patterns, shiftDays, leaveBalances, payOptions,
 }: {
   employee: Employee;
   tenure: string | null;
@@ -695,6 +717,7 @@ export default function KaryawanDetailClient({
   patterns: { id: string; name: string; cycleDays: number }[];
   shiftDays: Record<string, DayShift>;
   leaveBalances: BalanceRow[];
+  payOptions: PayOption[];
 }) {
   const t = useT();
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
@@ -1259,7 +1282,7 @@ export default function KaryawanDetailClient({
       {historyOpen && <ChangeHistoryDialog logs={emp.changeLogs} onClose={() => setHistoryOpen(false)} />}
 
       {canSeePay && salaryOpen && (
-        <SalaryDialog employee={emp} current={currentSalary} open={salaryOpen} onClose={() => setSalaryOpen(false)} />
+        <SalaryDialog payOptions={payOptions} employee={emp} current={currentSalary} open={salaryOpen} onClose={() => setSalaryOpen(false)} />
       )}
 
       <Dialog open={editing !== null} onOpenChange={(open: boolean) => { if (!open) setEditing(null); }}>

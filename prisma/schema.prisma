@@ -354,6 +354,7 @@ model SalaryComponent {
   type     SalaryComponentType
   name     String
   amount   Float
+  code     String? // kode komponen di Setup Payroll (mis. TJ); kosong = diketik bebas
 
   salary EmployeeSalary @relation(fields: [salaryId], references: [id], onDelete: Cascade)
 
@@ -621,6 +622,8 @@ model PayComponent {
   base        String? // GAJI_POKOK | UPAH_TETAP (pokok + tunjangan tetap) | UPAH_BPJS
   capAmount   Float? // batas atas dasar perhitungan
   floorAmount Float? // batas bawah dasar perhitungan
+  params      Json? // koefisien rumus, mis. lembur {divisor, workday:[1.5,2], rest6:[2,3,4], rest5:[2,3,4]}, THR {months}
+  baseCodes   String[] @default([]) // dasar = komponen yang dicentang (bila base = KOMPONEN)
   taxable     Boolean  @default(true) // objek PPh 21
   legalBasis  String?
   note        String?  @db.Text
