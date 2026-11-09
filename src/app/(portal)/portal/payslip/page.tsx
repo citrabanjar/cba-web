@@ -7,6 +7,7 @@ import { FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatRupiah } from "@/lib/utils";
 import { T } from "@/components/i18n";
+import type { LineItem } from "@/lib/payroll-run";
 
 export const metadata: Metadata = { title: "Slip Gaji" };
 
@@ -18,6 +19,12 @@ export default async function PayslipPage() {
     where: { userId: session.user.id! },
     orderBy: { period: "desc" },
   });
+  // Rincian per baris dari Proses Gaji yang sudah final (mis. angsuran tiap pinjaman tampil terpisah).
+  const lines = await prisma.payrollLine.findMany({
+    where: { userId: session.user.id!, run: { status: "FINAL", period: { in: payslips.map((p) => p.period) } } },
+    select: { items: true, run: { select: { period: true } } },
+  });
+  const detailOf = new Map(lines.map((l) => [l.run.period, l.items as LineItem[]]));
 
   return (
     <div className="bg-gray-50 min-h-full">
@@ -56,6 +63,24 @@ export default async function PayslipPage() {
                   <div><T>Makan:</T> <span className="font-medium text-gray-700">{formatRupiah(slip.mealAllowance)}</span></div>
                   <div><T>PPh 21:</T> <span className="font-medium text-red-600">-{formatRupiah(slip.pph21)}</span></div>
                 </div>
+                {(detailOf.get(slip.period)?.length ?? 0) > 0 && (
+                  <details className="mt-3 border-t border-gray-50 pt-2 text-xs">
+                    <summary className="cursor-pointer font-medium text-gray-600"><T>Rincian</T></summary>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                      {(["PENDAPATAN", "POTONGAN"] as const).map((k) => (
+                        <div key={k}>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400"><T>{k === "PENDAPATAN" ? "Pendapatan" : "Potongan"}</T></p>
+                          {detailOf.get(slip.period)!.filter((i) => i.kind === k).map((i) => (
+                            <p key={i.code} className="flex justify-between gap-2 py-0.5">
+                              <span className="min-w-0"><span className="text-gray-700"><T>{i.name}</T></span>{i.detail && <span className="block text-[10px] text-gray-400">{i.detail}</span>}</span>
+                              <span className={`shrink-0 tabular-nums ${k === "POTONGAN" ? "text-red-600" : "text-gray-800"}`}>{k === "POTONGAN" ? "-" : ""}{formatRupiah(i.amount)}</span>
+                            </p>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             ))}
           </div>

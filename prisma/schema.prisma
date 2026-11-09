@@ -704,7 +704,7 @@ model EmployeePayComponent {
 }
 
 // ─── Pinjaman Karyawan ───────────────────────────────────────────────────────
-// Tanpa bunga. Karyawan mengajukan, admin menyetujui; angsuran dipotong otomatis di Proses Gaji.
+// Tanpa bunga. Karyawan mengajukan → admin menyetujui → admin menandai dicairkan → angsuran dipotong otomatis di Proses Gaji.
 // isOpening = saldo awal dari aplikasi lama saat migrasi (principal = sisa pinjaman per tanggal migrasi).
 model EmployeeLoan {
   id             String    @id @default(cuid())
@@ -713,7 +713,10 @@ model EmployeeLoan {
   tenor          Int // jumlah angsuran
   startPeriod    String // periode potongan pertama, "2026-12"
   purpose        String?   @db.Text
-  status         String    @default("PENDING") // PENDING | BERJALAN | LUNAS | DITOLAK | BATAL
+  seqNo          Int? // pinjaman ke- (urut per karyawan)
+  status         String    @default("PENDING") // PENDING | DISETUJUI (belum dicairkan) | BERJALAN | LUNAS | DITOLAK | BATAL
+  disbursedAt    DateTime? @db.Date // tanggal dicairkan (ditandai manual oleh admin)
+  disbursedBy    String?
   isOpening      Boolean   @default(false)
   originalAmount Float? // saldo awal: jumlah pinjaman semula (informasi)
   note           String?   @db.Text

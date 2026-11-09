@@ -1,9 +1,10 @@
 export const dynamic = "force-dynamic";
 import { computeBalances } from "@/lib/leave-balance";
 import { describe, type PayParams } from "@/lib/payroll";
+import { toLoanView } from "@/lib/loan-view";
 import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import { hasMenu, isManagement, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
 import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
@@ -28,7 +29,7 @@ export default async function KaryawanDetailPage({
   params, searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ aksi?: string }>;
+  searchParams: Promise<{ aksi?: string; tab?: string }>;
 }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
@@ -36,6 +37,8 @@ export default async function KaryawanDetailPage({
 
   const { id } = await params;
   const canSeePay = hasMenu(access, "gaji");
+  // Tab Pinjaman hanya untuk Admin dan Super Admin.
+  const canSeeLoans = isManagement(access.role);
 
   // Pakai select eksplisit supaya passwordHash tidak ikut terkirim ke client.
   const employee = await prisma.user.findFirst({
@@ -157,6 +160,9 @@ export default async function KaryawanDetailPage({
       tenure={tenure(employee.joinDate)}
       managers={managers}
       initialAction={(await searchParams).aksi}
+      initialTab={(await searchParams).tab}
+      canSeeLoans={canSeeLoans}
+      loans={canSeeLoans ? (await prisma.employeeLoan.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, include: { installments: true } })).map(toLoanView) : []}
       master={await getMasterOptions()}
       canSeePay={canSeePay}
       isSuper={isSuperAdmin(access.role)}

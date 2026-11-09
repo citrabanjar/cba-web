@@ -3,18 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import { isManagement, isSuperAdmin } from "@/lib/roles";
 import { buildSchedule, isPeriod } from "@/lib/loans";
+import { nextLoanNo } from "@/lib/loan-view";
 
 const PATH = "/portal/admin/pinjaman";
 type Result = { error?: string };
 
-async function requirePayroll() {
+// Pinjaman dikelola Admin dan Super Admin; upload saldo awal migrasi hanya Super Admin.
+async function requireAdmin() {
   const access = await getAccess();
-  if (!access || !hasMenu(access, "gaji")) throw new Error("Unauthorized");
+  if (!access || !isManagement(access.role)) throw new Error("Unauthorized");
   return access;
 }
-const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/pinjaman"); };
+const refresh = (userId?: string) => {
+  revalidatePath(PATH);
+  revalidatePath("/portal/pinjaman");
+  revalidatePath("/portal/dashboard");
+  if (userId) revalidatePath(`/portal/admin/karyawan/${userId}`);
+};
 const terms = (principal: number, tenor: number, startPeriod: string) => {
   const p = Math.round(Number(principal) || 0), n = Math.round(Number(tenor) || 0);
   if (p < 1000) return { error: "Jumlah pinjaman wajib diisi." } as const;
@@ -23,9 +30,10 @@ const terms = (principal: number, tenor: number, startPeriod: string) => {
   return { p, n } as const;
 };
 
-// Setujui pengajuan (jumlah, tenor, dan periode mulai boleh disesuaikan) lalu buat tabel angsuran.
+// Setujui pengajuan (jumlah, tenor, periode mulai boleh disesuaikan) dan susun tabel angsuran.
+// Angsuran baru dipotong setelah pinjaman ditandai dicairkan.
 export async function approveLoan(id: string, input: { principal: number; tenor: number; startPeriod: string; note: string }): Promise<Result> {
-  const access = await requirePayroll();
+  const access = await requireAdmin();
   const loan = await prisma.employeeLoan.findUnique({ where: { id } });
   if (!loan || loan.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
   const tm = terms(input.principal, input.tenor, input.startPeriod);
@@ -33,51 +41,42 @@ export async function approveLoan(id: string, input: { principal: number; tenor:
   await prisma.$transaction([
     prisma.employeeLoan.update({
       where: { id },
-      data: { principal: tm.p, tenor: tm.n, startPeriod: input.startPeriod, status: "BERJALAN", note: input.note.trim() || null, approvedBy: access.name ?? null, approvedAt: new Date() },
+      data: { principal: tm.p, tenor: tm.n, startPeriod: input.startPeriod, status: "DISETUJUI", note: input.note.trim() || null, approvedBy: access.name ?? null, approvedAt: new Date() },
     }),
     prisma.loanInstallment.createMany({ data: buildSchedule(tm.p, tm.n, input.startPeriod).map((r) => ({ ...r, loanId: id })) }),
   ]);
-  refresh();
+  refresh(loan.userId);
   return {};
 }
 
 export async function rejectLoan(id: string, note: string): Promise<Result> {
-  const access = await requirePayroll();
+  const access = await requireAdmin();
   const loan = await prisma.employeeLoan.findUnique({ where: { id } });
   if (!loan || loan.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
   await prisma.employeeLoan.update({ where: { id }, data: { status: "DITOLAK", note: note.trim() || null, approvedBy: access.name ?? null, approvedAt: new Date() } });
-  refresh();
+  refresh(loan.userId);
   return {};
 }
 
-// Admin mencatat pinjaman langsung (sudah disetujui), termasuk saldo awal migrasi dari aplikasi lama:
-// principal = sisa pinjaman per tanggal migrasi, tenor = sisa kali angsuran.
-export async function createLoan(input: {
-  userId: string; principal: number; tenor: number; startPeriod: string; purpose: string; isOpening: boolean; originalAmount: number | null;
-}): Promise<Result> {
-  const access = await requirePayroll();
-  const user = await prisma.user.findUnique({ where: { id: input.userId }, select: { id: true } });
-  if (!user) return { error: "Pilih karyawan." };
-  const tm = terms(input.principal, input.tenor, input.startPeriod);
-  if ("error" in tm) return { error: tm.error };
-  await prisma.employeeLoan.create({
-    data: {
-      userId: user.id, principal: tm.p, tenor: tm.n, startPeriod: input.startPeriod, purpose: input.purpose.trim() || null,
-      status: "BERJALAN", isOpening: !!input.isOpening, originalAmount: input.isOpening && Number(input.originalAmount) > 0 ? Number(input.originalAmount) : null,
-      createdBy: access.name ?? null, approvedBy: access.name ?? null, approvedAt: new Date(),
-      installments: { create: buildSchedule(tm.p, tm.n, input.startPeriod) },
-    },
+// Tandai uang pinjaman sudah diberikan ke karyawan (manual). Sejak itu angsuran ikut dipotong di Proses Gaji.
+export async function markDisbursed(id: string, date: string): Promise<Result> {
+  const access = await requireAdmin();
+  const loan = await prisma.employeeLoan.findUnique({ where: { id } });
+  if (!loan || loan.status !== "DISETUJUI") return { error: "Hanya pinjaman yang sudah disetujui yang bisa dicairkan." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Tanggal pencairan wajib diisi." };
+  await prisma.employeeLoan.update({
+    where: { id }, data: { status: "BERJALAN", disbursedAt: new Date(`${date}T00:00:00Z`), disbursedBy: access.name ?? null },
   });
-  refresh();
+  refresh(loan.userId);
   return {};
 }
 
-// Simpan ulang angsuran yang belum terpotong (nominal & periode bisa diubah, baris bisa ditambah/dihapus).
-// Total angsuran yang belum terpotong harus sama dengan sisa pinjaman.
+// Simpan ulang angsuran yang belum terpotong. Angsuran yang sudah terpotong lewat Proses Gaji tidak bisa diubah;
+// total sisa angsuran harus sama dengan sisa pinjaman.
 export async function saveSchedule(loanId: string, rows: { period: string; amount: number }[]): Promise<Result> {
-  await requirePayroll();
+  await requireAdmin();
   const loan = await prisma.employeeLoan.findUnique({ where: { id: loanId }, include: { installments: true } });
-  if (!loan || loan.status !== "BERJALAN") return { error: "Hanya pinjaman berjalan yang bisa diubah." };
+  if (!loan || !["DISETUJUI", "BERJALAN"].includes(loan.status)) return { error: "Hanya pinjaman disetujui atau berjalan yang bisa diubah." };
   const paid = loan.installments.filter((i) => i.status === "LUNAS");
   const remaining = loan.principal - paid.reduce((a, i) => a + i.amount, 0);
   const clean = rows.map((r) => ({ period: r.period, amount: Math.round(Number(r.amount) || 0) })).filter((r) => r.amount > 0);
@@ -93,18 +92,51 @@ export async function saveSchedule(loanId: string, rows: { period: string; amoun
     prisma.loanInstallment.createMany({ data: sorted.map((r, i) => ({ loanId, seq: lastSeq + i + 1, period: r.period, amount: r.amount })) }),
     prisma.employeeLoan.update({ where: { id: loanId }, data: { tenor: paid.length + sorted.length, ...(sorted.length ? {} : { status: "LUNAS" }) } }),
   ]);
-  refresh();
+  refresh(loan.userId);
   return {};
 }
 
 // Batalkan pinjaman yang belum ada angsuran terpotong. Saldo awal migrasi hanya bisa dibatalkan Super Admin.
 export async function cancelLoan(id: string): Promise<Result> {
-  const access = await requirePayroll();
+  const access = await requireAdmin();
   const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { installments: true } });
-  if (!loan || !["BERJALAN", "PENDING"].includes(loan.status)) return { error: "Pinjaman tidak bisa dibatalkan." };
+  if (!loan || !["DISETUJUI", "BERJALAN"].includes(loan.status)) return { error: "Pinjaman tidak bisa dibatalkan." };
   if (loan.isOpening && !isSuperAdmin(access.role)) return { error: "Saldo awal migrasi hanya bisa diubah Super Admin." };
-  if (loan.installments.some((i) => i.status === "LUNAS")) return { error: "Sudah ada angsuran terpotong; ubah tabel angsuran saja." };
+  if (loan.installments.some((i) => i.status === "LUNAS")) return { error: "Sudah ada angsuran terpotong; ubah sisa angsuran saja." };
   await prisma.employeeLoan.update({ where: { id }, data: { status: "BATAL" } });
-  refresh();
+  refresh(loan.userId);
   return {};
+}
+
+// Upload saldo awal migrasi (Super Admin): sisa pinjaman dan sisa angsuran per karyawan dari aplikasi lama.
+// Langsung berjalan karena uangnya sudah dicairkan di aplikasi lama.
+export type OpeningRow = { employeeId: string; remaining: number; tenor: number; startPeriod: string; original: number | null; note: string };
+export async function importOpeningLoans(rows: OpeningRow[]): Promise<Result & { count?: number; errors?: string[] }> {
+  const access = await requireAdmin();
+  if (!isSuperAdmin(access.role)) return { error: "Upload saldo awal hanya untuk Super Admin." };
+  const users = await prisma.user.findMany({ where: { employeeId: { in: rows.map((r) => r.employeeId.trim()) } }, select: { id: true, employeeId: true } });
+  const byId = new Map(users.map((u) => [u.employeeId!.toLowerCase(), u.id]));
+  const errors: string[] = [];
+  const ready: { userId: string; p: number; n: number; r: OpeningRow }[] = [];
+  rows.forEach((r, i) => {
+    const userId = byId.get(r.employeeId.trim().toLowerCase());
+    const tm = terms(r.remaining, r.tenor, r.startPeriod);
+    if (!userId) errors.push(`Baris ${i + 2}: Employee ID ${r.employeeId} tidak ditemukan`);
+    else if ("error" in tm) errors.push(`Baris ${i + 2}: ${tm.error}`);
+    else ready.push({ userId, p: tm.p, n: tm.n, r });
+  });
+  if (errors.length) return { error: "Ada baris yang belum benar; tidak ada yang disimpan.", errors };
+  for (const x of ready) {
+    await prisma.employeeLoan.create({
+      data: {
+        userId: x.userId, seqNo: await nextLoanNo(x.userId), principal: x.p, tenor: x.n, startPeriod: x.r.startPeriod,
+        purpose: x.r.note.trim() || "Saldo awal migrasi", status: "BERJALAN", isOpening: true,
+        originalAmount: Number(x.r.original) > 0 ? Number(x.r.original) : null,
+        createdBy: access.name ?? null, approvedBy: access.name ?? null, approvedAt: new Date(),
+        installments: { create: buildSchedule(x.p, x.n, x.r.startPeriod) },
+      },
+    });
+  }
+  refresh();
+  return { count: ready.length };
 }

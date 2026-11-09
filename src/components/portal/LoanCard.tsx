@@ -7,7 +7,7 @@ import { formatRupiah } from "@/lib/utils";
 import { LOAN_STATUS, loanSummary, periodShort } from "@/lib/loans";
 
 export type LoanView = {
-  id: string; principal: number; tenor: number; startPeriod: string; purpose: string | null; status: string;
+  id: string; seqNo: number; disbursedAt: string | null; principal: number; tenor: number; startPeriod: string; purpose: string | null; status: string;
   isOpening: boolean; originalAmount: number | null; note: string | null; createdAt: string; approvedBy: string | null;
   installments: { id: string; seq: number; period: string; amount: number; status: string; paidAt: string | null }[];
 };
@@ -25,6 +25,7 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
         <div className="min-w-0 flex-1">
           {header}
           <div className="flex flex-wrap items-center gap-2">
+            {loan.seqNo > 0 && <span className="rounded-md bg-ink px-1.5 py-0.5 text-[10px] font-bold text-white"><T>Pinjaman ke-</T>{loan.seqNo}</span>}
             <p className="text-lg font-bold tabular-nums text-gray-900">{formatRupiah(loan.principal)}</p>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.tone}`}><T>{st.label}</T></span>
             {loan.isOpening && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700"><T>Saldo awal migrasi</T></span>}
@@ -32,6 +33,7 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
           <p className="mt-0.5 text-xs text-gray-500">
             {loan.tenor} <T>kali angsuran</T> · <T>mulai</T> {periodShort(loan.startPeriod)}
             {loan.isOpening && loan.originalAmount ? <> · <T>pinjaman semula</T> {formatRupiah(loan.originalAmount)}</> : null}
+            {loan.disbursedAt && <> · <T>dicairkan</T> {new Date(`${loan.disbursedAt}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</>}
           </p>
           {loan.purpose && <p className="mt-1 text-sm text-gray-700">{loan.purpose}</p>}
           {loan.note && <p className="mt-1 text-xs text-gray-500"><T>Catatan</T>: {loan.note}</p>}

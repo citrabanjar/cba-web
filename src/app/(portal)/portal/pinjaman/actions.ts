@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isPeriod } from "@/lib/loans";
+import { nextLoanNo } from "@/lib/loan-view";
 
 const PATH = "/portal/pinjaman";
 
@@ -21,12 +22,13 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
   if (pending) return { error: "Masih ada pengajuan yang menunggu persetujuan." };
   await prisma.employeeLoan.create({
     data: {
-      userId: session.user.id, principal: amount, tenor, startPeriod: input.startPeriod,
+      userId: session.user.id, seqNo: await nextLoanNo(session.user.id), principal: amount, tenor, startPeriod: input.startPeriod,
       purpose: input.purpose.trim().slice(0, 500), createdBy: session.user.name ?? null,
     },
   });
   revalidatePath(PATH);
   revalidatePath("/portal/admin/pinjaman");
+  revalidatePath("/portal/dashboard");
   return {};
 }
 

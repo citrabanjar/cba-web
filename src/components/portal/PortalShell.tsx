@@ -57,13 +57,18 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
 
   // Setup payroll untuk yang punya akses Gaji & Payroll, masuk ke bagian FINANCE.
   if (hasMenu({ role, menuAccess }, "gaji")) {
-    const payroll = [
-      { href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark },
-      { href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins },
-    ];
+    const payroll = [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }];
     const finance = sections.find((s) => s.section === "FINANCE");
     if (finance) finance.items.push(...payroll);
     else sections.push({ section: "FINANCE", items: payroll });
+  }
+
+  // Pinjaman karyawan dikelola Admin dan Super Admin.
+  if (isManagement(role)) {
+    const loans = { href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins };
+    const finance = sections.find((s) => s.section === "FINANCE");
+    if (finance) finance.items.push(loans);
+    else sections.push({ section: "FINANCE", items: [loans] });
   }
 
   if (hasMenu({ role, menuAccess }, "karyawan")) {

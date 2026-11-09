@@ -1,13 +1,20 @@
 // Pinjaman karyawan (tanpa bunga): jadwal angsuran dan ringkasan. Aman dipakai di server dan browser.
+// Alur: PENDING (diajukan) → DISETUJUI (belum dicairkan) → BERJALAN (dicairkan, angsuran dipotong) → LUNAS.
 
 export const LOAN_STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: "Menunggu persetujuan", tone: "bg-amber-50 text-amber-700" },
+  DISETUJUI: { label: "Disetujui, menunggu pencairan", tone: "bg-violet-50 text-violet-700" },
   BERJALAN: { label: "Berjalan", tone: "bg-sky-50 text-sky-700" },
   LUNAS: { label: "Lunas", tone: "bg-emerald-50 text-emerald-700" },
   DITOLAK: { label: "Ditolak", tone: "bg-rose-50 text-rose-700" },
   BATAL: { label: "Dibatalkan", tone: "bg-gray-100 text-gray-500" },
 };
 export const loanStatusLabel = (s: string) => LOAN_STATUS[s]?.label ?? s;
+export const LOAN_GROUPS = [
+  { key: "menunggu", label: "Menunggu", statuses: ["PENDING", "DISETUJUI"] },
+  { key: "berjalan", label: "Berjalan", statuses: ["BERJALAN"] },
+  { key: "selesai", label: "Selesai", statuses: ["LUNAS", "DITOLAK", "BATAL"] },
+] as const;
 
 export type ScheduleRow = { seq: number; period: string; amount: number; status: string };
 

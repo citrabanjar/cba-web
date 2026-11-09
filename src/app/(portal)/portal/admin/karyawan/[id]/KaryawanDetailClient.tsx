@@ -33,6 +33,8 @@ import type { DayShift } from "@/lib/schedule";
 import type { BalanceRow } from "@/lib/leave-balance";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
+import ProfileLoans from "@/components/portal/LoanManager";
+import type { LoanView } from "@/components/portal/LoanCard";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; dailyWage: number | null; monthlyFactor: number | null; bpjsTkBase: number | null;
@@ -100,6 +102,7 @@ const TAB_LIST = [
   { key: "absensi", label: "Kehadiran & Shift" },
   { key: "cuti", label: "Cuti & Dinas" },
   { key: "gaji", label: "Payroll" },
+  { key: "pinjaman", label: "Pinjaman" },
   { key: "payslip", label: "Slip Gaji" },
   { key: "akses", label: "Akses" },
 ];
@@ -724,13 +727,16 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, initialAction, master, canSeePay, isSuper, canEdit,
+  employee: emp, tenure, managers, initialAction, initialTab, canSeeLoans, loans, master, canSeePay, isSuper, canEdit,
   schedules, patterns, shiftDays, leaveBalances, payOptions, payComponents,
 }: {
   employee: Employee;
   tenure: string | null;
   managers: { id: string; name: string; employeeId: string | null }[];
   initialAction?: string;
+  initialTab?: string;
+  canSeeLoans: boolean;
+  loans: LoanView[];
   master: MasterOptions;
   canSeePay: boolean;
   isSuper: boolean;
@@ -744,7 +750,7 @@ export default function KaryawanDetailClient({
 }) {
   const t = useT();
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
-  const [tab, setTab] = useState(quick ? "pekerjaan" : "pribadi");
+  const [tab, setTab] = useState(() => (quick ? "pekerjaan" : initialTab && TAB_LIST.some((x) => x.key === initialTab) ? initialTab : "pribadi"));
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
   const [mode, setMode] = useState<EditMode>(quick?.mode ?? "ubah");
   const [eventForm, setEventForm] = useState<Record<string, string>>({});
@@ -755,7 +761,7 @@ export default function KaryawanDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const tabs = TAB_LIST.filter(
-    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "akses" || isSuper),
+    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans) && (t.key !== "akses" || isSuper),
   );
 
   const fields = useMemo<Record<Section, FormField[]>>(() => ({
@@ -1116,6 +1122,8 @@ export default function KaryawanDetailClient({
             </>)}
           </div>
         )}
+
+        {tab === "pinjaman" && canSeeLoans && <ProfileLoans loans={loans} />}
 
         {tab === "pribadi" && (
           <div className="section-stack space-y-5">

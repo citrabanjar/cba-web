@@ -261,16 +261,22 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
 
   // Angsuran pinjaman karyawan periode ini (bukan objek pajak). Ditandai terpotong saat gaji difinalkan.
   if (ctx.loanPeriod) {
+    // Hanya pinjaman yang sudah dicairkan (BERJALAN); satu baris per pinjaman supaya terlihat terpisah di slip.
     const inst = await prisma.loanInstallment.findMany({
       where: { period: ctx.loanPeriod, status: "BELUM", loan: { userId, status: "BERJALAN" } },
-      include: { loan: { select: { tenor: true } } }, orderBy: { seq: "asc" },
+      include: { loan: { select: { tenor: true, seqNo: true, id: true } } }, orderBy: [{ loan: { seqNo: "asc" } }, { seq: "asc" }],
     });
-    const total = inst.reduce((a, i) => a + i.amount, 0);
-    if (total > 0) {
-      items.push({
-        code: "PJM", name: "Angsuran Pinjaman", kind: "POTONGAN", amount: round(total), taxable: false,
-        detail: inst.map((i) => `angsuran ke-${i.seq} dari ${i.loan.tenor}`).join(", "), refs: inst.map((i) => i.id),
-      });
+    const byLoan = new Map<string, typeof inst>();
+    for (const i of inst) byLoan.set(i.loan.id, [...(byLoan.get(i.loan.id) ?? []), i]);
+    for (const list of byLoan.values()) {
+      const total = list.reduce((a, i) => a + i.amount, 0);
+      const no = list[0].loan.seqNo ?? 0;
+      if (total > 0) {
+        items.push({
+          code: `PJM${no || ""}`, name: no ? `Angsuran Pinjaman ke-${no}` : "Angsuran Pinjaman", kind: "POTONGAN", amount: round(total), taxable: false,
+          detail: list.map((i) => `angsuran ${i.seq} dari ${i.loan.tenor}`).join(", "), refs: list.map((i) => i.id),
+        });
+      }
     }
   }
 
@@ -409,7 +415,7 @@ export async function finalizeRun(runId: string, by: string | null) {
     });
   });
   // Angsuran pinjaman yang ikut terpotong ditandai lunas; pinjaman tanpa sisa angsuran menjadi LUNAS.
-  const refs = run.lines.flatMap((l) => (l.items as LineItem[]).filter((i) => i.code === "PJM").flatMap((i) => i.refs ?? []));
+  const refs = run.lines.flatMap((l) => (l.items as LineItem[]).filter((i) => i.code.startsWith("PJM")).flatMap((i) => i.refs ?? []));
   const paidAt = new Date();
   await prisma.$transaction([
     ...ops,
