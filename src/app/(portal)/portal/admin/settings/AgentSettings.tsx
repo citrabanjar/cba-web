@@ -19,7 +19,7 @@ const describe = (r: SopReminder) =>
 // Pengaturan Task Admin (Super Admin): pengecekan yang aktif, batas angka, dan pengingat SOP.
 export default function AgentSettings({ settings }: { settings: Settings }) {
   const t = useT();
-  const [disabled, setDisabled] = useState<string[]>(settings.disabled);
+  const [enabled, setEnabled] = useState<string[]>(settings.enabled);
   const [contractDays, setContractDays] = useState(String(settings.contractDays));
   const [remindDays, setRemindDays] = useState(String(settings.payrollRemindDays));
   const [editing, setEditing] = useState<SopReminder | null>(null);
@@ -51,8 +51,8 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400"><T>{g}</T></p>
                 {MONITOR_CHECKS.filter((c) => c.group === g).map((c) => (
                   <label key={c.key} className="flex cursor-pointer items-center gap-2 py-0.5 text-sm text-gray-700">
-                    <input type="checkbox" checked={!disabled.includes(c.key)} className="h-4 w-4 accent-[var(--color-brand)]"
-                      onChange={(e) => setDisabled((d) => (e.target.checked ? d.filter((k) => k !== c.key) : [...d, c.key]))} />
+                    <input type="checkbox" checked={enabled.includes(c.key)} className="h-4 w-4 accent-[var(--color-brand)]"
+                      onChange={(e) => setEnabled((d) => (e.target.checked ? [...d, c.key] : d.filter((k) => k !== c.key)))} />
                     <T>{c.title}</T>
                   </label>
                 ))}
@@ -67,7 +67,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
           </div>
           <div className="flex justify-end">
             <Button size="sm" disabled={pending} className="gap-1.5"
-              onClick={() => run(() => saveAgentRules({ disabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) }), "Pengaturan Task Admin tersimpan.")}>
+              onClick={() => run(() => saveAgentRules({ enabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) }), "Pengaturan Task Admin tersimpan.")}>
               {pending && <Loader2 size={14} className="animate-spin" />} <T>Simpan Pengecekan</T>
             </Button>
           </div>

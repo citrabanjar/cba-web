@@ -19,5 +19,5 @@ export const INDICATOR_CATALOG = [
 
 export type IndicatorKey = (typeof INDICATOR_CATALOG)[number]["key"];
 
-// Dipakai kalau Super Admin belum pernah menyimpan pilihan.
-export const DEFAULT_HIDDEN_INDICATORS: string[] = ["total", "departments"];
+// Dipakai kalau Super Admin belum pernah menyimpan pilihan: semua kartu mati, dinyalakan sesuai kebutuhan.
+export const DEFAULT_HIDDEN_INDICATORS: string[] = INDICATOR_CATALOG.map((i) => i.key);

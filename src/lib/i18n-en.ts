@@ -287,6 +287,8 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Belum ada pengecekan yang dinyalakan.": "No checks are turned on yet.",
+  "Super Admin bisa menyalakannya di Pengaturan, tab Task Admin.": "Super Admin can turn them on in Settings, Admin Tasks tab.",
   "Task Admin": "Admin Tasks",
   "Atur pengecekan yang dipantau Task Admin di Beranda, batas angkanya, dan pengingat SOP perusahaan.": "Set which checks Admin Tasks monitors on the dashboard, their thresholds, and company SOP reminders.",
   "Pengaturan Task Admin tersimpan.": "Admin Tasks settings saved.",

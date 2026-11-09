@@ -32,7 +32,7 @@ export type SopReminder = {
 };
 
 export type AgentSettings = {
-  disabled: string[]; // kunci pengecekan yang dimatikan
+  enabled: string[]; // kunci pengecekan yang dinyalakan Super Admin (bawaan: tidak ada)
   contractDays: number; // kontrak berakhir dalam N hari dianggap perlu tindak lanjut
   payrollRemindDays: number; // ingatkan Proses Gaji N hari sebelum tanggal gajian
   reminders: SopReminder[];
@@ -40,7 +40,7 @@ export type AgentSettings = {
   setupDone: boolean; // panduan Setup Awal disembunyikan
 };
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
-  disabled: [], contractDays: 30, payrollRemindDays: 5, reminders: [], done: {}, setupDone: false,
+  enabled: [], contractDays: 30, payrollRemindDays: 5, reminders: [], done: {}, setupDone: false,
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -86,10 +86,14 @@ export function dueReminders(s: AgentSettings, today: string): DueReminder[] {
 
 export function normalizeAgentSettings(raw: unknown): AgentSettings {
   const v = (raw ?? {}) as Partial<AgentSettings>;
+  // Isian lama "disabled" (semua menyala kecuali yang dimatikan) tidak dipakai lagi: bawaannya semua mati.
+  const num = (x: unknown, d: number) => (typeof x === "number" && Number.isFinite(x) ? x : d);
   return {
-    ...DEFAULT_AGENT_SETTINGS, ...v,
-    disabled: Array.isArray(v.disabled) ? v.disabled.filter((x) => typeof x === "string") : [],
+    enabled: Array.isArray(v.enabled) ? v.enabled.filter((x) => typeof x === "string") : [],
+    contractDays: num(v.contractDays, DEFAULT_AGENT_SETTINGS.contractDays),
+    payrollRemindDays: num(v.payrollRemindDays, DEFAULT_AGENT_SETTINGS.payrollRemindDays),
     reminders: Array.isArray(v.reminders) ? v.reminders : [],
     done: v.done && typeof v.done === "object" ? v.done : {},
+    setupDone: v.setupDone === true,
   };
 }

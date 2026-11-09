@@ -94,10 +94,11 @@ export default function AgentPanel({ groups, setup, reminders }: { groups: { key
     ...reminders.map((r) => ({ key: `sop-${r.id}`, node: <ReminderRow r={r} /> })),
   ];
   const total = items.length;
+  const anyCheck = groups.some((g) => g.list.length > 0);
   const run = total > 3;
   const greeting = setup && setupLeft > 0
     ? `Setup awal tinggal ${setupLeft} langkah lagi.`
-    : total > 0 ? `Ada ${total} hal yang perlu perhatian.` : "Semua beres, tidak ada yang terlewat.";
+    : total > 0 ? `Ada ${total} hal yang perlu perhatian.` : anyCheck ? "Semua beres, tidak ada yang terlewat." : "Belum ada pengecekan yang dinyalakan.";
 
   return (
     <section className="relative overflow-hidden rounded-2xl border bg-white p-5">
@@ -117,7 +118,13 @@ export default function AgentPanel({ groups, setup, reminders }: { groups: { key
         )}
       </div>
 
-      {showSetup && setup ? <SetupList steps={setup} /> : total === 0 ? (
+      {showSetup && setup ? <SetupList steps={setup} /> : total === 0 && !anyCheck ? (
+        <div className="flex h-[18rem] flex-col items-center justify-center gap-2 px-6 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400"><ClipboardList size={22} /></span>
+          <p className="text-sm font-semibold text-gray-800"><T>Belum ada pengecekan yang dinyalakan.</T></p>
+          <p className="text-xs text-gray-400"><T>Super Admin bisa menyalakannya di Pengaturan, tab Task Admin.</T></p>
+        </div>
+      ) : total === 0 ? (
         <div className="flex h-[18rem] flex-col items-center justify-center gap-2 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check size={22} strokeWidth={3} /></span>
           <p className="text-sm font-semibold text-gray-800"><T>Semua beres</T></p>

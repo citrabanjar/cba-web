@@ -51,6 +51,7 @@ function Card({ item }: { item: Indicator }) {
 // jadwal di urutan pertama), dan berhenti saat disorot mouse (atau disentuh/difokus).
 export default function IndicatorCards({ items }: { items: Indicator[] }) {
   const pool = [...items.filter((i) => i.pinned), ...items.filter((i) => !i.pinned)];
+  if (!pool.length) return null;
   const running = pool.length > 4;
   // Daftar digandakan supaya putarannya menyambung tanpa jeda.
   const loop = running ? [...pool, ...pool] : pool;

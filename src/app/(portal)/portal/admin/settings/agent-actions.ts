@@ -27,11 +27,11 @@ async function requireSuper() {
 }
 
 // Pengecekan yang dinyalakan/dimatikan dan batas angkanya (Super Admin).
-export async function saveAgentRules(input: { disabled: string[]; contractDays: number; payrollRemindDays: number }): Promise<Result> {
+export async function saveAgentRules(input: { enabled: string[]; contractDays: number; payrollRemindDays: number }): Promise<Result> {
   const user = await requireSuper();
   const keys = new Set<string>(MONITOR_CHECKS.map((c) => c.key));
   const s = await load();
-  s.disabled = input.disabled.filter((k) => keys.has(k));
+  s.enabled = input.enabled.filter((k) => keys.has(k));
   s.contractDays = Math.max(1, Math.min(365, Math.round(Number(input.contractDays) || 30)));
   s.payrollRemindDays = Math.max(0, Math.min(31, Math.round(Number(input.payrollRemindDays) || 5)));
   await store(s, user.name ?? null);

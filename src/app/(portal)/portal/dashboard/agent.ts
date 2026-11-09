@@ -129,8 +129,8 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
       orderBy: { contractEndDate: "asc" }, select: { id: true },
     }),
   ]);
-  const off = new Set(settings.disabled);
-  const keep = (list: Task[]) => list.filter((t) => !off.has(t.key));
+  const on = new Set(settings.enabled);
+  const keep = (list: Task[]) => list.filter((t) => on.has(t.key));
   const monthly = insights.monthly.map((t) => (t.key === "contract"
     ? { ...t, hint: `Kontrak yang berakhir dalam ${settings.contractDays} hari atau sudah lewat: perpanjang, angkat tetap, atau akhiri.`, count: contract.length, href: contract[0] ? `/portal/admin/karyawan/${contract[0].id}` : undefined }
     : t));
@@ -141,7 +141,7 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
         { key: "daily", label: "Harian", list: keep(insights.daily) },
         { key: "monthly", label: "Bulanan", list: keep(monthly) },
         { key: "payroll", label: "Payroll & Pajak", list: keep(payroll) },
-        { key: "data", label: "Data Karyawan", list: off.has("data") ? [] : insights.data },
+        { key: "data", label: "Data Karyawan", list: on.has("data") ? insights.data : [] },
       ],
       setup,
       reminders: dueReminders(settings, todayKey()),
