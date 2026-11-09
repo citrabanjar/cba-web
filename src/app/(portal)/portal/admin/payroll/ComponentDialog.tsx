@@ -201,26 +201,23 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                   )}
                   {form.method === "PER_SATUAN" && (
                     <div className="space-y-3">
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5"><Label className="text-xs">{p.step ? t("Nominal per kelipatan (Rp)") : `${t("Nominal per")} ${t(unit)} (Rp)`}</Label>
                           <Input type="number" min={0} value={form.amount ?? ""} onChange={(e) => set("amount", numOrNull(e.target.value))} /></div>
-                        {!!p.step && (
-                          <>
-                            <div className="space-y-1.5"><Label className="text-xs">{t("Kelipatan")} ({t(unit)})</Label>
-                              <Input type="number" min={0} step="0.5" value={p.step ?? ""} onChange={(e) => setParam({ step: Number(e.target.value) || 0 })} /></div>
-                            <div className="space-y-1.5"><Label className="text-xs">{t("Minimal")} ({t(unit)})</Label>
-                              <Input type="number" min={0} step="0.5" value={p.min ?? ""} placeholder={String(p.step ?? "")}
-                                onChange={(e) => setParam({ min: numOrNull(e.target.value) ?? undefined })} /></div>
-                          </>
-                        )}
+                        <div className="space-y-1.5"><Label className="text-xs">{t("Syarat minimal")} ({t(unit)})</Label>
+                          <Input type="number" min={0} step="0.5" value={p.min ?? ""} placeholder={t("tanpa syarat")}
+                            onChange={(e) => setParam({ min: numOrNull(e.target.value) ?? undefined })} />
+                          {form.param === "JAM_LEMBUR" && <p className="text-[11px] text-gray-400"><T>Dicek per lembur; lembur di bawah syarat tidak dihitung.</T></p>}</div>
                       </div>
                       <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
                         <input type="checkbox" checked={!!p.step} className="h-4 w-4 accent-[var(--color-brand)]"
-                          onChange={(e) => setParam(e.target.checked ? { step: 4, min: 4 } : { step: undefined, min: undefined })} />
+                          onChange={(e) => setParam({ step: e.target.checked ? p.min || 4 : undefined })} />
                         <T>Berlaku kelipatan</T>
                       </label>
-                      {!!p.step && form.param === "JAM_LEMBUR" && (
-                        <p className="text-[11px] text-gray-400"><T>Dihitung per pengajuan lembur. Contoh kelipatan 4, minimal 4: lembur 4-7 jam = 1x, 8-11 jam = 2x.</T></p>
+                      {!!p.step && (
+                        <div className="space-y-1.5 sm:w-1/2"><Label className="text-xs">{t("Kelipatan")} ({t(unit)})</Label>
+                          <Input type="number" min={0} step="0.5" value={p.step ?? ""} onChange={(e) => setParam({ step: Number(e.target.value) || 0 })} />
+                          {form.param === "JAM_LEMBUR" && <p className="text-[11px] text-gray-400"><T>Contoh kelipatan 4, syarat minimal 4: lembur 4-7 jam = 1x, 8-11 jam = 2x.</T></p>}</div>
                       )}
                     </div>
                   )}

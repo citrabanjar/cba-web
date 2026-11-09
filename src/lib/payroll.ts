@@ -30,7 +30,7 @@ export const isTaxableCategory = (k: string) => PAY_CATEGORIES.find((c) => c.key
 export const PAY_METHODS = [
   { key: "INPUT", label: "Input nilai", hint: "Nilai diisi admin di profil karyawan (tab Gaji)." },
   { key: "NOMINAL", label: "Flat for all", hint: "Satu nominal per bulan, sama untuk semua karyawan yang ditempel." },
-  { key: "PER_SATUAN", label: "Nominal x Parameter", hint: "Contoh: uang saku dinas Rp100.000 x kegiatan dinas. Centang \"Berlaku kelipatan\" untuk uang makan lembur Rp15.000 tiap kelipatan 4 jam." },
+  { key: "PER_SATUAN", label: "Nominal x Parameter", hint: "Contoh: uang saku dinas Rp100.000 x kegiatan dinas. Bisa diberi syarat minimal, lalu centang \"Berlaku kelipatan\" bila dibayar per kelipatan (mis. uang makan lembur Rp15.000 tiap 4 jam, minimal 4 jam)." },
   { key: "PERSEN", label: "Persen dari dasar nilai", hint: "Contoh: BPJS 1% x upah, dengan batas atas/bawah." },
   { key: "PRORATA", label: "Dasar nilai / hari kerja x parameter", hint: "Contoh: potongan mangkir = upah / hari kerja x hari mangkir." },
   { key: "LEMBUR", label: "Upah lembur", hint: "Dasar nilai / pembagi x tarif per jam. Tarif bawaan mengikuti PP 35/2021; baris tarif bisa diubah atau dihapus." },
@@ -40,7 +40,7 @@ export const SYSTEM_METHODS = ["PPH21"];
 
 // Parameter data yang bisa dipakai rumus.
 export const PAY_PARAMS = [
-  { key: "JAM_LEMBUR", label: "Jam lembur (per pengajuan)", unit: "jam" },
+  { key: "JAM_LEMBUR", label: "Jam lembur", unit: "jam" },
   { key: "HARI_DINAS", label: "Hari dinas luar", unit: "hari" },
   { key: "KALI_DINAS", label: "Kegiatan dinas luar (kali)", unit: "kali" },
   { key: "HARI_HADIR", label: "Hari hadir", unit: "hari" },
@@ -65,7 +65,8 @@ export type Tier = { upTo: number | null; x: number };
 export type PayParams = {
   prorate?: boolean; // ikut prorata karyawan masuk/keluar/berhenti dapat di tengah periode
   fixedWage?: boolean; // termasuk upah tetap (dasar lembur, THR, BPJS, cek UMK)
-  step?: number; min?: number; // Nominal x Parameter dengan kelipatan
+  min?: number; // Nominal x Parameter: syarat minimal parameter (jam lembur dicek per lembur)
+  step?: number; // Nominal x Parameter: berlaku kelipatan
   divisor?: number; work?: Tier[]; rest?: Tier[] | null; // upah lembur; rest null = tarif hari libur sama dengan hari kerja
   months?: number; minMonths?: number; proportional?: boolean; // THR / bonus
   workday?: number[]; rest6?: number[]; rest5?: number[]; // format lama lembur
@@ -191,16 +192,12 @@ export function evaluate(c: EvalComponent, ctx: PayContext): { amount: number; d
   switch (c.method) {
     case "NOMINAL": return { amount: c.amount ?? 0, detail: "flat per bulan" };
     case "PER_SATUAN": {
-      const step = p.step ?? 0;
-      if (step > 0) {
-        // Berlaku kelipatan: jam lembur dihitung per pengajuan, parameter lain dari jumlah sebulan.
-        const min = p.min ?? step;
-        const occ = c.param === "JAM_LEMBUR" ? [...ctx.overtimeWork, ...ctx.overtimeRest] : [paramTotal(c.param, ctx)];
-        const times = occ.filter((q) => q >= min).reduce((x, q) => x + Math.floor(q / step + 1e-9), 0);
-        return { amount: (c.amount ?? 0) * times, detail: `${rupiah(c.amount ?? 0)} x ${times} (kelipatan ${num(step)} ${paramUnit(c.param)}, min ${num(min)})` };
-      }
-      const q = paramTotal(c.param, ctx);
-      return { amount: (c.amount ?? 0) * q, detail: `${rupiah(c.amount ?? 0)} x ${num(q)} ${paramUnit(c.param)}` };
+      // 1) jumlah parameter (jam lembur per lembur), 2) syarat minimal, 3) bila berlaku kelipatan: dihitung per kelipatan.
+      const step = p.step ?? 0, min = p.min ?? 0;
+      const occ = (c.param === "JAM_LEMBUR" ? [...ctx.overtimeWork, ...ctx.overtimeRest] : [paramTotal(c.param, ctx)]).filter((q) => q >= min);
+      const times = step > 0 ? occ.reduce((x, q) => x + Math.floor(q / step + 1e-9), 0) : sum(occ);
+      const cond = [min ? `min ${num(min)} ${paramUnit(c.param)}` : "", step ? `kelipatan ${num(step)} ${paramUnit(c.param)}` : ""].filter(Boolean).join(", ");
+      return { amount: (c.amount ?? 0) * times, detail: `${rupiah(c.amount ?? 0)} x ${num(times)}${step ? "" : ` ${paramUnit(c.param)}`}${cond ? ` (${cond})` : ""}` };
     }
     case "PERSEN": {
       let b = baseValue(c, ctx);
@@ -239,9 +236,10 @@ export function describe(c: EvalComponent & { params?: PayParams | null }, workD
   switch (c.method) {
     case "INPUT": return c.code === "GP" ? "Gaji pokok di profil karyawan" : "Input di profil karyawan";
     case "NOMINAL": return `${rupiah(c.amount ?? 0)} per bulan (flat)`;
-    case "PER_SATUAN": return p.step
-      ? `${rupiah(c.amount ?? 0)} tiap kelipatan ${num(p.step)} ${paramUnit(c.param)} (${paramLabel(c.param)}, min ${num(p.min ?? p.step)})`
-      : `${rupiah(c.amount ?? 0)} x ${paramLabel(c.param)}`;
+    case "PER_SATUAN": {
+      const u = paramUnit(c.param);
+      return `${rupiah(c.amount ?? 0)} x ${paramLabel(c.param)}${p.min ? `, syarat minimal ${num(p.min)} ${u}${c.param === "JAM_LEMBUR" ? " per lembur" : ""}` : ""}${p.step ? `, berlaku kelipatan ${num(p.step)} ${u}` : ""}`;
+    }
     case "PERSEN": {
       const extra = [c.floorAmount ? `min ${rupiah(c.floorAmount)}` : "", c.capAmount ? `maks ${rupiah(c.capAmount)}` : ""].filter(Boolean).join(", ");
       return `${num(c.rate ?? 0)}% x ${b}${extra ? ` (${extra})` : ""}`;
