@@ -48,34 +48,67 @@ function Chip({ children, tone = "gray" }: { children: React.ReactNode; tone?: "
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{children}</span>;
 }
 
+// Penjelasan singkat tiap kategori, tampil di bawah pilihan Kategori.
+const CATEGORY_HINT: Record<string, string> = {
+  TAHUNAN: "Cuti dengan saldo: jatah per tahun (Cuti Tahunan) atau bertambah tiap bulan (Cuti Masa Kontrak).",
+  ISTIRAHAT_PANJANG: "Istirahat panjang setelah masa kerja tertentu.",
+  KHUSUS: "Cuti karena keperluan tertentu (menikah, duka, dan sebagainya), jatah per kejadian.",
+  MELAHIRKAN: "Cuti melahirkan atau keguguran.",
+  SAKIT: "Izin sakit, biasanya dengan surat dokter.",
+  IBADAH: "Cuti untuk menjalankan ibadah.",
+  DINAS: "Dinas luar kantor.",
+  TANPA_UPAH: "Cuti di luar tanggungan perusahaan.",
+  LAINNYA: "Jenis cuti lain.",
+};
+
 function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: () => void }) {
   const t = useT();
   const [form, setForm] = useState<LeavePolicyInput>(() => policy === "new" ? EMPTY : {
     ...policy, payNote: policy.payNote ?? "", attachmentNote: policy.attachmentNote ?? "",
     legalBasis: policy.legalBasis ?? "", note: policy.note ?? "", carryOverExpiry: policy.carryOverExpiry ?? "",
   });
-  const yearly = form.period === "TAHUN" && !(form.accrualPerMonth > 0);
-  const [expMonth, expDay] = (form.carryOverExpiry || "03-31").split("-").map(Number);
-  const setExpiry = (m: number, d: number) => set("carryOverExpiry", `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
   const [unlimited, setUnlimited] = useState(form.quota === null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const set = <K extends keyof LeavePolicyInput>(k: K, v: LeavePolicyInput[K]) => setForm((f) => ({ ...f, [k]: v }));
-  // Cuti Tahunan: langsung jatah per tahun (bawaan 12 hari kerja, diperbarui 1 Januari) supaya isiannya muncul.
-  const pickCategory = (category: string) => setForm((f) => (category === "TAHUNAN" && f.period !== "TAHUN" && !(f.accrualPerMonth > 0)
-    ? { ...f, category, period: "TAHUN", unit: "HARI_KERJA", quota: f.quota && f.quota > 1 ? f.quota : 12, renewal: "JANUARI" }
-    : { ...f, category }));
+  const [expMonth, expDay] = (form.carryOverExpiry || "03-31").split("-").map(Number);
+  const setExpiry = (m: number, d: number) => set("carryOverExpiry", `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+
+  // Kategori Cuti Tahunan punya dua cara dapat saldo; kategori lain memakai jatah per kejadian / per tahun biasa.
+  const saldo = form.category === "TAHUNAN";
+  const monthly = form.accrualPerMonth > 0;
+
+  // Mengganti kategori/cara langsung mengisi nilai bawaan yang masuk akal, seperti form Tambah Komponen.
+  function yearlyDefaults(f: LeavePolicyInput): LeavePolicyInput {
+    return { ...f, period: "TAHUN", unit: "HARI_KERJA", accrualPerMonth: 0, quota: f.quota && f.quota > 1 ? f.quota : 12, renewal: f.renewal || "JANUARI", forStatus: f.forStatus ?? "TETAP", deductsAnnual: false };
+  }
+  function monthlyDefaults(f: LeavePolicyInput): LeavePolicyInput {
+    return { ...f, period: "KEJADIAN", unit: "HARI_KERJA", accrualPerMonth: f.accrualPerMonth > 0 ? f.accrualPerMonth : 1, quota: null, minServiceMonths: 0, carryOverDays: 0, carryOverExpires: false, forStatus: "KONTRAK", deductsAnnual: false };
+  }
+  function pickCategory(category: string) {
+    if (category === "TAHUNAN") setUnlimited(false);
+    setForm((f) => {
+      if (category === "TAHUNAN") return yearlyDefaults({ ...f, category });
+      const back = f.category === "TAHUNAN" ? { period: "KEJADIAN", accrualPerMonth: 0, allowHalfDay: false } : {};
+      return { ...f, ...back, category };
+    });
+  }
+  function pickMode(mode: "TAHUN" | "BULAN") {
+    setUnlimited(mode === "BULAN");
+    setForm((f) => (mode === "TAHUN" ? { ...yearlyDefaults(f), forStatus: "TETAP" } : monthlyDefaults(f)));
+  }
 
   function save() {
     setError(null);
     start(async () => {
-      const r = await saveLeavePolicy(policy === "new" ? null : policy.id, { ...form, quota: unlimited ? null : form.quota });
+      const r = await saveLeavePolicy(policy === "new" ? null : policy.id, { ...form, quota: saldo ? (monthly ? null : form.quota) : unlimited ? null : form.quota });
       if (r.error) setError(r.error);
       else onClose();
     });
   }
 
   const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
+  const tab = (on: boolean) => `flex-1 rounded-lg px-3 py-2 text-left text-sm ${on ? "bg-ink text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`;
   const check = (k: "paid" | "deductsAnnual" | "needsAttachment" | "isActive" | "allowHalfDay", label: string, hint?: string) => (
     <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 px-3 py-2">
       <input type="checkbox" checked={form[k]} onChange={(e) => set(k, e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
@@ -83,119 +116,156 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
         {hint && <span className="block text-[11px] text-gray-400"><T>{hint}</T></span>}</span>
     </label>
   );
+  const field = (label: string, input: React.ReactNode, hint?: string) => (
+    <div className="space-y-1.5"><Label className="text-xs"><T>{label}</T></Label>{input}
+      {hint && <p className="text-[11px] text-gray-400"><T>{hint}</T></p>}</div>
+  );
+  const num = (k: "quota" | "accrualPerMonth" | "minServiceMonths" | "noticeDays" | "carryOverDays", step = 1) => (
+    <Input type="number" min={0} step={step} value={(form[k] as number | null) ?? 0} onChange={(e) => set(k, Number(e.target.value))} />
+  );
+  const statusSelect = (
+    <select value={form.forStatus ?? ""} onChange={(e) => set("forStatus", e.target.value || null)} className={select}>
+      <option value="">{t("Semua status")}</option>
+      <option value="TETAP">{t("Karyawan tetap")}</option>
+      <option value="KONTRAK">{t("Karyawan kontrak")}</option>
+    </select>
+  );
+  const halfDay = check("allowHalfDay", "Boleh setengah hari", "Karyawan bisa mengajukan 0,5 hari: masuk setelah istirahat, atau pulang saat istirahat.");
 
   return (
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle><T>{policy === "new" ? "Tambah Jenis Cuti" : "Ubah Jenis Cuti"}</T></DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[110px_1fr_1fr]">
+          <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
             <div className="space-y-1.5"><Label className="text-xs"><T>Kode</T></Label>
               <Input value={form.code} maxLength={8} onChange={(e) => set("code", e.target.value.toUpperCase())} /></div>
             <div className="space-y-1.5"><Label className="text-xs"><T>Nama</T></Label>
               <Input value={form.name} onChange={(e) => set("name", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Kategori</T></Label>
-              <select value={form.category} onChange={(e) => pickCategory(e.target.value)} className={select}>
-                {LEAVE_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{t(c.label)}</option>)}
-              </select></div>
           </div>
+          <div className="space-y-1.5"><Label className="text-xs"><T>Kategori</T></Label>
+            <select value={form.category} onChange={(e) => pickCategory(e.target.value)} className={select}>
+              {LEAVE_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{t(c.label)}</option>)}
+            </select>
+            {CATEGORY_HINT[form.category] && <p className="text-[11px] text-gray-400"><T>{CATEGORY_HINT[form.category]}</T></p>}</div>
 
-          <div className="rounded-xl bg-gray-50 p-3">
-            <p className="mb-2 text-xs font-semibold text-gray-600"><T>Jatah</T></p>
-            <label className="mb-2 flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
-              <T>Tanpa batas tetap (sesuai kebutuhan / surat dokter)</T>
-            </label>
-            {!unlimited && (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1"><Label className="text-[11px] text-gray-500"><T>Jumlah</T></Label>
-                  <Input type="number" min={0} value={form.quota ?? 0} onChange={(e) => set("quota", Number(e.target.value))} /></div>
-                <div className="space-y-1"><Label className="text-[11px] text-gray-500"><T>Satuan</T></Label>
-                  <select value={form.unit} onChange={(e) => set("unit", e.target.value)} className={select}>
-                    {LEAVE_UNITS.map((u) => <option key={u.key} value={u.key}>{t(u.label)}</option>)}
-                  </select></div>
-                <div className="space-y-1"><Label className="text-[11px] text-gray-500"><T>Berlaku</T></Label>
-                  <select value={form.period} onChange={(e) => set("period", e.target.value)} className={select}>
-                    {LEAVE_PERIODS.map((p) => <option key={p.key} value={p.key}>{t(p.label)}</option>)}
-                  </select></div>
+          {saldo ? (
+            <div className="space-y-3 rounded-xl border border-gray-200 p-3">
+              <p className="text-xs font-semibold text-gray-600"><T>Cara dapat saldo</T></p>
+              <div className="flex gap-1 rounded-xl bg-gray-50 p-1">
+                <button type="button" className={tab(!monthly)} onClick={() => pickMode("TAHUN")}>
+                  <b><T>Jatah per tahun</T></b><span className="block text-[11px] opacity-75"><T>Cuti Tahunan karyawan tetap</T></span>
+                </button>
+                <button type="button" className={tab(monthly)} onClick={() => pickMode("BULAN")}>
+                  <b><T>Bertambah tiap bulan</T></b><span className="block text-[11px] opacity-75"><T>Cuti Masa Kontrak</T></span>
+                </button>
               </div>
-            )}
-          </div>
 
-          {yearly && !unlimited && form.period === "TAHUN" && (
-            <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label className="text-xs"><T>Jatah diperbarui</T></Label>
-                  <select value={form.renewal} onChange={(e) => set("renewal", e.target.value)} className={select}>
-                    {LEAVE_RENEWALS.map((r) => <option key={r.key} value={r.key}>{t(r.label)}</option>)}
-                  </select>
+              {!monthly ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {field("Jatah per tahun", num("quota"))}
+                    {field("Satuan", (
+                      <select value={form.unit} onChange={(e) => set("unit", e.target.value)} className={select}>
+                        {LEAVE_UNITS.filter((u) => u.key !== "BULAN").map((u) => <option key={u.key} value={u.key}>{t(u.label)}</option>)}
+                      </select>))}
+                    {field("Jatah diperbarui", (
+                      <select value={form.renewal} onChange={(e) => set("renewal", e.target.value)} className={select}>
+                        {LEAVE_RENEWALS.map((r) => <option key={r.key} value={r.key}>{t(r.label)}</option>)}
+                      </select>))}
+                  </div>
                   <p className="text-[11px] text-gray-400"><T>{form.renewal === "JANUARI"
                     ? "Semua karyawan dapat jatah baru tiap 1 Januari. Saat mulai berhak (mis. diangkat tetap) dapat jatah prorata sampai Desember."
-                    : "Jatah baru masuk di ulang tahun kerja masing-masing karyawan."}</T></p></div>
-                <div className="space-y-1.5"><Label className="text-xs"><T>Sisa boleh dibawa ke periode berikutnya (maksimal hari)</T></Label>
-                  <Input type="number" min={0} value={form.carryOverDays} onChange={(e) => set("carryOverDays", Number(e.target.value))} />
-                  <p className="text-[11px] text-gray-400"><T>0 = semua sisa hangus saat jatah baru masuk.</T></p></div>
-              </div>
-              {form.renewal === "JANUARI" && form.carryOverDays > 0 && (
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-                    <input type="checkbox" checked={form.carryOverExpires} className="h-4 w-4 accent-[var(--color-brand)]"
-                      onChange={(e) => { set("carryOverExpires", e.target.checked); if (e.target.checked && !form.carryOverExpiry) set("carryOverExpiry", "03-31"); }} />
-                    <T>Sisa bawaan ada batas waktu</T>
-                  </label>
-                  {form.carryOverExpires && (
-                    <span className="flex items-center gap-2 text-sm text-gray-600">
-                      <T>berlaku s/d</T>
-                      <Input type="number" min={1} max={31} value={expDay} onChange={(e) => setExpiry(expMonth, Math.max(1, Math.min(31, Number(e.target.value) || 1)))} className="h-9 w-16" />
-                      <select value={expMonth} onChange={(e) => setExpiry(Number(e.target.value), expDay)} className="h-9 rounded-lg border border-input bg-white px-2 text-sm">
-                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                      </select>
-                      <T>tahun berikutnya</T>
-                    </span>
+                    : "Jatah baru masuk di ulang tahun kerja masing-masing karyawan."}</T></p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {field("Masa kerja minimal (bulan)", num("minServiceMonths"), "Hitungan dari tanggal masuk. 0 = langsung berhak.")}
+                    {field("Sisa boleh dibawa (maksimal hari)", num("carryOverDays"), "0 = semua sisa hangus saat jatah baru masuk.")}
+                  </div>
+                  {form.renewal === "JANUARI" && form.carryOverDays > 0 && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                        <input type="checkbox" checked={form.carryOverExpires} className="h-4 w-4 accent-[var(--color-brand)]"
+                          onChange={(e) => { set("carryOverExpires", e.target.checked); if (e.target.checked && !form.carryOverExpiry) set("carryOverExpiry", "03-31"); }} />
+                        <T>Sisa bawaan ada batas waktu</T>
+                      </label>
+                      {form.carryOverExpires && (
+                        <span className="flex items-center gap-2 text-sm text-gray-600">
+                          <T>berlaku s/d</T>
+                          <Input type="number" min={1} max={31} value={expDay} onChange={(e) => setExpiry(expMonth, Math.max(1, Math.min(31, Number(e.target.value) || 1)))} className="h-9 w-16" />
+                          <select value={expMonth} onChange={(e) => setExpiry(Number(e.target.value), expDay)} className="h-9 rounded-lg border border-input bg-white px-2 text-sm">
+                            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                          </select>
+                          <T>tahun berikutnya</T>
+                        </span>
+                      )}
+                    </div>
                   )}
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {field("Bertambah tiap genap 1 bulan kerja (hari)", num("accrualPerMonth", 0.5))}
+                  </div>
+                  <p className="text-[11px] text-gray-400"><T>Saldo pertama muncul setelah 1 bulan kerja. Berhenti bertambah saat kontrak lewat tanggal akhir dan belum diperpanjang (bulan yang terlewat ditambahkan setelah diperpanjang). Hangus saat karyawan diberhentikan.</T></p>
+                </>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {field("Status kerja", statusSelect)}
+                {field("Diajukan paling lambat (hari sebelum)", num("noticeDays"))}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {check("paid", "Upah tetap dibayar")}
+                {halfDay}
+              </div>
+              <p className="text-[11px] text-gray-400"><T>Kalau saldo tidak cukup, kelebihannya otomatis masuk cuti di luar tanggungan.</T></p>
+            </div>
+          ) : (
+            <div className="space-y-3 rounded-xl border border-gray-200 p-3">
+              <p className="text-xs font-semibold text-gray-600"><T>Jatah</T></p>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
+                <T>Tanpa batas tetap (sesuai kebutuhan / surat dokter)</T>
+              </label>
+              {!unlimited && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {field("Jumlah", num("quota"))}
+                  {field("Satuan", (
+                    <select value={form.unit} onChange={(e) => set("unit", e.target.value)} className={select}>
+                      {LEAVE_UNITS.map((u) => <option key={u.key} value={u.key}>{t(u.label)}</option>)}
+                    </select>))}
+                  {field("Berlaku", (
+                    <select value={form.period} onChange={(e) => set("period", e.target.value)} className={select}>
+                      {LEAVE_PERIODS.map((p) => <option key={p.key} value={p.key}>{t(p.label)}</option>)}
+                    </select>))}
+                </div>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {field("Status kerja", statusSelect)}
+                {field("Berlaku untuk", (
+                  <select value={form.gender ?? ""} onChange={(e) => set("gender", e.target.value || null)} className={select}>
+                    <option value="">{t("Semua karyawan")}</option>
+                    <option value="P">{t("Perempuan")}</option>
+                    <option value="L">{t("Laki-laki")}</option>
+                  </select>))}
+                {field("Masa kerja minimal (bulan)", num("minServiceMonths"))}
+                {field("Diajukan paling lambat (hari sebelum)", num("noticeDays"))}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {check("paid", "Upah tetap dibayar")}
+                {check("deductsAnnual", "Potong cuti tahunan", "Hari yang diambil mengurangi saldo cuti tahunan.")}
+                {check("needsAttachment", "Wajib lampiran")}
+              </div>
+              {(!form.paid || form.needsAttachment) && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {!form.paid && field("Ketentuan upah", <Input value={form.payNote} placeholder={t("Contoh: Bulan 1-4 upah penuh, bulan 5-6 75%")} onChange={(e) => set("payNote", e.target.value)} />)}
+                  {form.needsAttachment && field("Lampiran yang diminta", <Input value={form.attachmentNote} placeholder={t("Contoh: Surat keterangan dokter")} onChange={(e) => set("attachmentNote", e.target.value)} />)}
                 </div>
               )}
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label className="text-xs"><T>Status kerja</T></Label>
-              <select value={form.forStatus ?? ""} onChange={(e) => set("forStatus", e.target.value || null)} className={select}>
-                <option value="">{t("Semua status")}</option>
-                <option value="TETAP">{t("Karyawan tetap")}</option>
-                <option value="KONTRAK">{t("Karyawan kontrak")}</option>
-              </select></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Saldo bertambah tiap genap 1 bulan kerja (hari)</T></Label>
-              <Input type="number" min={0} step={0.5} value={form.accrualPerMonth} onChange={(e) => set("accrualPerMonth", Number(e.target.value))} />
-              <p className="text-[11px] text-gray-400"><T>Isi 0 kalau tidak bertambah bulanan. Dipakai untuk Cuti Masa Kontrak.</T></p></div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5"><Label className="text-xs"><T>Masa kerja minimal (bulan)</T></Label>
-              <Input type="number" min={0} value={form.minServiceMonths} onChange={(e) => set("minServiceMonths", Number(e.target.value))} /></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Diajukan paling lambat (hari sebelum)</T></Label>
-              <Input type="number" min={0} value={form.noticeDays} onChange={(e) => set("noticeDays", Number(e.target.value))} /></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Berlaku untuk</T></Label>
-              <select value={form.gender ?? ""} onChange={(e) => set("gender", e.target.value || null)} className={select}>
-                <option value="">{t("Semua karyawan")}</option>
-                <option value="P">{t("Perempuan")}</option>
-                <option value="L">{t("Laki-laki")}</option>
-              </select></div>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            {check("paid", "Upah tetap dibayar")}
-            {check("deductsAnnual", "Potong cuti tahunan", "Hari yang diambil mengurangi saldo cuti tahunan.")}
-            {check("needsAttachment", "Wajib lampiran")}
-            {check("allowHalfDay", "Boleh setengah hari", "Karyawan bisa mengajukan 0,5 hari: masuk setelah istirahat, atau pulang saat istirahat.")}
-            {check("isActive", "Aktif", "Jenis nonaktif tidak bisa dipilih saat pengajuan.")}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label className="text-xs"><T>Ketentuan upah</T></Label>
-              <Input value={form.payNote} placeholder={t("Contoh: Bulan 1-4 upah penuh, bulan 5-6 75%")} onChange={(e) => set("payNote", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Lampiran yang diminta</T></Label>
-              <Input value={form.attachmentNote} placeholder={t("Contoh: Surat keterangan dokter")} onChange={(e) => set("attachmentNote", e.target.value)} /></div>
-          </div>
+          {check("isActive", "Aktif", "Jenis nonaktif tidak bisa dipilih saat pengajuan.")}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
         </div>
         <DialogFooter>
