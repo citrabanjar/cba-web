@@ -14,7 +14,7 @@ const monthParam = (y: number, m: number) => {
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 export type IndicatorIcon =
-  | "schedule" | "users" | "building" | "present" | "absent" | "contract" | "leave" | "trip" | "birthday" | "holiday";
+  | "schedule" | "users" | "building" | "present" | "absent" | "contract" | "leave" | "trip" | "loan" | "birthday" | "holiday";
 export type Tone = "blue" | "emerald" | "amber" | "violet" | "rose";
 
 // Satu kartu kecil di Beranda. noteValue + note membentuk baris keterangan di bawah angka.
@@ -47,7 +47,7 @@ export async function loadInsights() {
 
   const [
     thisMonth, nextMonth, active, presentToday, presentYesterday,
-    attendanceToday, incomplete, leaves, trips, expiring60, expiring30, birthdays, nextHoliday, holidaysNextYear,
+    attendanceToday, incomplete, leaves, trips, loans, expiring60, expiring30, birthdays, nextHoliday, holidaysNextYear,
     joinedThisYear, departments, hidden,
   ] = await Promise.all([
     loadRoster(monthParam(year, month), true),
@@ -66,6 +66,7 @@ export async function loadInsights() {
     }),
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
     prisma.businessTrip.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
+    prisma.employeeLoan.count({ where: { status: "PENDING" } }),
     prisma.user.count({
       where: { ...employee, isActive: true, employmentStatus: "KONTRAK", contractEndDate: { gte: today, lte: addDays(today, 60) } },
     }),
@@ -109,6 +110,7 @@ export async function loadInsights() {
     { key: "contract", title: "Kontrak Berakhir", value: expiring60, note: "dalam 60 hari ke depan", icon: "contract", tone: "amber", href: "/portal/admin/karyawan", actionable: true },
     { key: "leave", title: "Cuti Menunggu", value: leaves.length, note: "pengajuan belum diputus", icon: "leave", tone: "violet", href: profile(leaves[0]?.userId), actionable: true },
     { key: "trip", title: "Dinas Menunggu", value: trips.length, note: "pengajuan belum diputus", icon: "trip", tone: "violet", href: profile(trips[0]?.userId), actionable: true },
+    { key: "loan", title: "Pinjaman Menunggu", value: loans, note: "pengajuan pinjaman belum diproses", icon: "loan", tone: "amber", href: "/portal/admin/pinjaman", actionable: true },
     {
       key: "birthday", title: "Ulang Tahun Bulan Ini", value: birthdayThisMonth.length,
       noteValue: nextBirthday ? `${nextBirthday.name} (${nextBirthday.birthDate!.getUTCDate()})` : undefined,
@@ -130,6 +132,7 @@ export async function loadInsights() {
     { key: "incomplete", title: "Selesaikan absen tidak lengkap", hint: "Lupa check-out atau check-in, 30 hari terakhir. Putuskan: lupa absen, potong cuti, atau mangkir.", count: incomplete.length, unit: "absen belum lengkap", href: profile(incomplete[0]?.userId) },
     { key: "leave", title: "Tinjau pengajuan cuti", hint: "Pengajuan yang menunggu keputusan.", count: leaves.length, unit: "pengajuan menunggu", href: profile(leaves[0]?.userId) },
     { key: "trip", title: "Tinjau pengajuan dinas luar", hint: "Pengajuan yang menunggu keputusan.", count: trips.length, unit: "pengajuan menunggu", href: profile(trips[0]?.userId) },
+    { key: "loan", title: "Proses pengajuan pinjaman", hint: "Setujui atau tolak; angsuran dipotong otomatis di Proses Gaji.", count: loans, unit: "pengajuan menunggu", href: "/portal/admin/pinjaman" },
   ];
 
   const monthly: Task[] = [

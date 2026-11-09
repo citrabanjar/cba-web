@@ -10,6 +10,7 @@ export const INDICATOR_CATALOG = [
   { key: "contract", title: "Kontrak Berakhir", desc: "Kontrak yang berakhir dalam 60 hari. Hilang sendiri saat tidak ada." },
   { key: "leave", title: "Cuti Menunggu", desc: "Pengajuan cuti yang belum diputus. Hilang sendiri saat tidak ada." },
   { key: "trip", title: "Dinas Menunggu", desc: "Pengajuan dinas luar yang belum diputus. Hilang sendiri saat tidak ada." },
+  { key: "loan", title: "Pinjaman Menunggu", desc: "Pengajuan pinjaman karyawan yang belum diproses. Hilang sendiri saat tidak ada." },
   { key: "birthday", title: "Ulang Tahun Bulan Ini", desc: "Jumlah karyawan yang berulang tahun bulan ini dan siapa berikutnya." },
   { key: "holiday", title: "Libur Berikutnya", desc: "Hari libur terdekat dari Kalender Libur." },
   { key: "total", title: "Total Karyawan", desc: "Jumlah karyawan aktif dan yang masuk tahun ini." },
