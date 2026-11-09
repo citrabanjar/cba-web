@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { T } from "@/components/i18n";
 import IndicatorCards from "./IndicatorCards";
-import TaskPanel from "./TaskPanel";
-import { loadInsights } from "./insights";
+import AgentPanel from "./AgentPanel";
+import { loadAgent } from "./agent";
 
 const DAY = 24 * 60 * 60 * 1000;
 const STATUS_LABEL: Record<string, string> = { TETAP: "Tetap", KONTRAK: "Kontrak", PROBATION: "Probation" };
@@ -151,13 +151,13 @@ function Donut({ parts }: { parts: { label: string; value: number }[] }) {
   );
 }
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) {
   const today = todayDate();
   const employee = { role: { not: "SUPER_ADMIN" as const } };
 
-  const [insights, active, byStatus, recent, expiring] =
+  const [{ insights, agent }, active, byStatus, recent, expiring] =
     await Promise.all([
-      loadInsights(),
+      loadAgent(isSuper),
       prisma.user.count({ where: { ...employee, isActive: true } }),
       prisma.user.groupBy({ by: ["employmentStatus"], where: { ...employee, isActive: true }, _count: { _all: true } }),
       prisma.user.findMany({
@@ -192,7 +192,7 @@ export default async function AdminDashboard() {
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <TaskPanel daily={insights.daily} monthly={insights.monthly} data={insights.data} />
+        <AgentPanel groups={agent.groups} setup={agent.setup} reminders={agent.reminders} />
 
         <Panel icon={PieChart} tone="violet" title="Status Karyawan" subtitle="Komposisi karyawan aktif menurut status kerja">
           {active ? <Donut parts={statusParts} /> : <Empty text="Belum ada karyawan aktif." />}

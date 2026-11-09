@@ -6,7 +6,7 @@ import { ArrowRight, Check, ListChecks } from "lucide-react";
 import { T } from "@/components/i18n";
 import type { Task } from "./insights";
 
-function Row({ task }: { task: Task }) {
+export function Row({ task }: { task: Task }) {
   const done = task.count === 0;
   const body = (
     <>

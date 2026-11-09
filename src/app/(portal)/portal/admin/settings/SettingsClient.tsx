@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/i18n";
 import IndicatorSettings from "./IndicatorSettings";
+import AgentSettings from "./AgentSettings";
+import type { AgentSettings as AgentSettingsValue } from "@/lib/agent-hrd";
 
 type State = { error?: string; success?: boolean } | undefined;
 
@@ -51,8 +53,8 @@ function PasswordField({
 }
 
 export default function SettingsClient({
-  name, employeeId, role, indicatorHidden,
-}: { name: string; employeeId: string; role: string; indicatorHidden: string[] | null }) {
+  name, employeeId, role, indicatorHidden, agentSettings,
+}: { name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
 
   return (
@@ -84,6 +86,8 @@ export default function SettingsClient({
           </div>
         </CardContent>
       </Card>
+
+      {agentSettings && <AgentSettings settings={agentSettings} />}
 
       {indicatorHidden && <IndicatorSettings hidden={indicatorHidden} />}
 
