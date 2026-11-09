@@ -75,9 +75,9 @@ const COLUMNS: Column[] = [
   { field: "name", names: ["Nama Lengkap", "Full Name"], required: true, example: "Ahmad Subarjo" },
   { field: "email", names: ["Email", "Company Email"], kind: "email", required: true, example: "ahmad@email.com", note: "Tidak boleh sama dengan karyawan lain. Dipakai untuk login." },
   { field: "managerRef", names: ["ID Atasan Langsung", "ID Atasan", "Direct Manager ID"], example: "K000", note: "Isi ID Karyawan atasan langsung, bukan nama. Kosongkan untuk pimpinan tertinggi." },
-  { field: "branch", names: ["Cabang", "Branch"], example: "KANTOR PUSAT" },
-  { field: "departmentName", names: ["Departemen", "Department"], example: "ENGINEERING DEPARTEMENT", note: "Departemen baru dibuat otomatis, jadi tulis persis sama untuk satu departemen." },
-  { field: "position", names: ["Jabatan", "Position"], example: "SUPERVISOR" },
+  { field: "branch", names: ["Cabang", "Branch"], example: "KANTOR PUSAT", note: "Harus sudah terdaftar di Parameter Organisasi (menu Setup Organisasi); huruf besar/kecil tidak berpengaruh." },
+  { field: "departmentName", names: ["Departemen", "Department"], example: "ENGINEERING DEPARTEMENT", note: "Harus sudah terdaftar di Parameter Organisasi (menu Setup Organisasi); huruf besar/kecil tidak berpengaruh." },
+  { field: "position", names: ["Jabatan", "Position"], example: "SUPERVISOR", note: "Harus sudah terdaftar di Parameter Organisasi (menu Setup Organisasi); huruf besar/kecil tidak berpengaruh." },
   { field: "employmentStatus", names: ["Status Kerja", "Employment Status"], required: true, choices: { tetap: "TETAP", permanent: "TETAP", kontrak: "KONTRAK", contract: "KONTRAK", probation: "PROBATION" }, shown: "TETAP, KONTRAK, PROBATION", example: "KONTRAK" },
   { field: "joinDate", names: ["Tanggal Masuk", "Start Date"], kind: "date", required: true, example: "15-Jan-2024", note: "Menentukan No. Urut dan tanggal berlaku gaji awal." },
   { field: "contractEndDate", names: ["Tanggal Akhir Kontrak", "End Date"], kind: "date", example: "31-Des-2026", note: "Isi untuk karyawan KONTRAK." },
@@ -250,7 +250,14 @@ export function downloadTemplate() {
   XLSX.writeFile(buildTemplate(), "template_karyawan.xlsx");
 }
 
-export type ParsedFile = { sheet: string; rows: ImportRow[]; errors: string[]; unknown: string[] };
+// orgMissing: Cabang/Departemen/Jabatan di file yang belum ada di Parameter Organisasi (import diblokir).
+export type ParsedFile = { sheet: string; rows: ImportRow[]; errors: string[]; unknown: string[]; orgMissing: string[] };
+export type OrgMaster = { branches: string[]; departments: string[]; positions: string[] };
+const ORG_FIELDS = [
+  { field: "branch", label: "Cabang", list: "branches" },
+  { field: "departmentName", label: "Departemen", list: "departments" },
+  { field: "position", label: "Jabatan", list: "positions" },
+] as const;
 
 // Mengembalikan pesan kesalahan, atau null kalau isiannya benar.
 function readCell(col: Column, value: unknown, row: Record<string, unknown>): string | null {
@@ -311,7 +318,7 @@ function readCell(col: Column, value: unknown, row: Record<string, unknown>): st
   return null;
 }
 
-export function parseEmployeeFile(buffer: ArrayBuffer): ParsedFile {
+export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster): ParsedFile {
   const workbook = XLSX.read(buffer, { type: "array" });
 
   // File bisa berisi beberapa sheet, jadi pilih sheet yang kolomnya paling banyak dikenali.
@@ -331,7 +338,7 @@ export function parseEmployeeFile(buffer: ArrayBuffer): ParsedFile {
   }
 
   if (!best) {
-    return { sheet: "", rows: [], errors: ["Kolom ID Karyawan tidak ditemukan di file ini."], unknown: [] };
+    return { sheet: "", rows: [], errors: ["Kolom ID Karyawan tidak ditemukan di file ini."], unknown: [], orgMissing: [] };
   }
 
   const found = best;
@@ -345,7 +352,7 @@ export function parseEmployeeFile(buffer: ArrayBuffer): ParsedFile {
 
   const missing = COLUMNS.filter((c) => c.required && !index.has(c.field)).map((c) => c.names[0]);
   if (missing.length > 0) {
-    return { sheet: found.sheet, rows: [], errors: [`Kolom wajib tidak ditemukan: ${missing.join(", ")}.`], unknown: [] };
+    return { sheet: found.sheet, rows: [], errors: [`Kolom wajib tidak ditemukan: ${missing.join(", ")}.`], unknown: [], orgMissing: [] };
   }
 
   const components = header.flatMap((h, at) => {
@@ -359,6 +366,8 @@ export function parseEmployeeFile(buffer: ArrayBuffer): ParsedFile {
   const rows: ImportRow[] = [];
   const errors: string[] = [];
   const seen = { id: new Set<string>(), email: new Set<string>(), ktp: new Set<string>() };
+  const orgMissing = new Set<string>();
+  const lookup = master && Object.fromEntries(ORG_FIELDS.map((o) => [o.field, new Map(master[o.list].map((n) => [n.trim().toLowerCase(), n]))]));
 
   found.table.slice(found.headerRow + 1).forEach((cells, offset) => {
     if (!cells.some((c) => clean(c))) return;
@@ -372,6 +381,20 @@ export function parseEmployeeFile(buffer: ArrayBuffer): ParsedFile {
       const at = index.get(col.field);
       const problem = at === undefined ? null : readCell(col, cells[at], row);
       if (problem) problems.push(problem);
+    }
+
+    // Cabang, Departemen, Jabatan wajib sudah ada di Parameter Organisasi; nama disamakan dengan yang terdaftar.
+    if (lookup) {
+      for (const o of ORG_FIELDS) {
+        const value = typeof row[o.field] === "string" ? (row[o.field] as string).trim() : "";
+        if (!value) continue;
+        const known = lookup[o.field].get(value.toLowerCase());
+        if (known) row[o.field] = known;
+        else {
+          problems.push(`${o.label} "${value}" belum ada di Parameter Organisasi`);
+          orgMissing.add(`${o.label}: ${value}`);
+        }
+      }
     }
 
     for (const c of components) {
@@ -398,5 +421,5 @@ export function parseEmployeeFile(buffer: ArrayBuffer): ParsedFile {
     rows.push(parsed);
   });
 
-  return { sheet: found.sheet, rows, errors, unknown };
+  return { sheet: found.sheet, rows, errors, unknown, orgMissing: [...orgMissing] };
 }

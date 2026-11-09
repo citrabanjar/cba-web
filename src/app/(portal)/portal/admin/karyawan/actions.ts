@@ -562,22 +562,23 @@ export type ImportResult = {
 export async function importEmployees(rows: ImportRow[]) {
   const actor = await requireMenu("import");
 
-  const deptNames = [...new Set(rows.map((r) => r.departmentName).filter(Boolean) as string[])];
-  const deptMap = new Map<string, string>();
-  for (const name of deptNames) {
-    const dept = await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
-    deptMap.set(name, dept.id);
-  }
-  // Import juga mengisi daftar Setup Organisasi, supaya data awal langsung bisa dipilih.
-  const uniqueNames = (values: (string | undefined)[]) => [...new Set(values.filter(Boolean) as string[])];
-  await prisma.branch.createMany({
-    data: uniqueNames(rows.map((r) => r.branch)).map((name) => ({ name })),
-    skipDuplicates: true,
-  });
-  await prisma.position.createMany({
-    data: uniqueNames(rows.map((r) => r.position)).map((name) => ({ name })),
-    skipDuplicates: true,
-  });
+  // Cabang, Departemen, Jabatan harus sudah ada di Parameter Organisasi (tidak dibuat otomatis lagi).
+  // Pencocokan tidak membedakan huruf besar/kecil; yang disimpan nama sesuai parameter.
+  const [branches, departments, positions] = await Promise.all([
+    prisma.branch.findMany({ select: { name: true } }),
+    prisma.department.findMany({ select: { id: true, name: true } }),
+    prisma.position.findMany({ select: { name: true } }),
+  ]);
+  const byName = <T extends { name: string }>(list: T[]) => new Map(list.map((x) => [x.name.trim().toLowerCase(), x]));
+  const branchMap = byName(branches), deptMap = byName(departments), positionMap = byName(positions);
+  const orgProblem = (row: ImportRow) => {
+    const miss = [
+      row.branch?.trim() && !branchMap.has(row.branch.trim().toLowerCase()) ? `Cabang "${row.branch}"` : "",
+      row.departmentName?.trim() && !deptMap.has(row.departmentName.trim().toLowerCase()) ? `Departemen "${row.departmentName}"` : "",
+      row.position?.trim() && !positionMap.has(row.position.trim().toLowerCase()) ? `Jabatan "${row.position}"` : "",
+    ].filter(Boolean);
+    return miss.length ? `${miss.join(", ")} belum ada di Parameter Organisasi` : null;
+  };
 
   // No. Urut mengikuti tanggal masuk: karyawan terlama dapat nomor terkecil.
   const ordered = [...rows].sort((a, b) =>
@@ -594,6 +595,11 @@ export async function importEmployees(rows: ImportRow[]) {
       results.push({ employeeId: row.employeeId, status: "skip", reason: "ID sudah ada" });
       continue;
     }
+    const problem = orgProblem(row);
+    if (problem) {
+      results.push({ employeeId: row.employeeId, status: "skip", reason: problem });
+      continue;
+    }
     try {
       const user = await prisma.user.create({
         data: {
@@ -602,9 +608,9 @@ export async function importEmployees(rows: ImportRow[]) {
           name: row.name,
           email: row.email || null,
           phone: row.phone,
-          branch: row.branch,
-          departmentId: row.departmentName ? deptMap.get(row.departmentName) : undefined,
-          position: row.position,
+          branch: row.branch?.trim() ? branchMap.get(row.branch.trim().toLowerCase())?.name : undefined,
+          departmentId: row.departmentName?.trim() ? deptMap.get(row.departmentName.trim().toLowerCase())?.id : undefined,
+          position: row.position?.trim() ? positionMap.get(row.position.trim().toLowerCase())?.name : undefined,
           employmentStatus: STATUS_MAP[row.employmentStatus ?? ""] ?? "KONTRAK",
           joinDate: toDate(row.joinDate),
           contractEndDate: toDate(row.contractEndDate),

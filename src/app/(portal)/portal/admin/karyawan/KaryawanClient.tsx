@@ -199,14 +199,14 @@ export default function KaryawanClient({
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setParsed(parseEmployeeFile(ev.target?.result as ArrayBuffer));
+      setParsed(parseEmployeeFile(ev.target?.result as ArrayBuffer, master));
       setImportResult(null);
     };
     reader.readAsArrayBuffer(file);
   }
 
   function handleImport() {
-    if (!parsed?.rows.length) return;
+    if (!parsed?.rows.length || parsed.orgMissing.length) return;
     startTransition(async () => {
       const { results } = await importEmployees(parsed.rows);
       setImportResult(results);
@@ -540,6 +540,17 @@ export default function KaryawanClient({
                     {parsed.errors.map((e) => <p key={e}>{e}</p>)}
                   </div>
                 )}
+                {parsed.orgMissing.length > 0 && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+                    <p className="font-semibold"><T>Import diblokir: parameter organisasi berikut belum terdaftar.</T></p>
+                    <p className="mt-1">{parsed.orgMissing.join(" · ")}</p>
+                    <p className="mt-1">
+                      <T>Tambahkan dulu di</T>{" "}
+                      <Link href="/portal/admin/setup" className="font-semibold underline"><T>Setup Organisasi</T></Link>{" "}
+                      <T>atau perbaiki penulisannya di file, lalu pilih file lagi.</T>
+                    </p>
+                  </div>
+                )}
                 {parsed.unknown.length > 0 && (
                   <p className="text-gray-500">
                     <T>Kolom yang tidak dipakai:</T> {parsed.unknown.join(", ")}
@@ -581,7 +592,7 @@ export default function KaryawanClient({
 
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={closeImport}><T>Tutup</T></Button>
-            <Button size="sm" onClick={handleImport} disabled={isPending || !parsed?.rows.length} className="gap-2">
+            <Button size="sm" onClick={handleImport} disabled={isPending || !parsed?.rows.length || !!parsed?.orgMissing.length} className="gap-2">
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               {isPending ? <T>{"Mengimport..."}</T> : `Import ${parsed?.rows.length ?? 0} Karyawan`}
             </Button>

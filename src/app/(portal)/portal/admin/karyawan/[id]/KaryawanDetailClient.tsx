@@ -22,7 +22,7 @@ import ActionMenu, { QUICK_ACTIONS as ACTION_ITEMS } from "@/components/portal/A
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 import { MENUS } from "@/lib/roles";
 import type { MasterOptions } from "@/lib/master-data";
-import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
+import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS, normalizeChoice } from "@/lib/personal-info";
 import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, setEmployeeAccess, updateEmployee,
 } from "../actions";
@@ -819,9 +819,9 @@ export default function KaryawanDetailClient({
         options: [{ value: "", label: "—" }, ...ID_TYPES.map((value) => ({ value, label: value }))],
       },
       { key: "ktpNumber", label: "ID Number" },
-      { key: "gender", label: "Jenis Kelamin" },
-      { key: "maritalStatus", label: "Status Perkawinan" },
-      { key: "religion", label: "Agama" },
+      { key: "gender", label: "Jenis Kelamin", type: "select", options: masterOptions([...PERSONAL_CHOICES.gender], normalizeChoice("gender", emp.gender)) },
+      { key: "maritalStatus", label: "Status Perkawinan", type: "select", options: masterOptions([...PERSONAL_CHOICES.maritalStatus], normalizeChoice("maritalStatus", emp.maritalStatus)) },
+      { key: "religion", label: "Agama", type: "select", options: masterOptions([...PERSONAL_CHOICES.religion], normalizeChoice("religion", emp.religion)) },
     ],
     alamat: [
       { key: "address", label: "Alamat sesuai Identitas" },
@@ -841,7 +841,7 @@ export default function KaryawanDetailClient({
       { key: "bpjsKesNumber", label: "No BPJS Kesehatan" },
       { key: "bpjsKesActive", label: "Status BPJS Kesehatan", type: "select", options: FLAG_OPTIONS },
     ],
-  }), [managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule]);
+  }), [managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule, emp.gender, emp.maritalStatus, emp.religion]);
 
   const [form, setForm] = useState<Record<string, string>>(() => (quick ? sectionValues(quick.section) : {}));
 
@@ -856,6 +856,7 @@ export default function KaryawanDetailClient({
     for (const field of fields[section]) {
       if (field.key === "departmentName") values[field.key] = emp.department?.name ?? "";
       else if (field.key === "managerEmployeeId") values[field.key] = emp.manager?.employeeId ?? "";
+      else if (field.key in PERSONAL_CHOICES) values[field.key] = normalizeChoice(field.key as keyof typeof PERSONAL_CHOICES, record[field.key] as string | null);
       else if (field.type === "date") values[field.key] = toInputDate(record[field.key] as Date | null);
       else values[field.key] = String(record[field.key] ?? "");
     }
@@ -1135,9 +1136,9 @@ export default function KaryawanDetailClient({
               <Field label="Tanggal Lahir">{emp.birthDate ? fmtDate(emp.birthDate) : null}</Field>
               <Field label="Jenis ID">{emp.idType ? <T>{emp.idType}</T> : null}</Field>
               <Field label="ID Number">{emp.ktpNumber}</Field>
-              <Field label="Jenis Kelamin">{emp.gender}</Field>
-              <Field label="Status Perkawinan">{emp.maritalStatus}</Field>
-              <Field label="Agama">{emp.religion}</Field>
+              <Field label="Jenis Kelamin">{emp.gender && normalizeChoice("gender", emp.gender)}</Field>
+              <Field label="Status Perkawinan">{emp.maritalStatus && normalizeChoice("maritalStatus", emp.maritalStatus)}</Field>
+              <Field label="Agama">{emp.religion && normalizeChoice("religion", emp.religion)}</Field>
             </SectionCard>
 
             <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")} grid>
