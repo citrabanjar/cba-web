@@ -16,7 +16,6 @@ export const metadata: Metadata = {
     template: "%s | PT. Citra Banjar Abadi",
   },
   description: "Website resmi dan portal karyawan PT. Citra Banjar Abadi",
-  icons: { icon: "/favicon.ico" },
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
