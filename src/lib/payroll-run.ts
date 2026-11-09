@@ -244,7 +244,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   for (const x of [...allowances, ...fixedDeductions]) if (x.code) values[x.code] = (values[x.code] ?? 0) + x.amount;
   for (const c of components) if (c.method === "NOMINAL") values[c.code] = (values[c.code] ?? 0) + (c.amount ?? 0);
   const pctx: PayContext = {
-    values, fixedTotal, bpjsTk: salary?.bpjsTkBase ?? fixedTotal, bpjsKes: salary?.bpjsKesBase ?? fixedTotal,
+    values, fixedTotal, bpjsTk: fixedTotal, bpjsKes: fixedTotal,
     qty: {
       HARI_HADIR: inputs.daysPresent, HARI_MANGKIR: inputs.absentDays, HARI_KERJA: inputs.workDays, MASA_KERJA: inputs.monthsOfService,
       HARI_DINAS: inputs.tripDays, KALI_DINAS: inputs.trips, HARI_CUTI: inputs.leaveDays, HARI_CUTI_TANPA_UPAH: inputs.unpaidLeaveDays ?? 0,

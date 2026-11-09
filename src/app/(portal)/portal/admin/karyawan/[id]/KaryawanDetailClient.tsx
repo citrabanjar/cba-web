@@ -1094,11 +1094,6 @@ export default function KaryawanDetailClient({
             <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
               <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
               <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
-              {canSeePay && (
-                <Field label="Dasar Upah BPJS Ketenagakerjaan">
-                  {currentSalary?.bpjsTkBase ? formatRupiah(currentSalary.bpjsTkBase) : null}
-                </Field>
-              )}
               <Field label="No BPJS Kesehatan">{emp.bpjsKesNumber}</Field>
               <Field label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
             </SectionCard>

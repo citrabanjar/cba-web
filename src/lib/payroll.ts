@@ -65,6 +65,9 @@ export const PAY_BASES = [
   { key: "UPAH_BPJS_KES", label: "Upah BPJS Kesehatan" },
   { key: "KOMPONEN", label: "Komponen yang dicentang" },
 ] as const;
+// Upah BPJS per karyawan tidak dipakai lagi: dasar BPJS diatur di komponen (gaji pokok / komponen dicentang /
+// upah tetap + batas atas & bawah). Pilihan lama hanya ditampilkan bila komponen masih memakainya.
+export const LEGACY_BASES = ["UPAH_BPJS_TK", "UPAH_BPJS_KES"];
 
 // Tarif lembur bertingkat: jam ke-1 s/d upTo memakai pengali x; baris terakhir upTo = null (jam berikutnya).
 export type Tier = { upTo: number | null; x: number };

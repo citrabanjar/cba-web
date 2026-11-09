@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import {
-  NEEDS_BASE, NEEDS_PARAM, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, defaultRestTiers, describe, isTaxableCategory,
+  NEEDS_BASE, NEEDS_PARAM, LEGACY_BASES, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, defaultRestTiers, describe, isTaxableCategory,
   overtimeTiers, paramUnit, type PayComponentInput, type PayParams, type Tier,
 } from "@/lib/payroll";
 import { savePayComponent } from "./actions";
@@ -179,7 +179,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                     {NEEDS_BASE.includes(form.method) && (
                       <div className="space-y-1.5"><Label className="text-xs"><T>Dasar nilai</T></Label>
                         <select value={form.base ?? "UPAH_TETAP"} onChange={(e) => set("base", e.target.value)} className={select}>
-                          {PAY_BASES.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
+                          {PAY_BASES.filter((k) => !LEGACY_BASES.includes(k.key) || form.base === k.key).map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
                         </select></div>
                     )}
                   </div>
