@@ -65,7 +65,7 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
     ...(method === "PER_SATUAN" && Number(ip.step) > 0 ? { step: n(ip.step, 0.5, 1e6) } : {}),
     ...(method === "LEMBUR" ? { divisor: n(ip.divisor || 173, 1, 400), work: work as Tier[], rest: rest as Tier[] | null } : {}),
     ...(method === "THR" ? { months: n(ip.months ?? 1, 0, 24), minMonths: n(ip.minMonths ?? 1, 0, 600), proportional: ip.proportional !== false } : {}),
-    ...(method === "PER_JAM" ? { hoursPerDay: n(ip.hoursPerDay || 8, 1, 24) } : {}),
+    ...(method === "PER_JAM" ? (ip.shiftHours ? { shiftHours: true } : { hoursPerDay: n(ip.hoursPerDay || 8, 1, 24) }) : {}),
     ...(input.kind === "POTONGAN" && ip.reducesGross ? { reducesGross: true } : {}),
   };
   const coef = {

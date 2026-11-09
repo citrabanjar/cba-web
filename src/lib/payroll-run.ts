@@ -139,7 +139,12 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   const penaltyQty = (a: Date, b: Date) => {
     const in_ = penalties.filter((x) => x.p && x.t >= a.getTime() && x.t <= b.getTime()).map((x) => x.p!);
     const late = in_.reduce((s2, p) => s2 + p.lateHours, 0), early = in_.reduce((s2, p) => s2 + p.earlyHours, 0);
-    return { JAM_TERLAMBAT: late, JAM_PULANG_CEPAT: early, JAM_TELAT_PULANG_CEPAT: late + early, KALI_TERLAMBAT: in_.filter((p) => p.late).length };
+    // Bagian hari (jam ÷ jam kerja shift hari itu) untuk tarif per jam yang ikut shift (Sabtu 5 jam, hari biasa 8 jam).
+    const frac = (f: (p: (typeof in_)[number]) => number) => in_.reduce((s2, p) => s2 + (p.workHours > 0 ? f(p) / p.workHours : 0), 0);
+    return {
+      JAM_TERLAMBAT: late, JAM_PULANG_CEPAT: early, JAM_TELAT_PULANG_CEPAT: late + early, KALI_TERLAMBAT: in_.filter((p) => p.late).length,
+      FR_JAM_TERLAMBAT: frac((p) => p.lateHours), FR_JAM_PULANG_CEPAT: frac((p) => p.earlyHours), FR_JAM_TELAT_PULANG_CEPAT: frac((p) => p.lateHours + p.earlyHours),
+    };
   };
 
   // Masukan otomatis: hari kerja dari jadwal, hadir/mangkir dari absensi, dinas & cuti yang disetujui.

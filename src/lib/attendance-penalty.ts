@@ -6,7 +6,8 @@ import type { DayShift } from "@/lib/schedule";
 //   (masuk 08.40 untuk shift 08.00 = 0,5 jam; 09.00 = 1 jam).
 // - Pulang cepat: jam pulang dibulatkan ke atas ke kelipatan 30 menit, dihitung sampai jam
 //   pulang shift, jam istirahat tidak ikut (pulang 13.25 → 13.30 s/d 16.00 = 2,5 jam).
-export type DayPenalty = { lateMinutes: number; late: boolean; lateHours: number; earlyHours: number };
+// workHours = lama kerja shift hari itu tanpa jam istirahat (pembagi tarif per jam).
+export type DayPenalty = { lateMinutes: number; late: boolean; lateHours: number; earlyHours: number; workHours: number };
 
 const toMin = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number);
@@ -27,6 +28,10 @@ export function dayPenalty(day: DayShift | undefined, dateKey: string, checkIn: 
     return [a, z] as const;
   });
 
+  let work = end - start;
+  for (const [a, z] of breaks) work -= Math.max(0, Math.min(z, end) - Math.max(a, start));
+  const workHours = Math.max(0, work) / 60;
+
   let lateMinutes = 0, lateHours = 0, earlyHours = 0;
   if (checkIn) {
     lateMinutes = Math.max(0, Math.floor(minutesFrom(checkIn, dateKey) - start));
@@ -41,5 +46,5 @@ export function dayPenalty(day: DayShift | undefined, dateKey: string, checkIn: 
       earlyHours = Math.max(0, minutes) / 60;
     }
   }
-  return { lateMinutes, late: lateMinutes > (day.lateTolerance ?? 0), lateHours, earlyHours };
+  return { lateMinutes, late: lateMinutes > (day.lateTolerance ?? 0), lateHours, earlyHours, workHours };
 }

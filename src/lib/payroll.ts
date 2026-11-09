@@ -75,7 +75,8 @@ export type PayParams = {
   step?: number; // Nominal x Parameter: berlaku kelipatan
   divisor?: number; work?: Tier[]; rest?: Tier[] | null; // upah lembur; rest null = tarif hari libur sama dengan hari kerja
   months?: number; minMonths?: number; proportional?: boolean; // THR / bonus
-  hoursPerDay?: number; // dasar nilai / hari sebulan / jam: jam kerja per hari (bawaan 8)
+  hoursPerDay?: number; // dasar nilai / hari sebulan / jam: jam kerja per hari tetap (bila tidak ikut shift)
+  shiftHours?: boolean; // jam kerja per hari ikut lama kerja shift hari itu (tanpa istirahat)
   reducesGross?: boolean; // potongan mengurangi penghasilan bruto PPh 21
   workday?: number[]; rest6?: number[]; rest5?: number[]; // format lama lembur
 };
@@ -219,7 +220,13 @@ export function evaluate(c: EvalComponent, ctx: PayContext): { amount: number; d
       return { amount: days ? (b / days) * q : 0, detail: `${rupiah(b)} / ${days} hari x ${num(q)} ${paramUnit(c.param)}` };
     }
     case "PER_JAM": {
-      const days = ctx.periodDays || 30, hours = p.hoursPerDay || 8, q = paramTotal(c.param, ctx), b = baseValue(c, ctx);
+      const days = ctx.periodDays || 30, q = paramTotal(c.param, ctx), b = baseValue(c, ctx);
+      // Ikut shift: tarif per jam tiap hari = dasar / hari sebulan / jam kerja shift hari itu.
+      const frac = ctx.qty[`FR_${c.param}`];
+      if (p.shiftHours && frac !== undefined) {
+        return { amount: (b / days) * frac, detail: `${rupiah(b)} / ${days} hari / jam kerja shift x ${num(q)} ${paramUnit(c.param)}` };
+      }
+      const hours = p.hoursPerDay || 8;
       return { amount: (b / days / hours) * q, detail: `${rupiah(b)} / ${days} hari / ${num(hours)} jam x ${num(q)} ${paramUnit(c.param)}` };
     }
     case "LEMBUR": {
@@ -258,7 +265,7 @@ export function describe(c: EvalComponent & { params?: PayParams | null }, workD
       return `${num(c.rate ?? 0)}% x ${b}${extra ? ` (${extra})` : ""}`;
     }
     case "PRORATA": return `${b} / hari kerja x ${paramLabel(c.param)}`;
-    case "PER_JAM": return `${b} / hari bulan berjalan / ${num(p.hoursPerDay || 8)} jam x ${paramLabel(c.param)}`;
+    case "PER_JAM": return `${b} / hari bulan berjalan / ${p.shiftHours ? "jam kerja shift hari itu" : `${num(p.hoursPerDay || 8)} jam`} x ${paramLabel(c.param)}`;
     case "LEMBUR": {
       const t = overtimeTiers(p, workDaysPerWeek);
       return `1/${p.divisor ?? 173} x ${b} · ${t.rest ? "hari kerja " : ""}${tiers(t.work)}${t.rest ? ` · hari libur ${tiers(t.rest)}` : ""}`;

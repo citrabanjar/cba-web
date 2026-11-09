@@ -98,7 +98,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
       base: NEEDS_BASE.includes(m) ? f.base ?? "UPAH_TETAP" : null,
       params: m === "LEMBUR" ? { divisor: 173, work: tiers.work, rest: tiers.rest, ...(f.params ?? {}) }
         : m === "THR" ? { months: 1, minMonths: 1, proportional: true, ...(f.params ?? {}) }
-        : m === "PER_JAM" ? { hoursPerDay: 8, ...(f.params ?? {}) } : f.params,
+        : m === "PER_JAM" ? { shiftHours: true, ...(f.params ?? {}) } : f.params,
     }));
   }
 
@@ -254,9 +254,20 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                     </div>
                   )}
                   {form.method === "PER_JAM" && (
-                    <div className="space-y-1.5 sm:w-1/2"><Label className="text-xs"><T>Jam kerja per hari</T></Label>
-                      <Input type="number" min={1} max={24} step="0.5" value={p.hoursPerDay ?? 8} onChange={(e) => setParam({ hoursPerDay: Number(e.target.value) })} />
-                      <p className="text-[11px] text-gray-400"><T>Pembagi hari mengikuti jumlah hari bulan berjalan (28-31).</T></p></div>
+                    <div className="space-y-2">
+                      <Label className="text-xs"><T>Jam kerja per hari (pembagi tarif per jam)</T></Label>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <select value={p.shiftHours ? "SHIFT" : "TETAP"} className={select}
+                          onChange={(e) => setParam(e.target.value === "SHIFT" ? { shiftHours: true } : { shiftHours: false, hoursPerDay: p.hoursPerDay || 8 })}>
+                          <option value="SHIFT">{t("Ikut lama kerja shift hari itu")}</option>
+                          <option value="TETAP">{t("Tetap untuk semua hari")}</option>
+                        </select>
+                        {!p.shiftHours && <Input type="number" min={1} max={24} step="0.5" value={p.hoursPerDay ?? 8} onChange={(e) => setParam({ hoursPerDay: Number(e.target.value) })} />}
+                      </div>
+                      <p className="text-[11px] text-gray-400"><T>{p.shiftHours
+                        ? "Tarif per jam = dasar nilai / jumlah hari bulan berjalan (28-31) / jam kerja shift hari itu tanpa istirahat (mis. hari biasa 8 jam, Sabtu 5 jam)."
+                        : "Tarif per jam = dasar nilai / jumlah hari bulan berjalan (28-31) / jam yang diisi."}</T></p>
+                    </div>
                   )}
                   {form.method === "THR" && (
                     <div className="space-y-3">
