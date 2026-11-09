@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { changeAdminPassword } from "./actions";
-import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, LayoutDashboard, UserCog } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -56,14 +56,37 @@ export default function SettingsClient({
   name, employeeId, role, indicatorHidden, agentSettings,
 }: { name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
+  // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Agent HRD & Beranda hanya untuk Super Admin.
+  const tabs = [
+    { key: "akun", label: "Akun", icon: UserCog },
+    ...(agentSettings ? [{ key: "agent", label: "Agent HRD", icon: Bot }] : []),
+    ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),
+  ];
+  const [tab, setTab] = useState("akun");
 
   return (
-    <div className="p-6 max-w-xl space-y-6">
+    <div className="p-6 max-w-4xl space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-white"><T>Pengaturan Akun</T></h1>
-        <p className="text-sm text-white/70 mt-0.5"><T>Kelola informasi akun super admin</T></p>
+        <h1 className="text-xl font-bold text-white"><T>Pengaturan</T></h1>
+        <p className="text-sm text-white/70 mt-0.5"><T>Kelola akun dan pengaturan portal</T></p>
       </div>
 
+      {tabs.length > 1 && (
+        <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-1.5">
+          {tabs.map(({ key, label, icon: Icon }) => (
+            <button key={key} type="button" onClick={() => setTab(key)}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm ${tab === key ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+              <Icon size={15} /> <T>{label}</T>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "agent" && agentSettings && <AgentSettings settings={agentSettings} />}
+      {tab === "beranda" && indicatorHidden && <IndicatorSettings hidden={indicatorHidden} />}
+
+      {tab === "akun" && (
+      <div className="grid gap-5 md:grid-cols-2 md:items-start">
       {/* Info akun */}
       <Card className="border-gray-100">
         <CardHeader className="pb-3">
@@ -86,10 +109,6 @@ export default function SettingsClient({
           </div>
         </CardContent>
       </Card>
-
-      {agentSettings && <AgentSettings settings={agentSettings} />}
-
-      {indicatorHidden && <IndicatorSettings hidden={indicatorHidden} />}
 
       {/* Ganti password */}
       <Card className="border-gray-100">
@@ -131,6 +150,8 @@ export default function SettingsClient({
           </form>
         </CardContent>
       </Card>
+      </div>
+      )}
     </div>
   );
 }
