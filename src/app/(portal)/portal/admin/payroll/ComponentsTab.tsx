@@ -133,7 +133,7 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                     <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <button type="button" onClick={() => setAssigning(c.id)}
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.employeeIds.length ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}>
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.employeeIds.length ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-600 text-white hover:bg-red-700"}`}>
                         {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
                         {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")} · <T>Tempel</T>
                       </button>
