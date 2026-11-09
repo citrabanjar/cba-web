@@ -26,6 +26,8 @@ export async function saveLeavePolicy(id: string | null, input: LeavePolicyInput
   if (!name) return { error: "Nama wajib diisi." };
   if (!isLeaveCategory(input.category)) return { error: "Kategori tidak valid." };
   if (!isLeaveUnit(input.unit) || !isLeavePeriod(input.period)) return { error: "Satuan tidak valid." };
+  const expiry = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(input.carryOverExpiry ?? "") ? input.carryOverExpiry : null;
+  if (input.carryOverExpires && !expiry) return { error: "Tanggal batas sisa bawaan belum diisi." };
   const clash = await prisma.leavePolicy.findFirst({ where: { code, NOT: id ? { id } : undefined }, select: { id: true } });
   if (clash) return { error: "Kode sudah dipakai jenis cuti lain." };
 
@@ -40,6 +42,9 @@ export async function saveLeavePolicy(id: string | null, input: LeavePolicyInput
     paid: !!input.paid, payNote: text(input.payNote), deductsAnnual: !!input.deductsAnnual,
     needsAttachment: !!input.needsAttachment, attachmentNote: text(input.attachmentNote),
     carryOverDays: int(input.carryOverDays, 0, 365), noticeDays: int(input.noticeDays, 0, 365),
+    renewal: input.renewal === "JANUARI" ? "JANUARI" : "ULANG_TAHUN_KERJA",
+    carryOverExpires: !!input.carryOverExpires && !!expiry, carryOverExpiry: input.carryOverExpires ? expiry : null,
+    allowHalfDay: !!input.allowHalfDay,
     legalBasis: text(input.legalBasis), note: text(input.note), isActive: !!input.isActive,
     updatedBy: access.name ?? null,
   };

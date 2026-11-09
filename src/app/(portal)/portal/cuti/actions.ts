@@ -18,7 +18,7 @@ export async function getLeaveRequests() {
   });
 }
 
-const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100).replace(".", ","));
 
 // Pengajuan cuti memakai jenis dari Setup Leave. Dicek: jenis boleh dipakai karyawan ini,
 // batas pengajuan (H-x), jatah per kejadian, sisa saldo (Cuti Tahunan / Cuti Masa Kontrak),
@@ -32,6 +32,7 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   const startDate = String(formData.get("startDate") ?? "");
   const endDate = String(formData.get("endDate") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
+  const dayPart = String(formData.get("dayPart") ?? "PENUH");
   if (!policyId || !startDate || !endDate || !reason) return { error: "Semua field wajib diisi." };
 
   const start = new Date(`${startDate}T00:00:00Z`);
@@ -51,8 +52,15 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
     return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai.` };
   }
 
-  const totalDays = await countLeaveDays(userId, start, end, policy.unit);
+  let totalDays = await countLeaveDays(userId, start, end, policy.unit);
   if (totalDays <= 0) return { error: "Tidak ada hari kerja di rentang tanggal itu." };
+  // Setengah hari: satu tanggal kerja, dihitung 0,5 hari.
+  const halfDay = dayPart === "AWAL" || dayPart === "AKHIR" ? dayPart : null;
+  if (halfDay) {
+    if (!policy.allowHalfDay) return { error: "Jenis cuti ini tidak bisa setengah hari." };
+    if (start.getTime() !== end.getTime() || totalDays !== 1) return { error: "Cuti setengah hari hanya untuk satu tanggal hari kerja." };
+    totalDays = 0.5;
+  }
 
   if (policy.quota !== null && !hasBalance(policy)) {
     if (policy.unit === "BULAN") {
@@ -62,13 +70,15 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
     }
   }
 
+  let unpaidDays = 0;
   if (hasBalance(policy) || policy.deductsAnnual) {
     const rows = await computeBalances([userId]);
     const row = hasBalance(policy) ? rows.find((r) => r.policyId === policy.id) : rows[0];
     if (!row) return { error: "Saldo cuti Anda belum tersedia. Hubungi HRD." };
     if (row.problem) return { error: "Saldo cuti Anda belum bisa dihitung (tanggal masuk kosong). Hubungi HRD." };
-    const available = row.balance - row.pending;
-    if (totalDays > available) return { error: `Sisa saldo yang bisa diajukan ${fmt(Math.max(0, available))} hari, pengajuan ini ${totalDays} hari.` };
+    // Saldo kurang: kelebihannya masuk cuti di luar tanggungan (tidak memotong saldo).
+    const available = Math.max(0, row.balance - row.pending);
+    if (totalDays > available) unpaidDays = Math.round((totalDays - available) * 100) / 100;
   }
 
   const clash = await prisma.leaveRequest.findFirst({
@@ -80,13 +90,13 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   await prisma.leaveRequest.create({
     data: {
       userId, policyId: policy.id, type: legacyType(policy.category),
-      startDate: start, endDate: end, totalDays, reason, status: "PENDING",
+      startDate: start, endDate: end, totalDays, halfDay, unpaidDays, reason, status: "PENDING",
     },
   });
 
   revalidatePath("/portal/cuti");
   revalidatePath("/portal/admin/leave");
-  return { ok: true, days: totalDays };
+  return { ok: true, days: fmt(totalDays), unpaid: unpaidDays > 0 ? fmt(unpaidDays) : null };
 }
 
 export async function cancelLeave(id: string) {

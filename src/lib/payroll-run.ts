@@ -14,6 +14,7 @@ const utc = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 
 export type LineInputs = {
   workDays: number; daysPresent: number; absentDays: number;
   tripDays: number; trips: number; leaveDays: number; monthsOfService: number;
+  unpaidLeaveDays?: number; // cuti jenis tanpa upah + bagian cuti yang melebihi saldo
   otWork: number[]; otRest: number[]; // jam lembur per pengajuan (hari kerja / hari libur)
   values: Record<string, number>; // nilai komponen input tiap periode, per kode (mis. BNS, KSB)
 };
@@ -25,7 +26,7 @@ export function normalizeInputs(raw: unknown): Partial<LineInputs> {
   const n = (v: unknown) => Math.max(0, Number(v) || 0);
   const arr = (v: unknown) => (Array.isArray(v) ? v.map(n).filter((x) => x > 0) : undefined);
   const out: Partial<LineInputs> = {};
-  for (const k of ["workDays", "daysPresent", "absentDays", "tripDays", "trips", "leaveDays", "monthsOfService"] as const) if (r[k] !== undefined) out[k] = n(r[k]);
+  for (const k of ["workDays", "daysPresent", "absentDays", "tripDays", "trips", "leaveDays", "monthsOfService", "unpaidLeaveDays"] as const) if (r[k] !== undefined) out[k] = n(r[k]);
   out.otWork = arr(r.otWork) ?? (n(r.overtimeHours) ? [n(r.overtimeHours)] : []);
   out.otRest = arr(r.otRest) ?? (n(r.restOvertimeHours) ? [n(r.restOvertimeHours)] : []);
   const values: Record<string, number> = {};
@@ -98,13 +99,31 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true, taxability: true } }),
     prisma.employeeSalary.findFirst({ where: { userId, effectiveDate: { lte: end } }, orderBy: { effectiveDate: "desc" }, include: { components: true } }),
     prisma.businessTrip.findMany({ where: { userId, status: "APPROVED", startDate: { lte: end }, endDate: { gte: start } }, select: { startDate: true, endDate: true } }),
-    prisma.leaveRequest.findMany({ where: { userId, status: "APPROVED", startDate: { lte: end }, endDate: { gte: start } }, select: { startDate: true, endDate: true } }),
+    prisma.leaveRequest.findMany({
+      where: { userId, status: "APPROVED", startDate: { lte: end }, endDate: { gte: start } },
+      select: { startDate: true, endDate: true, halfDay: true, unpaidDays: true, policy: { select: { paid: true } } },
+    }),
   ]);
   const join = user?.joinDate ? utc(user.joinDate) : null;
   const from = join && join > start ? join : start;
   const resign = user?.resignDate ? utc(user.resignDate) : null;
   const to = resign && resign < end ? resign : end;
   const clip = (a: Date, b: Date) => ({ a: utc(a) < start ? start : utc(a), b: utc(b) > end ? end : utc(b) });
+
+  // Hari cuti disetujui di rentang [a, b]: setengah hari = 0,5. "unpaid" = cuti jenis tanpa upah
+  // ditambah bagian yang melebihi saldo (dicatat di periode tanggal akhir cutinya).
+  const leaveQty = async (a0: Date, b0: Date) => {
+    let all = 0, unpaid = 0;
+    for (const l of leaves) {
+      const a = utc(l.startDate) < a0 ? a0 : utc(l.startDate), b = utc(l.endDate) > b0 ? b0 : utc(l.endDate);
+      if (a > b) continue;
+      const days = l.halfDay ? 0.5 : await countLeaveDays(userId, a, b, "HARI_KERJA");
+      all += days;
+      if (l.policy && !l.policy.paid) unpaid += days;
+      else if (l.unpaidDays > 0 && utc(l.endDate) <= b0) unpaid += Math.min(l.unpaidDays, days);
+    }
+    return { all, unpaid };
+  };
 
   // Masukan otomatis: hari kerja dari jadwal, hadir/mangkir dari absensi, dinas & cuti yang disetujui.
   const tripDates = new Set<number>();
@@ -113,12 +132,13 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     countLeaveDays(userId, start, end, "HARI_KERJA"),
     from <= to ? countLeaveDays(userId, from, to, "HARI_KERJA") : Promise.resolve(0),
     prisma.attendance.groupBy({ by: ["status"], where: { userId, date: { gte: start, lte: end } }, _count: { _all: true } }),
-    Promise.all(leaves.map((l) => { const { a, b } = clip(l.startDate, l.endDate); return countLeaveDays(userId, a, b, "HARI_KERJA"); })).then((x) => x.reduce((p, q) => p + q, 0)),
+    leaveQty(start, end).then((q) => q.all),
   ]);
+  const unpaidLeaveDays = (await leaveQty(start, end)).unpaid;
   const count = (st: string[]) => att.filter((a) => st.includes(a.status)).reduce((n, a) => n + a._count._all, 0);
   const inputs: LineInputs = {
     workDays: workDaysFull, daysPresent: count(["HADIR", "DINAS"]), absentDays: count(["ALPHA"]),
-    tripDays: tripDates.size, trips: trips.filter((t) => utc(t.startDate) >= start).length, leaveDays,
+    tripDays: tripDates.size, trips: trips.filter((t) => utc(t.startDate) >= start).length, leaveDays, unpaidLeaveDays,
     monthsOfService: join ? Math.max(0, monthsBetween(join, end)) : 0,
     otWork: [], otRest: [], values: {}, ...override,
   };
@@ -175,10 +195,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
         const [wd, attW, leaveW] = await Promise.all([
           countLeaveDays(userId, w.a, w.b, "HARI_KERJA"),
           prisma.attendance.groupBy({ by: ["status"], where: { userId, date: { gte: w.a, lte: w.b } }, _count: { _all: true } }),
-          Promise.all(leaves.map((l) => {
-            const a = utc(l.startDate) < w.a ? w.a : utc(l.startDate), b = utc(l.endDate) > w.b ? w.b : utc(l.endDate);
-            return a <= b ? countLeaveDays(userId, a, b, "HARI_KERJA") : Promise.resolve(0);
-          })).then((x) => x.reduce((p, q) => p + q, 0)),
+          leaveQty(w.a, w.b),
         ]);
         const days = Math.round((w.b.getTime() - w.a.getTime()) / DAY) + 1;
         const f = s.prorate === "HARI_KALENDER" ? days / calDays : workDaysFull ? wd / workDaysFull : 1;
@@ -189,7 +206,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
           ctx: {
             ...base,
             qty: {
-              ...base.qty, HARI_HADIR: cnt(["HADIR", "DINAS"]), HARI_MANGKIR: cnt(["ALPHA"]), HARI_CUTI: leaveW, HARI_DINAS: dates,
+              ...base.qty, HARI_HADIR: cnt(["HADIR", "DINAS"]), HARI_MANGKIR: cnt(["ALPHA"]), HARI_CUTI: leaveW.all, HARI_CUTI_TANPA_UPAH: leaveW.unpaid, HARI_DINAS: dates,
               KALI_DINAS: trips.filter((t) => utc(t.startDate) >= w.a && utc(t.startDate) <= w.b).length,
             },
           },
@@ -207,7 +224,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     values, fixedTotal, bpjsTk: salary?.bpjsTkBase ?? fixedTotal, bpjsKes: salary?.bpjsKesBase ?? fixedTotal,
     qty: {
       HARI_HADIR: inputs.daysPresent, HARI_MANGKIR: inputs.absentDays, HARI_KERJA: inputs.workDays, MASA_KERJA: inputs.monthsOfService,
-      HARI_DINAS: inputs.tripDays, KALI_DINAS: inputs.trips, HARI_CUTI: inputs.leaveDays,
+      HARI_DINAS: inputs.tripDays, KALI_DINAS: inputs.trips, HARI_CUTI: inputs.leaveDays, HARI_CUTI_TANPA_UPAH: inputs.unpaidLeaveDays ?? 0,
     },
     overtimeWork: inputs.otWork, overtimeRest: inputs.otRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor, nonRoutine,
     prorataDays: weekly && monthlyFactor > 0 ? monthlyFactor : undefined,

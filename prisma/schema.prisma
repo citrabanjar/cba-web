@@ -223,7 +223,9 @@ model LeaveRequest {
   type       LeaveType
   startDate  DateTime    @db.Date
   endDate    DateTime    @db.Date
-  totalDays  Int
+  totalDays  Float
+  halfDay    String? // setengah hari: AWAL (masuk setelah istirahat) | AKHIR (pulang saat istirahat)
+  unpaidDays Float       @default(0) // bagian yang melebihi saldo, masuk cuti di luar tanggungan
   reason     String      @db.Text
   status     LeaveStatus @default(PENDING)
   approvedBy String?
@@ -580,6 +582,10 @@ model LeavePolicy {
   needsAttachment  Boolean  @default(false)
   attachmentNote   String? // mis. "Surat keterangan dokter"
   carryOverDays    Int      @default(0) // sisa yang boleh dibawa ke tahun berikutnya
+  renewal          String   @default("ULANG_TAHUN_KERJA") // jatah per tahun diperbarui: ULANG_TAHUN_KERJA | JANUARI
+  carryOverExpires Boolean  @default(false) // sisa bawaan punya batas waktu
+  carryOverExpiry  String? // batas sisa bawaan "MM-DD" setiap tahun, mis. "03-31"
+  allowHalfDay     Boolean  @default(false) // boleh cuti setengah hari (0,5 hari)
   noticeDays       Int      @default(0) // diajukan paling lambat X hari sebelumnya
   legalBasis       String?
   note             String?  @db.Text

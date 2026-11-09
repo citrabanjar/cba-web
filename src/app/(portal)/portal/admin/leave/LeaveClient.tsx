@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
-  BadgeCheck, CalendarHeart, Coins, FileText, Loader2, Paperclip, Pencil, Plus, Scale, Trash2, Users, Wallet,
+  BadgeCheck, CalendarHeart, Coins, Loader2, Paperclip, Pencil, Plus, Scale, Trash2, Users, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,14 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import {
-  LEAVE_CATEGORIES, LEAVE_PERIODS, LEAVE_UNITS, categoryLabel, periodLabel, unitLabel, type LeavePolicyInput,
+  LEAVE_CATEGORIES, LEAVE_PERIODS, LEAVE_RENEWALS, LEAVE_UNITS, categoryLabel, expiryLabel, periodLabel, unitLabel, type LeavePolicyInput,
 } from "@/lib/leave";
 import { deleteLeavePolicy, saveLeavePolicy } from "./actions";
 import BalanceTab from "./BalanceTab";
 import type { BalanceRow } from "@/lib/leave-balance";
 
-export type Policy = Omit<LeavePolicyInput, "payNote" | "attachmentNote" | "legalBasis" | "note"> & {
-  id: string; payNote: string | null; attachmentNote: string | null; legalBasis: string | null; note: string | null;
+export type Policy = Omit<LeavePolicyInput, "payNote" | "attachmentNote" | "legalBasis" | "note" | "carryOverExpiry"> & {
+  id: string; payNote: string | null; attachmentNote: string | null; legalBasis: string | null; note: string | null; carryOverExpiry: string | null;
   sortOrder: number; updatedBy: string | null; updatedAt: string;
 };
 
@@ -25,7 +25,9 @@ const EMPTY: LeavePolicyInput = {
   code: "", name: "", category: "KHUSUS", quota: 1, unit: "HARI_KERJA", period: "KEJADIAN", minServiceMonths: 0,
   gender: null, forStatus: null, accrualPerMonth: 0, paid: true, payNote: "", deductsAnnual: false, needsAttachment: false, attachmentNote: "",
   carryOverDays: 0, noticeDays: 0, legalBasis: "", note: "", isActive: true,
+  renewal: "JANUARI", carryOverExpires: false, carryOverExpiry: "", allowHalfDay: false,
 };
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 const TONE: Record<string, string> = {
   TAHUNAN: "#10b981", ISTIRAHAT_PANJANG: "#0ea5e9", KHUSUS: "#8b5cf6", MELAHIRKAN: "#ec4899", SAKIT: "#f59e0b",
@@ -50,8 +52,11 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   const t = useT();
   const [form, setForm] = useState<LeavePolicyInput>(() => policy === "new" ? EMPTY : {
     ...policy, payNote: policy.payNote ?? "", attachmentNote: policy.attachmentNote ?? "",
-    legalBasis: policy.legalBasis ?? "", note: policy.note ?? "",
+    legalBasis: policy.legalBasis ?? "", note: policy.note ?? "", carryOverExpiry: policy.carryOverExpiry ?? "",
   });
+  const yearly = form.period === "TAHUN" && !(form.accrualPerMonth > 0);
+  const [expMonth, expDay] = (form.carryOverExpiry || "03-31").split("-").map(Number);
+  const setExpiry = (m: number, d: number) => set("carryOverExpiry", `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
   const [unlimited, setUnlimited] = useState(form.quota === null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -67,7 +72,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   }
 
   const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
-  const check = (k: "paid" | "deductsAnnual" | "needsAttachment" | "isActive", label: string, hint?: string) => (
+  const check = (k: "paid" | "deductsAnnual" | "needsAttachment" | "isActive" | "allowHalfDay", label: string, hint?: string) => (
     <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 px-3 py-2">
       <input type="checkbox" checked={form[k]} onChange={(e) => set(k, e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
       <span><span className="block text-sm font-medium text-gray-800"><T>{label}</T></span>
@@ -110,6 +115,42 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
             )}
           </div>
 
+          {yearly && !unlimited && form.period === "TAHUN" && (
+            <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label className="text-xs"><T>Jatah diperbarui</T></Label>
+                  <select value={form.renewal} onChange={(e) => set("renewal", e.target.value)} className={select}>
+                    {LEAVE_RENEWALS.map((r) => <option key={r.key} value={r.key}>{t(r.label)}</option>)}
+                  </select>
+                  <p className="text-[11px] text-gray-400"><T>{form.renewal === "JANUARI"
+                    ? "Semua karyawan dapat jatah baru tiap 1 Januari. Saat mulai berhak (mis. diangkat tetap) dapat jatah prorata sampai Desember."
+                    : "Jatah baru masuk di ulang tahun kerja masing-masing karyawan."}</T></p></div>
+                <div className="space-y-1.5"><Label className="text-xs"><T>Sisa boleh dibawa ke periode berikutnya (maksimal hari)</T></Label>
+                  <Input type="number" min={0} value={form.carryOverDays} onChange={(e) => set("carryOverDays", Number(e.target.value))} />
+                  <p className="text-[11px] text-gray-400"><T>0 = semua sisa hangus saat jatah baru masuk.</T></p></div>
+              </div>
+              {form.renewal === "JANUARI" && form.carryOverDays > 0 && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" checked={form.carryOverExpires} className="h-4 w-4 accent-[var(--color-brand)]"
+                      onChange={(e) => { set("carryOverExpires", e.target.checked); if (e.target.checked && !form.carryOverExpiry) set("carryOverExpiry", "03-31"); }} />
+                    <T>Sisa bawaan ada batas waktu</T>
+                  </label>
+                  {form.carryOverExpires && (
+                    <span className="flex items-center gap-2 text-sm text-gray-600">
+                      <T>berlaku s/d</T>
+                      <Input type="number" min={1} max={31} value={expDay} onChange={(e) => setExpiry(expMonth, Math.max(1, Math.min(31, Number(e.target.value) || 1)))} className="h-9 w-16" />
+                      <select value={expMonth} onChange={(e) => setExpiry(Number(e.target.value), expDay)} className="h-9 rounded-lg border border-input bg-white px-2 text-sm">
+                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                      </select>
+                      <T>tahun berikutnya</T>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5"><Label className="text-xs"><T>Status kerja</T></Label>
               <select value={form.forStatus ?? ""} onChange={(e) => set("forStatus", e.target.value || null)} className={select}>
@@ -122,13 +163,11 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
               <p className="text-[11px] text-gray-400"><T>Isi 0 kalau tidak bertambah bulanan. Dipakai untuk Cuti Masa Kontrak.</T></p></div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5"><Label className="text-xs"><T>Masa kerja minimal (bulan)</T></Label>
               <Input type="number" min={0} value={form.minServiceMonths} onChange={(e) => set("minServiceMonths", Number(e.target.value))} /></div>
             <div className="space-y-1.5"><Label className="text-xs"><T>Diajukan paling lambat (hari sebelum)</T></Label>
               <Input type="number" min={0} value={form.noticeDays} onChange={(e) => set("noticeDays", Number(e.target.value))} /></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Sisa boleh dibawa (hari)</T></Label>
-              <Input type="number" min={0} value={form.carryOverDays} onChange={(e) => set("carryOverDays", Number(e.target.value))} /></div>
             <div className="space-y-1.5"><Label className="text-xs"><T>Berlaku untuk</T></Label>
               <select value={form.gender ?? ""} onChange={(e) => set("gender", e.target.value || null)} className={select}>
                 <option value="">{t("Semua karyawan")}</option>
@@ -141,6 +180,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
             {check("paid", "Upah tetap dibayar")}
             {check("deductsAnnual", "Potong cuti tahunan", "Hari yang diambil mengurangi saldo cuti tahunan.")}
             {check("needsAttachment", "Wajib lampiran")}
+            {check("allowHalfDay", "Boleh setengah hari", "Karyawan bisa mengajukan 0,5 hari: masuk setelah istirahat, atau pulang saat istirahat.")}
             {check("isActive", "Aktif", "Jenis nonaktif tidak bisa dipilih saat pengajuan.")}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -149,11 +189,6 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
             <div className="space-y-1.5"><Label className="text-xs"><T>Lampiran yang diminta</T></Label>
               <Input value={form.attachmentNote} placeholder={t("Contoh: Surat keterangan dokter")} onChange={(e) => set("attachmentNote", e.target.value)} /></div>
           </div>
-          <div className="space-y-1.5"><Label className="text-xs"><T>Dasar hukum</T></Label>
-            <Input value={form.legalBasis} onChange={(e) => set("legalBasis", e.target.value)} /></div>
-          <div className="space-y-1.5"><Label className="text-xs"><T>Catatan / ketentuan perusahaan</T></Label>
-            <textarea value={form.note} rows={3} onChange={(e) => set("note", e.target.value)}
-              className="w-full rounded-lg border border-input px-3 py-2 text-sm" /></div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
         </div>
         <DialogFooter>
@@ -271,16 +306,12 @@ export default function LeaveClient({ policies, balances }: { policies: Policy[]
                     {p.gender && <Chip tone="blue"><T>{p.gender === "P" ? "Khusus perempuan" : "Khusus laki-laki"}</T></Chip>}
                     {p.minServiceMonths > 0 && <Chip><T>Masa kerja min.</T> {p.minServiceMonths} <T>bulan</T></Chip>}
                     {p.noticeDays > 0 && <Chip><T>Ajukan</T> H-{p.noticeDays}</Chip>}
-                    {p.carryOverDays > 0 && <Chip><T>Sisa dibawa</T> {p.carryOverDays} <T>hari</T></Chip>}
+                    {p.period === "TAHUN" && p.quota !== null && !(p.accrualPerMonth > 0) && <Chip tone="green"><T>{p.renewal === "JANUARI" ? "Diperbarui 1 Januari" : "Diperbarui ulang tahun kerja"}</T></Chip>}
+                    {p.carryOverDays > 0 && <Chip><T>Sisa dibawa</T> {p.carryOverDays} <T>hari</T>{p.carryOverExpires && p.carryOverExpiry ? <> · s/d {expiryLabel(p.carryOverExpiry)}</> : null}</Chip>}
+                    {p.allowHalfDay && <Chip tone="blue"><T>Bisa setengah hari</T></Chip>}
                     {p.needsAttachment && <Chip><Paperclip size={10} /> {p.attachmentNote ? t(p.attachmentNote) : <T>Lampiran</T>}</Chip>}
                   </div>
                   {p.payNote && <p className="mt-2 text-xs text-gray-600"><Coins size={12} className="mr-1 inline text-gray-400" />{t(p.payNote)}</p>}
-                  {p.note && <p className="mt-2 text-xs leading-relaxed text-gray-500">{t(p.note)}</p>}
-                  {p.legalBasis && (
-                    <p className="mt-2 flex items-start gap-1.5 border-t border-gray-100 pt-2 text-[11px] text-gray-400">
-                      <FileText size={12} className="mt-0.5 shrink-0" /> {p.legalBasis}
-                    </p>
-                  )}
                 </div>
               </div>
             ))}

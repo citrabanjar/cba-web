@@ -30,7 +30,7 @@ export default async function CutiPage() {
         .map((p) => ({
           id: p.id, code: p.code, name: p.name, category: p.category, quota: p.quota, unit: p.unit, period: p.period,
           noticeDays: p.noticeDays, needsAttachment: p.needsAttachment, attachmentNote: p.attachmentNote,
-          paid: p.paid, note: p.note, balance: hasBalance(p),
+          paid: p.paid, note: p.note, balance: hasBalance(p), allowHalfDay: p.allowHalfDay,
         }))
     : [];
 

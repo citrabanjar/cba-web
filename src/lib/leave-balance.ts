@@ -13,6 +13,12 @@ export function todayDate() {
   return new Date(`${text}T00:00:00Z`);
 }
 
+// Tanggal (WIB) dari sebuah waktu, sebagai tanggal UTC tengah malam.
+export function wibDate(d: Date) {
+  const text = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(d);
+  return new Date(`${text}T00:00:00Z`);
+}
+
 // Tanggal "genap n bulan" sejak start (31 Jan + 1 bulan = 28/29 Feb).
 export function addMonths(start: Date, n: number) {
   const y = start.getUTCFullYear(), m = start.getUTCMonth() + n, d = start.getUTCDate();
@@ -87,29 +93,41 @@ export async function countLeaveDays(userId: string, start: Date, end: Date, uni
 
 // Saldo cuti karyawan aktif (semua, atau hanya userIds). Yang dihitung otomatis:
 // - Cuti bulanan (Cuti Masa Kontrak): +X hari tiap genap 1 bulan sejak tanggal masuk.
-// - Cuti tahunan: tiap ulang tahun kerja (setelah masa kerja minimal) saldo direset ke sisa
-//   yang boleh dibawa, lalu ditambah jatah setahun. Angka bertambah/terpakai/hangus yang
+// - Cuti bulanan berhenti bertambah setelah tanggal akhir kontrak; bila kontrak diperpanjang,
+//   bulan yang terlewat ikut ditambahkan (karena dihitung ulang dari tanggal masuk).
+// - Cuti tahunan "Ulang tahun kerja": tiap ulang tahun kerja (setelah masa kerja minimal) saldo
+//   direset ke sisa yang boleh dibawa, lalu ditambah jatah setahun.
+// - Cuti tahunan "Setiap 1 Januari": saat mulai berhak (diangkat tetap / masa kerja minimal)
+//   dapat jatah prorata sampai Desember (dibulatkan ke bawah 0,5), lalu tiap 1 Januari reset
+//   seperti di atas. Sisa bawaan bisa diberi batas tanggal (dipakai lebih dulu, lewat batas hangus). Angka bertambah/terpakai/hangus yang
 //   dikembalikan untuk periode berjalan saja; riwayat mutasi memuat semuanya.
-// - Pemakaian: pengajuan yang disetujui untuk jenis itu, pengajuan lama "Cuti Tahunan", dan
+// - Pemakaian: pengajuan yang disetujui untuk jenis itu (tanpa bagian di luar tanggungan), pengajuan lama "Cuti Tahunan", dan
 //   jenis lain yang ditandai "Potong cuti tahunan".
 // Titik awal hitungan adalah SALDO_AWAL terbaru (migrasi dari aplikasi lama); tanpa itu,
 // dihitung dari tanggal masuk. Karyawan resign (nonaktif) tidak punya saldo.
 export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]> {
   const today = todayDate();
   const whereUser = userIds ? { userId: { in: userIds } } : {};
-  const [policies, employees, entries, requests] = await Promise.all([
+  const [policies, employees, entries, requests, appointments] = await Promise.all([
     prisma.leavePolicy.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     prisma.user.findMany({
       where: { isActive: true, role: { not: "SUPER_ADMIN" }, ...(userIds ? { id: { in: userIds } } : {}) },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, employeeId: true, employmentStatus: true, gender: true, joinDate: true, department: { select: { name: true } } },
+      select: { id: true, name: true, employeeId: true, employmentStatus: true, gender: true, joinDate: true, contractEndDate: true, department: { select: { name: true } } },
     }),
     prisma.leaveBalanceEntry.findMany({ where: whereUser, orderBy: { date: "asc" } }),
     prisma.leaveRequest.findMany({
       where: { ...whereUser, status: { in: ["APPROVED", "PENDING"] } },
-      select: { userId: true, startDate: true, endDate: true, totalDays: true, status: true, type: true, policyId: true, policy: { select: { code: true, name: true, deductsAnnual: true } } },
+      select: { userId: true, startDate: true, endDate: true, totalDays: true, unpaidDays: true, status: true, type: true, policyId: true, policy: { select: { code: true, name: true, deductsAnnual: true } } },
+    }),
+    // Tanggal diangkat tetap: perubahan status kerja terakhir menjadi TETAP.
+    prisma.employeeChangeLog.findMany({
+      where: { field: "employmentStatus", newValue: "TETAP", ...whereUser },
+      orderBy: { createdAt: "asc" }, select: { userId: true, createdAt: true },
     }),
   ]);
+  const appointed = new Map(appointments.map((a) => [a.userId, wibDate(a.createdAt)]));
+  const charged = (r: { totalDays: number; unpaidDays: number }) => Math.max(0, r.totalDays - (r.unpaidDays ?? 0));
   const tracked = policies.filter(hasBalance);
   const rows: BalanceRow[] = [];
 
@@ -126,7 +144,7 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
       // Pengajuan yang memakai saldo ini.
       const usesThis = (r: (typeof requests)[number]) =>
         r.userId === e.id && (r.policyId === p.id || (!r.policyId && r.type === "TAHUNAN") || !!r.policy?.deductsAnnual);
-      const pending = requests.filter((r) => usesThis(r) && r.status === "PENDING").reduce((a, r) => a + r.totalDays, 0);
+      const pending = requests.filter((r) => usesThis(r) && r.status === "PENDING").reduce((a, r) => a + charged(r), 0);
       const base = {
         userId: e.id, name: e.name, employeeId: e.employeeId ?? "", status: e.employmentStatus, department: e.department?.name ?? null,
         policyId: p.id, code: p.code, policyName: p.name,
@@ -142,15 +160,44 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
       }
 
       // Kejadian setelah titik awal, diurutkan menurut tanggal.
-      type Ev = { t: number; kind: "grant" | "reset" | "use" | "adjust"; days: number; label: string };
+      type Ev = { t: number; kind: "grant" | "reset" | "use" | "adjust" | "expire"; days: number; label: string };
       const evs: Ev[] = [];
       let nextDate: Date | null = null;
       let nextDays: number | null = null;
       if (p.accrualPerMonth > 0) {
+        // Kontrak lewat tanggal akhir dan belum diperpanjang: saldo berhenti bertambah.
+        const stopAt = e.employmentStatus === "KONTRAK" && e.contractEndDate ? utc(e.contractEndDate) : null;
         for (let n = 1; n < 1200; n++) {
           const d = addMonths(join, n);
+          if (stopAt && d > stopAt) break;
           if (d > today) { nextDate = d; nextDays = p.accrualPerMonth; break; }
           if (d > from) evs.push({ t: d.getTime(), kind: "grant", days: p.accrualPerMonth, label: `Bertambah (genap ${n} bulan kerja)` });
+        }
+      } else if (p.renewal === "JANUARI") {
+        const quota = p.quota ?? 0;
+        const after = (d: Date) => (opening ? d > from : d >= from);
+        // Mulai berhak: tanggal diangkat tetap (atau tanggal masuk), setelah masa kerja minimal.
+        const appoint = (e.employmentStatus === "TETAP" && appointed.get(e.id)) || join;
+        const minDate = addMonths(join, p.minServiceMonths);
+        const start = appoint > minDate ? appoint : minDate;
+        const isJan1 = start.getUTCMonth() === 0 && start.getUTCDate() === 1;
+        if (!isJan1) {
+          const months = 12 - start.getUTCMonth();
+          const prorata = Math.floor(((quota * months) / 12) * 2) / 2;
+          if (start > today) { nextDate = start; nextDays = prorata; }
+          else if (after(start)) evs.push({ t: start.getTime(), kind: "grant", days: prorata, label: `Jatah prorata ${months} bulan (mulai berhak ${keyOf(start)})` });
+        }
+        const [mm, dd] = (p.carryOverExpiry ?? "").split("-").map(Number);
+        for (let y = isJan1 ? start.getUTCFullYear() : start.getUTCFullYear() + 1; y < start.getUTCFullYear() + 100 && !nextDate; y++) {
+          const d = new Date(Date.UTC(y, 0, 1));
+          if (d > today) { nextDate = d; nextDays = quota; break; }
+          if (!after(d)) continue;
+          evs.push({ t: d.getTime(), kind: "reset", days: quota, label: `Jatah cuti tahun ${y}` });
+          // Sisa bawaan berlaku sampai tanggal batas; keesokan harinya yang belum terpakai hangus.
+          if (p.carryOverExpires && p.carryOverDays > 0 && mm && dd) {
+            const x = new Date(Date.UTC(y, mm - 1, dd + 1));
+            if (x <= today) evs.push({ t: x.getTime(), kind: "expire", days: 0, label: `Sisa cuti ${y - 1} lewat batas ${dd}/${mm}` });
+          }
         }
       } else {
         const first = Math.max(12, p.minServiceMonths);
@@ -162,12 +209,13 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
       }
       for (const r of requests) {
         if (!usesThis(r) || r.status !== "APPROVED" || utc(r.startDate) < from) continue;
-        evs.push({ t: utc(r.startDate).getTime(), kind: "use", days: r.totalDays, label: `${r.policy?.name ?? "Cuti Tahunan"} (${keyOf(r.startDate)} s/d ${keyOf(r.endDate)})` });
+        if (charged(r) <= 0) continue;
+        evs.push({ t: utc(r.startDate).getTime(), kind: "use", days: charged(r), label: `${r.policy?.name ?? "Cuti Tahunan"} (${keyOf(r.startDate)} s/d ${keyOf(r.endDate)})` });
       }
       for (const x of mine) if (x.kind === "PENYESUAIAN" && utc(x.date) >= from) evs.push({ t: utc(x.date).getTime(), kind: "adjust", days: x.days, label: `Koreksi: ${x.note ?? ""}` });
       evs.sort((a, b) => a.t - b.t || (a.kind === "reset" ? -1 : 1));
 
-      let bal = opening?.days ?? 0, earned = 0, used = 0, adjusted = 0, expired = 0;
+      let bal = opening?.days ?? 0, earned = 0, used = 0, adjusted = 0, expired = 0, carryLeft = 0;
       const ledger: LedgerLine[] = [];
       if (opening) ledger.push({ date: keyOf(opening.date), label: "Saldo awal (aplikasi lama)", days: opening.days, balance: round(bal) });
       for (const ev of evs) {
@@ -178,9 +226,17 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
           const keep = Math.min(Math.max(bal, 0), p.carryOverDays);
           expired = Math.max(bal, 0) - keep;
           if (expired > 0) { bal -= expired; ledger.push({ date, label: "Sisa cuti hangus", days: -expired, balance: round(bal) }); }
-          bal = keep + ev.days; earned = keep + ev.days; used = 0; adjusted = 0;
+          bal = keep + ev.days; earned = keep + ev.days; used = 0; adjusted = 0; carryLeft = keep;
           ledger.push({ date, label: ev.label, days: ev.days, balance: round(bal) });
-        } else if (ev.kind === "use") { bal -= ev.days; used += ev.days; ledger.push({ date, label: ev.label, days: -ev.days, balance: round(bal) }); }
+        } else if (ev.kind === "use") {
+          // Sisa bawaan dipakai lebih dulu.
+          carryLeft = Math.max(0, carryLeft - ev.days);
+          bal -= ev.days; used += ev.days; ledger.push({ date, label: ev.label, days: -ev.days, balance: round(bal) });
+        } else if (ev.kind === "expire") {
+          const x = Math.min(carryLeft, Math.max(bal, 0));
+          carryLeft = 0;
+          if (x > 0) { bal -= x; expired += x; ledger.push({ date, label: ev.label, days: -x, balance: round(bal) }); }
+        }
         else { bal += ev.days; adjusted += ev.days; ledger.push({ date, label: ev.label, days: ev.days, balance: round(bal) }); }
       }
       rows.push({

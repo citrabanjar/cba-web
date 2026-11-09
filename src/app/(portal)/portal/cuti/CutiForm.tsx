@@ -7,9 +7,11 @@ import type { LeaveRequest } from "@prisma/client";
 import { T, useT } from "@/components/i18n";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
-import { LEAVE_CATEGORIES, periodLabel, unitLabel } from "@/lib/leave";
+import { HALF_DAY_PARTS, LEAVE_CATEGORIES, halfDayLabel, periodLabel, unitLabel } from "@/lib/leave";
 import type { BalanceRow } from "@/lib/leave-balance";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
+
+const dec = (n: number) => String(n).replace(".", ",");
 
 // Label pengajuan lama (sebelum Setup Leave).
 const LEGACY_LABELS: Record<string, string> = {
@@ -25,7 +27,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 
 export type LeaveOption = {
   id: string; code: string; name: string; category: string; quota: number | null; unit: string; period: string;
-  noticeDays: number; needsAttachment: boolean; attachmentNote: string | null; paid: boolean; note: string | null; balance: boolean;
+  noticeDays: number; needsAttachment: boolean; attachmentNote: string | null; paid: boolean; note: string | null; balance: boolean; allowHalfDay: boolean;
 };
 
 type Request = LeaveRequest & { policy: { code: string; name: string } | null };
@@ -35,6 +37,7 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
   const [state, formAction, isPending] = useActionState(submitLeave, undefined);
   const [showForm, setShowForm] = useState(false);
   const [policyId, setPolicyId] = useState("");
+  const [dayPart, setDayPart] = useState("PENUH");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const chosen = options.find((o) => o.id === policyId);
   const chosenBalance = chosen?.balance ? balances.find((b) => b.policyId === chosen.id) : undefined;
@@ -72,7 +75,8 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
           {state && "ok" in state && (
             <div className="bg-green-50 text-green-700 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
               <CheckCircle2 size={16} />
-              <T>Pengajuan cuti</T> {state.days} <T>hari berhasil disubmit. Menunggu persetujuan HRD.</T>
+              <span><T>Pengajuan cuti</T> {state.days} <T>hari berhasil disubmit. Menunggu persetujuan HRD.</T>
+                {state.unpaid && <> <b>{state.unpaid} <T>hari</T></b> <T>melebihi saldo dan masuk cuti di luar tanggungan.</T></>}</span>
             </div>
           )}
           {state && "error" in state && (
@@ -114,6 +118,19 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
                   </p>
                 )}
                 {chosen.unit === "HARI_KERJA" && <p className="text-gray-400"><T>Jumlah hari dihitung dari hari kerja sesuai jadwal Anda (hari libur tidak dihitung).</T></p>}
+                {chosenBalance && <p className="text-gray-400"><T>Kalau saldo tidak cukup, kelebihannya masuk cuti di luar tanggungan.</T></p>}
+              </div>
+            )}
+
+            {chosen?.allowHalfDay && (
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Lama</T></label>
+                <select name="dayPart" value={dayPart} onChange={(e) => setDayPart(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white">
+                  <option value="PENUH">{t("Sehari penuh / beberapa hari")}</option>
+                  {HALF_DAY_PARTS.map((h) => <option key={h.key} value={h.key}>{t(h.label)} · 0,5 {t("hari")}</option>)}
+                </select>
+                {dayPart !== "PENUH" && <p className="mt-1 text-[11px] text-gray-400"><T>Isi Tanggal Mulai dan Tanggal Akhir dengan tanggal yang sama.</T></p>}
               </div>
             )}
 
@@ -163,7 +180,9 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
                     <p className="text-xs text-gray-500 mt-0.5">
                       {formatDate(req.startDate)}
                       {req.endDate.getTime() !== req.startDate.getTime() ? ` – ${formatDate(req.endDate)}` : ""}
-                      {" · "}{req.totalDays} <T>hari</T>
+                      {" · "}{dec(req.totalDays)} <T>hari</T>
+                      {req.halfDay && <> · <T>{halfDayLabel(req.halfDay) ?? ""}</T></>}
+                      {req.unpaidDays > 0 && <> · <span className="text-rose-600">{dec(req.unpaidDays)} <T>hari di luar tanggungan</T></span></>}
                     </p>
                     <p className="text-xs text-gray-400 mt-1 line-clamp-2">{req.reason}</p>
                     {req.note && <p className="text-xs text-gray-500 mt-1"><T>Catatan</T>: {req.note}</p>}

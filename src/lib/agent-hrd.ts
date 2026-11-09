@@ -12,6 +12,7 @@ export const MONITOR_CHECKS = [
   { key: "trip", group: "Harian", title: "Pengajuan dinas menunggu" },
   { key: "loan", group: "Harian", title: "Pengajuan pinjaman menunggu" },
   { key: "loan-disburse", group: "Harian", title: "Pinjaman menunggu pencairan" },
+  { key: "leave-appointed", group: "Harian", title: "Cuti karyawan yang baru diangkat tetap" },
   { key: "shift-month", group: "Bulanan", title: "Shift bulan ini belum lengkap" },
   { key: "shift-next", group: "Bulanan", title: "Shift bulan depan belum disiapkan" },
   { key: "contract", group: "Bulanan", title: "Kontrak akan berakhir" },

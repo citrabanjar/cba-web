@@ -46,6 +46,7 @@ export const PAY_PARAMS = [
   { key: "HARI_HADIR", label: "Hari hadir", unit: "hari" },
   { key: "HARI_MANGKIR", label: "Hari mangkir", unit: "hari" },
   { key: "HARI_CUTI", label: "Hari cuti disetujui", unit: "hari" },
+  { key: "HARI_CUTI_TANPA_UPAH", label: "Hari cuti di luar tanggungan", unit: "hari" },
   { key: "HARI_KERJA", label: "Hari kerja sebulan", unit: "hari" },
   { key: "MASA_KERJA", label: "Masa kerja", unit: "bulan" },
 ] as const;

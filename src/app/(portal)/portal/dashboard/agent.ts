@@ -129,6 +129,22 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
       orderBy: { contractEndDate: "asc" }, select: { id: true },
     }),
   ]);
+  // Karyawan diangkat tetap 60 hari terakhir yang belum diberi penyesuaian saldo cuti sesudahnya.
+  const since = new Date(Date.now() - 60 * DAY);
+  const appointedLogs = await prisma.employeeChangeLog.findMany({
+    where: { field: "employmentStatus", newValue: "TETAP", createdAt: { gte: since }, user: { isActive: true, employmentStatus: "TETAP" } },
+    orderBy: { createdAt: "asc" }, select: { userId: true, createdAt: true },
+  });
+  const adjusted = await prisma.leaveBalanceEntry.findMany({
+    where: { kind: "PENYESUAIAN", userId: { in: appointedLogs.map((l) => l.userId) } }, select: { userId: true, createdAt: true },
+  });
+  const appointedTodo = [...new Map(appointedLogs.map((l) => [l.userId, l])).values()]
+    .filter((l) => !adjusted.some((x) => x.userId === l.userId && x.createdAt >= l.createdAt));
+  const appointedTask: Task = {
+    key: "leave-appointed", title: "Selesaikan cuti karyawan yang baru diangkat tetap",
+    hint: "Jatah Cuti Tahunan prorata sudah masuk otomatis. Sisa Cuti Masa Kontrak diatur lewat penyesuaian saldo sesuai kesepakatan manajemen.",
+    count: appointedTodo.length, unit: "karyawan", href: "/portal/admin/leave",
+  };
   const on = new Set(settings.enabled);
   const keep = (list: Task[]) => list.filter((t) => on.has(t.key));
   const monthly = insights.monthly.map((t) => (t.key === "contract"
@@ -138,7 +154,7 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
     insights,
     agent: {
       groups: [
-        { key: "daily", label: "Harian", list: keep(insights.daily) },
+        { key: "daily", label: "Harian", list: keep([...insights.daily, appointedTask]) },
         { key: "monthly", label: "Bulanan", list: keep(monthly) },
         { key: "payroll", label: "Payroll & Pajak", list: keep(payroll) },
         { key: "data", label: "Data Karyawan", list: on.has("data") ? insights.data : [] },

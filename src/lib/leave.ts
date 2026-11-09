@@ -23,6 +23,23 @@ export const LEAVE_PERIODS = [
   { key: "KEJADIAN", label: "per kejadian" },
 ] as const;
 
+// Kapan jatah per tahun diperbarui.
+export const LEAVE_RENEWALS = [
+  { key: "JANUARI", label: "Setiap 1 Januari" },
+  { key: "ULANG_TAHUN_KERJA", label: "Ulang tahun kerja" },
+] as const;
+export const HALF_DAY_PARTS = [
+  { key: "AWAL", label: "Setengah hari pertama (masuk setelah istirahat)" },
+  { key: "AKHIR", label: "Setengah hari kedua (pulang saat istirahat)" },
+] as const;
+export const halfDayLabel = (v: string | null | undefined) => HALF_DAY_PARTS.find((h) => h.key === v)?.label ?? null;
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+// "03-31" -> "31 Mar"
+export const expiryLabel = (v: string | null | undefined) => {
+  const m = /^(\d{2})-(\d{2})$/.exec(v ?? "");
+  return m ? `${Number(m[2])} ${MONTH_SHORT[Number(m[1]) - 1]}` : "";
+};
+
 export const isLeaveCategory = (v: string) => LEAVE_CATEGORIES.some((c) => c.key === v);
 export const isLeaveUnit = (v: string) => LEAVE_UNITS.some((u) => u.key === v);
 export const isLeavePeriod = (v: string) => LEAVE_PERIODS.some((p) => p.key === v);
@@ -34,5 +51,6 @@ export type LeavePolicyInput = {
   code: string; name: string; category: string; quota: number | null; unit: string; period: string;
   minServiceMonths: number; gender: string | null; forStatus: string | null; accrualPerMonth: number; paid: boolean; payNote: string; deductsAnnual: boolean;
   needsAttachment: boolean; attachmentNote: string; carryOverDays: number; noticeDays: number;
+  renewal: string; carryOverExpires: boolean; carryOverExpiry: string; allowHalfDay: boolean;
   legalBasis: string; note: string; isActive: boolean;
 };
