@@ -48,7 +48,10 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
     setCancellingId(null);
   };
 
-  const groups = LEAVE_CATEGORIES.map((c) => ({ ...c, items: options.filter((o) => o.category === c.key) })).filter((g) => g.items.length);
+  const sorted = [
+    ...LEAVE_CATEGORIES.flatMap((c) => options.filter((o) => o.category === c.key)),
+    ...options.filter((o) => !LEAVE_CATEGORIES.some((c) => c.key === o.category)),
+  ];
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
@@ -92,11 +95,8 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
               <select name="policyId" required value={policyId} onChange={(e) => setPolicyId(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white">
                 <option value="">{t("-- Pilih Jenis --")}</option>
-                {groups.map((g) => (
-                  <optgroup key={g.key} label={t(g.label)}>
-                    {g.items.map((o) => <option key={o.id} value={o.id}>{t(o.name)}</option>)}
-                  </optgroup>
-                ))}
+                {/* Daftar biasa tanpa judul kategori (urutan tetap per kategori) supaya mudah dibaca. */}
+                {sorted.map((o) => <option key={o.id} value={o.id}>{t(o.name)}</option>)}
               </select>
             </div>
 
