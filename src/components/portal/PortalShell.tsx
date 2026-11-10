@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound, ArrowLeftRight,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -38,6 +38,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
         { href: "/portal/absensi", label: "Absensi", icon: Clock },
         { href: "/portal/cuti", label: "Cuti", icon: Calendar },
         { href: "/portal/dinas", label: "Dinas Luar", icon: Briefcase },
+        { href: "/portal/tukar-shift", label: "Tukar Shift", icon: ArrowLeftRight },
       ],
     },
     {

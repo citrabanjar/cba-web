@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, AlertCircle, CheckCircle2, ClipboardCheck, LogOut,
+  Receipt, TrendingUp, AlertCircle, CheckCircle2, ClipboardCheck, LogOut, ArrowLeftRight,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import { T } from "@/components/i18n";
 import AdminDashboard from "./AdminDashboard";
+import { prisma } from "@/lib/prisma";
 import { openAttendance } from "@/lib/attendance-assess";
 import { isApprover, pendingApprovals } from "@/lib/approval";
 
@@ -30,6 +31,7 @@ export default async function DashboardPage() {
   // Atasan langsung (bukan admin): kartu pengajuan bawahan yang menunggu persetujuan.
   const approver = access && !isAdmin ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const toApprove = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : 0;
+  const swapAsks = !superAdmin && user.id ? await prisma.shiftSwapRequest.count({ where: { partnerId: user.id, status: "MENUNGGU_REKAN" } }) : 0;
 
   const menuItems = [
     ...(superAdmin ? [] : [
@@ -113,6 +115,17 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>}
+
+      {swapAsks > 0 && (
+        <Link href="/portal/tukar-shift" className="mb-6 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 hover:bg-sky-100">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500 text-white"><ArrowLeftRight size={18} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-gray-900">{swapAsks} <T>permintaan tukar shift dari rekan</T></span>
+            <span className="block text-xs text-gray-500"><T>Terima atau tolak sebelum diteruskan ke atasan.</T></span>
+          </span>
+          <span className="text-xs font-semibold text-brand"><T>Buka →</T></span>
+        </Link>
+      )}
 
       {toApprove > 0 && (
         <Link href="/portal/persetujuan" className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100">

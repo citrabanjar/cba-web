@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { hasMenu } from "@/lib/roles";
+import { pendingSwapApprovals } from "@/lib/shift-swap";
 
 // Jalur persetujuan cuti & dinas luar (keputusan pemilik 2026-11-10): penyetuju = ATASAN LANGSUNG
 // yang aktif. Karyawan tanpa atasan aktif tidak bisa mengirim pengajuan (ditolak saat dikirim), dan
@@ -30,12 +31,13 @@ export async function canDecide(a: Approver, requesterId: string) {
 // Jumlah pengajuan yang menunggu keputusan penyetuju ini (untuk badge menu).
 export async function pendingApprovals(a: Approver) {
   const user = requesterFilter(a);
-  const [leaves, trips, profiles] = await Promise.all([
+  const [leaves, trips, profiles, swaps] = await Promise.all([
     prisma.leaveRequest.count({ where: { status: "PENDING", user } }),
     prisma.businessTrip.count({ where: { status: "PENDING", user } }),
     reviewsProfiles(a) ? prisma.profileChangeRequest.count({ where: { status: "PENDING", userId: { not: a.id } } }) : 0,
+    pendingSwapApprovals(a.id),
   ]);
-  return leaves + trips + profiles;
+  return leaves + trips + profiles + swaps;
 }
 
 // Menu Persetujuan tampil untuk atasan (punya bawahan langsung) dan Admin Data Karyawan (perubahan data).

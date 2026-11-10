@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
+import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { halfDayLabel } from "@/lib/leave";
 import { decideLeave, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
+import { decideSwap } from "../tukar-shift/actions";
+import { SWAP_STATUS } from "@/lib/shift-swap-status";
 import { fieldLabel, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 
 export type ApprovalItem = {
@@ -28,16 +30,24 @@ export type ProfileItem = {
   reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string;
 };
 
-type TabKey = "menunggu" | "riwayat" | "data";
+export type SwapItem = {
+  id: string; date: string; status: string; requester: ApprovalItem["person"]; partner: ApprovalItem["person"];
+  requesterShift: string; partnerShift: string; reason: string | null; note: string | null;
+  mine: boolean; managerA: string | null; managerB?: string | null; decidedBy: string | null;
+};
 
-export default function PersetujuanClient({ items, profiles }: { items: ApprovalItem[]; profiles: ProfileItem[] | null }) {
+type TabKey = "menunggu" | "riwayat" | "data" | "swap";
+
+export default function PersetujuanClient({ items, profiles, swaps }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[] }) {
   const [tab, setTab] = useState<TabKey>(() =>
-    !items.some((i) => i.status === "PENDING") && profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
+    items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
+      : profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
   const pending = items.filter((i) => i.status === "PENDING").sort((a, b) => a.start.localeCompare(b.start));
   const done = items.filter((i) => i.status !== "PENDING").sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
   const tabs: [TabKey, string, number][] = [
     ["menunggu", "Cuti & Dinas", pending.length],
     ["riwayat", "Riwayat 60 hari", done.length],
+    ["swap", "Tukar Shift", swaps.filter((s) => s.mine).length],
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
   ];
   return (
@@ -50,7 +60,11 @@ export default function PersetujuanClient({ items, profiles }: { items: Approval
           </button>
         ))}
       </div>
-      {tab === "data" && profiles ? (
+      {tab === "swap" ? (
+        swaps.length === 0 ? <Empty text="Tidak ada pengajuan tukar shift." /> : [...swaps]
+          .sort((a, b) => Number(b.mine) - Number(a.mine) || a.date.localeCompare(b.date))
+          .map((s) => <SwapCard key={s.id} s={s} />)
+      ) : tab === "data" && profiles ? (
         profiles.length === 0 ? <Empty text="Tidak ada pengajuan perubahan data." /> : [...profiles]
           .sort((a, b) => Number(b.status === "PENDING") - Number(a.status === "PENDING") || b.createdAt.localeCompare(a.createdAt))
           .map((p) => <ProfileCard key={p.id} item={p} />)
@@ -204,6 +218,65 @@ function ProfileCard({ item: p }: { item: ProfileItem }) {
                 <button type="button" disabled={pending} onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"><X size={13} /> <T>Tolak</T></button>
                 <button type="button" disabled={pending} onClick={() => decide(true)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
                   {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Setujui & terapkan</T>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Tukar shift: pemohon & rekan, shift sebelum → sesudah, status persetujuan kedua atasan.
+function SwapCard({ s }: { s: SwapItem }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState("");
+  const st = SWAP_STATUS[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-600" };
+  const decide = (approve: boolean) => start(async () => {
+    setError("");
+    const r = await decideSwap(s.id, approve, note);
+    if (r.error) setError(r.error);
+  });
+  const who = (p: SwapItem["requester"]) => <>{p.name} <span className="text-xs font-normal text-gray-400">{[p.employeeId, p.department].filter(Boolean).join(" · ")}</span></>;
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex flex-wrap items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700"><ArrowLeftRight size={17} /></span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-sm font-semibold text-gray-900">{t("Tukar Shift")} · {formatDate(new Date(s.date))}</p>
+          <p className="text-sm text-gray-800"><T>Pemohon</T>: {who(s.requester)} — <b>{s.requesterShift}</b> → <b>{s.partnerShift}</b></p>
+          <p className="text-sm text-gray-800"><T>Rekan</T>: {who(s.partner)} — <b>{s.partnerShift}</b> → <b>{s.requesterShift}</b></p>
+          {s.reason && <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">{s.reason}</p>}
+          <p className="text-[11px] text-gray-400">
+            <T>Atasan pemohon</T>: {s.managerA ?? t("menunggu")}{s.managerB !== undefined && <> · <T>Atasan rekan</T>: {s.managerB ?? t("menunggu")}</>}
+            {s.note && <> · <T>Catatan</T>: {s.note}</>}
+          </p>
+        </div>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>
+      </div>
+      {s.mine && s.status === "MENUNGGU_ATASAN" && (
+        <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+          <input value={note} onChange={(e) => setNote(e.target.value)}
+            placeholder={t(rejecting ? "Alasan penolakan (wajib)" : "Catatan untuk karyawan (opsional)")}
+            className="h-9 w-full rounded-lg border border-gray-200 px-3 text-sm" />
+          {error && <p className="text-xs text-rose-600"><T>{error}</T></p>}
+          <div className="flex justify-end gap-2">
+            {rejecting ? (
+              <>
+                <button type="button" disabled={pending} onClick={() => { setRejecting(false); setError(""); }} className="rounded-full px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"><T>Batal</T></button>
+                <button type="button" disabled={pending} onClick={() => decide(false)} className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                  {pending ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} <T>Tolak pengajuan</T>
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" disabled={pending} onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"><X size={13} /> <T>Tolak</T></button>
+                <button type="button" disabled={pending} onClick={() => decide(true)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                  {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Setujui</T>
                 </button>
               </>
             )}

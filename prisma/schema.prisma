@@ -162,6 +162,8 @@ model User {
   businessTrips    BusinessTrip[]
   payslips         Payslip[]
   profileChanges   ProfileChangeRequest[]
+  swapsRequested   ShiftSwapRequest[]     @relation("SwapRequester")
+  swapsPartnered   ShiftSwapRequest[]     @relation("SwapPartner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -866,5 +868,38 @@ model ProfileChangeRequest {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([status])
+}
+
+// Pengajuan tukar shift dengan rekan untuk satu tanggal (keputusan pemilik 2026-11-11):
+// rekan menyetujui dulu, lalu atasan langsung pemohon dan atasan langsung rekan (cukup sekali bila sama).
+// Hanya bisa selama kedua karyawan belum check-in/check-out di tanggal itu. Setelah disetujui, shift
+// keduanya di Jadwal Bulanan (EmployeeShiftDay) ditukar.
+model ShiftSwapRequest {
+  id              String    @id @default(cuid())
+  requesterId     String
+  partnerId       String
+  date            DateTime  @db.Date
+  requesterShift  String // kode shift pemohon saat diajukan (yang akan dipakai rekan)
+  partnerShift    String // kode shift rekan saat diajukan (yang akan dipakai pemohon)
+  reason          String?   @db.Text
+  status          String    @default("MENUNGGU_REKAN") // MENUNGGU_REKAN | MENUNGGU_ATASAN | DISETUJUI | DITOLAK | DIBATALKAN
+  partnerAt       DateTime?
+  managerAId      String? // atasan pemohon
+  managerAAt      DateTime?
+  managerAName    String?
+  managerBId      String? // atasan rekan (kosong bila sama dengan atasan pemohon)
+  managerBAt      DateTime?
+  managerBName    String?
+  note            String?   @db.Text // alasan ditolak / catatan
+  decidedBy       String?
+  decidedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  requester User @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  partner   User @relation("SwapPartner", fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId])
+  @@index([partnerId])
   @@index([status])
 }

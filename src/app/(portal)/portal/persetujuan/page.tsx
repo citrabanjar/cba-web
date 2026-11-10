@@ -8,7 +8,7 @@ import { getAccess } from "@/lib/access";
 import { isApprover, requesterFilter, reviewsProfiles } from "@/lib/approval";
 import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
-import PersetujuanClient, { type ApprovalItem, type ProfileItem } from "./PersetujuanClient";
+import PersetujuanClient, { type ApprovalItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
 
 export const metadata: Metadata = { title: "Persetujuan" };
 
@@ -28,7 +28,7 @@ export default async function PersetujuanPage() {
   const since = daysAgo(60);
   const who = { select: { id: true, name: true, employeeId: true, position: true, department: { select: { name: true } } } };
   const reviewer = reviewsProfiles(a);
-  const [leaves, trips, profileReqs] = await Promise.all([
+  const [leaves, trips, profileReqs, swapReqs] = await Promise.all([
     prisma.leaveRequest.findMany({
       where: { user, OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
       include: { user: who, policy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 200,
@@ -42,6 +42,11 @@ export default async function PersetujuanPage() {
       where: { userId: { not: a.id }, OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
     }) : Promise.resolve([]),
+    // Tukar shift: atasan langsung pemohon (A) dan atasan langsung rekan (B).
+    prisma.shiftSwapRequest.findMany({
+      where: { OR: [{ managerAId: a.id }, { managerBId: a.id }], status: { in: ["MENUNGGU_ATASAN", "DISETUJUI", "DITOLAK"] }, createdAt: { gte: since } },
+      include: { requester: who, partner: who }, orderBy: { date: "asc" }, take: 200,
+    }),
   ]);
 
   const person = (u: (typeof leaves)[number]["user"]) => ({
@@ -67,13 +72,20 @@ export default async function PersetujuanPage() {
     reason: r.reason, note: r.note, decidedBy: r.decidedBy, decidedAt: r.decidedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
   }));
 
+  const swaps: SwapItem[] = swapReqs.map((s) => ({
+    id: s.id, date: ymd(s.date), status: s.status, requester: person(s.requester), partner: person(s.partner),
+    requesterShift: s.requesterShift, partnerShift: s.partnerShift, reason: s.reason, note: s.note,
+    mine: (s.managerAId === a.id && !s.managerAAt) || (s.managerBId === a.id && !s.managerBAt),
+    managerA: s.managerAName, managerB: s.managerBId ? s.managerBName : undefined, decidedBy: s.decidedBy,
+  }));
+
   return (
     <div className="min-h-full bg-gray-50">
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Persetujuan</T></h2>
         <p className="text-xs text-gray-400"><T>Pengajuan cuti dan dinas luar dari karyawan yang Anda pimpin langsung.</T></p>
       </div>
-      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} />
+      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} />
     </div>
   );
 }
