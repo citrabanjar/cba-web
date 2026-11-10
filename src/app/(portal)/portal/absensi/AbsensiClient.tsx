@@ -6,6 +6,7 @@ import { checkIn, checkOut } from "./actions";
 import type { Attendance } from "@prisma/client";
 import { T } from "@/components/i18n";
 import { nearestLocation, type AllowedLocation } from "@/lib/work-location-client";
+import AbsenMap from "./AbsenMap";
 
 interface Props {
   today: Attendance | null;
@@ -24,8 +25,8 @@ function getDurationStr(checkIn: Date, checkOut?: Date | null) {
 
 const DAY_NAMES = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-// Halaman absen tanpa peta: lokasi absen sudah ditentukan admin, jadi karyawan cukup
-// melihat status apakah posisinya di dalam area. Pengecekan tetap dilakukan server.
+// Halaman absen: status lokasi + peta kecil (Google Maps) dengan lingkaran radius area absen dan
+// posisi karyawan, plus peringatan radius. Pengecekan tetap dilakukan server.
 export default function AbsensiClient({ today, week, locations, onTrip }: Props) {
   const [pos, setPos] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(
@@ -116,6 +117,23 @@ export default function AbsensiClient({ today, week, locations, onTrip }: Props)
             {pos && <p className="mt-1 text-[11px] opacity-70"><T>Akurasi GPS</T> ±{pos.accuracy} m</p>}
           </div>
         </div>
+
+        {/* Peringatan radius */}
+        {pos && !onTrip && near?.inside && near.distance > near.radius * 0.8 && (
+          <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+            <span><T>Anda hampir keluar area absen</T> ({near.distance} / {near.radius} m). <T>Mendekatlah ke titik lokasi supaya absen tidak ditolak.</T></span>
+          </div>
+        )}
+        {pos && !onTrip && near && pos.accuracy > near.radius && (
+          <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+            <span><T>Sinyal GPS lemah</T> (±{pos.accuracy} m). <T>Pindah ke tempat terbuka atau tunggu beberapa detik supaya lokasinya lebih tepat.</T></span>
+          </div>
+        )}
+
+        {/* Peta area absen */}
+        {(locations.length > 0 || pos) && <AbsenMap locations={locations} pos={pos} inside={onTrip || locations.length === 0 ? null : near?.inside ?? null} />}
 
         {/* Pesan hasil */}
         {message && (
