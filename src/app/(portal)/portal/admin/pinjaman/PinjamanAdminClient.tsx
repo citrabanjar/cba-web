@@ -19,22 +19,34 @@ export type LoanEmployee = { employeeId: string; name: string };
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 const HEAD = ["Employee ID", "Sisa Pinjaman", "Sisa Angsuran (kali)", "Mulai Dipotong (YYYY-MM)", "Pinjaman Semula", "Keterangan"];
+// Baris contoh di template ditandai "CONTOH" di kolom Keterangan dan otomatis dilewati saat upload.
+const EXAMPLE_NOTE = "CONTOH - hapus atau timpa baris ini";
+const isExample = (note: unknown) => String(note ?? "").trim().toUpperCase().startsWith("CONTOH");
 
 // Upload saldo awal pinjaman dari aplikasi lama (Super Admin): template → pratinjau → simpan.
 function UploadDialog({ employees, onClose }: { employees: LoanEmployee[]; onClose: () => void }) {
   const t = useT();
   const [rows, setRows] = useState<(OpeningRow & { name?: string; problem?: string })[]>([]);
+  const [examples, setExamples] = useState(0);
   const [msg, setMsg] = useState<{ ok: boolean; text: string; list?: string[] } | null>(null);
   const [pending, start] = useTransition();
   const known = new Map(employees.map((e) => [e.employeeId.toLowerCase(), e.name]));
   const bad = rows.filter((r) => r.problem).length;
 
   function template() {
-    const sample = [HEAD, [employees[0]?.employeeId ?? "D001", 3000000, 4, addMonths(thisMonth(), 1), 6000000, "Pinjaman dari aplikasi lama"]];
+    const sample = [HEAD, [employees[0]?.employeeId ?? "D001", 3000000, 4, addMonths(thisMonth(), 1), 6000000, EXAMPLE_NOTE]];
     const sheet = XLSX.utils.aoa_to_sheet(sample);
     sheet["!cols"] = HEAD.map(() => ({ wch: 24 }));
+    // Catatan di sel A2 (muncul saat disorot) bahwa baris ini hanya contoh.
+    const a2 = sheet["A2"];
+    if (a2) {
+      const c: XLSX.Comments = [{ a: "Petunjuk", t: "Baris ini CONTOH. Hapus atau timpa dengan data asli; baris berketerangan CONTOH tidak ikut diupload." }];
+      c.hidden = true;
+      a2.c = c;
+    }
     const guide = XLSX.utils.aoa_to_sheet([
-      ["Petunjuk"], ["Satu baris = satu pinjaman yang masih berjalan per tanggal migrasi. Satu karyawan boleh lebih dari satu baris."],
+      ["Petunjuk"], ["Baris 2 di sheet Saldo Pinjaman adalah CONTOH (Keterangan diawali CONTOH). Hapus atau timpa dengan data asli; baris CONTOH otomatis dilewati saat upload."],
+      ["Satu baris = satu pinjaman yang masih berjalan per tanggal migrasi. Satu karyawan boleh lebih dari satu baris."],
       ["Sisa Pinjaman = pokok yang belum dibayar. Sisa Angsuran = berapa kali lagi dipotong."],
       ["Mulai Dipotong = bulan potongan berikutnya, format YYYY-MM (mis. 2026-12)."], ["Pinjaman Semula dan Keterangan boleh dikosongkan."],
     ]);
@@ -57,7 +69,9 @@ function UploadDialog({ employees, onClose }: { employees: LoanEmployee[]; onClo
       return m ? `${m[2]}-${m[1].padStart(2, "0")}` : s;
     };
     const num = (v: unknown) => Number(String(v ?? "").replace(/[^\d.-]/g, "")) || 0;
-    const parsed = table.slice(1).filter((r) => String(r[0] ?? "").trim()).map((r) => {
+    const filled = table.slice(1).filter((r) => String(r[0] ?? "").trim());
+    setExamples(filled.filter((r) => isExample(r[5])).length);
+    const parsed = filled.filter((r) => !isExample(r[5])).map((r) => {
       const row: OpeningRow = { employeeId: String(r[0]).trim(), remaining: num(r[1]), tenor: num(r[2]), startPeriod: period(r[3]), original: num(r[4]) || null, note: String(r[5] ?? "") };
       const name = known.get(row.employeeId.toLowerCase());
       const problem = !name ? "Employee ID tidak ditemukan" : row.remaining < 1000 ? "Sisa pinjaman kosong" : row.tenor < 1 || row.tenor > 120 ? "Sisa angsuran 1-120" : !isPeriod(row.startPeriod) ? "Mulai dipotong harus YYYY-MM" : undefined;
@@ -84,6 +98,7 @@ function UploadDialog({ employees, onClose }: { employees: LoanEmployee[]; onClo
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) read(f); e.target.value = ""; }} />
           </label>
         </div>
+        {examples > 0 && <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">{examples} <T>baris contoh (Keterangan CONTOH) dilewati.</T></p>}
         {rows.length > 0 && (
           <div className="max-h-80 overflow-auto rounded-xl border border-gray-200">
             <table className="w-full text-xs">

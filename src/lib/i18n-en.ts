@@ -287,6 +287,7 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "baris contoh (Keterangan CONTOH) dilewati.": "example row(s) (Note CONTOH) skipped.",
   "Saldo cuti aktif": "Leave balance active",
   "Aktifkan saldo cuti? Saldo di tabel ini akan tampil di profil karyawan dan halaman Cuti karyawan.": "Activate leave balances? The balances in this table will appear on employee profiles and the employee Leave page.",
   "Nonaktifkan saldo cuti? Saldo di profil dan halaman Cuti karyawan kembali menjadi 0.": "Deactivate leave balances? Balances on profiles and the employee Leave page go back to 0.",
