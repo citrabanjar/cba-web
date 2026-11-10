@@ -287,6 +287,8 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Karyawan tanpa atasan langsung (penyetuju cuti/dinas)": "Employees without a direct manager (leave/trip approver)",
+  "Atasan langsung adalah penyetuju cuti dan dinas luar. Tanpa atasan aktif, pengajuannya jatuh ke HRD di menu Persetujuan.": "The direct manager approves leave and business trips. Without an active manager, requests fall to HR in Approvals.",
   "Persetujuan": "Approvals",
   "Pengajuan cuti dan dinas luar dari karyawan yang Anda pimpin langsung.": "Leave and business-trip requests from employees who report directly to you.",
   "Riwayat 60 hari": "Last 60 days",

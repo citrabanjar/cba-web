@@ -148,11 +148,13 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   };
   // Onboarding & karyawan yang belum di-setup payroll / jadwal.
   const activeEmp = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
-  const [onbReview, onbApproval, noPay, noShift] = await Promise.all([
+  const [onbReview, onbApproval, noPay, noShift, noManager] = await Promise.all([
     prisma.candidate.count({ where: { status: "DIKIRIM" } }),
     prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }),
     prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
     prisma.user.findMany({ where: { ...activeEmp, schedules: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
+    // Tanpa atasan langsung aktif = pengajuan cuti/dinasnya tidak punya penyetuju (jatuh ke HRD).
+    prisma.user.findMany({ where: { ...activeEmp, OR: [{ managerId: null }, { manager: { isActive: false } }] }, orderBy: { name: "asc" }, select: { id: true } }),
   ]);
   const onboardingTasks: Task[] = [
     { key: "onb-review", title: "Periksa data calon karyawan", hint: "Cocokkan isian calon dengan dokumen fisik, lengkapi data pekerjaan, lalu ajukan approval.", count: onbReview, unit: "calon", href: "/portal/admin/onboarding" },
@@ -160,6 +162,7 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   ];
   const setupTasks: Task[] = [
     { key: "emp-no-pay", title: "Tempel komponen payroll", hint: "Karyawan aktif yang belum ditempel komponen gaji tidak ikut terhitung di Proses Gaji.", count: noPay.length, unit: "karyawan", href: noPay[0] ? `/portal/admin/karyawan/${noPay[0].id}` : "/portal/admin/payroll" },
+    { key: "emp-no-manager", title: "Isi atasan langsung", hint: "Atasan langsung adalah penyetuju cuti dan dinas luar. Tanpa atasan aktif, pengajuannya jatuh ke HRD di menu Persetujuan.", count: noManager.length, unit: "karyawan", href: noManager[0] ? `/portal/admin/karyawan/${noManager[0].id}?tab=pekerjaan` : "/portal/admin/karyawan" },
     { key: "emp-no-shift", title: "Atur jadwal kerja / shift", hint: "Karyawan tanpa pola kerja atau jadwal manual tidak bisa dinilai kehadirannya.", count: noShift.length, unit: "karyawan", href: noShift[0] ? `/portal/admin/karyawan/${noShift[0].id}` : "/portal/admin/schedule" },
   ];
   const on = new Set(settings.enabled);

@@ -25,6 +25,7 @@ export const MONITOR_CHECKS = [
   { key: "data", group: "Data Karyawan", title: "Kelengkapan data karyawan" },
   { key: "emp-no-pay", group: "Data Karyawan", title: "Karyawan belum ditempel komponen payroll" },
   { key: "emp-no-shift", group: "Data Karyawan", title: "Karyawan belum punya jadwal kerja / shift" },
+  { key: "emp-no-manager", group: "Data Karyawan", title: "Karyawan tanpa atasan langsung (penyetuju cuti/dinas)" },
   { key: "onb-review", group: "Harian", title: "Calon karyawan menunggu pemeriksaan HRD" },
   { key: "onb-approval", group: "Harian", title: "Calon karyawan menunggu approval" },
 ] as const;
