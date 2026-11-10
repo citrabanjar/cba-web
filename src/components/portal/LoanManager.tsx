@@ -157,6 +157,25 @@ function ScheduleDialog({ loan, onClose }: { loan: LoanView; onClose: () => void
     const fresh = buildSchedule(remaining, rows.length, rows[0].period);
     setRows(rows.map((r, i) => ({ period: r.period, amount: String(fresh[i].amount) })));
   };
+  // Nominal yang diubah berlaku juga untuk angsuran sesudahnya; jumlah angsuran menyesuaikan dan
+  // angsuran terakhir = sisanya. Dijalankan saat kolom ditinggalkan (atau Enter), bukan tiap ketikan.
+  const [follow, setFollow] = useState(true);
+  const [before, setBefore] = useState("");
+  const cascade = (i: number) => {
+    const each = Math.round(Number(rows[i]?.amount) || 0);
+    if (!follow || each < 1 || rows[i].amount === before) return;
+    let rest = remaining - rows.slice(0, i + 1).reduce((a, r) => a + (Number(r.amount) || 0), 0);
+    if (rest < 0) return; // melebihi sisa pinjaman: biarkan, selisihnya terlihat di bawah
+    const next = rows.slice(0, i + 1);
+    while (rest > 0) {
+      const amount = Math.min(each, rest);
+      const period = rows[next.length]?.period ?? addMonths(next[next.length - 1].period, 1);
+      next.push({ period, amount: String(amount) });
+      rest -= amount;
+    }
+    setRows(next);
+    setBefore(rows[i].amount);
+  };
   return (
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
@@ -164,6 +183,10 @@ function ScheduleDialog({ loan, onClose }: { loan: LoanView; onClose: () => void
         <p className="-mt-2 text-xs text-gray-500">
           <T>Pinjaman</T> {formatRupiah(loan.principal)} · <T>sudah terpotong</T> {formatRupiah(loan.principal - remaining)} · <T>sisa</T> <b className="text-gray-900">{formatRupiah(remaining)}</b>
         </p>
+        <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
+          <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
+          <span><T>Angsuran sesudahnya ikut nominal yang diubah</T> <span className="text-gray-400">· <T>jumlah angsuran menyesuaikan, angsuran terakhir = sisanya. Matikan untuk mengubah satu bulan saja.</T></span></span>
+        </label>
         <div className="space-y-1.5">
           {paid.map((p) => (
             <div key={p.id} className="grid grid-cols-[32px_1fr_1fr_60px] items-center gap-2 text-sm text-gray-400">
@@ -175,7 +198,9 @@ function ScheduleDialog({ loan, onClose }: { loan: LoanView; onClose: () => void
             <div key={i} className="grid grid-cols-[32px_1fr_1fr_60px] items-center gap-2">
               <span className="text-sm text-gray-500">{paid.length + i + 1}</span>
               <Input type="month" value={r.period} onChange={(e) => set(i, { period: e.target.value })} className="h-8" />
-              <Input type="number" value={r.amount} onChange={(e) => set(i, { amount: e.target.value })} className="h-8 text-right" />
+              <Input type="number" value={r.amount} onChange={(e) => set(i, { amount: e.target.value })} className="h-8 text-right"
+                onFocus={() => setBefore(r.amount)} onBlur={() => cascade(i)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); cascade(i); } }} />
               <button type="button" aria-label={t("Hapus baris")} className="rounded p-1 text-gray-400 hover:text-rose-600" onClick={() => setRows((x) => x.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
             </div>
           ))}
