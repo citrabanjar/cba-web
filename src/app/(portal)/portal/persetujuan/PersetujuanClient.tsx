@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, Calendar, Check, Inbox, Loader2, X } from "lucide-react";
+import { Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { halfDayLabel } from "@/lib/leave";
 import { decideLeave, decideTrip } from "./actions";
+import { decideProfileChange } from "../profil/actions";
+import { fieldLabel, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 
 export type ApprovalItem = {
   id: string; kind: "CUTI" | "DINAS"; status: string;
@@ -21,27 +23,49 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 };
 const dec = (n: number) => String(n).replace(".", ",");
 
-export default function PersetujuanClient({ items }: { items: ApprovalItem[] }) {
-  const [tab, setTab] = useState<"menunggu" | "riwayat">("menunggu");
+export type ProfileItem = {
+  id: string; status: string; person: ApprovalItem["person"]; changes: ProfileChanges; family: FamilyRow[] | null;
+  reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string;
+};
+
+type TabKey = "menunggu" | "riwayat" | "data";
+
+export default function PersetujuanClient({ items, profiles }: { items: ApprovalItem[]; profiles: ProfileItem[] | null }) {
+  const [tab, setTab] = useState<TabKey>(() =>
+    !items.some((i) => i.status === "PENDING") && profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
   const pending = items.filter((i) => i.status === "PENDING").sort((a, b) => a.start.localeCompare(b.start));
   const done = items.filter((i) => i.status !== "PENDING").sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
-  const list = tab === "menunggu" ? pending : done;
+  const tabs: [TabKey, string, number][] = [
+    ["menunggu", "Cuti & Dinas", pending.length],
+    ["riwayat", "Riwayat 60 hari", done.length],
+    ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
+  ];
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
       <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-1.5">
-        {([["menunggu", "Menunggu", pending.length], ["riwayat", "Riwayat 60 hari", done.length]] as const).map(([k, l, n]) => (
+        {tabs.map(([k, l, n]) => (
           <button key={k} type="button" onClick={() => setTab(k)}
-            className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+            className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm ${tab === k ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
             <T>{l}</T> <span className="text-xs opacity-70">{n}</span>
           </button>
         ))}
       </div>
-      {list.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-gray-300 bg-white/70 p-10 text-center">
-          <Inbox size={22} className="text-gray-300" />
-          <p className="text-sm text-gray-500"><T>{tab === "menunggu" ? "Tidak ada pengajuan yang menunggu persetujuan Anda." : "Belum ada riwayat."}</T></p>
-        </div>
-      ) : list.map((i) => <Card key={`${i.kind}-${i.id}`} item={i} />)}
+      {tab === "data" && profiles ? (
+        profiles.length === 0 ? <Empty text="Tidak ada pengajuan perubahan data." /> : [...profiles]
+          .sort((a, b) => Number(b.status === "PENDING") - Number(a.status === "PENDING") || b.createdAt.localeCompare(a.createdAt))
+          .map((p) => <ProfileCard key={p.id} item={p} />)
+      ) : (tab === "menunggu" ? pending : done).length === 0 ? (
+        <Empty text={tab === "menunggu" ? "Tidak ada pengajuan yang menunggu persetujuan Anda." : "Belum ada riwayat."} />
+      ) : (tab === "menunggu" ? pending : done).map((i) => <Card key={`${i.kind}-${i.id}`} item={i} />)}
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-gray-300 bg-white/70 p-10 text-center">
+      <Inbox size={22} className="text-gray-300" />
+      <p className="text-sm text-gray-500"><T>{text}</T></p>
     </div>
   );
 }
@@ -103,6 +127,83 @@ function Card({ item: i }: { item: ApprovalItem }) {
                 <button type="button" disabled={pending} onClick={() => decide(true)}
                   className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
                   {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Setujui</T>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pengajuan perubahan data pribadi: data lama → data baru, Setujui (langsung diterapkan) atau Tolak (alasan wajib).
+function ProfileCard({ item: p }: { item: ProfileItem }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState("");
+  const st = STATUS[p.status] ?? { label: p.status, cls: "bg-gray-100 text-gray-600" };
+  const decide = (approve: boolean) => start(async () => {
+    setError("");
+    const r = await decideProfileChange(p.id, approve, note);
+    if (r.error) setError(r.error);
+  });
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex flex-wrap items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><UserPen size={17} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900">{p.person.name} <span className="text-xs font-normal text-gray-400">{[p.person.employeeId, p.person.position, p.person.department].filter(Boolean).join(" · ")}</span></p>
+          <p className="text-xs text-gray-500"><T>Diajukan</T> {formatDate(new Date(p.createdAt))}</p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-100">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-400">
+                <tr><th className="px-3 py-1.5"><T>Data</T></th><th className="px-3 py-1.5"><T>Sebelumnya</T></th><th className="px-3 py-1.5"><T>Menjadi</T></th></tr>
+              </thead>
+              <tbody>
+                {Object.entries(p.changes).map(([k, v]) => (
+                  <tr key={k} className="border-t border-gray-100">
+                    <td className="px-3 py-1.5 font-medium text-gray-700">{t(fieldLabel(k))}</td>
+                    <td className="px-3 py-1.5 text-gray-400">{t(showValue(k, v.old))}</td>
+                    <td className="px-3 py-1.5 font-semibold text-gray-900">{t(showValue(k, v.new))}</td>
+                  </tr>
+                ))}
+                {p.family && (
+                  <tr className="border-t border-gray-100">
+                    <td className="px-3 py-1.5 font-medium text-gray-700"><T>Keluarga</T></td>
+                    <td className="px-3 py-1.5 text-gray-400">—</td>
+                    <td className="px-3 py-1.5 font-semibold text-gray-900">{p.family.map((f) => `${f.name} (${t(f.relation)}${f.idNumber ? `, ${f.idNumber}` : ""})`).join("; ") || t("Dikosongkan")}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {p.reason && <p className="mt-1.5 text-xs text-gray-600"><T>Alasan</T>: {p.reason}</p>}
+          {p.status !== "PENDING" && <p className="mt-1.5 text-[11px] text-gray-400">{p.decidedBy ?? "—"}{p.decidedAt && <> · {formatDate(new Date(p.decidedAt))}</>}{p.note && <> · <T>Catatan</T>: {p.note}</>}</p>}
+        </div>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>
+      </div>
+      {p.status === "PENDING" && (
+        <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+          <input value={note} onChange={(e) => setNote(e.target.value)}
+            placeholder={t(rejecting ? "Alasan penolakan (wajib)" : "Catatan untuk karyawan (opsional)")}
+            className="h-9 w-full rounded-lg border border-gray-200 px-3 text-sm" />
+          {error && <p className="text-xs text-rose-600"><T>{error}</T></p>}
+          <div className="flex justify-end gap-2">
+            {rejecting ? (
+              <>
+                <button type="button" disabled={pending} onClick={() => { setRejecting(false); setError(""); }} className="rounded-full px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"><T>Batal</T></button>
+                <button type="button" disabled={pending} onClick={() => decide(false)} className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                  {pending ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} <T>Tolak pengajuan</T>
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" disabled={pending} onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"><X size={13} /> <T>Tolak</T></button>
+                <button type="button" disabled={pending} onClick={() => decide(true)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                  {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Setujui & terapkan</T>
                 </button>
               </>
             )}

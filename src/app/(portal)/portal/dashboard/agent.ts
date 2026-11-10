@@ -148,15 +148,17 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   };
   // Onboarding & karyawan yang belum di-setup payroll / jadwal.
   const activeEmp = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
-  const [onbReview, onbApproval, noPay, noShift, noManager] = await Promise.all([
+  const [onbReview, onbApproval, noPay, noShift, noManager, profileChanges] = await Promise.all([
     prisma.candidate.count({ where: { status: "DIKIRIM" } }),
     prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }),
     prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
     prisma.user.findMany({ where: { ...activeEmp, schedules: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
     // Tanpa atasan langsung aktif = pengajuan cuti/dinasnya tidak punya penyetuju (jatuh ke HRD).
     prisma.user.findMany({ where: { ...activeEmp, OR: [{ managerId: null }, { manager: { isActive: false } }] }, orderBy: { name: "asc" }, select: { id: true } }),
+    prisma.profileChangeRequest.count({ where: { status: "PENDING" } }),
   ]);
   const onboardingTasks: Task[] = [
+    { key: "profile-change", title: "Periksa perubahan data karyawan", hint: "Karyawan mengajukan perubahan data pribadi dari Profil Saya. Data baru berlaku setelah disetujui.", count: profileChanges, unit: "pengajuan", href: "/portal/persetujuan" },
     { key: "onb-review", title: "Periksa data calon karyawan", hint: "Cocokkan isian calon dengan dokumen fisik, lengkapi data pekerjaan, lalu ajukan approval.", count: onbReview, unit: "calon", href: "/portal/admin/onboarding" },
     { key: "onb-approval", title: "Setujui calon karyawan", hint: "Calon yang sudah diperiksa HRD menunggu approval Owner / Super Admin.", count: onbApproval, unit: "calon", href: "/portal/admin/onboarding" },
   ];

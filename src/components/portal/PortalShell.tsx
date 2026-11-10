@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -22,6 +22,8 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
       section: "MENU UTAMA",
       items: [
         { href: "/portal/dashboard", label: "Beranda", icon: Home },
+        // Profil Saya: data diri karyawan (Super Admin bukan karyawan).
+        ...(!isSuperAdmin(role) ? [{ href: "/portal/profil", label: "Profil Saya", icon: CircleUserRound }] : []),
         // Atasan langsung & Admin/HRD: persetujuan cuti dan dinas luar.
         ...(approvals !== null ? [{ href: "/portal/persetujuan", label: "Persetujuan", icon: ClipboardCheck, badge: approvals }] : []),
       ],

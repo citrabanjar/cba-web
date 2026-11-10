@@ -28,6 +28,7 @@ export const MONITOR_CHECKS = [
   { key: "emp-no-manager", group: "Data Karyawan", title: "Karyawan tanpa atasan langsung (penyetuju cuti/dinas)" },
   { key: "onb-review", group: "Harian", title: "Calon karyawan menunggu pemeriksaan HRD" },
   { key: "onb-approval", group: "Harian", title: "Calon karyawan menunggu approval" },
+  { key: "profile-change", group: "Harian", title: "Perubahan data karyawan menunggu persetujuan" },
 ] as const;
 
 // Pengingat SOP buatan Super Admin. MONTHLY: setiap tanggal `day`; YEARLY: setiap `day` bulan `month`;

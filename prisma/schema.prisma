@@ -161,6 +161,7 @@ model User {
   leaves           LeaveRequest[]
   businessTrips    BusinessTrip[]
   payslips         Payslip[]
+  profileChanges   ProfileChangeRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -846,4 +847,24 @@ model AiNote {
   updatedAt  DateTime  @updatedAt
 
   @@index([kind, status])
+}
+
+// Pengajuan perubahan data pribadi oleh karyawan (Profil Saya). Data baru berlaku setelah disetujui Admin.
+// changes = { field: { old, new } }; family = daftar keluarga baru (kalau diubah).
+model ProfileChangeRequest {
+  id        String    @id @default(cuid())
+  userId    String
+  changes   Json
+  family    Json?
+  reason    String?   @db.Text
+  status    String    @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED
+  note      String?   @db.Text
+  decidedBy String?
+  decidedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
 }

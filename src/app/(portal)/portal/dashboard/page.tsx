@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const att = !superAdmin && user.id ? await openAttendance(user.id) : null;
   const fmtTime = (d: Date) => d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
   // Atasan langsung (bukan admin): kartu pengajuan bawahan yang menunggu persetujuan.
-  const approver = access && !isAdmin ? { id: access.id, role: access.role } : null;
+  const approver = access && !isAdmin ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const toApprove = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : 0;
 
   const menuItems = [

@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { isApprover, requesterFilter } from "@/lib/approval";
+import { isApprover, requesterFilter, reviewsProfiles } from "@/lib/approval";
+import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
-import PersetujuanClient, { type ApprovalItem } from "./PersetujuanClient";
+import PersetujuanClient, { type ApprovalItem, type ProfileItem } from "./PersetujuanClient";
 
 export const metadata: Metadata = { title: "Persetujuan" };
 
@@ -20,13 +21,14 @@ export default async function PersetujuanPage() {
   const session = await auth();
   const access = await getAccess();
   if (!session?.user?.id || !access) redirect("/portal");
-  const a = { id: session.user.id, role: access.role };
+  const a = { id: session.user.id, role: access.role, menuAccess: access.menuAccess };
   if (!(await isApprover(a))) redirect("/portal/dashboard");
 
   const user = requesterFilter(a);
   const since = daysAgo(60);
   const who = { select: { id: true, name: true, employeeId: true, position: true, department: { select: { name: true } } } };
-  const [leaves, trips] = await Promise.all([
+  const reviewer = reviewsProfiles(a);
+  const [leaves, trips, profileReqs] = await Promise.all([
     prisma.leaveRequest.findMany({
       where: { user, OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
       include: { user: who, policy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 200,
@@ -35,6 +37,11 @@ export default async function PersetujuanPage() {
       where: { user, OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
     }),
+    // Perubahan data pribadi dari Profil Saya (Admin Data Karyawan).
+    reviewer ? prisma.profileChangeRequest.findMany({
+      where: { userId: { not: a.id }, OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
+      include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
+    }) : Promise.resolve([]),
   ]);
 
   const person = (u: (typeof leaves)[number]["user"]) => ({
@@ -55,13 +62,18 @@ export default async function PersetujuanPage() {
     })),
   ];
 
+  const profiles: ProfileItem[] = profileReqs.map((r) => ({
+    id: r.id, status: r.status, person: person(r.user), changes: r.changes as ProfileChanges, family: (r.family as FamilyRow[] | null) ?? null,
+    reason: r.reason, note: r.note, decidedBy: r.decidedBy, decidedAt: r.decidedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
+  }));
+
   return (
     <div className="min-h-full bg-gray-50">
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Persetujuan</T></h2>
         <p className="text-xs text-gray-400"><T>Pengajuan cuti dan dinas luar dari karyawan yang Anda pimpin langsung.</T></p>
       </div>
-      <PersetujuanClient items={items} />
+      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} />
     </div>
   );
 }

@@ -21,7 +21,7 @@ export default async function PortalLayout({
   const access = await getAccess();
   const storage = isSuperAdmin(access?.role) ? await getDatabaseStorage() : null;
   // Menu Persetujuan (atasan langsung, Admin/HRD) dengan jumlah pengajuan yang menunggu.
-  const approver = access ? { id: access.id, role: access.role } : null;
+  const approver = access ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
 
   return (
