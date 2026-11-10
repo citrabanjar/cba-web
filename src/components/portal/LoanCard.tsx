@@ -57,9 +57,9 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
             {s.next && <span className="ml-auto text-gray-400"><T>berikutnya</T> {periodShort(s.next.period)} · {formatRupiah(s.next.amount)}</span>}
           </button>
           {open && (
-            <div className="overflow-x-auto border-t border-gray-100">
+            <div className="max-h-96 overflow-auto border-t border-gray-100">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50/70 text-left text-[10px] uppercase tracking-wide text-gray-400">
+                <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-400">
                   <tr><th className="px-4 py-2"><T>Ke-</T></th><th className="px-4 py-2"><T>Periode potongan</T></th><th className="px-4 py-2 text-right"><T>Nominal</T></th><th className="px-4 py-2 text-right"><T>Sisa setelah bayar</T></th><th className="px-4 py-2"><T>Status</T></th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
