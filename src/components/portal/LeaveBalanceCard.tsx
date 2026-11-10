@@ -38,7 +38,6 @@ export default function LeaveBalanceCard({ rows, compact = false }: { rows: Bala
                 {r.pending > 0 && (
                   <span className="flex items-center gap-1 text-amber-700"><Hourglass size={12} /> {fmt(r.pending)} <T>hari menunggu persetujuan</T> · <T>bisa diajukan</T> {fmt(available)}</span>
                 )}
-                {r.nextDate && <span>+{fmt(r.nextDays ?? 0)} <T>hari pada</T> {formatDate(new Date(r.nextDate))}</span>}
                 {r.problem && <span className="text-red-600"><T>{r.problem}</T> — <T>hubungi HRD</T></span>}
               </div>
             </div>
