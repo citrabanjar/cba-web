@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
-import { LOAN_GROUPS, addMonths, buildSchedule, loanSummary, periodShort } from "@/lib/loans";
+import { LOAN_GROUPS, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
 import { approveLoan, cancelLoan, deleteLoan, markDisbursed, rejectLoan, saveSchedule } from "@/app/(portal)/portal/admin/pinjaman/actions";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
@@ -27,23 +27,75 @@ function useAct() {
 const ErrorBox = ({ error }: { error: string | null }) => (error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p> : null);
 
 // Proses pengajuan: jumlah, tenor, dan periode mulai bisa disesuaikan sebelum disetujui.
-function ApproveDialog({ loan, onClose }: { loan: LoanView; onClose: () => void }) {
+// Bisa digabung dengan pinjaman yang masih berjalan: sisa pinjaman lama + pinjaman baru jadi satu pinjaman,
+// dengan potongan per bulan atau jumlah angsuran sesuai permintaan.
+function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: LoanView[]; onClose: () => void }) {
   const t = useT();
   const [principal, setPrincipal] = useState(String(loan.principal));
   const [tenor, setTenor] = useState(String(loan.tenor));
   const [start, setStart] = useState(loan.startPeriod);
   const [note, setNote] = useState("");
+  const [merge, setMerge] = useState(false);
+  const [picked, setPicked] = useState<string[]>(() => running.map((l) => l.id));
+  const [mode, setMode] = useState<"amount" | "count">("amount");
+  const [amount, setAmount] = useState("");
   const { error, pending, act } = useAct();
-  const preview = Number(principal) > 0 && Number(tenor) > 0 ? buildSchedule(Number(principal), Number(tenor), start) : [];
+  const restOf = (l: LoanView) => l.installments.filter((i) => i.status !== "LUNAS").reduce((a, i) => a + i.amount, 0);
+  const merged = merge ? running.filter((l) => picked.includes(l.id)) : [];
+  const cash = Number(principal) || 0;
+  const total = cash + merged.reduce((a, l) => a + restOf(l), 0);
+  const byAmount = mode === "amount" && Number(amount) > 0;
+  const preview = total > 0
+    ? byAmount ? buildScheduleByAmount(total, Number(amount), start) : Number(tenor) > 0 ? buildSchedule(total, Number(tenor), start) : []
+    : [];
+  const approve = () => act(() => approveLoan(loan.id, {
+    principal: cash, tenor: Number(tenor), startPeriod: start, note,
+    installment: byAmount ? Number(amount) : undefined, mergeIds: merged.map((l) => l.id),
+  }), onClose);
   return (
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader><DialogTitle><T>Proses Pengajuan</T> · <T>Pinjaman ke-</T>{loan.seqNo}</DialogTitle></DialogHeader>
         {loan.purpose && <p className="-mt-2 text-sm text-gray-600">{loan.purpose}</p>}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1.5"><Label className="text-xs"><T>Jumlah (Rp)</T></Label><Input type="number" value={principal} onChange={(e) => setPrincipal(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label className="text-xs"><T>Angsuran (kali)</T></Label><Input type="number" value={tenor} onChange={(e) => setTenor(e.target.value)} /></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5"><Label className="text-xs"><T>{merge ? "Dana baru yang dicairkan" : "Jumlah (Rp)"}</T></Label><Input type="number" value={principal} onChange={(e) => setPrincipal(e.target.value)} /></div>
           <div className="space-y-1.5"><Label className="text-xs"><T>Mulai dipotong</T></Label><Input type="month" value={start} onChange={(e) => setStart(e.target.value)} /></div>
+        </div>
+
+        {running.length > 0 && (
+          <div className="space-y-2 rounded-xl border border-gray-200 p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800">
+              <input type="checkbox" checked={merge} onChange={(e) => { setMerge(e.target.checked); if (e.target.checked) setMode("amount"); }} className="h-4 w-4 accent-[var(--color-brand)]" />
+              <T>Gabungkan dengan pinjaman yang masih berjalan</T>
+            </label>
+            {merge && (
+              <>
+                <div className="space-y-1">
+                  {running.map((l) => (
+                    <label key={l.id} className="flex cursor-pointer items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
+                      <input type="checkbox" checked={picked.includes(l.id)} className="h-4 w-4 accent-[var(--color-brand)]"
+                        onChange={(e) => setPicked((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} />
+                      <T>Pinjaman ke-</T>{l.seqNo} · <T>sisa</T> <b>{formatRupiah(restOf(l))}</b>
+                    </label>
+                  ))}
+                </div>
+                <p className="flex justify-between rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-900"><T>Total pinjaman gabungan</T> <b>{formatRupiah(total)}</b></p>
+                <p className="text-[11px] text-gray-400"><T>Pinjaman lama ditutup (Digabung); sisa angsurannya pindah ke pinjaman ini. Potongan baru berjalan setelah ditandai Dicairkan.</T></p>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label className="text-xs"><T>Atur angsuran</T></Label>
+          <div className="flex gap-1 rounded-xl bg-gray-50 p-1 text-sm">
+            {([["amount", "Potongan per bulan (Rp)"], ["count", "Jumlah angsuran (kali)"]] as const).map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setMode(k)} className={`flex-1 rounded-lg px-3 py-1.5 ${mode === k ? "bg-ink font-semibold text-white" : "text-gray-600"}`}><T>{l}</T></button>
+            ))}
+          </div>
+          {mode === "amount"
+            ? <Input type="number" value={amount} placeholder={t("Contoh: 1000000")} onChange={(e) => setAmount(e.target.value)} />
+            : <Input type="number" value={tenor} onChange={(e) => setTenor(e.target.value)} />}
         </div>
         {preview.length > 0 && (
           <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
@@ -57,7 +109,7 @@ function ApproveDialog({ loan, onClose }: { loan: LoanView; onClose: () => void 
         <DialogFooter className="gap-2 sm:justify-between">
           <Button variant="outline" disabled={pending} className="text-rose-600"
             onClick={() => { if (window.confirm(t("Tolak pengajuan ini?"))) act(() => rejectLoan(loan.id, note), onClose); }}><T>Tolak</T></Button>
-          <Button disabled={pending} className="gap-1.5" onClick={() => act(() => approveLoan(loan.id, { principal: Number(principal), tenor: Number(tenor), startPeriod: start, note }), onClose)}>
+          <Button disabled={pending || (merge && merged.length === 0)} className="gap-1.5" onClick={approve}>
             {pending && <Loader2 size={15} className="animate-spin" />} <T>Setujui</T>
           </Button>
         </DialogFooter>
@@ -187,8 +239,8 @@ export function DeleteLoanButton({ loan }: { loan: { id: string; status: string;
   );
 }
 
-export function LoanDialog({ kind, loan, onClose }: { kind: "approve" | "disburse" | "schedule"; loan: LoanView; onClose: () => void }) {
-  if (kind === "approve") return <ApproveDialog loan={loan} onClose={onClose} />;
+export function LoanDialog({ kind, loan, running = [], onClose }: { kind: "approve" | "disburse" | "schedule"; loan: LoanView; running?: LoanView[]; onClose: () => void }) {
+  if (kind === "approve") return <ApproveDialog loan={loan} running={running} onClose={onClose} />;
   if (kind === "disburse") return <DisburseDialog loan={loan} onClose={onClose} />;
   return <ScheduleDialog loan={loan} onClose={onClose} />;
 }
@@ -230,7 +282,7 @@ export default function ProfileLoans({ loans }: { loans: LoanView[] }) {
           </section>
         );
       })}
-      {dialog && <LoanDialog kind={dialog.kind} loan={dialog.loan} onClose={() => setDialog(null)} />}
+      {dialog && <LoanDialog kind={dialog.kind} loan={dialog.loan} running={loans.filter((l) => l.status === "BERJALAN" && l.id !== dialog.loan.id)} onClose={() => setDialog(null)} />}
     </div>
   );
 }

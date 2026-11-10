@@ -33,6 +33,7 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
           <p className="mt-0.5 text-xs text-gray-500">
             {loan.tenor} <T>kali angsuran</T> · <T>mulai</T> {periodShort(loan.startPeriod)}
             {loan.isOpening && loan.originalAmount ? <> · <T>pinjaman semula</T> {formatRupiah(loan.originalAmount)}</> : null}
+            {!loan.isOpening && loan.originalAmount ? <> · <T>dana baru</T> {formatRupiah(loan.originalAmount)}</> : null}
             {loan.disbursedAt && <> · <T>dicairkan</T> {new Date(`${loan.disbursedAt}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</>}
           </p>
           {loan.purpose && <p className="mt-1 text-sm text-gray-700">{loan.purpose}</p>}
@@ -45,7 +46,9 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
           <div className="px-4">
             <div className="flex justify-between text-xs text-gray-500">
               <span><T>Sudah dibayar</T> {formatRupiah(s.paid)} ({s.paidCount}/{loan.installments.length})</span>
-              <span><T>Sisa</T> <b className="text-gray-900">{formatRupiah(s.remaining)}</b></span>
+              {loan.status === "DIGABUNG"
+                ? <span><T>Sisa dipindah ke pinjaman gabungan</T></span>
+                : <span><T>Sisa</T> <b className="text-gray-900">{formatRupiah(s.remaining)}</b></span>}
             </div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
           </div>

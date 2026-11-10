@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { isManagement, isSuperAdmin } from "@/lib/roles";
-import { buildSchedule, isPeriod } from "@/lib/loans";
+import { buildSchedule, buildScheduleByAmount, isPeriod, unpaidTotal } from "@/lib/loans";
 import { nextLoanNo } from "@/lib/loan-view";
 
 const PATH = "/portal/admin/pinjaman";
@@ -32,18 +32,63 @@ const terms = (principal: number, tenor: number, startPeriod: string) => {
 
 // Setujui pengajuan (jumlah, tenor, periode mulai boleh disesuaikan) dan susun tabel angsuran.
 // Angsuran baru dipotong setelah pinjaman ditandai dicairkan.
-export async function approveLoan(id: string, input: { principal: number; tenor: number; startPeriod: string; note: string }): Promise<Result> {
+// Opsi gabung: sisa pinjaman yang masih berjalan (dipilih) ditambahkan ke pinjaman baru menjadi satu pinjaman,
+// dengan potongan per bulan (installment) atau jumlah angsuran (tenor) sesuai permintaan. Pinjaman lama ditutup
+// berstatus DIGABUNG (angsuran yang sudah terpotong tetap tercatat); dana baru tercatat di originalAmount.
+export async function approveLoan(id: string, input: {
+  principal: number; tenor: number; startPeriod: string; note: string; installment?: number; mergeIds?: string[];
+}): Promise<Result> {
   const access = await requireAdmin();
   const loan = await prisma.employeeLoan.findUnique({ where: { id } });
   if (!loan || loan.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
-  const tm = terms(input.principal, input.tenor, input.startPeriod);
-  if ("error" in tm) return { error: tm.error };
+  const cash = Math.round(Number(input.principal) || 0);
+  if (cash < 1000) return { error: "Jumlah pinjaman wajib diisi." };
+  if (!isPeriod(input.startPeriod)) return { error: "Periode potongan pertama tidak valid." };
+
+  const mergeIds = [...new Set(input.mergeIds ?? [])];
+  const olds = mergeIds.length
+    ? await prisma.employeeLoan.findMany({ where: { id: { in: mergeIds } }, include: { installments: true }, orderBy: { seqNo: "asc" } })
+    : [];
+  if (olds.length !== mergeIds.length || olds.some((o) => o.userId !== loan.userId || o.status !== "BERJALAN")) {
+    return { error: "Pinjaman yang digabung harus pinjaman berjalan milik karyawan yang sama." };
+  }
+  if (olds.some((o) => o.isOpening) && !isSuperAdmin(access.role)) return { error: "Saldo awal migrasi hanya bisa diubah Super Admin." };
+  const moved = olds.map((o) => ({ o, rest: unpaidTotal(o.installments) }));
+  const total = cash + moved.reduce((a, m) => a + m.rest, 0);
+
+  const each = Math.round(Number(input.installment) || 0);
+  let rows;
+  if (each > 0) {
+    if (each < 1000) return { error: "Potongan per bulan minimal Rp1.000." };
+    rows = buildScheduleByAmount(total, each, input.startPeriod);
+  } else {
+    const n = Math.round(Number(input.tenor) || 0);
+    if (n < 1) return { error: "Isi potongan per bulan atau jumlah angsuran." };
+    rows = buildSchedule(total, n, input.startPeriod);
+  }
+  if (rows.length > 120) return { error: "Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan." };
+
+  const fmt = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+  const mergeNote = moved.length
+    ? `Gabungan: ${moved.map((m) => `Pinjaman ke-${m.o.seqNo} sisa ${fmt(m.rest)}`).join(", ")} + dana baru ${fmt(cash)}.`
+    : "";
+  const note = [mergeNote, input.note.trim()].filter(Boolean).join(" ") || null;
   await prisma.$transaction([
+    ...moved.flatMap((m) => [
+      prisma.loanInstallment.deleteMany({ where: { loanId: m.o.id, status: { not: "LUNAS" } } }),
+      prisma.employeeLoan.update({
+        where: { id: m.o.id },
+        data: { status: "DIGABUNG", note: [m.o.note, `Sisa ${fmt(m.rest)} digabung ke Pinjaman ke-${loan.seqNo}.`].filter(Boolean).join(" ") },
+      }),
+    ]),
     prisma.employeeLoan.update({
       where: { id },
-      data: { principal: tm.p, tenor: tm.n, startPeriod: input.startPeriod, status: "DISETUJUI", note: input.note.trim() || null, approvedBy: access.name ?? null, approvedAt: new Date() },
+      data: {
+        principal: total, tenor: rows.length, startPeriod: input.startPeriod, status: "DISETUJUI", note,
+        originalAmount: moved.length ? cash : null, approvedBy: access.name ?? null, approvedAt: new Date(),
+      },
     }),
-    prisma.loanInstallment.createMany({ data: buildSchedule(tm.p, tm.n, input.startPeriod).map((r) => ({ ...r, loanId: id })) }),
+    prisma.loanInstallment.createMany({ data: rows.map((r) => ({ ...r, loanId: id })) }),
   ]);
   refresh(loan.userId);
   return {};

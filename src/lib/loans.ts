@@ -8,12 +8,13 @@ export const LOAN_STATUS: Record<string, { label: string; tone: string }> = {
   LUNAS: { label: "Lunas", tone: "bg-emerald-50 text-emerald-700" },
   DITOLAK: { label: "Ditolak", tone: "bg-rose-50 text-rose-700" },
   BATAL: { label: "Dibatalkan", tone: "bg-gray-100 text-gray-500" },
+  DIGABUNG: { label: "Digabung", tone: "bg-indigo-50 text-indigo-700" },
 };
 export const loanStatusLabel = (s: string) => LOAN_STATUS[s]?.label ?? s;
 export const LOAN_GROUPS = [
   { key: "menunggu", label: "Menunggu", statuses: ["PENDING", "DISETUJUI"] },
   { key: "berjalan", label: "Berjalan", statuses: ["BERJALAN"] },
-  { key: "selesai", label: "Selesai", statuses: ["LUNAS", "DITOLAK", "BATAL"] },
+  { key: "selesai", label: "Selesai", statuses: ["LUNAS", "DIGABUNG", "DITOLAK", "BATAL"] },
 ] as const;
 
 export type ScheduleRow = { seq: number; period: string; amount: number; status: string };
@@ -39,6 +40,19 @@ export function buildSchedule(principal: number, tenor: number, startPeriod: str
     amount: i === n - 1 ? principal - each * (n - 1) : each,
   }));
 }
+
+// Angsuran dengan nominal tetap per bulan; angsuran terakhir = sisanya.
+export function buildScheduleByAmount(principal: number, amount: number, startPeriod: string): ScheduleRow[] {
+  const each = Math.max(1, Math.round(amount));
+  const n = Math.max(1, Math.ceil(principal / each - 1e-9));
+  return Array.from({ length: n }, (_, i) => ({
+    seq: i + 1, period: addMonths(startPeriod, i), status: "BELUM",
+    amount: i === n - 1 ? principal - each * (n - 1) : each,
+  }));
+}
+
+// Sisa pinjaman = angsuran yang belum terpotong.
+export const unpaidTotal = (rows: { amount: number; status: string }[]) => rows.filter((r) => r.status !== "LUNAS").reduce((a, r) => a + r.amount, 0);
 
 export function loanSummary(principal: number, rows: { amount: number; status: string; period: string }[]) {
   const paid = rows.filter((r) => r.status === "LUNAS").reduce((a, r) => a + r.amount, 0);
