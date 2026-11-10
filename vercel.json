@@ -1,3 +1,7 @@
 {
-  "regions": ["sin1"]
+  "regions": ["sin1"],
+  "crons": [
+    { "path": "/api/cron/ai-checker?step=kirim", "schedule": "0 18 * * *" },
+    { "path": "/api/cron/ai-checker?step=ambil", "schedule": "0 22 * * *" }
+  ]
 }

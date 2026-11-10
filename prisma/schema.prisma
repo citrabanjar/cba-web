@@ -783,3 +783,67 @@ model Candidate {
 
   @@index([status])
 }
+
+// ─── AI Pemeriksa Sistem ─────────────────────────────────────────────────────
+// AI satu arah: membaca ringkasan data portal (tanpa nama, KTP, rekening, alamat) lewat Message Batches API,
+// lalu menulis temuan ke Task Admin. Satu baris per pemeriksaan.
+model AiRun {
+  id              String    @id @default(cuid())
+  status          String    @default("MENUNGGU") // MENUNGGU (batch dikirim) | SELESAI | GAGAL
+  trigger         String // JADWAL | MANUAL
+  model           String
+  batchId         String?
+  inputTokens     Int       @default(0)
+  outputTokens    Int       @default(0)
+  cacheReadTokens Int       @default(0)
+  findingCount    Int       @default(0)
+  summary         String?   @db.Text
+  error           String?   @db.Text
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  finishedAt      DateTime?
+
+  findings AiFinding[]
+
+  @@index([status])
+}
+
+// Temuan AI. fingerprint = kunci singkat buatan AI untuk hal yang sama, supaya tidak dilaporkan berulang.
+model AiFinding {
+  id          String    @id @default(cuid())
+  runId       String
+  area        String // PAYROLL | PAJAK_BPJS | DATA | PRIORITAS
+  severity    String // TINGGI | SEDANG | RENDAH
+  title       String
+  detail      String    @db.Text
+  employeeIds String[]  @default([])
+  fingerprint String
+  status      String    @default("BARU") // BARU | SELESAI | BUKAN_MASALAH
+  reason      String?   @db.Text
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  run AiRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([fingerprint])
+}
+
+// Buku catatan AI: SOP tulisan Super Admin, aturan pengecekan (usulan AI yang disetujui),
+// dan catatan "Bukan masalah" dari admin. Yang AKTIF disertakan ke AI setiap pemeriksaan.
+model AiNote {
+  id         String    @id @default(cuid())
+  kind       String // SOP | ATURAN | BUKAN_MASALAH
+  title      String
+  content    String    @db.Text
+  status     String    @default("AKTIF") // AKTIF | USULAN | DITOLAK
+  source     String // SUPER_ADMIN | AI | ADMIN
+  createdBy  String?
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([kind, status])
+}

@@ -192,7 +192,7 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <AgentPanel groups={agent.groups} setup={agent.setup} reminders={agent.reminders} />
+        <AgentPanel groups={agent.groups} setup={agent.setup} reminders={agent.reminders} ai={agent.ai} />
 
         <Panel icon={PieChart} tone="violet" title="Status Karyawan" subtitle="Komposisi karyawan aktif menurut status kerja">
           {active ? <Donut parts={statusParts} /> : <Empty text="Belum ada karyawan aktif." />}

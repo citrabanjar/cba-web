@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { changeAdminPassword } from "./actions";
-import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, ClipboardList, LayoutDashboard, UserCog } from "lucide-react";
+import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/i18n";
 import IndicatorSettings from "./IndicatorSettings";
 import AgentSettings from "./AgentSettings";
+import AiSettings, { type AiNoteView, type AiRunView } from "./AiSettings";
+import type { AiSettings as AiSettingsValue } from "@/lib/ai-checker-settings";
 import type { AgentSettings as AgentSettingsValue } from "@/lib/agent-hrd";
 
 type State = { error?: string; success?: boolean } | undefined;
@@ -53,13 +55,17 @@ function PasswordField({
 }
 
 export default function SettingsClient({
-  name, employeeId, role, indicatorHidden, agentSettings,
-}: { name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null }) {
+  name, employeeId, role, indicatorHidden, agentSettings, ai,
+}: {
+  name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
+  ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
+}) {
   const [state, action, isPending] = useActionState(formAction, undefined);
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Task Admin & Running Indikator hanya untuk Super Admin.
   const tabs = [
     { key: "akun", label: "Akun", icon: UserCog },
     ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
+    ...(ai ? [{ key: "ai", label: "AI Pemeriksa", icon: Bot }] : []),
     ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),
   ];
   const [tab, setTab] = useState("akun");
@@ -83,6 +89,7 @@ export default function SettingsClient({
       )}
 
       {tab === "agent" && agentSettings && <AgentSettings settings={agentSettings} />}
+      {tab === "ai" && ai && <AiSettings {...ai} />}
       {tab === "beranda" && indicatorHidden && <IndicatorSettings hidden={indicatorHidden} />}
 
       {tab === "akun" && (

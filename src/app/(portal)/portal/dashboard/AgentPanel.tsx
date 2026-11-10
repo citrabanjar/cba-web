@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowRight, BellRing, Check, Circle, ClipboardList, Loader2 } from "lucide-react";
+import { ArrowRight, BellRing, Bot, Check, Circle, ClipboardList, Loader2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { markReminderDone, setSetupDone } from "../admin/settings/agent-actions";
 import { Row } from "./TaskPanel";
 import type { Task } from "./insights";
-import type { SetupStep } from "./agent";
+import type { AiFindingView, SetupStep } from "./agent";
+import { resolveAiFinding } from "../admin/settings/ai-actions";
+import { AI_AREAS, AI_SEVERITY } from "@/lib/ai-checker-settings";
 import type { DueReminder } from "@/lib/agent-hrd";
 
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -80,21 +82,63 @@ function ReminderRow({ r }: { r: DueReminder }) {
   );
 }
 
+// Temuan AI: tombol Selesai, atau Bukan masalah + alasan (disimpan ke catatan belajar AI).
+function AiRow({ f }: { f: AiFindingView }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const sev = AI_SEVERITY[f.severity] ?? AI_SEVERITY.RENDAH;
+  const resolve = (notIssue: boolean) => start(async () => {
+    const r = await resolveAiFinding(f.id, notIssue, reason);
+    if (r.error) setError(r.error);
+  });
+  return (
+    <div className="flex items-start gap-3 rounded-xl px-3 py-2.5">
+      <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${sev.tone}`}><Bot size={14} /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-gray-900">
+          {f.href ? <Link href={f.href} className="hover:underline">{f.title}</Link> : f.title} <Tag label="AI" /> <Tag label={AI_AREAS[f.area] ?? f.area} />
+        </span>
+        <span className="block text-xs text-gray-500">{f.detail}</span>
+        {f.employeeIds.length > 1 && <span className="block text-[11px] text-gray-400">{f.employeeIds.join(", ")}</span>}
+        {open && (
+          <span className="mt-1.5 flex gap-1.5">
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("Alasan bukan masalah")}
+              className="h-7 min-w-0 flex-1 rounded-lg border border-gray-200 px-2 text-xs" />
+            <button type="button" disabled={pending} onClick={() => resolve(true)}
+              className="shrink-0 rounded-full bg-ink px-2.5 text-[11px] font-medium text-white disabled:opacity-50"><T>Simpan</T></button>
+          </span>
+        )}
+        {error && <span className="block text-[11px] text-rose-600"><T>{error}</T></span>}
+      </span>
+      <span className="flex shrink-0 flex-col gap-1">
+        <button type="button" disabled={pending} onClick={() => resolve(false)}
+          className="rounded-full border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:bg-white disabled:opacity-50"><T>Selesai</T></button>
+        <button type="button" disabled={pending} onClick={() => setOpen((v) => !v)}
+          className="rounded-full px-2.5 py-1 text-[11px] font-medium text-gray-400 hover:text-gray-700"><T>Bukan masalah</T></button>
+      </span>
+    </div>
+  );
+}
+
 const Tag = ({ label }: { label: string }) => (
   <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 align-middle text-[9px] font-semibold uppercase tracking-wide text-gray-500"><T>{label}</T></span>
 );
 
 // Task Admin: satu running list semua pekerjaan yang belum beres; admin memilih sendiri mana yang dikerjakan dulu.
 // Berbasis aturan (tanpa AI). Super Admin juga melihat panduan Setup Awal sampai ditandai selesai.
-export default function AgentPanel({ groups, setup, reminders }: { groups: { key: string; label: string; list: Task[] }[]; setup: SetupStep[] | null; reminders: DueReminder[] }) {
+export default function AgentPanel({ groups, setup, reminders, ai = [] }: { groups: { key: string; label: string; list: Task[] }[]; setup: SetupStep[] | null; reminders: DueReminder[]; ai?: AiFindingView[] }) {
   const setupLeft = setup ? setup.filter((s) => !s.optional && !s.done).length : 0;
   const [showSetup, setShowSetup] = useState(false);
   const items = [
+    ...ai.map((f) => ({ key: `ai-${f.id}`, node: <AiRow f={f} /> })),
     ...groups.flatMap((g) => g.list.filter((t) => t.count > 0).map((t) => ({ key: `${g.key}-${t.key}`, node: <Row task={t} tag={<Tag label={g.label} />} /> }))),
     ...reminders.map((r) => ({ key: `sop-${r.id}`, node: <ReminderRow r={r} /> })),
   ];
   const total = items.length;
-  const anyCheck = groups.some((g) => g.list.length > 0);
+  const anyCheck = groups.some((g) => g.list.length > 0) || ai.length > 0;
   const run = total > 3;
   const greeting = setup && setupLeft > 0
     ? `Setup awal tinggal ${setupLeft} langkah lagi.`

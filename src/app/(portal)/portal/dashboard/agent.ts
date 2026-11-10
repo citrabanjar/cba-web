@@ -109,6 +109,7 @@ async function loadPayrollTasks(s: AgentSettings): Promise<Task[]> {
 
 export type AgentData = {
   groups: { key: string; label: string; list: Task[] }[];
+  ai: AiFindingView[];
   setup: SetupStep[] | null; // null = bukan Super Admin atau setup sudah ditandai selesai
   reminders: DueReminder[];
 };
@@ -177,6 +178,23 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
       ],
       setup,
       reminders: dueReminders(settings, todayKey()),
+      ai: await loadAiFindings(),
     },
   };
+}
+
+// Temuan AI Pemeriksa yang belum ditindaklanjuti (Task Admin, label AI).
+export type AiFindingView = { id: string; area: string; severity: string; title: string; detail: string; employeeIds: string[]; href: string | null; createdAt: string };
+const SEVERITY_ORDER: Record<string, number> = { TINGGI: 0, SEDANG: 1, RENDAH: 2 };
+async function loadAiFindings(): Promise<AiFindingView[]> {
+  const list = await prisma.aiFinding.findMany({ where: { status: "BARU" }, orderBy: { createdAt: "desc" }, take: 50 });
+  const codes = [...new Set(list.flatMap((f) => f.employeeIds))];
+  const users = codes.length ? await prisma.user.findMany({ where: { employeeId: { in: codes } }, select: { id: true, employeeId: true } }) : [];
+  const idOf = new Map(users.map((u) => [u.employeeId, u.id]));
+  return list
+    .sort((a, b) => (a.area === "PRIORITAS" ? -1 : 0) - (b.area === "PRIORITAS" ? -1 : 0) || (SEVERITY_ORDER[a.severity] ?? 3) - (SEVERITY_ORDER[b.severity] ?? 3))
+    .map((f) => {
+      const uid = f.employeeIds.length === 1 ? idOf.get(f.employeeIds[0]) : undefined;
+      return { id: f.id, area: f.area, severity: f.severity, title: f.title, detail: f.detail, employeeIds: f.employeeIds, href: uid ? `/portal/admin/karyawan/${uid}` : null, createdAt: f.createdAt.toISOString() };
+    });
 }
