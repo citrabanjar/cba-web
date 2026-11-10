@@ -139,6 +139,8 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
     prorate: input.prorate === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA",
     rounding: [1, 100, 1000].includes(Number(input.rounding)) ? Number(input.rounding) : 1,
     weekStartDay: n(input.weekStartDay, 0, 6),
+    companyName: String(input.companyName ?? "").trim().slice(0, 120), companyNpwp: String(input.companyNpwp ?? "").trim().slice(0, 30),
+    signerName: String(input.signerName ?? "").trim().slice(0, 120), signerId: String(input.signerId ?? "").trim().slice(0, 30),
   };
   await prisma.appSetting.upsert({
     where: { key: PAYROLL_SETTING_KEY },

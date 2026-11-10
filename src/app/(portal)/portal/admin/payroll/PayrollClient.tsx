@@ -62,6 +62,11 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
           <select value={form.rounding} onChange={(e) => set("rounding", Number(e.target.value))} className={select}>
             <option value={1}>{t("Tanpa pembulatan (Rp1)")}</option><option value={100}>Rp100</option><option value={1000}>Rp1.000</option>
           </select>)}
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 md:col-span-3"><T>Identitas pemotong (bukti potong 1721-A1)</T></p>
+        {field("Nama pemotong", "Nama perusahaan di bukti potong.", <Input value={form.companyName} onChange={(e) => set("companyName", e.target.value)} />)}
+        {field("NPWP pemotong", "NPWP perusahaan (15/16 digit).", <Input value={form.companyNpwp} onChange={(e) => set("companyNpwp", e.target.value)} />)}
+        {field("Nama penandatangan", "Pejabat yang menandatangani bukti potong.", <Input value={form.signerName} onChange={(e) => set("signerName", e.target.value)} />)}
+        {field("NPWP/NIK penandatangan", "Identitas penandatangan bukti potong.", <Input value={form.signerId} onChange={(e) => set("signerId", e.target.value)} />)}
       </div>
       <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-3">
         {msg && <span className={`flex items-center gap-1.5 text-sm ${msg.ok ? "text-emerald-700" : "text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></span>}

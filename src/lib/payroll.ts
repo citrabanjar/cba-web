@@ -158,11 +158,14 @@ export type PayrollSettings = {
   prorate: "HARI_KERJA" | "HARI_KALENDER"; // gaji karyawan masuk/keluar di tengah periode
   rounding: number; // pembulatan rupiah (1, 100, 1000)
   weekStartDay: number; // payroll mingguan: hari mulai minggu (0 = Minggu, 1 = Senin, ... 6 = Sabtu)
+  // Identitas pemotong untuk bukti potong 1721-A1.
+  companyName: string; companyNpwp: string; signerName: string; signerId: string; // signerId = NPWP/NIK penandatangan
 };
 
 export const PAYROLL_SETTING_KEY = "payroll.settings";
 export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
   periodStartDay: 1, payDay: 0, overtimeDivisor: 173, workDaysPerWeek: 6, prorate: "HARI_KERJA", rounding: 1, weekStartDay: 1,
+  companyName: "PT. Citra Banjar Abadi", companyNpwp: "", signerName: "", signerId: "",
 };
 
 export const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;

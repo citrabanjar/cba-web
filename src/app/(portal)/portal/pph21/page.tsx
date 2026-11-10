@@ -1,75 +1,55 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Receipt } from "lucide-react";
-import { prisma } from "@/lib/prisma";
-import { formatRupiah } from "@/lib/utils";
 import { T } from "@/components/i18n";
+import { availableYears, build1721A1 } from "@/lib/form1721a1";
+import A1Document from "./A1Document";
 
 export const metadata: Metadata = { title: "PPh 21" };
+const wibYear = () => new Date(Date.now() + 7 * 3600_000).getUTCFullYear();
 
-export default async function Pph21Page() {
+// PPh 21 karyawan: bukti potong 1721-A1 per tahun, tersedia setelah proses akhir tahun selesai
+// (Proses Gaji Desember final, atau bulan keluar final untuk karyawan yang berhenti).
+export default async function Pph21Page({ searchParams }: { searchParams: Promise<{ tahun?: string }> }) {
   const session = await auth();
-  if (!session?.user) redirect("/portal");
-
-  const payslips = await prisma.payslip.findMany({
-    where: {
-      userId: session.user.id!,
-      pph21: { gt: 0 },
-    },
-    orderBy: { period: "desc" },
-  });
-
-  const totalPph21 = payslips.reduce((sum, s) => sum + (s.pph21 ?? 0), 0);
+  if (!session?.user?.id) redirect("/portal");
+  const years = await availableYears(session.user.id);
+  const { tahun } = await searchParams;
+  const year = years.includes(Number(tahun)) ? Number(tahun) : years[0];
+  const form = year ? await build1721A1(session.user.id, year) : null;
+  const thisYear = wibYear();
 
   return (
-    <div className="bg-gray-50 min-h-full">
-      <div className="px-6 py-4 border-b border-gray-100 bg-white">
+    <div className="min-h-full bg-gray-50">
+      <div className="border-b border-gray-100 bg-white px-6 py-4 print:hidden">
         <h2 className="font-bold text-gray-800"><T>PPh 21</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5">{session.user.name}</p>
+        <p className="mt-0.5 text-xs text-gray-400"><T>Bukti pemotongan PPh 21 tahunan (1721-A1) untuk pelaporan SPT Tahunan.</T></p>
       </div>
-
-      <div className="max-w-3xl px-6 py-6 space-y-4">
-
-        {payslips.length > 0 && (
-          <div className="bg-ink rounded-2xl p-5 text-white">
-            <p className="text-gray-300 text-xs"><T>Total PPh 21 Tahun Ini</T></p>
-            <p className="text-2xl font-bold mt-1">{formatRupiah(totalPph21)}</p>
-            <p className="text-gray-300 text-xs mt-1">{payslips.length} <T>bulan terpotong</T></p>
+      <div className="mx-auto max-w-4xl space-y-4 px-4 py-6 print:max-w-none print:p-0">
+        {years.length > 1 && (
+          <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-1.5 print:hidden">
+            {years.map((y) => (
+              <Link key={y} href={`/portal/pph21?tahun=${y}`}
+                className={`inline-flex h-9 items-center rounded-full px-4 text-sm ${y === year ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>{y}</Link>
+            ))}
           </div>
         )}
-
-        {payslips.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-            <Receipt size={40} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium"><T>Belum ada data PPh 21</T></p>
-            <p className="text-xs text-gray-400 mt-1"><T>Data PPh 21 akan muncul setelah proses payroll selesai</T></p>
-          </div>
-        ) : (
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3"><T>Rincian Per Bulan</T></p>
-            <div className="space-y-3">
-              {payslips.map((slip) => (
-                <div key={slip.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-800 text-sm">{slip.periodLabel}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      <T>PPh 21:</T> <span className="font-semibold text-red-600">{formatRupiah(slip.pph21 ?? 0)}</span>
-                    </p>
-                  </div>
-                  <span className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-xl"><T>Dipotong otomatis</T></span>
-                </div>
-              ))}
-            </div>
+        {!years.includes(thisYear) && (
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 print:hidden">
+            <T>Bukti potong 1721-A1 tahun</T> {thisYear} <T>tersedia setelah Proses Gaji Desember</T> {thisYear} <T>selesai (final).</T>
+          </p>
+        )}
+        {form ? <A1Document form={form} /> : (
+          <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+            <Receipt size={40} className="mx-auto mb-3 text-gray-200" />
+            <p className="font-medium text-gray-500"><T>Belum ada bukti potong 1721-A1</T></p>
+            <p className="mt-1 text-xs text-gray-400"><T>Bukti potong terbit setelah proses gaji akhir tahun selesai.</T></p>
           </div>
         )}
-
-        <div className="bg-gray-100 rounded-2xl p-4 text-xs text-gray-700">
-          <p className="font-semibold mb-1"><T>Informasi PPh 21</T></p>
-          <p><T>Pajak Penghasilan Pasal 21 (PPh 21) dipotong langsung dari gaji setiap bulan oleh perusahaan dan disetorkan ke kas negara. Simpan data ini untuk pelaporan SPT Tahunan Anda.</T></p>
-        </div>
       </div>
     </div>
   );
