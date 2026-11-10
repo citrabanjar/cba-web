@@ -274,7 +274,7 @@ export const en: Record<string, string> = {
   "Foto": "Photo",
   "• Nama file harus sama dengan Employee ID, misalnya P023.jpg.": "• The file name must match the Employee ID, for example P023.jpg.",
   "• Bisa pilih banyak foto sekaligus. Foto lama akan diganti.": "• You can choose many photos at once. Existing photos are replaced.",
-  "• Foto otomatis dipotong persegi dari bagian tengah.": "• Photos are cropped to a square from the center.",
+  "• Foto otomatis dipotong persegi dengan wajah di tengah.": "• Photos are cropped to a square with the face centered.",
   "Employee ID tidak ditemukan": "Employee ID not found",
   "File foto kosong.": "The photo file is empty.",
   "Ukuran foto terlalu besar.": "The photo is too large.",

@@ -15,16 +15,54 @@ type Item = { file: File; person?: Person; status: Status; error?: string };
 
 const SIZE = 300;
 
-// Foto dipotong persegi dan dikecilkan di browser, supaya hemat ruang database.
+// Deteksi wajah (MediaPipe, berjalan di browser; foto tidak dikirim ke mana pun). Dimuat sekali saat
+// dibutuhkan. Kalau gagal dimuat, foto tetap diproses dengan potongan yang condong ke atas.
+type Box = { x: number; y: number; w: number; h: number };
+const MEDIAPIPE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm";
+const FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+let detector: Promise<((img: ImageBitmap) => Box | null) | null> | null = null;
+function faceDetector() {
+  detector ??= (async () => {
+    try {
+      const { FaceDetector, FilesetResolver } = await import("@mediapipe/tasks-vision");
+      const fileset = await FilesetResolver.forVisionTasks(MEDIAPIPE);
+      const fd = await FaceDetector.createFromOptions(fileset, { baseOptions: { modelAssetPath: FACE_MODEL }, runningMode: "IMAGE", minDetectionConfidence: 0.5 });
+      return (img: ImageBitmap) => {
+        const boxes = fd.detect(img).detections.map((d) => d.boundingBox).filter((b): b is NonNullable<typeof b> => !!b);
+        if (!boxes.length) return null;
+        const b = boxes.sort((p, q) => q.width * q.height - p.width * p.height)[0]; // wajah terbesar
+        return { x: b.originX, y: b.originY, w: b.width, h: b.height };
+      };
+    } catch {
+      return null;
+    }
+  })();
+  return detector;
+}
+
+// Kotak potong persegi: wajah di tengah dengan ruang untuk rambut di atas; tanpa wajah terdeteksi,
+// potongan condong ke atas (pas foto: kepala di bagian atas gambar).
+function cropBox(width: number, height: number, face: Box | null) {
+  const max = Math.min(width, height);
+  if (!face) return { sx: (width - max) / 2, sy: (height - max) * 0.15, side: max };
+  const side = Math.min(max, Math.max(face.w, face.h) * 2.6);
+  const cx = face.x + face.w / 2;
+  const cy = face.y + face.h / 2 - side * 0.09; // geser sedikit ke atas supaya ubun-ubun tidak terpotong
+  const clamp = (v: number, hi: number) => Math.max(0, Math.min(hi, v));
+  return { sx: clamp(cx - side / 2, width - side), sy: clamp(cy - side / 2, height - side), side };
+}
+
+// Foto dipotong persegi (wajah di tengah) dan dikecilkan di browser, supaya hemat ruang database.
 async function toSquareJpeg(file: File): Promise<Blob> {
   const image = await createImageBitmap(file);
-  const side = Math.min(image.width, image.height);
+  const detect = await faceDetector();
+  let face: Box | null = null;
+  try { face = detect ? detect(image) : null; } catch { face = null; }
+  const { sx, sy, side } = cropBox(image.width, image.height, face);
   const canvas = document.createElement("canvas");
   canvas.width = SIZE;
   canvas.height = SIZE;
-  canvas.getContext("2d")?.drawImage(
-    image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, SIZE, SIZE,
-  );
+  canvas.getContext("2d")?.drawImage(image, sx, sy, side, side, 0, 0, SIZE, SIZE);
   image.close();
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Gagal"))), "image/jpeg", 0.85);
@@ -96,7 +134,7 @@ export default function PhotoUpload({
           <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
             <p><T>• Nama file harus sama dengan Employee ID, misalnya P023.jpg.</T></p>
             <p><T>• Bisa pilih beberapa file, atau satu folder sekaligus (file selain foto dilewati). Foto lama akan diganti.</T></p>
-            <p><T>• Foto otomatis dipotong persegi dari bagian tengah.</T></p>
+            <p><T>• Foto otomatis dipotong persegi dengan wajah di tengah.</T></p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
