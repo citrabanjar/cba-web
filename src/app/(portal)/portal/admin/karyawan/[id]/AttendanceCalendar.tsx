@@ -7,6 +7,7 @@ import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import type { DayShift } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
+import AttendanceEditor from "./AttendanceEditor";
 
 type Attendance = {
   id: string; date: Date; checkIn: Date | null; checkOut: Date | null;
@@ -57,9 +58,10 @@ function coveredDays(ranges: Range[], status: string, map: Map<string, string>) 
 }
 
 export default function AttendanceCalendar({
-  attendances, leaves, trips, shiftDays = {}, side,
+  attendances, leaves, trips, shiftDays = {}, side, editUserId,
 }: {
   attendances: Attendance[]; leaves: Leave[]; trips: Trip[]; shiftDays?: Record<string, DayShift>;
+  editUserId?: string; // Super Admin (masa testing): boleh ubah/tambah absen sampai hari ini
   side?: React.ReactNode; // kartu tambahan di kolom kanan (mis. Jadwal Kerja)
 }) {
   const t = useT();
@@ -332,6 +334,10 @@ export default function AttendanceCalendar({
                 </div>
               ) : (
                 <p className="mt-3 flex items-center gap-2 text-sm text-gray-400"><Clock size={15} /> <T>Belum ada catatan kehadiran.</T></p>
+              )}
+              {editUserId && selected <= todayKey && (
+                <AttendanceEditor key={`${selected}-${sel?.checkIn ?? ""}-${sel?.checkOut ?? ""}-${sel?.status ?? ""}`} userId={editUserId} date={selected}
+                  current={sel ? { checkIn: sel.checkIn, checkOut: sel.checkOut, status: sel.status, note: sel.note } : undefined} />
               )}
             </>
           )}
