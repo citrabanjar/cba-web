@@ -15,7 +15,7 @@ const LEGACY: Record<string, string> = { TAHUNAN: "Cuti Tahunan", SAKIT: "Sakit"
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 
-// Persetujuan cuti & dinas luar oleh atasan langsung (Admin/HRD untuk karyawan tanpa atasan aktif).
+// Persetujuan cuti & dinas luar oleh atasan langsung.
 export default async function PersetujuanPage() {
   const session = await auth();
   const access = await getAccess();

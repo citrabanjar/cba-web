@@ -134,8 +134,8 @@ export async function loadInsights() {
     { key: "shift-soon", title: "Isi shift hari ini & besok", hint: "Karyawan tanpa shift tidak bisa dinilai kehadirannya.", count: unfilledSoon, unit: "hari kerja belum ada shift", href: rosterHref(0) },
     { key: "attendance", title: "Pantau absensi hari ini", hint: "Karyawan yang terjadwal masuk tapi belum check-in.", count: notCheckedIn, unit: "karyawan belum check-in", extra: { count: scheduledToday.length, unit: "terjadwal" } },
     { key: "incomplete", title: "Selesaikan absen tidak lengkap", hint: "Lupa check-out atau check-in, 30 hari terakhir. Putuskan: lupa absen, potong cuti, atau mangkir.", count: incomplete.length, unit: "absen belum lengkap", href: profile(incomplete[0]?.userId) },
-    { key: "leave", title: "Tinjau pengajuan cuti", hint: "Diputus atasan langsung; yang tanpa atasan aktif diputus HRD di menu Persetujuan.", count: leaves.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
-    { key: "trip", title: "Tinjau pengajuan dinas luar", hint: "Diputus atasan langsung; yang tanpa atasan aktif diputus HRD di menu Persetujuan.", count: trips.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
+    { key: "leave", title: "Tinjau pengajuan cuti", hint: "Diputus atasan langsung karyawan di menu Persetujuan.", count: leaves.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
+    { key: "trip", title: "Tinjau pengajuan dinas luar", hint: "Diputus atasan langsung karyawan di menu Persetujuan.", count: trips.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
     { key: "loan", title: "Proses pengajuan pinjaman", hint: "Setujui atau tolak di tab Pinjaman profil karyawan.", count: loanRequests.length, unit: "pengajuan menunggu", href: loanTab(loanRequests[0]?.userId) },
     { key: "loan-disburse", title: "Cairkan pinjaman yang disetujui", hint: "Tandai Dicairkan setelah uang diberikan; angsuran baru dipotong setelah itu.", count: loanToDisburse.length, unit: "pinjaman menunggu pencairan", href: loanTab(loanToDisburse[0]?.userId) },
   ];

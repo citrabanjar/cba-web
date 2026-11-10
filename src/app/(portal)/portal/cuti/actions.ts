@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import {
   addMonths, countLeaveDays, eligible, hasBalance, legacyType, todayDate, visibleBalances,
 } from "@/lib/leave-balance";
+import { hasApprover } from "@/lib/approval";
 
 export async function getLeaveRequests() {
   const session = await auth();
@@ -27,6 +28,8 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
   const userId = session.user.id;
+  // Penyetuju = atasan langsung aktif; tanpa itu pengajuan tidak bisa dikirim.
+  if (!(await hasApprover(userId))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
 
   const policyId = String(formData.get("policyId") ?? "");
   const startDate = String(formData.get("startDate") ?? "");

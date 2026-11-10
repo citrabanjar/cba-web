@@ -162,7 +162,7 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   ];
   const setupTasks: Task[] = [
     { key: "emp-no-pay", title: "Tempel komponen payroll", hint: "Karyawan aktif yang belum ditempel komponen gaji tidak ikut terhitung di Proses Gaji.", count: noPay.length, unit: "karyawan", href: noPay[0] ? `/portal/admin/karyawan/${noPay[0].id}` : "/portal/admin/payroll" },
-    { key: "emp-no-manager", title: "Isi atasan langsung", hint: "Atasan langsung adalah penyetuju cuti dan dinas luar. Tanpa atasan aktif, pengajuannya jatuh ke HRD di menu Persetujuan.", count: noManager.length, unit: "karyawan", href: noManager[0] ? `/portal/admin/karyawan/${noManager[0].id}?tab=pekerjaan` : "/portal/admin/karyawan" },
+    { key: "emp-no-manager", title: "Isi atasan langsung", hint: "Atasan langsung adalah penyetuju cuti dan dinas luar. Tanpa atasan aktif, karyawan tidak bisa mengajukan cuti atau dinas.", count: noManager.length, unit: "karyawan", href: noManager[0] ? `/portal/admin/karyawan/${noManager[0].id}?tab=pekerjaan` : "/portal/admin/karyawan" },
     { key: "emp-no-shift", title: "Atur jadwal kerja / shift", hint: "Karyawan tanpa pola kerja atau jadwal manual tidak bisa dinilai kehadirannya.", count: noShift.length, unit: "karyawan", href: noShift[0] ? `/portal/admin/karyawan/${noShift[0].id}` : "/portal/admin/schedule" },
   ];
   const on = new Set(settings.enabled);

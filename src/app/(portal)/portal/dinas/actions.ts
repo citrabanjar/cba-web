@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { hasApprover } from "@/lib/approval";
 
 export async function getBusinessTrips() {
   const session = await auth();
@@ -17,6 +18,8 @@ export async function getBusinessTrips() {
 export async function submitBusinessTrip(_prevState: unknown, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
+  // Penyetuju = atasan langsung aktif; tanpa itu pengajuan tidak bisa dikirim.
+  if (!(await hasApprover(session.user.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
 
   const destination = formData.get("destination") as string;
   const purpose = formData.get("purpose") as string;
