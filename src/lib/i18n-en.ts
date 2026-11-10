@@ -287,6 +287,8 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Angsuran per bulan minimal 1.000": "Monthly installment must be at least 1,000",
+  "Angsuran per bulan terlalu kecil (lebih dari 120 kali)": "Monthly installment too small (more than 120 installments)",
   "Contoh: 1000000": "e.g. 1000000",
   "Digabung": "Merged",
   "dana baru": "new funds",

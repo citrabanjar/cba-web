@@ -168,30 +168,34 @@ export async function deleteLoan(id: string): Promise<Result> {
 
 // Upload saldo awal migrasi (Super Admin): sisa pinjaman dan sisa angsuran per karyawan dari aplikasi lama.
 // Langsung berjalan karena uangnya sudah dicairkan di aplikasi lama.
-export type OpeningRow = { employeeId: string; remaining: number; tenor: number; startPeriod: string; original: number | null; note: string };
+export type OpeningRow = { employeeId: string; remaining: number; tenor: number; installment?: number | null; startPeriod: string; original: number | null; note: string };
 export async function importOpeningLoans(rows: OpeningRow[]): Promise<Result & { count?: number; errors?: string[] }> {
   const access = await requireAdmin();
   if (!isSuperAdmin(access.role)) return { error: "Upload saldo awal hanya untuk Super Admin." };
   const users = await prisma.user.findMany({ where: { employeeId: { in: rows.map((r) => r.employeeId.trim()) } }, select: { id: true, employeeId: true } });
   const byId = new Map(users.map((u) => [u.employeeId!.toLowerCase(), u.id]));
   const errors: string[] = [];
-  const ready: { userId: string; p: number; n: number; r: OpeningRow }[] = [];
+  const ready: { userId: string; p: number; schedule: ReturnType<typeof buildSchedule>; r: OpeningRow }[] = [];
   rows.forEach((r, i) => {
     const userId = byId.get(r.employeeId.trim().toLowerCase());
-    const tm = terms(r.remaining, r.tenor, r.startPeriod);
+    const each = Math.round(Number(r.installment) || 0);
+    const p = Math.round(Number(r.remaining) || 0);
+    // Angsuran per bulan tetap (seperti aplikasi lama): jumlah angsuran mengikuti, sisanya di angsuran terakhir.
+    const tm = each > 0 ? terms(p, Math.ceil(p / each - 1e-9), r.startPeriod) : terms(r.remaining, r.tenor, r.startPeriod);
     if (!userId) errors.push(`Baris ${i + 2}: Employee ID ${r.employeeId} tidak ditemukan`);
+    else if (each > 0 && each < 1000) errors.push(`Baris ${i + 2}: Angsuran per bulan minimal 1.000`);
     else if ("error" in tm) errors.push(`Baris ${i + 2}: ${tm.error}`);
-    else ready.push({ userId, p: tm.p, n: tm.n, r });
+    else ready.push({ userId, p: tm.p, r, schedule: each > 0 ? buildScheduleByAmount(tm.p, each, r.startPeriod) : buildSchedule(tm.p, tm.n, r.startPeriod) });
   });
   if (errors.length) return { error: "Ada baris yang belum benar; tidak ada yang disimpan.", errors };
   for (const x of ready) {
     await prisma.employeeLoan.create({
       data: {
-        userId: x.userId, seqNo: await nextLoanNo(x.userId), principal: x.p, tenor: x.n, startPeriod: x.r.startPeriod,
+        userId: x.userId, seqNo: await nextLoanNo(x.userId), principal: x.p, tenor: x.schedule.length, startPeriod: x.r.startPeriod,
         purpose: x.r.note.trim() || "Saldo awal migrasi", status: "BERJALAN", isOpening: true,
         originalAmount: Number(x.r.original) > 0 ? Number(x.r.original) : null,
         createdBy: access.name ?? null, approvedBy: access.name ?? null, approvedAt: new Date(),
-        installments: { create: buildSchedule(x.p, x.n, x.r.startPeriod) },
+        installments: { create: x.schedule },
       },
     });
   }

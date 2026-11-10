@@ -18,7 +18,10 @@ export type AdminLoan = LoanView & { userId: string; name: string; employeeId: s
 export type LoanEmployee = { employeeId: string; name: string };
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
-const HEAD = ["Employee ID", "Sisa Pinjaman", "Sisa Angsuran (kali)", "Mulai Dipotong (YYYY-MM)", "Pinjaman Semula", "Keterangan"];
+const HEAD = ["Employee ID", "Sisa Pinjaman", "Sisa Angsuran (kali)", "Angsuran per Bulan", "Mulai Dipotong (YYYY-MM)", "Pinjaman Semula", "Keterangan"];
+// Kolom dibaca menurut nama header (file template lama tanpa "Angsuran per Bulan" tetap terbaca).
+const COLS = { id: "employee id", remaining: "sisa pinjaman", tenor: "sisa angsuran", installment: "angsuran per bulan", start: "mulai dipotong", original: "pinjaman semula", note: "keterangan" } as const;
+const OLD_POS: Record<keyof typeof COLS, number> = { id: 0, remaining: 1, tenor: 2, installment: -1, start: 3, original: 4, note: 5 };
 // Baris contoh di template ditandai "CONTOH" di kolom Keterangan dan otomatis dilewati saat upload.
 const EXAMPLE_NOTE = "CONTOH - hapus atau timpa baris ini";
 const isExample = (note: unknown) => String(note ?? "").trim().toUpperCase().startsWith("CONTOH");
@@ -34,7 +37,7 @@ function UploadDialog({ employees, onClose }: { employees: LoanEmployee[]; onClo
   const bad = rows.filter((r) => r.problem).length;
 
   function template() {
-    const sample = [HEAD, [employees[0]?.employeeId ?? "D001", 3000000, 4, addMonths(thisMonth(), 1), 6000000, EXAMPLE_NOTE]];
+    const sample = [HEAD, [employees[0]?.employeeId ?? "D001", 7350000, "", 1000000, addMonths(thisMonth(), 1), 12000000, EXAMPLE_NOTE]];
     const sheet = XLSX.utils.aoa_to_sheet(sample);
     sheet["!cols"] = HEAD.map(() => ({ wch: 24 }));
     // Catatan di sel A2 (muncul saat disorot) bahwa baris ini hanya contoh.
@@ -48,6 +51,7 @@ function UploadDialog({ employees, onClose }: { employees: LoanEmployee[]; onClo
       ["Petunjuk"], ["Baris 2 di sheet Saldo Pinjaman adalah CONTOH (Keterangan diawali CONTOH). Hapus atau timpa dengan data asli; baris CONTOH otomatis dilewati saat upload."],
       ["Satu baris = satu pinjaman yang masih berjalan per tanggal migrasi. Satu karyawan boleh lebih dari satu baris."],
       ["Sisa Pinjaman = pokok yang belum dibayar. Sisa Angsuran = berapa kali lagi dipotong."],
+      ["Angsuran per Bulan (opsional) = potongan tetap per bulan seperti di aplikasi lama. Kalau diisi, jumlah angsuran dihitung otomatis dan sisanya di angsuran terakhir (mis. sisa 7.350.000 dengan 1.000.000 = 1.000.000 x 7 + 350.000). Kalau kosong, Sisa Pinjaman dibagi rata ke Sisa Angsuran."],
       ["Mulai Dipotong = bulan potongan berikutnya, format YYYY-MM (mis. 2026-12)."], ["Pinjaman Semula dan Keterangan boleh dikosongkan."],
     ]);
     const wb = XLSX.utils.book_new();
@@ -69,19 +73,31 @@ function UploadDialog({ employees, onClose }: { employees: LoanEmployee[]; onClo
       return m ? `${m[2]}-${m[1].padStart(2, "0")}` : s;
     };
     const num = (v: unknown) => Number(String(v ?? "").replace(/[^\d.-]/g, "")) || 0;
-    const filled = table.slice(1).filter((r) => String(r[0] ?? "").trim());
-    setExamples(filled.filter((r) => isExample(r[5])).length);
-    const parsed = filled.filter((r) => !isExample(r[5])).map((r) => {
-      const row: OpeningRow = { employeeId: String(r[0]).trim(), remaining: num(r[1]), tenor: num(r[2]), startPeriod: period(r[3]), original: num(r[4]) || null, note: String(r[5] ?? "") };
+    const head = (table[0] ?? []).map((h) => String(h ?? "").trim().toLowerCase());
+    const byName = Object.fromEntries((Object.keys(COLS) as (keyof typeof COLS)[]).map((k) => [k, head.findIndex((h) => h.startsWith(COLS[k]))])) as Record<keyof typeof COLS, number>;
+    const at = byName.id >= 0 ? byName : OLD_POS;
+    const cell = (r: unknown[], k: keyof typeof COLS) => (at[k] >= 0 ? r[at[k]] : "");
+    const filled = table.slice(1).filter((r) => String(cell(r, "id") ?? "").trim());
+    setExamples(filled.filter((r) => isExample(cell(r, "note"))).length);
+    const parsed = filled.filter((r) => !isExample(cell(r, "note"))).map((r) => {
+      const row: OpeningRow = {
+        employeeId: String(cell(r, "id")).trim(), remaining: num(cell(r, "remaining")), tenor: num(cell(r, "tenor")),
+        installment: num(cell(r, "installment")) || null, startPeriod: period(cell(r, "start")), original: num(cell(r, "original")) || null, note: String(cell(r, "note") ?? ""),
+      };
+      // Dengan Angsuran per Bulan, jumlah angsuran dihitung dari sisa pinjaman.
+      if (row.installment) row.tenor = Math.ceil(row.remaining / row.installment - 1e-9);
       const name = known.get(row.employeeId.toLowerCase());
-      const problem = !name ? "Employee ID tidak ditemukan" : row.remaining < 1000 ? "Sisa pinjaman kosong" : row.tenor < 1 || row.tenor > 120 ? "Sisa angsuran 1-120" : !isPeriod(row.startPeriod) ? "Mulai dipotong harus YYYY-MM" : undefined;
+      const problem = !name ? "Employee ID tidak ditemukan" : row.remaining < 1000 ? "Sisa pinjaman kosong"
+        : row.installment && row.installment < 1000 ? "Angsuran per bulan minimal 1.000"
+        : row.tenor < 1 || row.tenor > 120 ? (row.installment ? "Angsuran per bulan terlalu kecil (lebih dari 120 kali)" : "Sisa angsuran 1-120")
+        : !isPeriod(row.startPeriod) ? "Mulai dipotong harus YYYY-MM" : undefined;
       return { ...row, name, problem };
     });
     setRows(parsed);
   }
   function save() {
     start(async () => {
-      const r = await importOpeningLoans(rows.map((x) => ({ employeeId: x.employeeId, remaining: x.remaining, tenor: x.tenor, startPeriod: x.startPeriod, original: x.original, note: x.note })));
+      const r = await importOpeningLoans(rows.map((x) => ({ employeeId: x.employeeId, remaining: x.remaining, tenor: x.tenor, installment: x.installment, startPeriod: x.startPeriod, original: x.original, note: x.note })));
       if (r.error) setMsg({ ok: false, text: r.error, list: r.errors });
       else { setMsg({ ok: true, text: `${r.count} ${t("pinjaman saldo awal tersimpan.")}` }); setRows([]); }
     });
@@ -109,7 +125,7 @@ function UploadDialog({ employees, onClose }: { employees: LoanEmployee[]; onClo
                 {rows.map((r, i) => (
                   <tr key={i} className={r.problem ? "bg-rose-50/60" : ""}>
                     <td className="px-3 py-1.5">{r.employeeId}</td><td className="px-3 py-1.5">{r.name ?? "—"}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">{formatRupiah(r.remaining)}</td><td className="px-3 py-1.5 text-right">{r.tenor}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{formatRupiah(r.remaining)}</td><td className="px-3 py-1.5 text-right">{r.installment ? <>{formatRupiah(r.installment)} x {r.tenor}{r.remaining - r.installment * (r.tenor - 1) !== r.installment && <span className="block text-[10px] text-gray-400"><T>terakhir</T> {formatRupiah(r.remaining - r.installment * (r.tenor - 1))}</span>}</> : r.tenor}</td>
                     <td className="px-3 py-1.5">{r.startPeriod}</td>
                     <td className={`px-3 py-1.5 ${r.problem ? "text-rose-700" : "text-emerald-700"}`}>{r.problem ? t(r.problem) : "OK"}</td>
                   </tr>
