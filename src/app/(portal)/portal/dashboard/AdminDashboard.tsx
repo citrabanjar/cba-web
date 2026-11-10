@@ -6,6 +6,7 @@ import { T } from "@/components/i18n";
 import IndicatorCards from "./IndicatorCards";
 import AgentPanel from "./AgentPanel";
 import { loadAgent } from "./agent";
+import { assessRecent } from "@/lib/attendance-assess";
 
 const DAY = 24 * 60 * 60 * 1000;
 const STATUS_LABEL: Record<string, string> = { TETAP: "Tetap", KONTRAK: "Kontrak", PROBATION: "Probation" };
@@ -154,6 +155,8 @@ function Donut({ parts }: { parts: { label: string; value: number }[] }) {
 export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) {
   const today = todayDate();
   const employee = { role: { not: "SUPER_ADMIN" as const } };
+  // Alpha otomatis 7 hari terakhir (paling sering sekali per jam; cadangan selama cron malam belum aktif).
+  await assessRecent().catch(() => null);
 
   const [{ insights, agent }, active, byStatus, recent, expiring] =
     await Promise.all([

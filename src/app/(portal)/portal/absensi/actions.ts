@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getAllowedLocations, isOnApprovedTrip, nearestLocation } from "@/lib/work-location";
+import { checkInWorkDate, openAttendance, wibToday } from "@/lib/attendance-assess";
 
 // Cek lokasi absen. Saat Dinas Luar disetujui, absen boleh di mana saja (lokasinya tetap
 // disimpan). Selain itu, absen di luar radius semua lokasi yang diizinkan ditolak.
@@ -40,25 +41,19 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
   }
 }
 
+// Absen yang tampil di kartu "hari ini": shift malam kemarin yang belum pulang, atau absen hari ini (WIB).
 export async function getTodayAttendance() {
   const session = await auth();
   if (!session?.user?.id) return null;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return prisma.attendance.findUnique({
-    where: { userId_date: { userId: session.user.id, date: today } },
-  });
+  return openAttendance(session.user.id);
 }
 
 export async function getWeekAttendance() {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const monday = new Date();
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  monday.setHours(0, 0, 0, 0);
+  const today = wibToday();
+  const monday = new Date(today.getTime() - ((today.getUTCDay() + 6) % 7) * 86_400_000);
 
   return prisma.attendance.findMany({
     where: { userId: session.user.id, date: { gte: monday } },
@@ -70,8 +65,8 @@ export async function checkIn(lat: number, lng: number) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Tanggal kerja menurut WIB; absen masuk shift malam yang terlambat lewat tengah malam tetap milik shift kemarin.
+  const today = await checkInWorkDate(session.user.id);
 
   const existing = await prisma.attendance.findUnique({
     where: { userId_date: { userId: session.user.id, date: today } },
@@ -91,6 +86,7 @@ export async function checkIn(lat: number, lng: number) {
       checkInAddr: address,
       checkInLocation: place.label,
       status: "HADIR",
+      note: existing?.note?.startsWith("Otomatis:") ? null : existing?.note,
     },
     create: {
       userId: session.user.id,
@@ -112,12 +108,8 @@ export async function checkOut(lat: number, lng: number) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const record = await prisma.attendance.findUnique({
-    where: { userId_date: { userId: session.user.id, date: today } },
-  });
+  // Absen pulang shift malam (pagi hari berikutnya) masuk ke absen tanggal mulai shift.
+  const record = await openAttendance(session.user.id);
   if (!record?.checkIn) return { error: "Anda belum check-in hari ini." };
   if (record.checkOut) return { error: "Anda sudah check-out hari ini." };
 
@@ -126,7 +118,7 @@ export async function checkOut(lat: number, lng: number) {
   const address = await reverseGeocode(lat, lng);
 
   await prisma.attendance.update({
-    where: { userId_date: { userId: session.user.id, date: today } },
+    where: { id: record.id },
     data: {
       checkOut: new Date(),
       checkOutLat: lat,

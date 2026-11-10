@@ -5,6 +5,7 @@ import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payrol
 import { countLeaveDays } from "@/lib/leave-balance";
 import { getShiftCalendar } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
+import { assessAttendance } from "@/lib/attendance-assess";
 import { isWeekly, periodLabel } from "@/lib/payroll-run-period";
 import { pph21Daily, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
 
@@ -412,6 +413,8 @@ export async function generateRun(period: string, extraCodes: string[], by: stri
     },
     select: { id: true },
   });
+  // Alpha otomatis periode ini dinilai ulang dulu (cuti/dinas yang diinput belakangan ikut terhitung).
+  await assessAttendance(ctx.start, ctx.end, employees.map((e) => e.id));
   // Karyawan yang tidak lagi ikut periode ini (mis. jadwal bayar berubah) dikeluarkan dari draft.
   await prisma.payrollLine.deleteMany({ where: { runId: run.id, userId: { notIn: employees.map((e) => e.id) } } });
   for (const e of employees) {
