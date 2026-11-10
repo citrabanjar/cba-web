@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
-import type { BalanceRow } from "@/lib/leave-balance";
-import { adjustLeaveBalance, importLeaveBalances, type BalanceImportRow } from "./actions";
+import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
+import { adjustLeaveBalance, importLeaveBalances, setLeaveBalanceActive, type BalanceImportRow } from "./actions";
 
 const HEADERS = ["Employee ID", "Nama", "Kode Cuti", "Saldo (hari)", "Per Tanggal (YYYY-MM-DD)", "Keterangan"];
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
@@ -152,8 +152,16 @@ function AdjustDialog({ row, onClose }: { row: BalanceRow; onClose: () => void }
 }
 
 // Tab Saldo Cuti: saldo tiap karyawan aktif untuk Cuti Tahunan (tetap) atau Cuti Masa Kontrak (kontrak).
-export default function BalanceTab({ rows }: { rows: BalanceRow[] }) {
+export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean }) {
   const t = useT();
+  const [switching, startSwitch] = useTransition();
+  const toggle = (on: boolean) => {
+    const ask = on
+      ? "Aktifkan saldo cuti? Saldo di tabel ini akan tampil di profil karyawan dan halaman Cuti karyawan."
+      : "Nonaktifkan saldo cuti? Saldo di profil dan halaman Cuti karyawan kembali menjadi 0.";
+    if (!window.confirm(t(ask))) return;
+    startSwitch(async () => { const r = await setLeaveBalanceActive(on); if (r.error) window.alert(t(r.error)); });
+  };
   const [q, setQ] = useState("");
   const [importing, setImporting] = useState(false);
   const [adjusting, setAdjusting] = useState<BalanceRow | null>(null);
@@ -177,7 +185,23 @@ export default function BalanceTab({ rows }: { rows: BalanceRow[] }) {
           <Upload size={14} /> <T>Import Saldo</T>
         </button>
       </div>
-      {withoutOpening > 0 && (
+      {superAdmin ? (
+        <label className={`mx-5 mt-4 flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${balanceSwitch.active ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-gray-50"}`}>
+          <input type="checkbox" checked={balanceSwitch.active} disabled={switching} onChange={(e) => toggle(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
+          <span className="text-sm">
+            <b className="text-gray-900"><T>Saldo cuti aktif</T></b>
+            {balanceSwitch.active && balanceSwitch.activatedAt && <span className="ml-2 text-xs text-emerald-700"><T>sejak</T> {new Date(balanceSwitch.activatedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Jakarta" })}{balanceSwitch.by ? ` · ${balanceSwitch.by}` : ""}</span>}
+            <span className="block text-xs text-gray-500"><T>{balanceSwitch.active
+              ? "Saldo tampil di profil karyawan dan halaman Cuti karyawan."
+              : "Belum aktif: saldo di profil karyawan dan halaman Cuti karyawan masih 0. Upload dan cek saldo awal dulu, lalu centang kotak ini."}</T></span>
+          </span>
+        </label>
+      ) : !balanceSwitch.active && (
+        <p className="mx-5 mt-4 flex items-center gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-sm text-gray-600">
+          <AlertCircle size={15} /> <T>Saldo cuti belum diaktifkan Super Admin; saldo ditampilkan 0.</T>
+        </p>
+      )}
+      {superAdmin && withoutOpening > 0 && (
         <p className="mx-5 mt-4 flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           <AlertCircle size={15} /> {withoutOpening} <T>karyawan belum punya saldo awal dari aplikasi lama; saldonya dihitung dari tanggal masuk.</T>
         </p>

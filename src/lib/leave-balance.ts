@@ -247,3 +247,27 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
   }
   return rows;
 }
+
+// Saklar "Saldo cuti aktif" (Super Admin, satu untuk semua). Selama belum aktif (masa migrasi saldo awal),
+// saldo yang tampil ke karyawan dan admin dibuat 0; tabel Saldo Cuti Super Admin tetap menampilkan hitungan asli.
+export const LEAVE_BALANCE_KEY = "leave.balance";
+export type LeaveBalanceSwitch = { active: boolean; activatedAt: string | null; by: string | null };
+
+export async function getLeaveBalanceSwitch(): Promise<LeaveBalanceSwitch> {
+  const row = await prisma.appSetting.findUnique({ where: { key: LEAVE_BALANCE_KEY } });
+  const v = (row?.value ?? {}) as Partial<LeaveBalanceSwitch>;
+  return { active: v.active === true, activatedAt: typeof v.activatedAt === "string" ? v.activatedAt : null, by: typeof v.by === "string" ? v.by : null };
+}
+
+export function maskBalances(rows: BalanceRow[]): BalanceRow[] {
+  return rows.map((r) => ({
+    ...r, opening: null, openingDate: null, earned: 0, used: 0, adjusted: 0, expired: 0, balance: 0,
+    nextDate: null, nextDays: null, problem: null, ledger: [],
+  }));
+}
+
+// Saldo untuk tampilan karyawan / profil / pengajuan cuti: 0 selama saklar belum aktif.
+export async function visibleBalances(userIds?: string[]): Promise<BalanceRow[]> {
+  const [rows, sw] = await Promise.all([computeBalances(userIds), getLeaveBalanceSwitch()]);
+  return sw.active ? rows : maskBalances(rows);
+}

@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { computeBalances } from "@/lib/leave-balance";
+import { visibleBalances } from "@/lib/leave-balance";
 import { describe, type PayParams } from "@/lib/payroll";
 import { toLoanView } from "@/lib/loan-view";
 import { notFound, redirect } from "next/navigation";
@@ -170,7 +170,7 @@ export default async function KaryawanDetailPage({
       schedules={schedules}
       patterns={patterns}
       shiftDays={shiftDays}
-      leaveBalances={await computeBalances([id])}
+      leaveBalances={await visibleBalances([id])}
       payComponents={canSeePay ? (await prisma.payComponent.findMany({
         where: { OR: [{ isActive: true }, { employees: { some: { userId: id } } }] }, orderBy: { sortOrder: "asc" },
         include: { employees: { where: { userId: id }, select: { startDate: true, endDate: true, note: true } } },

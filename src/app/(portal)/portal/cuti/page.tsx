@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { computeBalances, eligible, hasBalance, todayDate } from "@/lib/leave-balance";
+import { eligible, hasBalance, todayDate, visibleBalances } from "@/lib/leave-balance";
 import { getLeaveRequests } from "./actions";
 import CutiForm from "./CutiForm";
 import { T } from "@/components/i18n";
@@ -19,7 +19,7 @@ export default async function CutiPage() {
     getLeaveRequests(),
     prisma.user.findUnique({ where: { id: session.user.id }, select: { employmentStatus: true, gender: true, joinDate: true } }),
     prisma.leavePolicy.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
-    computeBalances([session.user.id]),
+    visibleBalances([session.user.id]),
   ]);
   const today = todayDate();
   // Yang bisa dipilih karyawan: sesuai status, jenis kelamin, masa kerja. Dinas Luar punya menu

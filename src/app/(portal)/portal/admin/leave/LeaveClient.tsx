@@ -14,7 +14,7 @@ import {
 } from "@/lib/leave";
 import { deleteLeavePolicy, saveLeavePolicy } from "./actions";
 import BalanceTab from "./BalanceTab";
-import type { BalanceRow } from "@/lib/leave-balance";
+import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
 
 export type Policy = Omit<LeavePolicyInput, "payNote" | "attachmentNote" | "legalBasis" | "note" | "carryOverExpiry"> & {
   id: string; payNote: string | null; attachmentNote: string | null; legalBasis: string | null; note: string | null; carryOverExpiry: string | null;
@@ -265,7 +265,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   );
 }
 
-export default function LeaveClient({ policies, balances }: { policies: Policy[]; balances: BalanceRow[] }) {
+export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean }) {
   const t = useT();
   const [tab, setTab] = useState<"jenis" | "saldo">("jenis");
   const [editing, setEditing] = useState<Policy | "new" | null>(null);
@@ -319,7 +319,7 @@ export default function LeaveClient({ policies, balances }: { policies: Policy[]
           ))}
         </div>
 
-        {tab === "saldo" && <BalanceTab rows={balances} />}
+        {tab === "saldo" && <BalanceTab rows={balances} balanceSwitch={balanceSwitch} superAdmin={superAdmin} />}
         {tab === "jenis" && <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Scale size={17} /></span>

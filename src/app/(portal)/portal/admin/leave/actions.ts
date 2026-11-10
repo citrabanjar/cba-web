@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu } from "@/lib/roles";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import { LEAVE_BALANCE_KEY } from "@/lib/leave-balance";
 import { isLeaveCategory, isLeavePeriod, isLeaveUnit, type LeavePolicyInput } from "@/lib/leave";
 
 const PATH = "/portal/admin/leave";
@@ -54,6 +55,20 @@ export async function saveLeavePolicy(id: string | null, input: LeavePolicyInput
     await prisma.leavePolicy.create({ data: { ...data, sortOrder: (last._max.sortOrder ?? 0) + 1 } });
   }
   revalidatePath(PATH);
+  return {};
+}
+
+// Saklar "Saldo cuti aktif" (Super Admin). Saat diaktifkan, saldo tampil ke karyawan dan admin.
+export async function setLeaveBalanceActive(active: boolean): Promise<Result> {
+  const access = await getAccess();
+  if (!access || !isSuperAdmin(access.role)) return { error: "Hanya Super Admin yang bisa mengubah saklar saldo cuti." };
+  const value = { active, activatedAt: active ? new Date().toISOString() : null, by: access.name ?? null };
+  await prisma.appSetting.upsert({
+    where: { key: LEAVE_BALANCE_KEY }, update: { value, updatedBy: access.name ?? null }, create: { key: LEAVE_BALANCE_KEY, value, updatedBy: access.name ?? null },
+  });
+  revalidatePath(PATH);
+  revalidatePath("/portal/cuti");
+  revalidatePath("/portal/admin/karyawan", "layout");
   return {};
 }
 

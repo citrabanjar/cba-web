@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import {
-  addMonths, computeBalances, countLeaveDays, eligible, hasBalance, legacyType, todayDate,
+  addMonths, countLeaveDays, eligible, hasBalance, legacyType, todayDate, visibleBalances,
 } from "@/lib/leave-balance";
 
 export async function getLeaveRequests() {
@@ -72,7 +72,7 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
 
   let unpaidDays = 0;
   if (hasBalance(policy) || policy.deductsAnnual) {
-    const rows = await computeBalances([userId]);
+    const rows = await visibleBalances([userId]);
     const row = hasBalance(policy) ? rows.find((r) => r.policyId === policy.id) : rows[0];
     if (!row) return { error: "Saldo cuti Anda belum tersedia. Hubungi HRD." };
     if (row.problem) return { error: "Saldo cuti Anda belum bisa dihitung (tanggal masuk kosong). Hubungi HRD." };
