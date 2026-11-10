@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
-import { ArrowUpRight, Download, HandCoins, Loader2, Search, Upload, Wallet } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Download, HandCoins, Loader2, Search, Upload, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { DeleteLoanButton } from "@/components/portal/LoanManager";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
-import { LOAN_GROUPS, addMonths, isPeriod, loanSummary } from "@/lib/loans";
+import { LOAN_GROUPS, LOAN_STATUS, addMonths, isPeriod, loanSummary, periodShort } from "@/lib/loans";
 import { importOpeningLoans, type OpeningRow } from "./actions";
 
 export type AdminLoan = LoanView & { userId: string; name: string; employeeId: string; department: string | null };
@@ -156,6 +156,7 @@ export default function PinjamanAdminClient({ loans, employees, isSuper }: { loa
   const [tab, setTab] = useState<string>(() => (loans.some((l) => ["PENDING", "DISETUJUI"].includes(l.status)) ? "menunggu" : "berjalan"));
   const [q, setQ] = useState("");
   const [upload, setUpload] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   const inGroup = (key: string) => loans.filter((l) => (LOAN_GROUPS.find((g) => g.key === key)!.statuses as readonly string[]).includes(l.status));
   const list = inGroup(tab).filter((l) => !q || `${l.name} ${l.employeeId}`.toLowerCase().includes(q.toLowerCase()));
   const running = inGroup("berjalan");
@@ -195,19 +196,56 @@ export default function PinjamanAdminClient({ loans, employees, isSuper }: { loa
           </button>
         )}
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        {list.length === 0 && <p className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-8 text-center text-sm text-gray-500 lg:col-span-2"><T>Tidak ada data.</T></p>}
-        {list.map((l) => (
-          <LoanCard key={l.id} loan={l}
-            header={<p className="mb-1 text-sm font-semibold text-gray-900">{l.name} <span className="text-xs font-normal text-gray-400">{[l.employeeId, l.department].filter(Boolean).join(" · ")}</span></p>}
-            actions={<div className="flex flex-col items-end gap-1.5">
-              <Link href={`/portal/admin/karyawan/${l.userId}?tab=pinjaman`}
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                <T>{["PENDING", "DISETUJUI", "BERJALAN"].includes(l.status) ? "Kelola di profil" : "Lihat profil"}</T> <ArrowUpRight size={13} />
-              </Link>
-              {(!l.isOpening || isSuper) && <DeleteLoanButton loan={l} />}
-            </div>} />
-        ))}
+      {/* Daftar ringkas; klik satu baris untuk membuka rinciannya (hanya satu yang terbuka). */}
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        {list.length === 0 && <p className="p-8 text-center text-sm text-gray-500"><T>Tidak ada data.</T></p>}
+        {list.length > 0 && (
+          <div className="hidden grid-cols-[minmax(0,2.2fr)_1fr_1.2fr_1.3fr_100px_20px] gap-3 border-b border-gray-100 bg-gray-50/70 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400 md:grid">
+            <span><T>Karyawan</T></span><span className="text-right"><T>Jumlah</T></span><span className="text-right"><T>Sisa</T></span>
+            <span><T>Angsuran berikutnya</T></span><span><T>Status</T></span><span />
+          </div>
+        )}
+        {list.map((l) => {
+          const s = loanSummary(l.principal, l.installments);
+          const st = LOAN_STATUS[l.status] ?? { label: l.status, tone: "bg-gray-100 text-gray-600" };
+          const pct = l.principal ? Math.min(100, Math.round((s.paid / l.principal) * 100)) : 0;
+          const isOpen = openId === l.id;
+          return (
+            <div key={l.id} className="border-b border-gray-100 last:border-b-0">
+              <button type="button" onClick={() => setOpenId(isOpen ? null : l.id)} aria-expanded={isOpen}
+                className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 text-left text-sm hover:bg-gray-50 md:grid-cols-[minmax(0,2.2fr)_1fr_1.2fr_1.3fr_100px_20px] ${isOpen ? "bg-gray-50" : ""}`}>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-gray-900">{l.name}</span>
+                  <span className="block truncate text-xs text-gray-400">
+                    {[l.employeeId, l.department].filter(Boolean).join(" · ")}
+                    {l.seqNo > 0 && <> · <T>Pinjaman ke-</T>{l.seqNo}</>}
+                    {l.isOpening && <> · <span className="text-violet-600"><T>Saldo awal migrasi</T></span></>}
+                  </span>
+                </span>
+                <span className="hidden text-right tabular-nums text-gray-700 md:block">{formatRupiah(l.principal)}</span>
+                <span className="text-right md:block">
+                  <span className="block font-semibold tabular-nums text-gray-900">{formatRupiah(s.remaining)}</span>
+                  <span className="mt-1 ml-auto block h-1 w-20 overflow-hidden rounded-full bg-gray-100"><span className="block h-full bg-emerald-500" style={{ width: `${pct}%` }} /></span>
+                </span>
+                <span className="hidden text-xs text-gray-600 md:block">{s.next ? <>{periodShort(s.next.period)} · {formatRupiah(s.next.amount)}</> : "—"}</span>
+                <span className="hidden md:block"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.tone}`}><T>{st.label}</T></span></span>
+                <ChevronDown size={16} className={`hidden text-gray-400 transition-transform md:block ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isOpen && (
+                <div className="bg-gray-50 px-3 pb-3">
+                  <LoanCard loan={l}
+                    actions={<div className="flex flex-col items-end gap-1.5">
+                      <Link href={`/portal/admin/karyawan/${l.userId}?tab=pinjaman`}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                        <T>{["PENDING", "DISETUJUI", "BERJALAN"].includes(l.status) ? "Kelola di profil" : "Lihat profil"}</T> <ArrowUpRight size={13} />
+                      </Link>
+                      {(!l.isOpening || isSuper) && <DeleteLoanButton loan={l} />}
+                    </div>} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       {upload && <UploadDialog employees={employees} onClose={() => setUpload(false)} />}
     </main>
