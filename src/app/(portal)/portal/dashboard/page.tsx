@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, AlertCircle,
+  Receipt, TrendingUp, AlertCircle, CheckCircle2, ClipboardCheck, LogOut,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import { T } from "@/components/i18n";
 import AdminDashboard from "./AdminDashboard";
+import { openAttendance } from "@/lib/attendance-assess";
+import { isApprover, pendingApprovals } from "@/lib/approval";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -22,6 +24,12 @@ export default async function DashboardPage() {
   const access = await getAccess();
   const isAdmin = hasMenu(access, "karyawan");
   const superAdmin = isSuperAdmin(user.role);
+  // Status absen hari ini (shift malam kemarin yang belum pulang ikut terhitung).
+  const att = !superAdmin && user.id ? await openAttendance(user.id) : null;
+  const fmtTime = (d: Date) => d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
+  // Atasan langsung (bukan admin): kartu pengajuan bawahan yang menunggu persetujuan.
+  const approver = access && !isAdmin ? { id: access.id, role: access.role } : null;
+  const toApprove = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : 0;
 
   const menuItems = [
     ...(superAdmin ? [] : [
@@ -81,12 +89,20 @@ export default async function DashboardPage() {
             <T>Status Hari Ini</T>
           </p>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
-              <TrendingUp size={18} className="text-gray-400" />
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${att?.checkOut ? "bg-blue-50" : att?.checkIn ? "bg-emerald-50" : "bg-gray-100"}`}>
+              {att?.checkOut ? <LogOut size={18} className="text-blue-500" /> : att?.checkIn ? <CheckCircle2 size={18} className="text-emerald-600" /> : <TrendingUp size={18} className="text-gray-400" />}
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-700"><T>Belum Check-in</T></p>
-              <p className="text-xs text-gray-400"><T>Lakukan absensi sekarang</T></p>
+              {att?.checkOut ? (
+                <><p className="text-sm font-semibold text-gray-700"><T>Absensi hari ini selesai</T></p>
+                  <p className="text-xs text-gray-400"><T>Masuk</T> {fmtTime(att.checkIn!)} · <T>Pulang</T> {fmtTime(att.checkOut)}</p></>
+              ) : att?.checkIn ? (
+                <><p className="text-sm font-semibold text-gray-700"><T>Sudah Check-in</T> {fmtTime(att.checkIn)}</p>
+                  <p className="text-xs text-gray-400"><T>Jangan lupa check-out saat pulang</T></p></>
+              ) : (
+                <><p className="text-sm font-semibold text-gray-700"><T>Belum Check-in</T></p>
+                  <p className="text-xs text-gray-400"><T>Lakukan absensi sekarang</T></p></>
+              )}
             </div>
             <Link
               href="/portal/absensi"
@@ -97,6 +113,17 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>}
+
+      {toApprove > 0 && (
+        <Link href="/portal/persetujuan" className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-ink"><ClipboardCheck size={18} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-gray-900">{toApprove} <T>pengajuan menunggu persetujuan Anda</T></span>
+            <span className="block text-xs text-gray-500"><T>Cuti dan dinas luar dari karyawan yang Anda pimpin langsung.</T></span>
+          </span>
+          <span className="text-xs font-semibold text-brand"><T>Buka →</T></span>
+        </Link>
+      )}
 
       {isAdmin && (
         <div className="mb-6">

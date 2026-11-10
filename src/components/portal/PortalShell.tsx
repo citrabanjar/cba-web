@@ -6,21 +6,25 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
 import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 
-type NavItem = { href: string; label: string; icon: React.ElementType };
+type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
 type NavSection = { section: string; items: NavItem[] };
 
-function getNavSections(role: string, menuAccess: string[]): NavSection[] {
+function getNavSections(role: string, menuAccess: string[], approvals: number | null): NavSection[] {
   const sections: NavSection[] = [
     {
       section: "MENU UTAMA",
-      items: [{ href: "/portal/dashboard", label: "Beranda", icon: Home }],
+      items: [
+        { href: "/portal/dashboard", label: "Beranda", icon: Home },
+        // Atasan langsung & Admin/HRD: persetujuan cuti dan dinas luar.
+        ...(approvals !== null ? [{ href: "/portal/persetujuan", label: "Persetujuan", icon: ClipboardCheck, badge: approvals }] : []),
+      ],
     },
   ];
 
@@ -104,7 +108,7 @@ function getNavSections(role: string, menuAccess: string[]): NavSection[] {
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; storage?: StorageInfo | null; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; children: React.ReactNode };
 
 // Pemakaian penyimpanan database Neon, hanya untuk super admin.
 function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
@@ -212,6 +216,9 @@ function NavLinks({
                   <item.icon size={18} />
                 </motion.span>
                 {!collapsed && <span className="truncate"><T>{item.label}</T></span>}
+                {!!item.badge && (
+                  <span className={`${collapsed ? "absolute right-1.5 top-1" : "ml-auto"} min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[10px] font-bold leading-5 text-ink`}>{item.badge}</span>
+                )}
               </button>
             );
           })}
@@ -293,12 +300,12 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, storage, children }: Props) {
+export default function PortalShell({ user, storage, approvals = null, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useT();
-  const sections = getNavSections(user.role, user.menuAccess);
+  const sections = getNavSections(user.role, user.menuAccess, approvals);
 
   // Pilihan lipat menu diingat di browser ini saja.
   useEffect(() => {

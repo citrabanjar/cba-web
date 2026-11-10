@@ -112,8 +112,8 @@ export async function loadInsights() {
     { key: "present", title: "Hadir Hari Ini", value: presentToday, noteValue: presentYesterday, note: "hadir kemarin", icon: "present", tone: "emerald" },
     { key: "absent", title: "Tidak Hadir Hari Ini", value: absentToday, noteValue: Math.max(0, active - presentYesterday), note: "tidak hadir kemarin", icon: "absent", tone: "rose" },
     { key: "contract", title: "Kontrak Berakhir", value: expiring60, note: "dalam 60 hari ke depan", icon: "contract", tone: "amber", href: "/portal/admin/karyawan", actionable: true },
-    { key: "leave", title: "Cuti Menunggu", value: leaves.length, note: "pengajuan belum diputus", icon: "leave", tone: "violet", href: profile(leaves[0]?.userId), actionable: true },
-    { key: "trip", title: "Dinas Menunggu", value: trips.length, note: "pengajuan belum diputus", icon: "trip", tone: "violet", href: profile(trips[0]?.userId), actionable: true },
+    { key: "leave", title: "Cuti Menunggu", value: leaves.length, note: "pengajuan belum diputus", icon: "leave", tone: "violet", href: "/portal/persetujuan", actionable: true },
+    { key: "trip", title: "Dinas Menunggu", value: trips.length, note: "pengajuan belum diputus", icon: "trip", tone: "violet", href: "/portal/persetujuan", actionable: true },
     { key: "loan", title: "Pinjaman Menunggu", value: loans.length, noteValue: loanToDisburse.length || undefined, note: loanToDisburse.length ? "menunggu pencairan" : "pengajuan pinjaman belum diproses", icon: "loan", tone: "amber", href: loanTab(loans[0]?.userId), actionable: true },
     {
       key: "birthday", title: "Ulang Tahun Bulan Ini", value: birthdayThisMonth.length,
@@ -134,8 +134,8 @@ export async function loadInsights() {
     { key: "shift-soon", title: "Isi shift hari ini & besok", hint: "Karyawan tanpa shift tidak bisa dinilai kehadirannya.", count: unfilledSoon, unit: "hari kerja belum ada shift", href: rosterHref(0) },
     { key: "attendance", title: "Pantau absensi hari ini", hint: "Karyawan yang terjadwal masuk tapi belum check-in.", count: notCheckedIn, unit: "karyawan belum check-in", extra: { count: scheduledToday.length, unit: "terjadwal" } },
     { key: "incomplete", title: "Selesaikan absen tidak lengkap", hint: "Lupa check-out atau check-in, 30 hari terakhir. Putuskan: lupa absen, potong cuti, atau mangkir.", count: incomplete.length, unit: "absen belum lengkap", href: profile(incomplete[0]?.userId) },
-    { key: "leave", title: "Tinjau pengajuan cuti", hint: "Pengajuan yang menunggu keputusan.", count: leaves.length, unit: "pengajuan menunggu", href: profile(leaves[0]?.userId) },
-    { key: "trip", title: "Tinjau pengajuan dinas luar", hint: "Pengajuan yang menunggu keputusan.", count: trips.length, unit: "pengajuan menunggu", href: profile(trips[0]?.userId) },
+    { key: "leave", title: "Tinjau pengajuan cuti", hint: "Diputus atasan langsung; yang tanpa atasan aktif diputus HRD di menu Persetujuan.", count: leaves.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
+    { key: "trip", title: "Tinjau pengajuan dinas luar", hint: "Diputus atasan langsung; yang tanpa atasan aktif diputus HRD di menu Persetujuan.", count: trips.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
     { key: "loan", title: "Proses pengajuan pinjaman", hint: "Setujui atau tolak di tab Pinjaman profil karyawan.", count: loanRequests.length, unit: "pengajuan menunggu", href: loanTab(loanRequests[0]?.userId) },
     { key: "loan-disburse", title: "Cairkan pinjaman yang disetujui", hint: "Tandai Dicairkan setelah uang diberikan; angsuran baru dipotong setelah itu.", count: loanToDisburse.length, unit: "pinjaman menunggu pencairan", href: loanTab(loanToDisburse[0]?.userId) },
   ];

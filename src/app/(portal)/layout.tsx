@@ -5,6 +5,7 @@ import PortalShell from "@/components/portal/PortalShell";
 import { getAccess } from "@/lib/access";
 import { isSuperAdmin } from "@/lib/roles";
 import { getDatabaseStorage } from "@/lib/storage";
+import { isApprover, pendingApprovals } from "@/lib/approval";
 
 export default async function PortalLayout({
   children,
@@ -19,6 +20,9 @@ export default async function PortalLayout({
 
   const access = await getAccess();
   const storage = isSuperAdmin(access?.role) ? await getDatabaseStorage() : null;
+  // Menu Persetujuan (atasan langsung, Admin/HRD) dengan jumlah pengajuan yang menunggu.
+  const approver = access ? { id: access.id, role: access.role } : null;
+  const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
 
   return (
     <PortalShell
@@ -29,6 +33,7 @@ export default async function PortalLayout({
         menuAccess: access?.menuAccess ?? [],
       }}
       storage={storage}
+      approvals={approvals}
     >
       {children}
     </PortalShell>
