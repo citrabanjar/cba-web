@@ -11,7 +11,7 @@ import { T, useT } from "@/components/i18n";
 import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions } from "@/lib/master-data";
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, missingData, missingJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
-import { approveCandidate, deleteCandidate, inviteCandidate, rejectCandidate, returnToCandidate, saveCandidateReview, submitForApproval } from "./actions";
+import { approveCandidate, deleteCandidate, inviteCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, submitForApproval } from "./actions";
 
 export type CandidateRow = {
   id: string; name: string; email: string; phone: string; status: string; note: string | null;
@@ -33,9 +33,9 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [msg, setMsg] = useState<Msg>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<{ emailed: boolean; link: string } | null>(null);
   const [pending, start] = useTransition();
-  const link = typeof window !== "undefined" ? `${window.location.origin}/onboarding` : "/onboarding";
+  const link = done?.link ?? (typeof window !== "undefined" ? `${window.location.origin}/onboarding` : "/onboarding");
   return (
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-md">
@@ -43,7 +43,10 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
         {done ? (
           <div className="space-y-3 text-sm text-gray-700">
             <p className="flex items-center gap-2 font-semibold text-emerald-700"><CheckCircle2 size={16} /> <T>Calon karyawan terdaftar.</T></p>
-            <p><T>Kirim link berikut ke calon karyawan. Calon masuk dengan email dan nomor HP yang didaftarkan, lalu kode OTP.</T></p>
+            {done.emailed
+              ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><T>Email undangan sudah dikirim ke</T> <b>{form.email}</b>. <T>Calon tinggal membuka email dan klik tombol Isi Data Calon Karyawan.</T></p>
+              : <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800"><T>Email undangan belum terkirim. Kirim link berikut ke calon lewat WhatsApp.</T></p>}
+            <p className="text-xs text-gray-500"><T>Cadangan: link halaman calon (kalau email tidak sampai atau masuk Spam).</T></p>
             <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
               <code className="min-w-0 flex-1 truncate text-xs">{link}</code>
               <button type="button" aria-label={t("Salin")} onClick={() => navigator.clipboard?.writeText(link)} className="text-gray-500 hover:text-brand"><Copy size={14} /></button>
@@ -63,7 +66,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
           {!done && (
             <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
               const r = await inviteCandidate(form);
-              if (r.error) setMsg({ ok: false, text: r.error }); else setDone(true);
+              if (r.error) setMsg({ ok: false, text: r.error }); else setDone({ emailed: !!r.emailed, link: r.link ?? link });
             })}>{pending && <Loader2 size={15} className="animate-spin" />} <T>Daftarkan</T></Button>
           )}
         </DialogFooter>
@@ -112,7 +115,12 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
             <span className="w-full text-[11px] text-amber-800"><T>Email belum tersambung: kirim kode ini ke calon lewat WhatsApp.</T></span>
           </div>
         )}
-        {waiting && <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-600"><T>Calon belum mengirim data. Minta calon membuka /onboarding dan masuk dengan email dan nomor HP-nya.</T></p>}
+        {waiting && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-600">
+            <span className="min-w-0 flex-1"><T>Calon belum mengirim data. Undangan dikirim ke email calon; minta calon cek email (termasuk Spam).</T></span>
+            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendInvite(row.id), "Email undangan dikirim ulang.")}><T>Kirim ulang undangan</T></Button>
+          </div>
+        )}
         {row.note && (row.status === "DIKEMBALIKAN" || row.status === "DITOLAK") && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800"><b><T>Catatan</T>:</b> {row.note}</p>}
 
         {!waiting && (

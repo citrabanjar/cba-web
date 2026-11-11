@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { missingData, missingJob, readData, readJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
+import { headers } from "next/headers";
+import { sendInviteEmail } from "@/lib/mailer";
 
 const PATH = "/portal/admin/onboarding";
 type Result = { error?: string; missing?: string[] };
@@ -19,8 +21,16 @@ async function requireHR() {
 const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); };
 const digits = (v: string) => v.replace(/\D/g, "");
 
-// HRD mendaftarkan calon: nama, email, nomor HP (WhatsApp).
-export async function inviteCandidate(input: { name: string; email: string; phone: string }): Promise<Result & { id?: string }> {
+// Alamat halaman onboarding (absolut, untuk email undangan), email calon sudah terisi.
+async function onboardingLink(email: string) {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const base = host ? `${h.get("x-forwarded-proto") ?? "https"}://${host}` : (process.env.NEXTAUTH_URL ?? "https://www.citrabanjar.com");
+  return `${base.replace(/\/$/, "")}/onboarding?email=${encodeURIComponent(email)}`;
+}
+
+// HRD mendaftarkan calon: nama, email, nomor HP (WhatsApp). Undangan otomatis dikirim ke email calon.
+export async function inviteCandidate(input: { name: string; email: string; phone: string }): Promise<Result & { id?: string; emailed?: boolean; link?: string }> {
   const access = await requireHR();
   const name = input.name.trim(), email = input.email.trim().toLowerCase(), phone = input.phone.trim();
   if (!name) return { error: "Nama wajib diisi." };
@@ -29,8 +39,19 @@ export async function inviteCandidate(input: { name: string; email: string; phon
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah dipakai karyawan lain." };
   if (await prisma.candidate.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah terdaftar sebagai calon karyawan." };
   const c = await prisma.candidate.create({ data: { name, email, phone, data: { name, phone }, invitedBy: access.name ?? null } });
+  const link = await onboardingLink(email);
+  const emailed = await sendInviteEmail(email, name, link);
   refresh();
-  return { id: c.id };
+  return { id: c.id, emailed, link };
+}
+
+// Kirim ulang email undangan (mis. calon belum menerima / tersaring spam).
+export async function resendInvite(id: string): Promise<Result & { emailed?: boolean }> {
+  await requireHR();
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  if (!c || c.status === "DISETUJUI" || c.status === "DITOLAK") return { error: "Calon tidak bisa diundang ulang." };
+  const emailed = await sendInviteEmail(c.email, c.name, await onboardingLink(c.email));
+  return emailed ? { emailed } : { error: "Email undangan gagal dikirim. Bagikan link /onboarding lewat WhatsApp." };
 }
 
 // Isian HRD saat memeriksa: data pribadi (boleh dibetulkan) dan data pekerjaan.

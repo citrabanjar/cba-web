@@ -8,10 +8,10 @@ import { requestOtp, verifyOtp } from "./actions";
 
 const field = "w-full rounded-xl border border-white/20 bg-white/10 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/40 focus:border-white/50 focus:outline-none";
 
-export default function OtpLogin() {
+export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string }) {
   const t = useT();
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"data" | "otp">("data");
