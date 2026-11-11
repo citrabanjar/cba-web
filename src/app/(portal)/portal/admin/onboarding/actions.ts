@@ -8,7 +8,7 @@ import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { missingData, missingJob, readData, readJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { headers } from "next/headers";
-import { sendInviteEmail } from "@/lib/mailer";
+import { sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
 
 const PATH = "/portal/admin/onboarding";
 type Result = { error?: string; missing?: string[] };
@@ -65,14 +65,16 @@ export async function saveCandidateReview(id: string, data: CandidateData, job: 
   return {};
 }
 
-export async function returnToCandidate(id: string, note: string): Promise<Result> {
+// Dikembalikan ke calon untuk diperbaiki; calon langsung diberi tahu lewat email (catatan + tombol Perbaiki Data).
+export async function returnToCandidate(id: string, note: string): Promise<Result & { emailed?: boolean }> {
   const access = await requireHR();
   const c = await prisma.candidate.findUnique({ where: { id } });
   if (!c || !["DIKIRIM", "MENUNGGU_APPROVAL"].includes(c.status)) return { error: "Hanya data yang sudah dikirim yang bisa dikembalikan." };
   if (!note.trim()) return { error: "Tulis catatan apa yang perlu diperbaiki." };
   await prisma.candidate.update({ where: { id }, data: { status: "DIKEMBALIKAN", note: note.trim(), reviewedBy: access.name ?? null } });
+  const emailed = await sendReturnedEmail(c.email, c.name, note.trim(), await onboardingLink(c.email));
   refresh();
-  return {};
+  return { emailed };
 }
 
 // Organisasi harus sudah terdaftar; nama disamakan dengan parameter.

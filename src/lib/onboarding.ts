@@ -56,8 +56,10 @@ export function readData(raw: unknown, name = "", phone = ""): CandidateData {
   }
   out.addressSameAsId = v.addressSameAsId === undefined ? true : v.addressSameAsId === true;
   out.family = Array.isArray(v.family)
-    ? (v.family as Record<string, unknown>[]).map((f) => ({ name: str(f?.name), idNumber: str(f?.idNumber), relation: str(f?.relation) })).filter((f) => f.name || f.idNumber)
+    ? (v.family as Record<string, unknown>[]).map((f) => ({ name: str(f?.name).toUpperCase(), idNumber: str(f?.idNumber), relation: str(f?.relation) })).filter((f) => f.name || f.idNumber)
     : [];
+  // Nama dan teks bebas disimpan HURUF KAPITAL.
+  for (const k of ["name", "birthPlace", "address", "currentAddress", "bankHolder"] as const) out[k] = String(out[k] ?? "").toUpperCase();
   return out as CandidateData;
 }
 export function readJob(raw: unknown): CandidateJob {

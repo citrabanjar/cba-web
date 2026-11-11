@@ -71,3 +71,32 @@ export async function sendInviteEmail(to: string, name: string, link: string): P
     return false;
   }
 }
+
+// Data calon dikembalikan HRD untuk diperbaiki: catatan HRD + tombol menuju halaman onboarding.
+export async function sendReturnedEmail(to: string, name: string, note: string, link: string): Promise<boolean> {
+  if (!mailerReady()) return false;
+  try {
+    await mailer().sendMail({
+      from: { name: "HRD PT. Citra Banjar Abadi", address: process.env.SMTP_FROM || process.env.SMTP_USER! },
+      to,
+      subject: "Data calon karyawan perlu diperbaiki",
+      text: `Halo ${name},\n\nHRD mengembalikan data calon karyawan Anda untuk diperbaiki.\nCatatan HRD: ${note}\n\nBuka ${link}, masuk dengan email ini dan nomor HP Anda, perbaiki data, lalu kirim ulang.\n\nHRD PT. Citra Banjar Abadi`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937">
+        <h2 style="color:#BE353F;margin-bottom:4px">PT. Citra Banjar Abadi</h2>
+        <p>Halo <b>${esc(name)}</b>,</p>
+        <p>HRD mengembalikan <b>data calon karyawan</b> Anda untuk diperbaiki.</p>
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;margin:16px 0">
+          <p style="margin:0 0 4px;font-size:12px;color:#9a3412;font-weight:bold">CATATAN HRD</p>
+          <p style="margin:0;white-space:pre-line">${esc(note)}</p>
+        </div>
+        <p style="text-align:center;margin:24px 0"><a href="${esc(link)}" style="background:#BE353F;color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:bold;display:inline-block">Perbaiki Data</a></p>
+        <p style="font-size:13px;color:#6b7280">Masuk dengan email ini dan nomor HP Anda, perbaiki sesuai catatan, lalu kirim ulang. Kode OTP akan dikirim ke email ini.</p>
+        <p style="font-size:13px;color:#6b7280">HRD PT. Citra Banjar Abadi</p>
+      </div>`,
+    });
+    return true;
+  } catch (e) {
+    console.error("[mailer] gagal kirim pemberitahuan pengembalian:", e instanceof Error ? e.message : e);
+    return false;
+  }
+}

@@ -15,9 +15,11 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
 }) {
   const t = useT();
   const set = <K extends keyof CandidateData>(k: K, v: CandidateData[K]) => onChange({ ...value, [k]: v });
-  const text = (k: keyof CandidateData, label: string, props: React.ComponentProps<typeof Input> = {}) => (
+  // Nama dan isian teks bebas otomatis HURUF KAPITAL (sama dengan data karyawan yang sudah ada).
+  const text = (k: keyof CandidateData, label: string, props: React.ComponentProps<typeof Input> = {}, caps = false) => (
     <div className="space-y-1.5"><Label className="text-xs"><T>{label}</T></Label>
-      <Input value={String(value[k] ?? "")} disabled={disabled} onChange={(e) => set(k, e.target.value as never)} {...props} /></div>
+      <Input value={String(value[k] ?? "")} disabled={disabled} onChange={(e) => set(k, (caps ? e.target.value.toUpperCase() : e.target.value) as never)}
+        className={caps ? "uppercase" : undefined} {...props} /></div>
   );
   const choice = (k: keyof CandidateData, label: string, options: readonly string[]) => (
     <div className="space-y-1.5"><Label className="text-xs"><T>{label}</T></Label>
@@ -39,9 +41,9 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
     <div className="space-y-4">
       {section("Data Diri", (
         <div className="grid gap-3 sm:grid-cols-2">
-          {text("name", "Nama lengkap (sesuai identitas)")}
+          {text("name", "Nama lengkap (sesuai identitas)", {}, true)}
           {text("phone", "No. HP (WhatsApp)", { inputMode: "tel" })}
-          {text("birthPlace", "Tempat lahir")}
+          {text("birthPlace", "Tempat lahir", {}, true)}
           {text("birthDate", "Tanggal lahir", { type: "date" })}
           {choice("idType", "Jenis identitas", ID_TYPES)}
           {text("ktpNumber", "No. identitas", { inputMode: "numeric" })}
@@ -54,16 +56,16 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
       {section("Tempat Tinggal", (
         <div className="space-y-3">
           <div className="space-y-1.5"><Label className="text-xs"><T>Alamat sesuai identitas</T></Label>
-            <textarea value={value.address} disabled={disabled} rows={2} onChange={(e) => set("address", e.target.value)}
-              className="w-full rounded-lg border border-input px-3 py-2 text-sm disabled:bg-gray-50" /></div>
+            <textarea value={value.address} disabled={disabled} rows={2} onChange={(e) => set("address", e.target.value.toUpperCase())}
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm uppercase disabled:bg-gray-50" /></div>
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={value.addressSameAsId} disabled={disabled} onChange={(e) => set("addressSameAsId", e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
             <T>Alamat saat ini sama dengan alamat identitas</T>
           </label>
           {!value.addressSameAsId && (
             <div className="space-y-1.5"><Label className="text-xs"><T>Alamat saat ini</T></Label>
-              <textarea value={value.currentAddress} disabled={disabled} rows={2} onChange={(e) => set("currentAddress", e.target.value)}
-                className="w-full rounded-lg border border-input px-3 py-2 text-sm disabled:bg-gray-50" /></div>
+              <textarea value={value.currentAddress} disabled={disabled} rows={2} onChange={(e) => set("currentAddress", e.target.value.toUpperCase())}
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm uppercase disabled:bg-gray-50" /></div>
           )}
         </div>
       ))}
@@ -73,7 +75,7 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
           {value.family.length === 0 && <p className="text-xs text-gray-400"><T>Belum ada anggota keluarga. Tambahkan suami/istri dan anak (untuk BPJS dan PTKP).</T></p>}
           {value.family.map((f, i) => (
             <div key={i} className="grid gap-2 sm:grid-cols-[1fr_1fr_140px_32px]">
-              <Input value={f.name} disabled={disabled} placeholder={t("Nama")} onChange={(e) => setFamily(i, { name: e.target.value })} />
+              <Input value={f.name} disabled={disabled} placeholder={t("Nama")} className="uppercase" onChange={(e) => setFamily(i, { name: e.target.value.toUpperCase() })} />
               <Input value={f.idNumber} disabled={disabled} placeholder={t("No. identitas")} inputMode="numeric" onChange={(e) => setFamily(i, { idNumber: e.target.value })} />
               <select value={f.relation} disabled={disabled} onChange={(e) => setFamily(i, { relation: e.target.value })} className={select}>
                 <option value="">—</option>
@@ -98,7 +100,7 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
             <Input value={value.bankName} disabled={disabled} list="onb-banks" onChange={(e) => set("bankName", e.target.value)} />
             <datalist id="onb-banks">{BANK_OPTIONS.map((b) => <option key={b.value} value={b.value} />)}</datalist></div>
           {text("bankAccount", "No. rekening", { inputMode: "numeric" })}
-          {text("bankHolder", "Nama pemilik rekening")}
+          {text("bankHolder", "Nama pemilik rekening", {}, true)}
         </div>
       ))}
 

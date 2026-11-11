@@ -41,14 +41,14 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader><DialogTitle><T>Undang Calon Karyawan</T></DialogTitle></DialogHeader>
         {done ? (
-          <div className="space-y-3 text-sm text-gray-700">
+          <div className="min-w-0 space-y-3 text-sm text-gray-700">
             <p className="flex items-center gap-2 font-semibold text-emerald-700"><CheckCircle2 size={16} /> <T>Calon karyawan terdaftar.</T></p>
             {done.emailed
-              ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><T>Email undangan sudah dikirim ke</T> <b>{form.email}</b>. <T>Calon tinggal membuka email dan klik tombol Isi Data Calon Karyawan.</T></p>
+              ? <p className="break-words rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><T>Email undangan sudah dikirim ke</T> <b>{form.email}</b>. <T>Calon tinggal membuka email dan klik tombol Isi Data Calon Karyawan.</T></p>
               : <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800"><T>Email undangan belum terkirim. Kirim link berikut ke calon lewat WhatsApp.</T></p>}
             <p className="text-xs text-gray-500"><T>Cadangan: link halaman calon (kalau email tidak sampai atau masuk Spam).</T></p>
             <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
-              <code className="min-w-0 flex-1 truncate text-xs">{link}</code>
+              <code className="min-w-0 flex-1 break-all text-xs">{link}</code>
               <button type="button" aria-label={t("Salin")} onClick={() => navigator.clipboard?.writeText(link)} className="text-gray-500 hover:text-brand"><Copy size={14} /></button>
             </div>
           </div>
@@ -175,7 +175,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 onClick={() => { if (window.confirm(t("Hapus calon karyawan ini?"))) run(() => deleteCandidate(row.id), "Calon dihapus.", onClose); }}><Trash2 size={14} /> <T>Hapus</T></Button>
             )}
             {(row.status === "DIKIRIM" || row.status === "MENUNGGU_APPROVAL") && (
-              <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon.", onClose)}><Undo2 size={14} /> <T>Kembalikan ke Calon</T></Button>
+              <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon dan diberi tahu lewat email.", onClose)}><Undo2 size={14} /> <T>Kembalikan ke Calon</T></Button>
             )}
             {canApprove && row.status === "MENUNGGU_APPROVAL" && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
