@@ -68,6 +68,8 @@ export default function AttendanceCalendar({
   // Hari ini menurut waktu Jakarta (UTC+7), dihitung sekali saat kalender dibuka.
   const [nowJakarta] = useState(() => new Date(Date.now() + 7 * 3600_000));
   const todayKey = nowJakarta.toISOString().slice(0, 10);
+  // Super Admin (masa testing) boleh mengisi absen sampai akhir bulan berjalan.
+  const monthEndKey = new Date(Date.UTC(nowJakarta.getUTCFullYear(), nowJakarta.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
   const [month, setMonth] = useState({ y: nowJakarta.getUTCFullYear(), m: nowJakarta.getUTCMonth() });
   const [selected, setSelected] = useState<string | null>(todayKey);
 
@@ -335,7 +337,7 @@ export default function AttendanceCalendar({
               ) : (
                 <p className="mt-3 flex items-center gap-2 text-sm text-gray-400"><Clock size={15} /> <T>Belum ada catatan kehadiran.</T></p>
               )}
-              {editUserId && selected <= todayKey && (
+              {editUserId && selected <= monthEndKey && (
                 <AttendanceEditor key={`${selected}-${sel?.checkIn ?? ""}-${sel?.checkOut ?? ""}-${sel?.status ?? ""}`} userId={editUserId} date={selected}
                   current={sel ? { checkIn: sel.checkIn, checkOut: sel.checkOut, status: sel.status, note: sel.note } : undefined} />
               )}

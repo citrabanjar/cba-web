@@ -17,6 +17,10 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 async function guard(userId: string, date: string) {
   const user = await requireSuperAdmin();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Tanggal tidak valid." } as const;
+  // Masa testing: boleh sampai akhir bulan berjalan (WIB), tidak lebih jauh.
+  const now = new Date(Date.now() + 7 * 3600_000);
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  if (date > monthEnd) return { error: "Absen hanya bisa diisi sampai akhir bulan berjalan." } as const;
   const final = await prisma.payrollRun.findFirst({ where: { status: "FINAL", frequency: "BULANAN", period: date.slice(0, 7) }, select: { id: true } });
   if (final) return { error: "Periode gaji bulan ini sudah final, absen tidak bisa diubah." } as const;
   const emp = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
