@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, HandCoins, Landmark, Loader2, Play, Settings2, ShieldCheck, Wallet } from "lucide-react";
+import { Calculator, CheckCircle2, HandCoins, Landmark, Loader2, Play, Settings2, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import TaxSettings from "./TaxSettings";
 import TerSettings from "./TerSettings";
 import type { TaxYearConfig, TerVersion } from "@/lib/pph21";
 import ComponentsTab, { type Component, type PayEmployee } from "./ComponentsTab";
+import DeductionCalculator from "./DeductionCalculator";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
 
@@ -81,7 +82,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
   taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[];
 }) {
   const t = useT();
-  const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan">("komponen");
+  const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "kalkulator">("komponen");
   const active = components.filter((c) => c.isActive);
   const bpjsEmployer = active.filter((c) => c.kind === "BENEFIT" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
   const bpjsEmployee = active.filter((c) => c.kind === "POTONGAN" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
@@ -110,7 +111,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
           ))}
         </div>
         <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
-          {([["komponen", "Komponen", Wallet], ["pengaturan", "Pengaturan", Settings2], ["proses", "Proses Gaji", Play]] as const).map(([k, label, Icon]) => (
+          {([["komponen", "Komponen", Wallet], ["pengaturan", "Pengaturan", Settings2], ["kalkulator", "Kalkulator Potongan", Calculator], ["proses", "Proses Gaji", Play]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
               className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               <Icon size={15} /> <T>{label}</T>
@@ -119,6 +120,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
         </div>
         {tab === "proses" && <RunTab runs={runs} nonRoutine={nonRoutine} weekStartDay={settings.weekStartDay} />}
         {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={settings.workDaysPerWeek} />}
+        {tab === "kalkulator" && <DeductionCalculator />}
         {tab === "pengaturan" && <><SettingsTab settings={settings} /><TaxSettings all={taxSettings} /><TerSettings versions={terSettings} /></>}
       </main>
     </div>
