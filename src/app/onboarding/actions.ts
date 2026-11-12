@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { sendOtpEmail } from "@/lib/mailer";
 import {
-  OTP_MAX_TRIES, OTP_MINUTES, clearCandidateSession, getCandidateSession, newOtp, setCandidateSession,
+  OTP_MAX_TRIES, OTP_MINUTES, clearCandidateSession, createLoginTicket, getCandidateSession, newOtp,
 } from "@/lib/onboarding-session";
 import { candidateCanEdit, missingData, readData, type CandidateData } from "@/lib/onboarding";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
@@ -37,8 +37,8 @@ export async function requestOtp(email: string, phone: string): Promise<Result &
   return { sent };
 }
 
-// Langkah 2: kode OTP benar → sesi calon dibuat.
-export async function verifyOtp(email: string, phone: string, code: string): Promise<Result> {
+// Langkah 2: kode OTP benar → tiket masuk sekali pakai; sesi dibuat di /onboarding/masuk setelah animasi selesai.
+export async function verifyOtp(email: string, phone: string, code: string): Promise<Result & { ticket?: string }> {
   const c = await findCandidate(email, phone);
   if (!c || !c.otpCode || !c.otpExpires) return { error: "Minta kode OTP terlebih dahulu." };
   if (c.otpExpires < new Date()) return { error: "Kode OTP sudah kedaluwarsa. Minta kode baru." };
@@ -48,8 +48,7 @@ export async function verifyOtp(email: string, phone: string, code: string): Pro
     return { error: "Kode OTP salah." };
   }
   await prisma.candidate.update({ where: { id: c.id }, data: { otpCode: null, otpExpires: null, otpTries: 0 } });
-  await setCandidateSession(c.id);
-  return {};
+  return { ticket: createLoginTicket(c.id) };
 }
 
 // Simpan isian (draf) atau kirim ke HRD untuk diperiksa.

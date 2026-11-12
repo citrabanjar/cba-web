@@ -33,6 +33,23 @@ export async function getCandidateSession(): Promise<string | null> {
   return id;
 }
 
+// Tiket masuk sekali pakai (2 menit) dari OTP yang benar. Sesi baru dibuat saat tiket ditukar di /onboarding/masuk,
+// supaya animasi berhasil di halaman OTP sempat diputar sebelum halaman berpindah.
+const TICKET_MS = 2 * 60_000;
+export function createLoginTicket(candidateId: string) {
+  const value = `t-${candidateId}.${Date.now() + TICKET_MS}`;
+  return `${value}.${sign(value)}`;
+}
+export function readLoginTicket(ticket: string): string | null {
+  const [id, exp, mac] = ticket.split(".");
+  if (!id?.startsWith("t-") || !exp || !mac) return null;
+  const expected = Buffer.from(sign(`${id}.${exp}`));
+  const given = Buffer.from(mac);
+  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
+  if (Number(exp) < Date.now()) return null;
+  return id.slice(2);
+}
+
 export async function clearCandidateSession() {
   (await cookies()).set(COOKIE, "", { path: "/onboarding", maxAge: 0 });
 }
