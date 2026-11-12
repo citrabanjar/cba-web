@@ -113,7 +113,7 @@ const COLUMNS: Column[] = [
   { field: "addressCity", names: ["Kabupaten/Kota KTP", "Kabupaten/Kota"], example: "KOTA BANJARMASIN", note: "Lengkap dengan KOTA / KABUPATEN, mis. KOTA BANJARMASIN, KABUPATEN SERANG." },
   { field: "addressProvince", names: ["Provinsi KTP", "Provinsi"], example: "KALIMANTAN SELATAN" },
   { field: "addressPostal", names: ["Kode Pos KTP", "Kode Pos"], kind: "digits", example: "70245", note: "Boleh kosong: terisi otomatis dari kelurahan bila datanya ada." },
-  { field: "birthPlace", names: ["Tempat Lahir", "Birth Place"], example: "Banjarmasin" },
+  { field: "birthPlace", names: ["Tempat Lahir", "Birth Place"], example: "BANJARMASIN" },
   { field: "birthDate", names: ["Tanggal Lahir", "Birth Date"], kind: "date", example: "20-Mei-1990" },
   { field: "gender", names: ["Jenis Kelamin", "Gender"], choices: { "laki-laki": "Laki-laki", male: "Laki-laki", perempuan: "Perempuan", female: "Perempuan" }, shown: "Laki-laki, Perempuan", example: "Laki-laki" },
   { field: "religion", names: ["Agama", "Religion"], choices: { islam: "Islam", kristen: "Kristen", katolik: "Katolik", hindu: "Hindu", buddha: "Buddha", konghucu: "Konghucu" }, shown: "Islam, Kristen, Katolik, Hindu, Buddha, Konghucu", example: "Islam" },

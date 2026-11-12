@@ -170,7 +170,9 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
   }
   for (const field of TEXT_FIELDS) {
     if (data[field] === undefined) continue;
-    const value = data[field]?.trim() || null;
+    const raw = data[field]?.trim() || null;
+    // Tempat lahir selalu huruf kapital.
+    const value = field === "birthPlace" ? raw?.toUpperCase() ?? null : raw;
     if (field === "employeeId" && !value) throw new Error("ID Karyawan wajib diisi");
     if (track(field, record[field], value)) (changes as Record<string, unknown>)[field] = value;
   }
@@ -640,7 +642,7 @@ export async function importEmployees(rows: ImportRow[]) {
           addressRegion: row.addressRegion && /^\d{2}\.\d{2}\.\d{2}\.\d{4}$/.test(row.addressRegion) ? row.addressRegion : null,
           addressRegionName: row.addressRegion && row.addressRegionName ? row.addressRegionName.toUpperCase() : null,
           addressPostal: row.addressPostal && /^\d{5}$/.test(row.addressPostal) ? row.addressPostal : null,
-          birthPlace: row.birthPlace,
+          birthPlace: row.birthPlace?.trim().toUpperCase() || undefined,
           birthDate: toDate(row.birthDate),
           gender: row.gender,
           religion: row.religion,

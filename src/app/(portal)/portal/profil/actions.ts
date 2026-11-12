@@ -39,7 +39,8 @@ export async function submitProfileChange(input: { values: Record<string, string
   const changes: ProfileChanges = {};
   for (const f of PROFILE_FIELDS) {
     if (!(f.key in input.values)) continue;
-    const next = (input.values[f.key] ?? "").trim();
+    const typed = (input.values[f.key] ?? "").trim();
+    const next = f.key === "birthPlace" ? typed.toUpperCase() : typed; // tempat lahir selalu huruf kapital
     const old = profileValue(record, f.key);
     if (f.options && next && !f.options.includes(next)) return { error: `Pilihan ${f.label} tidak dikenal.` };
     if (f.type === "postal" && next && !/^\d{5}$/.test(next)) return { error: `${f.label} harus 5 angka.` };
