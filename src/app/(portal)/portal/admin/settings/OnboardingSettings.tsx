@@ -74,9 +74,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag }
         </Feature>
 
         <Feature icon={Bot} title="Agent HRD" checked={agent} onChange={(v) => { setMsg(null); setAgent(v); }}
-          desc="AI (Claude) memeriksa ringkasan data portal secara terjadwal dan menulis temuan ke Task Admin. Nonaktif: tab Agent HRD disembunyikan, pemeriksaan berhenti, dan tidak ada biaya AI.">
-          <p className="text-[11px] text-gray-500"><T>Jadwal pemeriksaan, Buku SOP, dan riwayat diatur di tab Agent HRD.</T></p>
-        </Feature>
+          desc="AI (Claude) membantu admin memeriksa data seluruh karyawan berdasarkan SOP perusahaan. Admin bisa menambahkan SOP lainnya jika dibutuhkan." />
 
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
         <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
