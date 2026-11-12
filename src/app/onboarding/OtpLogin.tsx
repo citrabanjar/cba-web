@@ -44,7 +44,7 @@ export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string 
       } else {
         setStatus("success");
         // Animasi berhasil diputar dulu, baru tiket ditukar menjadi sesi dan formulir dibuka.
-        setTimeout(() => window.location.assign(new URL(`/onboarding/masuk?t=${encodeURIComponent(r.ticket ?? "")}`, window.location.origin).href), 1400);
+        setTimeout(() => window.location.assign(new URL(`/onboarding/masuk?t=${encodeURIComponent(r.ticket ?? "")}`, window.location.origin).href), 2600);
       }
     });
   }

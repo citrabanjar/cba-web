@@ -63,10 +63,10 @@ export default function OtpBoxes({ value, onChange, status, length = 6, disabled
           const filled = !!d;
           // Gerak saat berhasil, per gaya.
           const successAnim =
-            style === "merge" ? { x: (mid - i) * 52, scale: 0.6, opacity: 0 }
-            : style === "pop" ? { y: [0, -14, 0], transition: { delay: i * 0.06, duration: 0.45 } }
-            : style === "flip" ? { rotateY: [0, 180, 360], transition: { delay: i * 0.07, duration: 0.6 } }
-            : {};
+            style === "merge" ? { x: (mid - i) * 52, scale: 0.6, opacity: 0, transition: { delay: 0.25 + 0.08 * Math.abs(mid - i), duration: 0.55, ease: "easeIn" as const } }
+            : style === "pop" ? { y: [0, -18, 0, -6, 0], transition: { delay: i * 0.1, duration: 0.8 } }
+            : style === "flip" ? { rotateY: [0, 180, 360], transition: { delay: i * 0.12, duration: 0.9 } }
+            : { scale: [1, 1.15, 1], transition: { delay: 0.3 + i * 0.1, duration: 0.45 } }; // liquid & shimmer: denyut bergelombang
           return (
             <motion.div
               key={i}
@@ -120,13 +120,24 @@ export default function OtpBoxes({ value, onChange, status, length = 6, disabled
           {ok && style === "merge" && (
             <motion.div
               className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_0_30px_rgba(16,185,129,0.7)]"
-              initial={{ scale: 0, opacity: 0 }} animate={{ scale: [0, 1.25, 1], opacity: 1 }} transition={{ delay: 0.35, duration: 0.5 }}
+              initial={{ scale: 0, opacity: 0 }} animate={{ scale: [0, 1.25, 1], opacity: 1 }} transition={{ delay: 0.85, duration: 0.6 }}
             >
               <Check size={28} strokeWidth={3} />
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
+      {/* Semua gaya: tulisan "Kode benar" muncul setelah gerak kotak selesai */}
+      <AnimatePresence>
+        {ok && (
+          <motion.p
+            className="mt-4 flex items-center justify-center gap-1.5 text-sm font-semibold text-emerald-200"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.3, duration: 0.4 }}
+          >
+            <Check size={16} strokeWidth={3} /> Kode benar, membuka formulir…
+          </motion.p>
+        )}
+      </AnimatePresence>
       {status === "checking" && (
         <motion.div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
           <motion.div className="h-full w-1/3 rounded-full bg-white/70" animate={{ x: ["-100%", "300%"] }} transition={{ repeat: Infinity, duration: 0.9, ease: "easeInOut" }} />
