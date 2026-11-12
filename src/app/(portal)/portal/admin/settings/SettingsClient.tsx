@@ -67,8 +67,8 @@ export default function SettingsClient({
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Task Admin & Running Indikator hanya untuk Super Admin.
   const tabs = [
     { key: "akun", label: "Akun", icon: UserCog },
-    ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
     ...(onboarding ? [{ key: "onboarding", label: "Onboarding", icon: UserPlus }] : []),
+    ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
     ...(ai ? [{ key: "ai", label: "AI Pemeriksa", icon: Bot }] : []),
     ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),
   ];
