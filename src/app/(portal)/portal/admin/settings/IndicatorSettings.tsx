@@ -7,7 +7,7 @@ import { T } from "@/components/i18n";
 import { INDICATOR_CATALOG } from "@/lib/dashboard-indicators";
 import { saveHiddenIndicators } from "./actions";
 
-// Super Admin memilih kartu mana yang ikut di running indikator Beranda admin.
+// Admin memilih kartu mana yang ikut di running indikator Beranda admin.
 export default function IndicatorSettings({ hidden: initial }: { hidden: string[] }) {
   const [hidden, setHidden] = useState<string[]>(initial);
   const [saved, setSaved] = useState(false);

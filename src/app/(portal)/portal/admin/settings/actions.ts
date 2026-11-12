@@ -37,10 +37,10 @@ export async function changeAdminPassword(
   return { success: true };
 }
 
-// Simpan kartu running indikator Beranda yang dimatikan. Khusus Super Admin.
+// Simpan kartu running indikator Beranda yang dimatikan. Khusus Admin (setup detail).
 export async function saveHiddenIndicators(hidden: string[]): Promise<{ error?: string }> {
   const session = await auth();
-  if (!session?.user || !isSuperAdmin(session.user.role)) return { error: "Unauthorized" };
+  if (!session?.user || !isManagement(session.user.role) || isSuperAdmin(session.user.role)) return { error: "Unauthorized" };
   const known = new Set<string>(INDICATOR_CATALOG.map((i) => i.key));
   const value = { hidden: [...new Set(hidden)].filter((k) => known.has(k)) };
   await prisma.appSetting.upsert({

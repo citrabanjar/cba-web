@@ -20,15 +20,21 @@ async function store(value: AgentSettings, by: string | null) {
   revalidatePath("/portal/dashboard");
   revalidatePath("/portal/admin/settings");
 }
+// Setup detail fitur dikerjakan Admin; Super Admin hanya menyalakan fitur (Pengaturan → Fitur).
+async function requireAdminOnly() {
+  const session = await auth();
+  if (!session?.user || !isManagement(session.user.role) || isSuperAdmin(session.user.role)) throw new Error("Unauthorized");
+  return session.user;
+}
 async function requireSuper() {
   const session = await auth();
   if (!session?.user || !isSuperAdmin(session.user.role)) throw new Error("Unauthorized");
   return session.user;
 }
 
-// Pengecekan yang dinyalakan/dimatikan dan batas angkanya (Super Admin).
+// Pengecekan yang dinyalakan/dimatikan dan batas angkanya (Admin).
 export async function saveAgentRules(input: { enabled: string[]; contractDays: number; payrollRemindDays: number }): Promise<Result> {
-  const user = await requireSuper();
+  const user = await requireAdminOnly();
   const keys = new Set<string>(MONITOR_CHECKS.map((c) => c.key));
   const s = await load();
   s.enabled = input.enabled.filter((k) => keys.has(k));
@@ -38,9 +44,9 @@ export async function saveAgentRules(input: { enabled: string[]; contractDays: n
   return {};
 }
 
-// Tambah / ubah pengingat SOP (Super Admin).
+// Tambah / ubah pengingat SOP (Admin).
 export async function saveReminder(input: SopReminder): Promise<Result> {
-  const user = await requireSuper();
+  const user = await requireAdminOnly();
   const title = input.title.trim().slice(0, 120);
   if (!title) return { error: "Judul pengingat wajib diisi." };
   if (!["MONTHLY", "YEARLY", "ONCE"].includes(input.freq)) return { error: "Jenis pengingat tidak valid." };
@@ -57,7 +63,7 @@ export async function saveReminder(input: SopReminder): Promise<Result> {
 }
 
 export async function deleteReminder(id: string): Promise<Result> {
-  const user = await requireSuper();
+  const user = await requireAdminOnly();
   const s = await load();
   s.reminders = s.reminders.filter((x) => x.id !== id);
   delete s.done[id];

@@ -61,10 +61,10 @@ export default function SettingsClient({
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean } | null;
+  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; setupDone: boolean } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
-  // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Task Admin & Running Indikator hanya untuk Super Admin.
+  // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; Super Admin: Akun & Fitur; Admin: Task Admin, Agent HRD, Running Indikator.
   const tabs = [
     { key: "akun", label: "Akun", icon: UserCog },
     ...(onboarding ? [{ key: "onboarding", label: "Fitur", icon: ToggleRight }] : []),

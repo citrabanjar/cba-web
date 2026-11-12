@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
 import { MONITOR_CHECKS, type AgentSettings as Settings, type SopReminder } from "@/lib/agent-hrd";
-import { deleteReminder, saveAgentRules, saveReminder, setSetupDone } from "./agent-actions";
+import { deleteReminder, saveAgentRules, saveReminder } from "./agent-actions";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const EMPTY: SopReminder = { id: "", title: "", note: "", freq: "MONTHLY", day: 25, month: 1, date: "", leadDays: 3 };
@@ -16,7 +16,7 @@ const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm"
 const describe = (r: SopReminder) =>
   r.freq === "MONTHLY" ? `Setiap tanggal ${r.day}` : r.freq === "YEARLY" ? `Setiap ${r.day} ${MONTHS[(r.month || 1) - 1]}` : `Sekali, ${r.date}`;
 
-// Pengaturan Task Admin (Super Admin): pengecekan yang aktif, batas angka, dan pengingat SOP.
+// Pengaturan Task Admin (Admin): pengecekan yang aktif, batas angka, dan pengingat SOP.
 export default function AgentSettings({ settings }: { settings: Settings }) {
   const t = useT();
   const [enabled, setEnabled] = useState<string[]>(settings.enabled);
@@ -135,15 +135,6 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-4">
-          <p className="text-xs text-gray-500">
-            <T>Panduan Setup Awal</T>: <b>{settings.setupDone ? t("disembunyikan") : t("tampil di Beranda Super Admin")}</b>
-          </p>
-          <Button size="sm" variant="outline" disabled={pending}
-            onClick={() => run(() => setSetupDone(!settings.setupDone), settings.setupDone ? "Panduan Setup Awal ditampilkan lagi." : "Panduan Setup Awal disembunyikan.")}>
-            <T>{settings.setupDone ? "Tampilkan lagi" : "Sembunyikan"}</T>
-          </Button>
-        </div>
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
       </CardContent>
     </Card>

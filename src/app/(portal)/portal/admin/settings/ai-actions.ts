@@ -9,9 +9,10 @@ import { collectRuns, startRun } from "@/lib/ai-checker";
 
 type Result = { error?: string; info?: string };
 
-async function requireSuper() {
+// Setup detail fitur dikerjakan Admin; Super Admin hanya menyalakan fitur (Pengaturan → Fitur).
+async function requireAdminOnly() {
   const session = await auth();
-  if (!session?.user || !isSuperAdmin(session.user.role)) throw new Error("Unauthorized");
+  if (!session?.user || !isManagement(session.user.role) || isSuperAdmin(session.user.role)) throw new Error("Unauthorized");
   return session.user;
 }
 async function requireAdmin() {
@@ -22,7 +23,7 @@ async function requireAdmin() {
 const refresh = () => { revalidatePath("/portal/admin/settings"); revalidatePath("/portal/dashboard"); };
 
 export async function saveAiSettings(input: AiSettings): Promise<Result> {
-  const user = await requireSuper();
+  const user = await requireAdminOnly();
   const value = normalizeAiSettings(input);
   await prisma.appSetting.upsert({
     where: { key: AI_SETTING_KEY },
@@ -33,14 +34,14 @@ export async function saveAiSettings(input: AiSettings): Promise<Result> {
 }
 
 export async function runAiNow(): Promise<Result> {
-  const user = await requireSuper();
+  const user = await requireAdminOnly();
   const res = await startRun("MANUAL", user.name ?? null);
   refresh();
   return res.error ? { error: res.error } : { info: "Pemeriksaan dikirim. Hasilnya biasanya siap dalam 1 jam; klik Ambil hasil." };
 }
 
 export async function collectAiNow(): Promise<Result> {
-  await requireSuper();
+  await requireAdminOnly();
   const { collected } = await collectRuns();
   refresh();
   return { info: collected ? "Hasil pemeriksaan sudah masuk ke Task Admin." : "Belum ada hasil yang siap. Coba lagi beberapa saat lagi." };
@@ -49,7 +50,7 @@ export async function collectAiNow(): Promise<Result> {
 // ─── Buku catatan AI ───────────────────────────────────────────────────────
 
 export async function saveAiNote(input: { id?: string; title: string; content: string }): Promise<Result> {
-  const user = await requireSuper();
+  const user = await requireAdminOnly();
   const title = input.title.trim();
   const content = input.content.trim();
   if (!title || !content) return { error: "Judul dan isi SOP wajib diisi." };
@@ -60,14 +61,14 @@ export async function saveAiNote(input: { id?: string; title: string; content: s
 }
 
 export async function decideAiRule(id: string, approve: boolean): Promise<Result> {
-  const user = await requireSuper();
+  const user = await requireAdminOnly();
   await prisma.aiNote.update({ where: { id }, data: { status: approve ? "AKTIF" : "DITOLAK", approvedBy: user.name ?? null, approvedAt: new Date() } });
   refresh();
   return {};
 }
 
 export async function deleteAiNote(id: string): Promise<Result> {
-  await requireSuper();
+  await requireAdminOnly();
   const note = await prisma.aiNote.findUnique({ where: { id } });
   if (!note) return {};
   await prisma.aiNote.delete({ where: { id } });

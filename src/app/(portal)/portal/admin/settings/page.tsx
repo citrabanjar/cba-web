@@ -16,9 +16,11 @@ export default async function AdminSettingsPage() {
   if (!session?.user) redirect("/portal");
   if (!isManagement(session.user.role)) redirect("/portal/dashboard");
 
-  const hidden = isSuperAdmin(session.user.role) ? await getHiddenIndicators() : null;
-  const agent = isSuperAdmin(session.user.role) ? await getAgentSettings() : null;
-  const ai = isSuperAdmin(session.user.role) && (await aiFeatureOn()) ? await loadAi() : null;
+  // Super Admin: Akun + Fitur (menyiapkan perusahaan). Admin: setup detail Task Admin, Agent HRD, Running Indikator.
+  const admin = isManagement(session.user.role) && !isSuperAdmin(session.user.role);
+  const hidden = admin ? await getHiddenIndicators() : null;
+  const agent = admin ? await getAgentSettings() : null;
+  const ai = admin && (await aiFeatureOn()) ? await loadAi() : null;
   const onboarding = isSuperAdmin(session.user.role) ? await loadOnboarding() : null;
 
   return (
@@ -34,7 +36,7 @@ export default async function AdminSettingsPage() {
   );
 }
 
-// Data tab Agent HRD (Super Admin).
+// Data tab Agent HRD (Admin).
 async function loadAi() {
   const [settings, notes, runs] = await Promise.all([
     getAiSettings(),
@@ -53,6 +55,6 @@ async function loadAi() {
 
 // Data tab Fitur (Super Admin).
 async function loadOnboarding() {
-  const [settings, workflow, agent] = await Promise.all([getOnboardingSettings(), workflowFeatureOn(), aiFeatureOn()]);
-  return { settings, workflow, agent };
+  const [settings, workflow, agent, agentRules] = await Promise.all([getOnboardingSettings(), workflowFeatureOn(), aiFeatureOn(), getAgentSettings()]);
+  return { settings, workflow, agent, setupDone: agentRules.setupDone };
 }

@@ -22,7 +22,7 @@ const rupiah = (usd: number) => `± Rp${Math.round(usd * USD_TO_IDR).toLocaleStr
 const RUN_TONE: Record<string, string> = { MENUNGGU: "bg-amber-100 text-amber-700", SELESAI: "bg-emerald-100 text-emerald-700", GAGAL: "bg-rose-100 text-rose-700" };
 const RUN_LABEL: Record<string, string> = { MENUNGGU: "Diproses AI", SELESAI: "Selesai", GAGAL: "Gagal" };
 
-// Pengaturan Agent HRD / AI pemeriksa (Super Admin): jadwal, data yang dikirim, buku SOP, usulan aturan dari AI, dan riwayat.
+// Pengaturan Agent HRD / AI pemeriksa (Admin): jadwal, data yang dikirim, buku SOP, usulan aturan dari AI, dan riwayat.
 export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
   settings: Settings; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[];
 }) {
@@ -138,7 +138,7 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
       <Card className="border-gray-100">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600"><T>Catatan belajar AI</T></CardTitle>
-          <p className="text-xs text-gray-400"><T>Usulan aturan dari AI menunggu persetujuan Super Admin. Aturan yang disetujui dan catatan Bukan masalah dari admin ikut dibaca AI mulai pemeriksaan berikutnya.</T></p>
+          <p className="text-xs text-gray-400"><T>Usulan aturan dari AI menunggu persetujuan Admin. Aturan yang disetujui dan catatan Bukan masalah dari admin ikut dibaca AI mulai pemeriksaan berikutnya.</T></p>
         </CardHeader>
         <CardContent className="space-y-4">
           <NoteList title="Usulan aturan dari AI" empty="Belum ada usulan." list={proposals} actions={(n) => (
