@@ -88,25 +88,19 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     });
   }
 
-  if (hasMenu({ role, menuAccess }, "perusahaan")) {
-    sections.push({
-      section: "COMPANY",
-      items: [
-        { href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network },
-        ...(isSuperAdmin(role)
-          ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }]
-          : []),
-      ],
-    });
-  }
+  // COMPANY: struktur organisasi, Organisasi (Super Admin), dan Workflow (Admin, bila fitur Workflow aktif).
+  const workflowItem = isManagement(role) && !isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : [];
+  const companyItems = [
+    ...(hasMenu({ role, menuAccess }, "perusahaan") ? [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }] : []),
+    ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
+    ...workflowItem,
+  ];
+  if (companyItems.length) sections.push({ section: "COMPANY", items: companyItems });
 
   if (isManagement(role)) {
     sections.push({
       section: "ADMIN",
-      items: [
-        ...(!isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
-        { href: "/portal/admin/settings", label: "Pengaturan", icon: Settings },
-      ],
+      items: [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }],
     });
   }
 
