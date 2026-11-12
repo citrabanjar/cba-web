@@ -36,9 +36,13 @@ export type WorkflowLevel = { type: LevelType; value: string; label: string };
 export type WorkflowModule = { enabled: boolean; levels: WorkflowLevel[] };
 export type WorkflowSettings = Record<WorkflowKey, WorkflowModule>;
 
+// Level "jabatan" = atasan di bagan organisasi: ke-1 atasan langsung, ke-2 atasan dari atasan, dst.
+export const chainTitle = (n: number) => (n === 1 ? "Atasan langsung" : n === 2 ? "Atasan dari atasan" : `Atasan tingkat ${n}`);
+export const CHAIN_VALUE = "ATASAN";
+
 // Nama yang tampil di jejak approval.
 export const levelTitle = (l: WorkflowLevel) =>
-  l.type === "POSITION" ? `Jabatan ${l.value}` : l.type === "ROLE" ? roleOptionLabel(l.value) : l.label || l.value;
+  l.type === "POSITION" ? "Atasan (bagan organisasi)" : l.type === "ROLE" ? roleOptionLabel(l.value) : l.label || l.value;
 
 // Fitur Workflow aktif atau tidak (Pengaturan → Fitur). Nonaktif = semua approval ke atasan langsung, menu Workflow disembunyikan.
 export const WORKFLOW_FEATURE_KEY = "feature-workflow";
@@ -50,7 +54,7 @@ function readLevel(raw: Record<string, unknown>): WorkflowLevel | null {
   // Format lama: { id, name } = karyawan tertentu.
   if (!raw.type && str(raw.id)) return { type: "EMPLOYEE", value: str(raw.id), label: str(raw.name) };
   const type = raw.type === "POSITION" || raw.type === "ROLE" || raw.type === "EMPLOYEE" ? raw.type : null;
-  const value = str(raw.value).trim();
+  const value = type === "POSITION" ? CHAIN_VALUE : str(raw.value).trim(); // jabatan tidak perlu nilai: mengikuti bagan organisasi
   if (!type || !value) return null;
   if (type === "ROLE" && !ROLE_OPTIONS.some((r) => r.value === value)) return null;
   return { type, value, label: str(raw.label) };
@@ -65,6 +69,7 @@ export function normalizeWorkflow(raw: unknown): WorkflowSettings {
     const levels = Array.isArray(r.levels)
       ? (r.levels as Record<string, unknown>[]).map((x) => readLevel(x ?? {})).filter((l): l is WorkflowLevel => {
           if (!l) return false;
+          if (l.type === "POSITION") return true; // boleh lebih dari satu: tiap level naik satu tingkat
           const k = `${l.type}:${l.value.toLowerCase()}`;
           return !seen.has(k) && !!seen.add(k);
         })

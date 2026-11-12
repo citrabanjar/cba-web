@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { actionableApprovers, approvalComplete, stepCandidates, type ApprovalStep, type InterviewApproval } from "@/lib/onboarding-interview";
-import { levelTitle, normalizeWorkflow, readWorkflowFeature, WORKFLOW_FEATURE_KEY, WORKFLOW_KEY, type WorkflowKey, type WorkflowLevel, type WorkflowSettings } from "@/lib/workflow";
+import { chainTitle, levelTitle, normalizeWorkflow, readWorkflowFeature, WORKFLOW_FEATURE_KEY, WORKFLOW_KEY, type WorkflowKey, type WorkflowLevel, type WorkflowSettings } from "@/lib/workflow";
 
 export async function workflowFeatureOn() {
   const row = await prisma.appSetting.findUnique({ where: { key: WORKFLOW_FEATURE_KEY } });
@@ -20,57 +20,59 @@ export async function getWorkflow(): Promise<WorkflowSettings> {
   return w;
 }
 
-const same = (a: string | null | undefined, b: string) => (a ?? "").trim().toLowerCase() === b.trim().toLowerCase();
-
-// Naik mengikuti bagan organisasi (atasan langsung → atasan dari atasan → …) dari pemohon sampai ketemu jabatan itu.
-// Atasan yang sudah tidak aktif dilewati (naik terus ke atasannya). Dibatasi 20 tingkat supaya data berputar tidak macet.
-async function findUpChain(requesterId: string, position: string) {
-  let cur = await prisma.user.findUnique({ where: { id: requesterId }, select: { managerId: true } });
-  const seen = new Set<string>([requesterId]);
+// Satu tingkat ke atas di bagan organisasi (isian "atasan langsung" di profil): atasan dari `fromId`.
+// Atasan yang kosong / sudah tidak aktif dilewati → naik terus ke atasnya. Dibatasi 20 tingkat supaya data berputar tidak macet.
+async function nextUp(fromId: string, seen: Set<string>) {
+  let cur = await prisma.user.findUnique({ where: { id: fromId }, select: { managerId: true } });
   for (let i = 0; i < 20 && cur?.managerId && !seen.has(cur.managerId); i++) {
     seen.add(cur.managerId);
-    const boss = await prisma.user.findUnique({ where: { id: cur.managerId }, select: { id: true, name: true, position: true, isActive: true, managerId: true } });
+    const boss = await prisma.user.findUnique({ where: { id: cur.managerId }, select: { id: true, name: true, isActive: true, managerId: true } });
     if (!boss) return null;
-    if (boss.isActive && same(boss.position, position)) return { id: boss.id, name: boss.name };
+    if (boss.isActive) return { id: boss.id, name: boss.name };
     cur = boss;
   }
   return null;
 }
 
-// Siapa yang memegang level ini (karyawan aktif).
-// Jabatan: dicari di rantai atasan pemohon pada bagan organisasi; tanpa pemohon (Pra-Karyawan) semua pemegang jabatan itu.
-async function levelHolders(l: WorkflowLevel, requesterId: string) {
+// Pemegang level hak akses / karyawan tertentu (karyawan aktif).
+async function levelHolders(l: WorkflowLevel) {
   if (l.type === "EMPLOYEE") return prisma.user.findMany({ where: { id: l.value, isActive: true }, select: { id: true, name: true } });
-  if (l.type === "ROLE") {
-    const [role, menu] = l.value.split(":");
-    const list = await prisma.user.findMany({ where: { role: role as "ADMIN" | "SUPER_ADMIN", isActive: true }, select: { id: true, name: true, menuAccess: true } });
-    return menu ? list.filter((u) => u.menuAccess.includes(menu)) : list;
-  }
-  if (requesterId) {
-    const boss = await findUpChain(requesterId, l.value);
-    return boss ? [boss] : [];
-  }
-  return prisma.user.findMany({ where: { isActive: true, position: { equals: l.value, mode: "insensitive" } }, select: { id: true, name: true } });
+  const [role, menu] = l.value.split(":");
+  const list = await prisma.user.findMany({ where: { role: role as "ADMIN" | "SUPER_ADMIN", isActive: true }, select: { id: true, name: true, menuAccess: true } });
+  return menu ? list.filter((u) => u.menuAccess.includes(menu)) : list;
 }
 
 // Jalur approval workflow untuk pengajuan baru (dihitung saat pengajuan dikirim).
-// flow null = modul tidak aktif → aturan default (atasan langsung). Level yang hanya berisi pemohon sendiri dilewati;
-// level yang tidak punya pemegang sama sekali membuat pengajuan gagal (tidak boleh terlewat diam-diam).
+// flow null = modul tidak aktif → aturan default (atasan langsung).
+// Level "jabatan" mengikuti bagan organisasi: level jabatan ke-1 = atasan langsung pemohon, ke-2 = atasan dari atasan itu, dst.
+// (atasan kosong / tidak aktif dilewati). Bila pemohon tidak punya atasan sama sekali → pengajuan gagal; bila rantai habis di
+// level berikutnya (sudah sampai pucuk) → level itu dilewati. Level hak akses / karyawan yang tidak punya pemegang → gagal.
 export async function workflowSteps(module: WorkflowKey, requesterId = ""): Promise<{ flow: InterviewApproval | null; error?: string }> {
   const m = (await getWorkflow())[module];
   if (!m.enabled || !m.levels.length) return { flow: null };
   const steps: ApprovalStep[] = [];
+  let chainFrom = requesterId;
+  let chainLevel = 0;
+  const seen = new Set<string>(requesterId ? [requesterId] : []);
   for (const [i, l] of m.levels.entries()) {
-    const holders = await levelHolders(l, requesterId);
-    if (!holders.length) {
-      return { flow: null, error: l.type === "POSITION" && requesterId
-        ? `Approver Level ${i + 1} (${levelTitle(l)}) tidak ditemukan di atas Anda pada bagan organisasi. Minta HRD memeriksa atasan langsung di profil Anda.`
-        : `Approver Level ${i + 1} (${levelTitle(l)}) tidak ditemukan di data karyawan aktif. Hubungi Admin untuk memperbaiki menu Workflow.` };
+    if (l.type === "POSITION") {
+      if (!requesterId) return { flow: null, error: `Level ${i + 1} memakai atasan di bagan organisasi, padahal calon karyawan belum punya atasan. Minta Admin mengganti level itu di menu Workflow.` };
+      const boss = chainFrom ? await nextUp(chainFrom, seen) : null;
+      chainLevel++;
+      if (!boss) {
+        if (chainLevel === 1) return { flow: null, error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+        chainFrom = "";
+        continue; // sudah sampai pucuk bagan organisasi
+      }
+      chainFrom = boss.id;
+      steps.push({ id: boss.id, name: `${chainTitle(chainLevel)} · ${boss.name}`, decision: "", at: "", note: "" });
+      continue;
     }
+    const holders = await levelHolders(l);
+    if (!holders.length) return { flow: null, error: `Approver Level ${i + 1} (${levelTitle(l)}) tidak ditemukan di data karyawan aktif. Hubungi Admin untuk memperbaiki menu Workflow.` };
     const ids = holders.map((h) => h.id).filter((id) => id !== requesterId);
     if (!ids.length) continue;
-    // Karyawan tertentu / jabatan di rantai atasan = satu orang → tampil "Jabatan X · Nama".
-    const title = l.type === "EMPLOYEE" ? holders[0].name : l.type === "POSITION" && requesterId ? `${levelTitle(l)} · ${holders[0].name}` : levelTitle(l);
+    const title = l.type === "EMPLOYEE" ? holders[0].name : levelTitle(l);
     steps.push({ id: ids[0], name: title, decision: "", at: "", note: "", ...(l.type === "EMPLOYEE" ? {} : { ids }) });
   }
   if (!steps.length) return { flow: null };
@@ -80,11 +82,13 @@ export async function workflowSteps(module: WorkflowKey, requesterId = ""): Prom
 // User cocok dengan salah satu level (karyawan, jabatan, atau hak akses).
 export async function matchesLevels(userId: string, levels: WorkflowLevel[]) {
   if (!levels.length) return false;
-  const u = await prisma.user.findUnique({ where: { id: userId }, select: { position: true, role: true, menuAccess: true } });
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, menuAccess: true } });
   if (!u) return false;
+  const subordinates = levels.some((l) => l.type === "POSITION") ? await prisma.user.count({ where: { managerId: userId, isActive: true } }) : 0;
   return levels.some((l) => {
     if (l.type === "EMPLOYEE") return l.value === userId;
-    if (l.type === "POSITION") return same(u.position, l.value);
+    if (l.type === "POSITION") return subordinates > 0; // atasan di bagan organisasi
+
     const [role, menu] = l.value.split(":");
     return u.role === role && (!menu || u.menuAccess.includes(menu));
   });

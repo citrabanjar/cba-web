@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { isManagement, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { getMasterOptions } from "@/lib/master-data";
 import { getWorkflowRaw, workflowFeatureOn } from "@/lib/workflow-settings";
 import WorkflowClient from "./WorkflowClient";
 
@@ -19,16 +18,15 @@ export default async function WorkflowPage() {
   if (isSuperAdmin(access.role)) redirect("/portal/admin/settings");
   if (!isManagement(access.role)) redirect("/portal/dashboard");
   if (!(await workflowFeatureOn())) redirect("/portal/dashboard");
-  const [settings, users, master] = await Promise.all([
+  const [settings, users] = await Promise.all([
     getWorkflowRaw(),
     prisma.user.findMany({
       where: { isActive: true }, orderBy: { name: "asc" },
       select: { id: true, name: true, position: true, department: { select: { name: true } } },
     }),
-    getMasterOptions(),
   ]);
   return (
-    <WorkflowClient settings={settings} positions={master.positions}
+    <WorkflowClient settings={settings}
       users={users.map((u) => ({ id: u.id, name: u.name, info: [u.position, u.department?.name].filter(Boolean).join(" · ") }))} />
   );
 }
