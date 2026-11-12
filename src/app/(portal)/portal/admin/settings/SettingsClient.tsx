@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/i18n";
 import IndicatorSettings from "./IndicatorSettings";
 import AgentSettings from "./AgentSettings";
-import OnboardingSettings, { type ApproverOption } from "./OnboardingSettings";
+import OnboardingSettings from "./OnboardingSettings";
 import type { OnboardingSettings as OnboardingSettingsValue } from "@/lib/onboarding-interview";
 import AiSettings, { type AiNoteView, type AiRunView } from "./AiSettings";
 import type { AiSettings as AiSettingsValue } from "@/lib/ai-checker-settings";
@@ -61,7 +61,7 @@ export default function SettingsClient({
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue; users: ApproverOption[] } | null;
+  onboarding: { settings: OnboardingSettingsValue } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Task Admin & Running Indikator hanya untuk Super Admin.

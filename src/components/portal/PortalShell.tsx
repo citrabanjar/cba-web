@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound, ArrowLeftRight,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound, ArrowLeftRight, GitBranch,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -103,7 +103,10 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   if (isManagement(role)) {
     sections.push({
       section: "ADMIN",
-      items: [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }],
+      items: [
+        ...(isSuperAdmin(role) ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+        { href: "/portal/admin/settings", label: "Pengaturan", icon: Settings },
+      ],
     });
   }
 

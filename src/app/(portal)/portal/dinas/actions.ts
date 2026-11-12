@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { hasApprover } from "@/lib/approval";
+import { workflowSteps } from "@/lib/workflow-settings";
 
 export async function getBusinessTrips() {
   const session = await auth();
@@ -18,8 +19,9 @@ export async function getBusinessTrips() {
 export async function submitBusinessTrip(_prevState: unknown, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
-  // Penyetuju = atasan langsung aktif; tanpa itu pengajuan tidak bisa dikirim.
-  if (!(await hasApprover(session.user.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  // Penyetuju = Level workflow Dinas Luar bila aktif (menu Workflow); selain itu atasan langsung aktif.
+  const flow = await workflowSteps("DINAS", session.user.id);
+  if (!flow && !(await hasApprover(session.user.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
 
   const destination = formData.get("destination") as string;
   const purpose = formData.get("purpose") as string;
@@ -45,6 +47,7 @@ export async function submitBusinessTrip(_prevState: unknown, formData: FormData
   await prisma.businessTrip.create({
     data: {
       userId: session.user.id,
+      ...(flow ? { approval: flow } : {}),
       destination,
       purpose,
       startDate: start,

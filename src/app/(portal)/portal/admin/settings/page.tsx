@@ -50,14 +50,7 @@ async function loadAi() {
   };
 }
 
-// Data tab Onboarding (Super Admin): setup + pilihan approver (karyawan aktif).
+// Data tab Pra-Karyawan (Super Admin).
 async function loadOnboarding() {
-  const [settings, users] = await Promise.all([
-    getOnboardingSettings(),
-    prisma.user.findMany({
-      where: { isActive: true }, orderBy: { name: "asc" },
-      select: { id: true, name: true, position: true, department: { select: { name: true } } },
-    }),
-  ]);
-  return { settings, users: users.map((u) => ({ id: u.id, name: u.name, info: [u.position, u.department?.name].filter(Boolean).join(" · ") })) };
+  return { settings: await getOnboardingSettings() };
 }

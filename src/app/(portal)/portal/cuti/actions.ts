@@ -7,6 +7,7 @@ import {
   addMonths, countLeaveDays, eligible, hasBalance, legacyType, todayDate, visibleBalances,
 } from "@/lib/leave-balance";
 import { hasApprover } from "@/lib/approval";
+import { workflowSteps } from "@/lib/workflow-settings";
 
 export async function getLeaveRequests() {
   const session = await auth();
@@ -28,8 +29,9 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
   const userId = session.user.id;
-  // Penyetuju = atasan langsung aktif; tanpa itu pengajuan tidak bisa dikirim.
-  if (!(await hasApprover(userId))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  // Penyetuju = Level workflow Cuti bila aktif (menu Workflow); selain itu atasan langsung aktif, tanpa itu pengajuan tidak bisa dikirim.
+  const flow = await workflowSteps("CUTI", userId);
+  if (!flow && !(await hasApprover(userId))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
 
   const policyId = String(formData.get("policyId") ?? "");
   const startDate = String(formData.get("startDate") ?? "");
@@ -93,7 +95,7 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   await prisma.leaveRequest.create({
     data: {
       userId, policyId: policy.id, type: legacyType(policy.category),
-      startDate: start, endDate: end, totalDays, halfDay, unpaidDays, reason, status: "PENDING",
+      startDate: start, endDate: end, totalDays, halfDay, unpaidDays, reason, status: "PENDING", ...(flow ? { approval: flow } : {}),
     },
   });
 

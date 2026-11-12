@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { isApprover, requesterFilter, reviewsProfiles } from "@/lib/approval";
+import { isApprover, noWorkflow, requesterFilter, reviewsProfiles } from "@/lib/approval";
+import { readApproval } from "@/lib/workflow";
 import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
 import { actionableApprovers, APPROVAL_STATUSES, readInterview } from "@/lib/onboarding-interview";
@@ -32,12 +33,13 @@ export default async function PersetujuanPage() {
   const who = { select: { id: true, name: true, employeeId: true, position: true, department: { select: { name: true } } } };
   const reviewer = reviewsProfiles(a);
   const [leaves, trips, profileReqs, swapReqs, candidates] = await Promise.all([
+    // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
-      where: { user, OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
+      where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
       include: { user: who, policy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 200,
     }),
     prisma.businessTrip.findMany({
-      where: { user, OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
+      where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
     }),
     // Perubahan data pribadi dari Profil Saya (Admin Data Karyawan).
@@ -60,14 +62,22 @@ export default async function PersetujuanPage() {
   const person = (u: (typeof leaves)[number]["user"]) => ({
     name: u.name, employeeId: u.employeeId, position: u.position, department: u.department?.name ?? null,
   });
+  // Pengajuan lewat Workflow hanya tampil untuk approver yang ada di levelnya; tombol hanya saat gilirannya.
+  const flowOf = (raw: unknown) => {
+    const f = readApproval(raw);
+    if (!f) return { show: true, steps: null, mine: true };
+    return { show: f.steps.some((s) => s.id === a.id), steps: f, mine: actionableApprovers(f).includes(a.id) };
+  };
   const items: ApprovalItem[] = [
-    ...leaves.map((l) => ({
+    ...leaves.filter((l) => flowOf(l.approval).show).map((l) => ({
+      flow: flowOf(l.approval).steps, mine: flowOf(l.approval).mine,
       id: l.id, kind: "CUTI" as const, status: l.status, person: person(l.user),
       title: l.policy?.name ?? LEGACY[l.type] ?? l.type, start: ymd(l.startDate), end: ymd(l.endDate), days: l.totalDays,
       halfDay: l.halfDay, unpaidDays: l.unpaidDays, reason: l.reason, note: l.note, decidedBy: l.approvedBy,
       decidedAt: l.approvedAt?.toISOString() ?? null, createdAt: l.createdAt.toISOString(),
     })),
-    ...trips.map((t) => ({
+    ...trips.filter((t) => flowOf(t.approval).show).map((t) => ({
+      flow: flowOf(t.approval).steps, mine: flowOf(t.approval).mine,
       id: t.id, kind: "DINAS" as const, status: t.status, person: person(t.user),
       title: `Dinas Luar · ${t.destination}`, start: ymd(t.startDate), end: ymd(t.endDate), days: t.totalDays,
       halfDay: null, unpaidDays: 0, reason: t.purpose, note: t.note, decidedBy: t.approvedBy,

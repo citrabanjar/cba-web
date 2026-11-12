@@ -6,6 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { canDecide } from "@/lib/approval";
 import { assessAttendance } from "@/lib/attendance-assess";
+import { decideStep } from "@/lib/workflow-settings";
+import { readApproval } from "@/lib/workflow";
+
+// Keputusan per level menu Workflow. Hasil null = bukan jalur workflow (pakai atasan langsung).
+function workflowDecision(raw: unknown, userId: string, approve: boolean, note: string) {
+  const flow = readApproval(raw);
+  if (!flow) return null;
+  return decideStep(flow, userId, approve, note);
+}
 
 type Result = { error?: string };
 
@@ -26,11 +35,19 @@ export async function decideLeave(id: string, approve: boolean, note: string): P
   const a = await approver();
   const req = await prisma.leaveRequest.findUnique({ where: { id } });
   if (!req || req.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
-  if (!(await canDecide(a, req.userId))) return { error: "Anda bukan penyetuju pengajuan ini." };
   if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const wf = workflowDecision(req.approval, a.id, approve, note);
+  if (wf && "error" in wf) return { error: wf.error };
+  if (wf && !wf.rejected && !wf.done) {
+    // Level berikutnya masih harus memutus.
+    await prisma.leaveRequest.update({ where: { id }, data: { approval: wf.approval } });
+    refresh();
+    return {};
+  }
+  if (!wf && !(await canDecide(a, req.userId))) return { error: "Anda bukan penyetuju pengajuan ini." };
   await prisma.leaveRequest.update({
     where: { id },
-    data: { status: approve ? "APPROVED" : "REJECTED", approvedBy: a.name, approvedAt: new Date(), note: note.trim() || null },
+    data: { status: approve ? "APPROVED" : "REJECTED", approvedBy: a.name, approvedAt: new Date(), note: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
   });
   // Alpha otomatis di tanggal cuti yang disetujui langsung dihapus.
   if (approve) await assessAttendance(req.startDate, req.endDate, [req.userId]);
@@ -42,11 +59,18 @@ export async function decideTrip(id: string, approve: boolean, note: string): Pr
   const a = await approver();
   const trip = await prisma.businessTrip.findUnique({ where: { id } });
   if (!trip || trip.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
-  if (!(await canDecide(a, trip.userId))) return { error: "Anda bukan penyetuju pengajuan ini." };
   if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const wf = workflowDecision(trip.approval, a.id, approve, note);
+  if (wf && "error" in wf) return { error: wf.error };
+  if (wf && !wf.rejected && !wf.done) {
+    await prisma.businessTrip.update({ where: { id }, data: { approval: wf.approval } });
+    refresh();
+    return {};
+  }
+  if (!wf && !(await canDecide(a, trip.userId))) return { error: "Anda bukan penyetuju pengajuan ini." };
   await prisma.businessTrip.update({
     where: { id },
-    data: { status: approve ? "APPROVED" : "REJECTED", approvedBy: a.name, approvedAt: new Date(), note: note.trim() || null },
+    data: { status: approve ? "APPROVED" : "REJECTED", approvedBy: a.name, approvedAt: new Date(), note: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
   });
   if (approve) await assessAttendance(trip.startDate, trip.endDate, [trip.userId]);
   refresh();

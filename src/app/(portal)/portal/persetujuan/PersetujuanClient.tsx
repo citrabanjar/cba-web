@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
 import { InterviewDecision, InterviewSummary } from "@/components/portal/InterviewPanel";
-import type { Interview } from "@/lib/onboarding-interview";
+import type { Interview, InterviewApproval } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -20,6 +20,7 @@ export type ApprovalItem = {
   person: { name: string; employeeId: string | null; position: string | null; department: string | null };
   title: string; start: string; end: string; days: number; halfDay: string | null; unpaidDays: number;
   reason: string; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string;
+  flow: InterviewApproval | null; mine: boolean; // jalur menu Workflow (Level 1..3); null = atasan langsung
 };
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -50,8 +51,8 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews }
   const [tab, setTab] = useState<TabKey>(() =>
     interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
       : profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
-  const pending = items.filter((i) => i.status === "PENDING").sort((a, b) => a.start.localeCompare(b.start));
-  const done = items.filter((i) => i.status !== "PENDING").sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
+  const pending = items.filter((i) => i.status === "PENDING" && i.mine).sort((a, b) => a.start.localeCompare(b.start));
+  const done = items.filter((i) => i.status !== "PENDING" || !i.mine).sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
   const tabs: [TabKey, string, number][] = [
     ["menunggu", "Cuti & Dinas", pending.length],
     ["riwayat", "Riwayat 60 hari", done.length],
@@ -122,6 +123,15 @@ function Card({ item: i }: { item: ApprovalItem }) {
           </p>
           {i.unpaidDays > 0 && <p className="mt-1 text-xs text-amber-700">{dec(i.unpaidDays)} <T>hari melebihi saldo dan masuk cuti di luar tanggungan.</T></p>}
           <p className="mt-1.5 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">{i.reason}</p>
+          {i.flow && (
+            <p className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
+              {i.flow.steps.map((s, n) => (
+                <span key={s.id + n} className={s.decision === "SETUJU" ? "text-emerald-700" : s.decision === "TOLAK" ? "text-rose-700" : ""}>
+                  <T>Level</T> {n + 1}: {s.name} {s.decision === "SETUJU" ? "✓" : s.decision === "TOLAK" ? "✗" : "…"}{n < i.flow!.steps.length - 1 && " →"}
+                </span>
+              ))}
+            </p>
+          )}
           {i.status !== "PENDING" && (
             <p className="mt-1.5 text-[11px] text-gray-400">
               {i.decidedBy ?? "—"}{i.decidedAt && <> · {formatDate(new Date(i.decidedAt))}</>}{i.note && <> · <T>Catatan</T>: {i.note}</>}
@@ -130,7 +140,7 @@ function Card({ item: i }: { item: ApprovalItem }) {
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>
       </div>
-      {i.status === "PENDING" && (
+      {i.status === "PENDING" && i.mine && (
         <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
           <input value={note} onChange={(e) => setNote(e.target.value)}
             placeholder={t(rejecting ? "Alasan penolakan (wajib)" : "Catatan untuk karyawan (opsional)")}

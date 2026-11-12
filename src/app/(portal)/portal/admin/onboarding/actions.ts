@@ -11,6 +11,7 @@ import { headers } from "next/headers";
 import { sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
 import { auth } from "@/auth";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
+import { workflowSteps } from "@/lib/workflow-settings";
 import { actionableApprovers, approvalComplete, emptyInterview, interviewApproved, missingInterview, readInterview, type Interview } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
 
@@ -131,12 +132,12 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   const v = await validate(id, clean, j, c.email);
   if (v.missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing: v.missing }; }
   // Approval mengikuti workflow di Pengaturan → Pra-Karyawan (tunggal / sirkular).
-  const s = await getOnboardingSettings();
-  const approvers = s.mode === "TUNGGAL" ? s.approvers.slice(0, 1) : s.approvers;
-  if (!approvers.length) return { error: "Workflow approval belum diatur. Minta Super Admin mengisi Pengaturan → Pra-Karyawan." };
+  // Approval mengikuti menu Workflow → Pra-Karyawan (Level 1..3, berurutan).
+  const flow = await workflowSteps("PRA_KARYAWAN");
+  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Super Admin mengatur Level approval di menu Workflow." };
   const wf: Interview = {
     ...emptyInterview(), skipped: true, submittedBy: access.name ?? "", submittedAt: new Date().toISOString(),
-    approval: { mode: s.mode, order: s.order, steps: approvers.map((a) => ({ id: a.id, name: a.name, decision: "", at: "", note: "" })) },
+    approval: flow,
   };
   await prisma.candidate.update({ where: { id }, data: { status: "MENUNGGU_APPROVAL", note: null, interview: wf } });
   refresh();
@@ -246,10 +247,9 @@ export async function submitInterview(id: string, input: Interview): Promise<Res
     missing.push(...org.problems);
   }
   if (missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing }; }
-  const s = await getOnboardingSettings();
-  const approvers = s.mode === "TUNGGAL" ? s.approvers.slice(0, 1) : s.approvers;
-  if (!approvers.length) return { error: "Approver wawancara belum diatur. Minta Super Admin mengisi Pengaturan → Pra-Karyawan." };
-  i.approval = { mode: s.mode, order: s.order, steps: approvers.map((a) => ({ id: a.id, name: a.name, decision: "", at: "", note: "" })) };
+  const flow = await workflowSteps("PRA_KARYAWAN");
+  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Super Admin mengatur Level approval di menu Workflow." };
+  i.approval = flow;
   i.submittedBy = access.name ?? "";
   i.submittedAt = new Date().toISOString();
   await prisma.candidate.update({ where: { id }, data: { status: "APPROVAL_WAWANCARA", interview: i, note: null } });

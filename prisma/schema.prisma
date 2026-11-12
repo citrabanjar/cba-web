@@ -235,6 +235,7 @@ model LeaveRequest {
   approvedAt DateTime?
   note       String?
   policyId   String? // jenis cuti dari Setup Leave; kosong untuk pengajuan lama
+  approval   Json? // jejak approval menu Workflow (Level 1..3); kosong = atasan langsung
 
   user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   policy LeavePolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
@@ -257,6 +258,7 @@ model BusinessTrip {
   approvedBy  String?
   approvedAt  DateTime?
   note        String?
+  approval    Json? // jejak approval menu Workflow (Level 1..3); kosong = atasan langsung
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
