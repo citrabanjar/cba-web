@@ -53,6 +53,7 @@ export default async function KaryawanDetailPage({
       idType: true, ktpNumber: true, address: true, currentAddress: true,
       addressSameAsId: true, birthPlace: true, birthDate: true,
       addressRegion: true, addressRegionName: true, currentRegion: true, currentRegionName: true,
+      addressPostal: true, currentPostal: true,
       gender: true, religion: true, maritalStatus: true, nationality: true,
       emergencyName: true, emergencyPhone: true, emergencyRelation: true,
       npwp: true, ptkpStatus: true, taxability: true, taxStatus: true,

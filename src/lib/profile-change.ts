@@ -3,7 +3,8 @@
 
 export type ProfileField = {
   key: string; label: string; group: "Data Diri" | "Tempat Tinggal" | "Rekening & Pajak";
-  type?: "text" | "date" | "select" | "textarea" | "flag" | "region" | "regionName"; options?: readonly string[];
+  type?: "text" | "date" | "select" | "textarea" | "flag" | "region" | "regionName" | "postal"; options?: readonly string[];
+  postalKey?: string; // type "region": kode pos (type "postal")
   nameKey?: string; // type "region": kode kelurahan/desa; nama lengkapnya di field nameKey (type "regionName")
 };
 
@@ -18,12 +19,14 @@ export const PROFILE_FIELDS: ProfileField[] = [
   { key: "maritalStatus", label: "Status Perkawinan", group: "Data Diri", type: "select", options: ["Belum Menikah", "Menikah", "Cerai"] },
   { key: "religion", label: "Agama", group: "Data Diri", type: "select", options: ["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu"] },
   { key: "address", label: "Alamat sesuai Identitas", group: "Tempat Tinggal", type: "textarea" },
-  { key: "addressRegion", label: "Wilayah sesuai Identitas", group: "Tempat Tinggal", type: "region", nameKey: "addressRegionName" },
+  { key: "addressRegion", label: "Wilayah sesuai Identitas", group: "Tempat Tinggal", type: "region", nameKey: "addressRegionName", postalKey: "addressPostal" },
   { key: "addressRegionName", label: "Wilayah sesuai Identitas", group: "Tempat Tinggal", type: "regionName" },
+  { key: "addressPostal", label: "Kode Pos Alamat Identitas", group: "Tempat Tinggal", type: "postal" },
   { key: "addressSameAsId", label: "Alamat saat ini sama dengan alamat identitas", group: "Tempat Tinggal", type: "flag" },
   { key: "currentAddress", label: "Alamat Saat Ini", group: "Tempat Tinggal", type: "textarea" },
-  { key: "currentRegion", label: "Wilayah Alamat Saat Ini", group: "Tempat Tinggal", type: "region", nameKey: "currentRegionName" },
+  { key: "currentRegion", label: "Wilayah Alamat Saat Ini", group: "Tempat Tinggal", type: "region", nameKey: "currentRegionName", postalKey: "currentPostal" },
   { key: "currentRegionName", label: "Wilayah Alamat Saat Ini", group: "Tempat Tinggal", type: "regionName" },
+  { key: "currentPostal", label: "Kode Pos Alamat Saat Ini", group: "Tempat Tinggal", type: "postal" },
   { key: "bankName", label: "Nama Bank", group: "Rekening & Pajak" },
   { key: "bankAccount", label: "No Rekening", group: "Rekening & Pajak" },
   { key: "bankHolder", label: "Nama Pemilik Rekening", group: "Rekening & Pajak" },

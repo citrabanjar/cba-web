@@ -124,6 +124,8 @@ model User {
   addressRegionName String?
   currentRegion     String?
   currentRegionName String?
+  addressPostal     String? // kode pos alamat identitas (5 angka)
+  currentPostal     String? // kode pos alamat saat ini
   birthPlace        String?
   birthDate         DateTime? @db.Date
   gender            String?

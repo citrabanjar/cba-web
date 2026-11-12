@@ -42,6 +42,7 @@ export async function submitProfileChange(input: { values: Record<string, string
     const next = (input.values[f.key] ?? "").trim();
     const old = profileValue(record, f.key);
     if (f.options && next && !f.options.includes(next)) return { error: `Pilihan ${f.label} tidak dikenal.` };
+    if (f.type === "postal" && next && !/^\d{5}$/.test(next)) return { error: `${f.label} harus 5 angka.` };
     if (next !== old) changes[f.key] = { old, new: next };
   }
   let family: FamilyRow[] | null = null;

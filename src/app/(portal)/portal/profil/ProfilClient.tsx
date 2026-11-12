@@ -85,7 +85,7 @@ export default function ProfilClient({ me, values, family, calendar, requests }:
           <Section key={g} icon={g === "Data Diri" ? User : g === "Tempat Tinggal" ? User : KeyRound} title={g}>
             {g === "Data Diri" && <Row label="Nama Lengkap" value={me.name} />}
             {PROFILE_FIELDS.filter((f) => f.group === g && f.type !== "region"
-              && !((f.key === "currentAddress" || f.key === "currentRegionName") && values.addressSameAsId === "true")).map((f) => (
+              && !((f.key === "currentAddress" || f.key === "currentRegionName" || f.key === "currentPostal") && values.addressSameAsId === "true")).map((f) => (
               <Row key={f.key} label={f.label} value={f.type === "date" ? d(values[f.key] || null) : t(showValue(f.key, values[f.key]))} />
             ))}
             {g === "Rekening & Pajak" && (
@@ -194,11 +194,13 @@ function ChangeDialog({ values, family, onClose }: { values: Record<string, stri
             <div className="grid gap-3 sm:grid-cols-2">
               {PROFILE_FIELDS.filter((f) => f.group === g).map((f) => {
                 if ((f.key === "currentAddress" || f.key === "currentRegion") && form.addressSameAsId === "true") return null;
-                if (f.type === "regionName") return null;
+                if (f.type === "regionName" || f.type === "postal") return null;
                 if (f.type === "region") return (
                   <div key={f.key} className="sm:col-span-2">
                     <RegionSelect label={f.label} value={form[f.key] ?? ""}
-                      onChange={(code, name) => { set(f.key, code); if (f.nameKey) set(f.nameKey, name); }} />
+                      postal={f.postalKey ? form[f.postalKey] ?? "" : undefined}
+                      onPostalChange={f.postalKey ? (v) => set(f.postalKey!, v) : undefined}
+                      onChange={(code, name, postal) => { set(f.key, code); if (f.nameKey) set(f.nameKey, name); if (f.postalKey) set(f.postalKey, postal); }} />
                   </div>
                 );
                 if (f.type === "flag") return (

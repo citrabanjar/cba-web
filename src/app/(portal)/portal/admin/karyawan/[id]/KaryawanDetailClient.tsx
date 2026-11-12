@@ -54,6 +54,7 @@ type Employee = {
   isActive: boolean; idType: string | null; ktpNumber: string | null; address: string | null;
   currentAddress: string | null; addressSameAsId: boolean;
   addressRegion: string | null; addressRegionName: string | null; currentRegion: string | null; currentRegionName: string | null;
+  addressPostal: string | null; currentPostal: string | null;
   birthPlace: string | null; birthDate: Date | null; gender: string | null;
   religion: string | null; maritalStatus: string | null; nationality: string | null;
   npwp: string | null; ptkpStatus: string | null;
@@ -92,6 +93,7 @@ type FormField = {
   key: string; label: string; hint?: string;
   type?: "date" | "email" | "select" | "suggest" | "check" | "region"; options?: Option[];
   nameKey?: string; // type "region": kunci nama lengkap wilayah yang ikut disimpan
+  postalKey?: string; // type "region": kunci kode pos
 };
 type Section = "detail" | "unit" | "bank" | "payroll" | "pribadi" | "alamat" | "pajak" | "bpjs";
 type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "TRANSFER";
@@ -828,10 +830,10 @@ export default function KaryawanDetailClient({
     ],
     alamat: [
       { key: "address", label: "Alamat sesuai Identitas (jalan, RT/RW)" },
-      { key: "addressRegion", label: "Wilayah sesuai Identitas", type: "region", nameKey: "addressRegionName" },
+      { key: "addressRegion", label: "Wilayah sesuai Identitas", type: "region", nameKey: "addressRegionName", postalKey: "addressPostal" },
       { key: "addressSameAsId", label: "Sama dengan alamat identitas", type: "check" },
       { key: "currentAddress", label: "Alamat Saat Ini (jalan, RT/RW)" },
-      { key: "currentRegion", label: "Wilayah Alamat Saat Ini", type: "region", nameKey: "currentRegionName" },
+      { key: "currentRegion", label: "Wilayah Alamat Saat Ini", type: "region", nameKey: "currentRegionName", postalKey: "currentPostal" },
     ],
     pajak: [
       { key: "npwp", label: "NPWP" },
@@ -865,6 +867,7 @@ export default function KaryawanDetailClient({
       else if (field.type === "date") values[field.key] = toInputDate(record[field.key] as Date | null);
       else values[field.key] = String(record[field.key] ?? "");
       if (field.nameKey) values[field.nameKey] = String(record[field.nameKey] ?? "");
+      if (field.postalKey) values[field.postalKey] = String(record[field.postalKey] ?? "");
     }
     return values;
   }
@@ -1143,8 +1146,8 @@ export default function KaryawanDetailClient({
             </SectionCard>
 
             <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")} grid>
-              <Field label="Alamat sesuai Identitas">{[emp.address, emp.addressRegionName].filter(Boolean).join(", ") || null}</Field>
-              <Field label="Alamat Saat Ini">{(emp.addressSameAsId ? [emp.address, emp.addressRegionName] : [emp.currentAddress, emp.currentRegionName]).filter(Boolean).join(", ") || null}</Field>
+              <Field label="Alamat sesuai Identitas">{[emp.address, emp.addressRegionName, emp.addressPostal].filter(Boolean).join(", ") || null}</Field>
+              <Field label="Alamat Saat Ini">{(emp.addressSameAsId ? [emp.address, emp.addressRegionName, emp.addressPostal] : [emp.currentAddress, emp.currentRegionName, emp.currentPostal]).filter(Boolean).join(", ") || null}</Field>
             </SectionCard>
 
             <SectionCard title="Keluarga" onEdit={canEdit ? () => setFamilyOpen(true) : undefined}>
@@ -1397,7 +1400,9 @@ export default function KaryawanDetailClient({
             ) : field.type === "region" ? (
               (field.key === "currentRegion" && form.addressSameAsId === "true") ? null : (
                 <RegionSelect key={field.key} label={field.label} value={form[field.key] ?? ""}
-                  onChange={(code, name) => setForm((f) => ({ ...f, [field.key]: code, [field.nameKey ?? `${field.key}Name`]: name }))} />
+                  postal={field.postalKey ? form[field.postalKey] ?? "" : undefined}
+                  onPostalChange={field.postalKey ? (v) => setForm((f) => ({ ...f, [field.postalKey!]: v })) : undefined}
+                  onChange={(code, name, postal) => setForm((f) => ({ ...f, [field.key]: code, [field.nameKey ?? `${field.key}Name`]: name, ...(field.postalKey ? { [field.postalKey]: postal } : {}) }))} />
               )
             ) : (field.key === "currentAddress" && form.addressSameAsId === "true")
               || (field.key === "contractEndDate" && form.employmentStatus !== "KONTRAK") ? null : (

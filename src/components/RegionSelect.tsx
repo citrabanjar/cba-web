@@ -19,8 +19,10 @@ const nameOf = (rows: WilayahRow[] | undefined, code: string) => rows?.find((r) 
 
 const selectCls = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm disabled:bg-gray-50 disabled:text-gray-500";
 
-export default function RegionSelect({ value, onChange, disabled, label }: {
-  value: string; onChange: (code: string, name: string) => void; disabled?: boolean; label?: string;
+// Kode pos (opsional): terisi otomatis dari kelurahan/desa yang dipilih bila datanya ada, dan tetap bisa diketik ulang.
+export default function RegionSelect({ value, onChange, disabled, label, postal, onPostalChange }: {
+  value: string; onChange: (code: string, name: string, postal: string) => void; disabled?: boolean; label?: string;
+  postal?: string; onPostalChange?: (v: string) => void;
 }) {
   const t = useT();
   const initial = regionParts(value || "");
@@ -46,8 +48,9 @@ export default function RegionSelect({ value, onChange, disabled, label }: {
   const village = value && regionParts(value).district === district ? value : "";
 
   const pickVillage = (code: string) => {
-    if (!code) { onChange("", ""); return; }
-    onChange(code, regionLabel(nameOf(villages, code), nameOf(districts, district), nameOf(cities, city), nameOf(provinces, prov)));
+    if (!code) { onChange("", "", ""); return; }
+    const postalFound = villages.find((r) => r[0] === code)?.[2] ?? "";
+    onChange(code, regionLabel(nameOf(villages, code), nameOf(districts, district), nameOf(cities, city), nameOf(provinces, prov)), postalFound);
   };
   const box = (lbl: string, val: string, rows: WilayahRow[], onPick: (v: string) => void, off: boolean) => (
     <label className="space-y-1">
@@ -63,11 +66,20 @@ export default function RegionSelect({ value, onChange, disabled, label }: {
     <div className="space-y-1.5">
       {label && <p className="flex items-center gap-1.5 text-xs font-medium"><T>{label}</T>{loading && <Loader2 size={12} className="animate-spin text-gray-400" />}</p>}
       <div className="grid gap-2 sm:grid-cols-2">
-        {box("Provinsi", prov, provinces, (v) => { setProv(v); setCity(""); setDistrict(""); onChange("", ""); }, false)}
-        {box("Kabupaten / Kota", city, cities, (v) => { setCity(v); setDistrict(""); onChange("", ""); }, !prov || !file)}
-        {box("Kecamatan", district, districts, (v) => { setDistrict(v); onChange("", ""); }, !city)}
+        {box("Provinsi", prov, provinces, (v) => { setProv(v); setCity(""); setDistrict(""); onChange("", "", ""); }, false)}
+        {box("Kabupaten / Kota", city, cities, (v) => { setCity(v); setDistrict(""); onChange("", "", ""); }, !prov || !file)}
+        {box("Kecamatan", district, districts, (v) => { setDistrict(v); onChange("", "", ""); }, !city)}
         {box("Kelurahan / Desa", village, villages, pickVillage, !district)}
+        {onPostalChange && (
+          <label className="space-y-1">
+            <span className="text-[11px] text-gray-500"><T>Kode pos</T></span>
+            <input inputMode="numeric" maxLength={5} value={postal ?? ""} disabled={disabled} placeholder="70xxx"
+              onChange={(e) => onPostalChange(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              className={`${selectCls} ${postal && postal.length !== 5 ? "border-rose-400" : ""}`} />
+          </label>
+        )}
       </div>
+      {onPostalChange && village && !postal && <p className="text-[11px] text-amber-700"><T>Kode pos kelurahan ini belum ada di data. Isi sesuai KTP / surat.</T></p>}
     </div>
   );
 }

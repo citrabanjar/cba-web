@@ -60,7 +60,8 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
             <textarea value={value.address} disabled={disabled} rows={2} onChange={(e) => set("address", e.target.value.toUpperCase())}
               className="w-full rounded-lg border border-input px-3 py-2 text-sm uppercase disabled:bg-gray-50" /></div>
           <RegionSelect value={value.addressRegion} disabled={disabled} label="Wilayah sesuai identitas"
-            onChange={(code, name) => onChange({ ...value, addressRegion: code, addressRegionName: name })} />
+            postal={value.addressPostal} onPostalChange={(v) => set("addressPostal", v)}
+            onChange={(code, name, postal) => onChange({ ...value, addressRegion: code, addressRegionName: name, addressPostal: postal })} />
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={value.addressSameAsId} disabled={disabled} onChange={(e) => set("addressSameAsId", e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
             <T>Alamat saat ini sama dengan alamat identitas</T>
@@ -71,7 +72,8 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
                 <textarea value={value.currentAddress} disabled={disabled} rows={2} onChange={(e) => set("currentAddress", e.target.value.toUpperCase())}
                   className="w-full rounded-lg border border-input px-3 py-2 text-sm uppercase disabled:bg-gray-50" /></div>
               <RegionSelect value={value.currentRegion} disabled={disabled} label="Wilayah alamat saat ini"
-                onChange={(code, name) => onChange({ ...value, currentRegion: code, currentRegionName: name })} />
+                postal={value.currentPostal} onPostalChange={(v) => set("currentPostal", v)}
+                onChange={(code, name, postal) => onChange({ ...value, currentRegion: code, currentRegionName: name, currentPostal: postal })} />
             </>
           )}
         </div>
