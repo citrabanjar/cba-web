@@ -17,6 +17,8 @@ function mailer() {
   return transport;
 }
 
+// Nama disimpan huruf kapital; di email ditulis kapital di awal kata (BUDI MULYONO → Budi Mulyono).
+const title = (s: string) => s.toLowerCase().replace(/(^|[\s.'-])(\p{L})/gu, (_, p: string, c: string) => p + c.toUpperCase());
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 export async function sendOtpEmail(to: string, name: string, code: string): Promise<boolean> {
@@ -54,15 +56,21 @@ export async function sendInviteEmail(to: string, name: string, link: string): P
       from: { name: "HRD PT. Citra Banjar Abadi", address: process.env.SMTP_FROM || process.env.SMTP_USER! },
       to,
       subject: "Undangan melengkapi data calon karyawan PT. Citra Banjar Abadi",
-      text: `Halo ${name},\n\nAnda diminta melengkapi data calon karyawan PT. Citra Banjar Abadi.\nBuka tautan berikut: ${link}\nMasuk dengan email ini dan nomor HP yang Anda berikan ke HRD. Kode OTP akan dikirim ke email ini.\n\nHRD PT. Citra Banjar Abadi`,
+      text: `Halo ${title(name)}
+
+Anda diminta melengkapi data calon karyawan PT. Citra Banjar Abadi melalui link di bawah ini:
+${link}
+
+Silakan login menggunakan email dan nomor HP yang sudah didaftarkan dan lakukan verifikasi kode OTP.
+
+Terima kasih
+HRD PT. Citra Banjar Abadi`,
       html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937">
-        <h2 style="color:#BE353F;margin-bottom:4px">PT. Citra Banjar Abadi</h2>
-        <p>Halo <b>${esc(name)}</b>,</p>
-        <p>Selamat! Anda diminta melengkapi <b>data calon karyawan</b> PT. Citra Banjar Abadi: data diri, alamat, keluarga, rekening, dan pajak.</p>
+        <p>Halo <b>${esc(title(name))}</b></p>
+        <p>Anda diminta melengkapi data calon karyawan PT. Citra Banjar Abadi melalui link di bawah ini:</p>
         <p style="text-align:center;margin:28px 0"><a href="${esc(link)}" style="background:#BE353F;color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:bold;display:inline-block">Isi Data Calon Karyawan</a></p>
-        <p style="font-size:13px;color:#6b7280">Masuk dengan <b>email ini</b> dan <b>nomor HP</b> yang Anda berikan ke HRD. Kode OTP akan dikirim ke email ini setiap kali masuk.</p>
-        <p style="font-size:13px;color:#6b7280">Kalau tombol tidak bisa diklik, salin alamat ini ke browser: ${esc(link)}</p>
-        <p style="font-size:13px;color:#6b7280">HRD PT. Citra Banjar Abadi</p>
+        <p>Silakan login menggunakan email dan nomor HP yang sudah didaftarkan dan lakukan verifikasi kode OTP.</p>
+        <p>Terima kasih<br>HRD PT. Citra Banjar Abadi</p>
       </div>`,
     });
     return true;
