@@ -44,9 +44,9 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
           <div className="min-w-0 space-y-3 text-sm text-gray-700">
             <p className="flex items-center gap-2 font-semibold text-emerald-700"><CheckCircle2 size={16} /> <T>Calon karyawan terdaftar.</T></p>
             {done.emailed
-              ? <p className="break-words rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><T>Email undangan sudah dikirim ke</T> <b>{form.email}</b>. <T>Calon tinggal membuka email dan klik tombol Isi Data Calon Karyawan.</T></p>
+              ? <p className="break-words rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><T>Email undangan sudah dikirim ke</T> <b>{form.email}</b>.</p>
               : <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800"><T>Email undangan belum terkirim. Kirim link berikut ke calon lewat WhatsApp.</T></p>}
-            <p className="text-xs text-gray-500"><T>Cadangan: link halaman calon (kalau email tidak sampai atau masuk Spam).</T></p>
+            {done.emailed && <p className="text-xs text-gray-500"><T>Jika undangan tidak masuk inbox / spam, berikan link di bawah ini.</T></p>}
             <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
               <code className="min-w-0 flex-1 break-all text-xs">{link}</code>
               <button type="button" aria-label={t("Salin")} onClick={() => navigator.clipboard?.writeText(link)} className="text-gray-500 hover:text-brand"><Copy size={14} /></button>

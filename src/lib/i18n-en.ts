@@ -287,6 +287,7 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Jika undangan tidak masuk inbox / spam, berikan link di bawah ini.": "If the invitation does not reach the inbox / spam, share the link below.",
   "Dikembalikan ke calon dan diberi tahu lewat email.": "Returned to the candidate, who was notified by email.",
   "Email undangan sudah dikirim ke": "Invitation email sent to",
   "Calon tinggal membuka email dan klik tombol Isi Data Calon Karyawan.": "The candidate just opens the email and clicks Fill In Candidate Data.",
