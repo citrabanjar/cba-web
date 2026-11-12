@@ -22,7 +22,7 @@ const rupiah = (usd: number) => `± Rp${Math.round(usd * USD_TO_IDR).toLocaleStr
 const RUN_TONE: Record<string, string> = { MENUNGGU: "bg-amber-100 text-amber-700", SELESAI: "bg-emerald-100 text-emerald-700", GAGAL: "bg-rose-100 text-rose-700" };
 const RUN_LABEL: Record<string, string> = { MENUNGGU: "Diproses AI", SELESAI: "Selesai", GAGAL: "Gagal" };
 
-// Pengaturan AI Pemeriksa (Super Admin): jadwal, data yang dikirim, buku SOP, usulan aturan dari AI, dan riwayat.
+// Pengaturan Agent HRD / AI pemeriksa (Super Admin): jadwal, data yang dikirim, buku SOP, usulan aturan dari AI, dan riwayat.
 export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
   settings: Settings; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[];
 }) {
@@ -55,7 +55,7 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
     <div className="space-y-5">
       <Card className="border-gray-100">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600"><Bot size={15} /> <T>AI Pemeriksa</T></CardTitle>
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600"><Bot size={15} /> <T>Agent HRD</T></CardTitle>
           <p className="text-xs text-gray-400">
             <T>AI membaca ringkasan data portal secara berkala dan menulis temuan ke Task Admin berlabel AI. Nama, No. KTP, rekening, dan alamat tidak dikirim; karyawan disebut dengan Employee ID.</T>
           </p>

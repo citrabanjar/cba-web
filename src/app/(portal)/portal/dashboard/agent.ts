@@ -4,6 +4,7 @@ import { PAYROLL_SETTING_KEY, DEFAULT_PAYROLL_SETTINGS, type PayrollSettings } f
 import { TAX_SETTING_KEY } from "@/lib/pph21";
 import { loadInsights, type Task } from "./insights";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
+import { aiFeatureOn } from "@/lib/ai-checker";
 
 const DAY = 86_400_000;
 const todayKey = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -185,12 +186,12 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
       ],
       setup,
       reminders: dueReminders(settings, todayKey()),
-      ai: await loadAiFindings(),
+      ai: (await aiFeatureOn()) ? await loadAiFindings() : [],
     },
   };
 }
 
-// Temuan AI Pemeriksa yang belum ditindaklanjuti (Task Admin, label AI).
+// Temuan Agent HRD (AI) yang belum ditindaklanjuti (Task Admin, label AI).
 export type AiFindingView = { id: string; area: string; severity: string; title: string; detail: string; employeeIds: string[]; href: string | null; createdAt: string };
 const SEVERITY_ORDER: Record<string, number> = { TINGGI: 0, SEDANG: 1, RENDAH: 2 };
 async function loadAiFindings(): Promise<AiFindingView[]> {

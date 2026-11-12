@@ -6,7 +6,7 @@ import { isManagement, isSuperAdmin } from "@/lib/roles";
 import { getHiddenIndicators } from "@/lib/app-settings";
 import { getAgentSettings } from "../../dashboard/agent";
 import { prisma } from "@/lib/prisma";
-import { getAiSettings, hasApiKey } from "@/lib/ai-checker";
+import { aiFeatureOn, getAiSettings, hasApiKey } from "@/lib/ai-checker";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { workflowFeatureOn } from "@/lib/workflow-settings";
 import SettingsClient from "./SettingsClient";
@@ -18,7 +18,7 @@ export default async function AdminSettingsPage() {
 
   const hidden = isSuperAdmin(session.user.role) ? await getHiddenIndicators() : null;
   const agent = isSuperAdmin(session.user.role) ? await getAgentSettings() : null;
-  const ai = isSuperAdmin(session.user.role) ? await loadAi() : null;
+  const ai = isSuperAdmin(session.user.role) && (await aiFeatureOn()) ? await loadAi() : null;
   const onboarding = isSuperAdmin(session.user.role) ? await loadOnboarding() : null;
 
   return (
@@ -34,7 +34,7 @@ export default async function AdminSettingsPage() {
   );
 }
 
-// Data tab AI Pemeriksa (Super Admin).
+// Data tab Agent HRD (Super Admin).
 async function loadAi() {
   const [settings, notes, runs] = await Promise.all([
     getAiSettings(),
@@ -53,6 +53,6 @@ async function loadAi() {
 
 // Data tab Fitur (Super Admin).
 async function loadOnboarding() {
-  const [settings, workflow] = await Promise.all([getOnboardingSettings(), workflowFeatureOn()]);
-  return { settings, workflow };
+  const [settings, workflow, agent] = await Promise.all([getOnboardingSettings(), workflowFeatureOn(), aiFeatureOn()]);
+  return { settings, workflow, agent };
 }

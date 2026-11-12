@@ -1,6 +1,9 @@
 // Pengaturan AI pemeriksa sistem (aman dipakai di server dan browser). Disimpan di AppSetting "ai.checker".
 
 export const AI_SETTING_KEY = "ai.checker";
+// Fitur Agent HRD (Pengaturan → Fitur). Nonaktif = tab Agent HRD disembunyikan, pemeriksaan berhenti, temuan tidak tampil.
+export const AI_FEATURE_KEY = "feature-agent-hrd";
+export const readAiFeature = (raw: unknown) => (raw as { enabled?: unknown } | null)?.enabled !== false;
 export const AI_MODEL = "claude-opus-5-5";
 export const AI_MODEL_LABEL = "Claude Opus 5.5";
 

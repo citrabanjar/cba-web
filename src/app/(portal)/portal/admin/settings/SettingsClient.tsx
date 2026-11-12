@@ -61,7 +61,7 @@ export default function SettingsClient({
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue; workflow: boolean } | null;
+  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Task Admin & Running Indikator hanya untuk Super Admin.
@@ -69,7 +69,7 @@ export default function SettingsClient({
     { key: "akun", label: "Akun", icon: UserCog },
     ...(onboarding ? [{ key: "onboarding", label: "Fitur", icon: ToggleRight }] : []),
     ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
-    ...(ai ? [{ key: "ai", label: "AI Pemeriksa", icon: Bot }] : []),
+    ...(ai ? [{ key: "ai", label: "Agent HRD", icon: Bot }] : []),
     ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),
   ];
   const [tab, setTab] = useState("akun");

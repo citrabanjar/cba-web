@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { CheckCircle2, GitBranch, Loader2, Save, UserPlus } from "lucide-react";
+import { Bot, CheckCircle2, GitBranch, Loader2, Save, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { T } from "@/components/i18n";
@@ -41,9 +41,10 @@ function Feature({ icon: Icon, title, desc, checked, onChange, children }: {
 }
 
 // Pengaturan → Fitur (Super Admin): pilih fitur yang dipakai perusahaan.
-export default function OnboardingSettings({ settings, workflow: wf }: { settings: Settings; workflow: boolean }) {
+export default function OnboardingSettings({ settings, workflow: wf, agent: ag }: { settings: Settings; workflow: boolean; agent: boolean }) {
   const [s, setS] = useState<Settings>(settings);
   const [workflow, setWorkflow] = useState(wf);
+  const [agent, setAgent] = useState(ag);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const set = (patch: Partial<Settings>) => { setMsg(null); setS((x) => ({ ...x, ...patch })); };
@@ -72,9 +73,15 @@ export default function OnboardingSettings({ settings, workflow: wf }: { setting
           <p className="text-[11px] text-gray-500"><T>Approver Pra-Karyawan diatur di menu Workflow → Pra-Karyawan.</T></p>
         </Feature>
 
+        <Feature icon={Bot} title="Agent HRD" checked={agent} onChange={(v) => { setMsg(null); setAgent(v); }}
+          desc="AI (Claude) memeriksa ringkasan data portal secara terjadwal dan menulis temuan ke Task Admin. Nonaktif: tab Agent HRD disembunyikan, pemeriksaan berhenti, dan tidak ada biaya AI.">
+          <p className="text-[11px] text-gray-500"><T>Jadwal pemeriksaan, Buku SOP, dan riwayat diatur di tab Agent HRD.</T></p>
+        </Feature>
+
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
         <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
-          const r = await saveFeatures({ workflow, onboarding: s });
+          const r = await saveFeatures({ workflow, agent, onboarding: s });
+          if (!r.error && agent !== ag) window.location.reload();
           setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Fitur tersimpan." });
         })}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan</T></Button>
       </CardContent>

@@ -1,7 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import type { LineItem } from "@/lib/payroll-run";
-import { AI_MODEL, AI_SETTING_KEY, normalizeAiSettings, type AiSettings } from "@/lib/ai-checker-settings";
+import { AI_FEATURE_KEY, AI_MODEL, AI_SETTING_KEY, normalizeAiSettings, readAiFeature, type AiSettings } from "@/lib/ai-checker-settings";
+
+// Fitur Agent HRD dinyalakan Super Admin di Pengaturan → Fitur (default aktif).
+export async function aiFeatureOn() {
+  const row = await prisma.appSetting.findUnique({ where: { key: AI_FEATURE_KEY } });
+  return readAiFeature(row?.value);
+}
 
 // AI pemeriksa sistem, satu arah: portal menyiapkan RINGKASAN data (tanpa nama, No. KTP, rekening, alamat;
 // karyawan disebut dengan Employee ID), dikirim lewat Message Batches API (diskon 50%), lalu hasilnya
@@ -200,6 +206,7 @@ async function notebook() {
 
 export async function startRun(trigger: "JADWAL" | "MANUAL", by: string | null): Promise<{ error?: string; runId?: string }> {
   if (!hasApiKey()) return { error: "ANTHROPIC_API_KEY belum diisi di Vercel." };
+  if (!(await aiFeatureOn())) return { error: "Fitur Agent HRD sedang nonaktif (Pengaturan → Fitur)." };
   if (await prisma.aiRun.findFirst({ where: { status: "MENUNGGU" } })) return { error: "Masih ada pemeriksaan yang berjalan. Tunggu hasilnya dulu." };
   const settings = await getAiSettings();
   const [snapshot, book, open] = await Promise.all([
@@ -321,7 +328,7 @@ export async function saveFindings(runId: string, out: AiOutput) {
 export async function runScheduled() {
   const { collected } = await collectRuns();
   const settings = await getAiSettings();
-  if (!settings.enabled || !hasApiKey()) return { collected, started: false, reason: "nonaktif" };
+  if (!settings.enabled || !hasApiKey() || !(await aiFeatureOn())) return { collected, started: false, reason: "nonaktif" };
   const last = await prisma.aiRun.findFirst({ where: { trigger: "JADWAL", status: { not: "GAGAL" } }, orderBy: { createdAt: "desc" } });
   // Toleransi 3 jam karena jam cron Vercel bisa bergeser.
   if (last && Date.now() - last.createdAt.getTime() < settings.intervalDays * DAY - 3 * 3_600_000) return { collected, started: false, reason: "belum jadwal" };
