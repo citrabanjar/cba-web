@@ -505,3 +505,25 @@ body {
   .task-marquee { animation: none; }
   .task-track { overflow-y: auto; }
 }
+
+/* Blok PANEL ADMIN di menu samping: latar keemasan tipis supaya beda dari menu pribadi karyawan */
+.portal-admin-block {
+  background: rgb(251 191 36 / 0.08);
+  border-inline: 1px solid rgb(251 191 36 / 0.22);
+  padding: 2px 4px;
+  margin-inline: -4px;
+}
+:not(.portal-admin-block) + .portal-admin-block {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(251 191 36 / 0.22);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+.portal-admin-block:last-child {
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgb(251 191 36 / 0.22);
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}

@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound, ArrowLeftRight, GitBranch,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound, ArrowLeftRight, GitBranch, ShieldCheck,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -14,9 +14,12 @@ import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
-type NavSection = { section: string; items: NavItem[] };
+type NavSection = { section: string; items: NavItem[]; admin?: boolean };
 
+// Menu dibagi dua blok: menu pribadi karyawan (MENU SAYA) di atas, lalu blok PANEL ADMIN
+// berwarna berbeda — supaya admin yang juga karyawan bisa membedakan mana menu pribadinya.
 function getNavSections(role: string, menuAccess: string[], approvals: number | null, onboardingOn: boolean, workflowOn: boolean): NavSection[] {
+  const can = (m: Parameters<typeof hasMenu>[1]) => hasMenu({ role, menuAccess }, m);
   const sections: NavSection[] = [
     {
       section: "MENU UTAMA",
@@ -51,60 +54,33 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     },
   );
 
-  // Jadwal kerja dikelola admin data karyawan, masuk ke bagian TIME.
-  if (hasMenu({ role, menuAccess }, "karyawan")) {
-    const schedule = [
-      { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock },
-      { href: "/portal/admin/leave", label: "Leave", icon: CalendarHeart },
-    ];
-    const time = sections.find((s) => s.section === "TIME");
-    if (time) time.items.push(...schedule);
-    else sections.push({ section: "TIME", items: schedule });
-  }
+  // ===== PANEL ADMIN =====
+  const admin: NavSection[] = [];
+  const add = (section: string, items: NavItem[]) => { if (items.length) admin.push({ section, items, admin: true }); };
 
-  // Setup payroll untuk yang punya akses Gaji & Payroll, masuk ke bagian FINANCE.
-  if (hasMenu({ role, menuAccess }, "gaji")) {
-    const payroll = [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }];
-    const finance = sections.find((s) => s.section === "FINANCE");
-    if (finance) finance.items.push(...payroll);
-    else sections.push({ section: "FINANCE", items: payroll });
-  }
-
-  // Pinjaman karyawan dikelola Admin dan Super Admin.
-  if (isManagement(role)) {
-    const loans = { href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins };
-    const finance = sections.find((s) => s.section === "FINANCE");
-    if (finance) finance.items.push(loans);
-    else sections.push({ section: "FINANCE", items: [loans] });
-  }
-
-  if (hasMenu({ role, menuAccess }, "karyawan")) {
-    sections.push({
-      section: "EMPLOYEE",
-      items: [
-        { href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users },
-        ...(onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
-      ],
-    });
-  }
-
+  // Jadwal kerja & jenis cuti dikelola admin data karyawan.
+  add("TIME", can("karyawan") ? [
+    { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock },
+    { href: "/portal/admin/leave", label: "Leave", icon: CalendarHeart },
+  ] : []);
+  add("FINANCE", [
+    ...(can("gaji") ? [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }] : []),
+    // Pinjaman karyawan dikelola Admin dan Super Admin.
+    ...(isManagement(role) ? [{ href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins }] : []),
+  ]);
+  add("EMPLOYEE", can("karyawan") ? [
+    { href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users },
+    ...(onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
+  ] : []);
   // COMPANY: struktur organisasi, Organisasi (Super Admin), dan Workflow (Admin, bila fitur Workflow aktif).
-  const workflowItem = isManagement(role) && !isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : [];
-  const companyItems = [
-    ...(hasMenu({ role, menuAccess }, "perusahaan") ? [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }] : []),
+  add("COMPANY", [
+    ...(can("perusahaan") ? [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }] : []),
     ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
-    ...workflowItem,
-  ];
-  if (companyItems.length) sections.push({ section: "COMPANY", items: companyItems });
+    ...(isManagement(role) && !isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+  ]);
+  add("PENGATURAN", isManagement(role) ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
 
-  if (isManagement(role)) {
-    sections.push({
-      section: "ADMIN",
-      items: [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }],
-    });
-  }
-
-  return sections;
+  return [...sections, ...admin];
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
@@ -180,11 +156,23 @@ function NavLinks({
   return (
     <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2" onMouseLeave={() => setHovered(null)}>
       {sections.map((sec, si) => (
-        <div key={sec.section} className="mb-2">
+        <div key={(sec.admin ? "admin-" : "") + sec.section} className={sec.admin ? "portal-admin-block" : "mb-2"}>
+          {/* Judul blok PANEL ADMIN, sekali di atas menu admin pertama (hanya bila ada menu pribadi juga). */}
+          {sec.admin && !sections[si - 1]?.admin && (
+            collapsed ? (
+              <div className="mx-auto mb-1 flex h-6 w-8 items-center justify-center rounded-md bg-amber-400/20 text-amber-200" title={t("Panel Admin")}>
+                <ShieldCheck size={14} />
+              </div>
+            ) : (
+              <p className="flex items-center gap-1.5 px-3 pb-1 pt-1 text-[11px] font-bold uppercase tracking-widest text-amber-200">
+                <ShieldCheck size={13} /> <T>Panel Admin</T>
+              </p>
+            )
+          )}
           {collapsed ? (
-            <div className="mx-auto my-2 h-px w-8 bg-white/15" />
+            !(sec.admin && !sections[si - 1]?.admin) && <div className={`mx-auto my-2 h-px w-8 ${sec.admin ? "bg-amber-200/25" : "bg-white/15"}`} />
           ) : (
-            <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-white/50">
+            <p className={`px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest ${sec.admin ? "text-amber-100/60" : "text-white/50"}`}>
               <T>{sec.section}</T>
             </p>
           )}

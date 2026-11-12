@@ -52,6 +52,8 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Panel Admin": "Admin Panel",
+  "PENGATURAN": "SETTINGS",
   "Data Karyawan": "Employee Data",
   "Slip Gaji": "Payslips",
   "PPh 21": "Income Tax (PPh 21)",
