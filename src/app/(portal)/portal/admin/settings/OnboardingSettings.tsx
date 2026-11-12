@@ -62,7 +62,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag }
         </Feature>
 
         <Feature icon={UserPlus} title="Pra-Karyawan (onboarding)" checked={s.enabled} onChange={(v) => set({ enabled: v })}
-          desc="Calon karyawan mengisi data sendiri, diperiksa HRD, disetujui sesuai Workflow, lalu didaftarkan. Nonaktif: menu disembunyikan dan karyawan baru ditambahkan lewat Data Karyawan.">
+          desc="Proses rekrutmen karyawan secara mandiri.">
           <p className="text-xs font-semibold text-gray-700"><T>Tahap wawancara</T></p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Choice active={s.interview} title="Pakai wawancara" onClick={() => set({ interview: true })}
