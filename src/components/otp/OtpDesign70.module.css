@@ -16,17 +16,16 @@
   max-width: 440px;
   margin: 0 auto;
   padding: 44px 40px 36px;
-  /* Kaca asli di atas latar hampir hitam (#050508); diberi alas gelap agar tampak sama di halaman merah tua. */
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.035)),
-    rgba(5, 5, 8, 0.82);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  /* Kaca seperti kartu login situs (di atas latar gradien merah tua). */
+  background: rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-top-color: rgb(255 255 255 / 0.35);
   border-radius: 28px;
   box-shadow:
-    0 24px 80px -12px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 30px 70px -10px rgb(20 0 5 / 0.75),
+    inset 0 1px 1px rgb(255 255 255 / 0.35);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -52,7 +51,7 @@
   transform: translate(-50%, -50%);
   width: 550px;
   height: 550px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.022) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
 }
 
 .ambient::after {
@@ -63,7 +62,7 @@
   transform: translate(-50%, -50%);
   width: 350px;
   height: 350px;
-  background: radial-gradient(circle, rgba(130, 130, 255, 0.012) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(248, 165, 171, 0.08) 0%, transparent 60%);
 }
 
 /* Top-light reflection on outer card */
@@ -94,27 +93,27 @@
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgb(208 67 77 / 0.85), rgb(158 42 51 / 0.75) 55%, rgb(110 25 33 / 0.8));
+  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 20px;
   box-shadow:
-    0 4px 16px -4px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 4px 16px -4px rgb(20 0 5 / 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .headerIcon svg {
   width: 22px;
   height: 22px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #ffffff;
 }
 
 .headerTitle {
   font-size: 20px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.88);
+  color: #ffffff;
   margin: 0 0 8px 0;
   letter-spacing: -0.01em;
   text-align: center;
@@ -123,7 +122,7 @@
 .headerSubtitle {
   font-size: 13px;
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgb(255 255 255 / 0.65);
   margin: 0;
   text-align: center;
   line-height: 1.5;
@@ -131,7 +130,7 @@
 }
 
 .headerPhone {
-  color: rgba(255, 255, 255, 0.7);
+  color: #ffffff;
   font-weight: 400;
 }
 
@@ -168,7 +167,7 @@
   inset: 0;
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: inherit;
   z-index: 0;
   pointer-events: none;
@@ -216,10 +215,10 @@
 .slotGlass {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.055);
+  background: rgb(255 255 255 / 0.1);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgb(255 255 255 / 0.2);
   pointer-events: none;
   will-change: opacity, border-radius;
   z-index: 1;
@@ -249,14 +248,16 @@
   content: '';
   position: absolute;
   inset: 0;
-  box-shadow: inset 0 -1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 -1px 3px rgb(20 0 5 / 0.18);
   border-radius: inherit;
   pointer-events: none;
 }
 
 /* Kotak yang sedang fokus — sedikit lebih terang */
 .slot:focus-within .slotGlass {
-  border-color: rgba(255, 255, 255, 0.28);
+  border-color: rgb(255 255 255 / 0.55);
+  background-color: rgb(255 255 255 / 0.14);
+  box-shadow: 0 0 0 3px rgb(248 165 171 / 0.3), 0 0 16px rgb(248 165 171 / 0.35);
 }
 
 /* ── Water Fill Animation ─────────────────────────────── */
@@ -275,7 +276,7 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  background: linear-gradient(180deg, rgba(14, 165, 233, 0.45) 0%, rgba(37, 99, 235, 0.65) 100%);
+  background: linear-gradient(180deg, rgba(226, 84, 95, 0.6) 0%, rgba(190, 53, 63, 0.75) 55%, rgba(158, 42, 51, 0.85) 100%);
   box-shadow: inset 0 2px 12px rgba(255, 255, 255, 0.15);
 }
 
@@ -285,7 +286,7 @@
   left: 0;
   width: 200%;
   height: 11px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(14, 165, 233, 0.45)'/%3E%3C/svg%3E") repeat-x;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(226, 84, 95, 0.6)'/%3E%3C/svg%3E") repeat-x;
   background-size: 50% 100%;
   animation: waveMove 1.5s linear infinite;
 }
@@ -296,7 +297,7 @@
   left: 0;
   width: 200%;
   height: 15px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(37, 99, 235, 0.3)'/%3E%3C/svg%3E") repeat-x;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(248, 165, 171, 0.4)'/%3E%3C/svg%3E") repeat-x;
   background-size: 50% 100%;
   animation: waveMove 2.2s linear infinite reverse;
 }
@@ -309,7 +310,7 @@
 .bubble {
   position: absolute;
   bottom: -10px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.55);
   border-radius: 50%;
   animation: bubbleRise 2s infinite ease-in;
 }
@@ -342,7 +343,7 @@
   left: 0;
   width: 100%;
   height: 85%;
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.45) 0%, rgba(59, 130, 246, 0.65) 100%);
+  background: linear-gradient(180deg, rgba(226, 84, 95, 0.6) 0%, rgba(190, 53, 63, 0.75) 55%, rgba(158, 42, 51, 0.85) 100%);
   box-shadow: inset 0 2px 12px rgba(255, 255, 255, 0.15);
 }
 
@@ -352,7 +353,7 @@
   left: 0;
   width: 200%;
   height: 11px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(139, 92, 246, 0.45)'/%3E%3C/svg%3E") repeat-x;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(226, 84, 95, 0.6)'/%3E%3C/svg%3E") repeat-x;
   background-size: 50% 100%;
   animation: waveMove 1s linear infinite; /* faster flow */
 }
@@ -363,7 +364,7 @@
   left: 0;
   width: 200%;
   height: 15px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(59, 130, 246, 0.3)'/%3E%3C/svg%3E") repeat-x;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(248, 165, 171, 0.4)'/%3E%3C/svg%3E") repeat-x;
   background-size: 50% 100%;
   animation: waveMove 1.4s linear infinite reverse;
 }
@@ -378,12 +379,12 @@
   height: 10px;
   margin-top: -5px;
   transform-origin: left center;
-  background: linear-gradient(90deg, rgba(14, 165, 233, 0.6), rgba(37, 99, 235, 0.9));
+  background: linear-gradient(90deg, rgba(226, 84, 95, 0.7), rgba(158, 42, 51, 0.9));
   border-radius: 5px;
   overflow: hidden;
   z-index: 2;
   pointer-events: none;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 10px rgba(190, 53, 63, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .waterStream::after {
@@ -408,25 +409,27 @@
 /* ── Error (tambahan: desain asli tidak punya efek gagal) ── */
 
 .isError .slotGlass {
-  border-color: rgba(248, 113, 113, 0.75);
-  background-color: rgba(239, 68, 68, 0.08);
+  border-color: rgba(253, 164, 175, 0.95);
+  background-color: rgba(253, 164, 175, 0.14);
+  box-shadow: 0 0 0 2px rgba(253, 164, 175, 0.25), 0 0 14px rgba(253, 164, 175, 0.35);
 }
 
 .isError .waterLevel {
-  background: linear-gradient(180deg, rgba(248, 113, 113, 0.5) 0%, rgba(220, 38, 38, 0.7) 100%);
+  background: linear-gradient(180deg, rgba(255, 228, 230, 0.55) 0%, rgba(253, 164, 175, 0.7) 100%);
 }
 
 .isError .waterWave {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(248, 113, 113, 0.5)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(255, 228, 230, 0.55)'/%3E%3C/svg%3E");
 }
 
 .isError .waterWaveBack {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(220, 38, 38, 0.3)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(253, 164, 175, 0.35)'/%3E%3C/svg%3E");
 }
 
 .isError .input {
-  color: #fecaca;
-  -webkit-text-fill-color: #fecaca;
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  text-shadow: 0 1px 3px rgb(110 25 33 / 0.6);
 }
 
 /* ── OTP Input ────────────────────────────────────────── */
@@ -440,14 +443,14 @@
   text-align: center;
   font-size: 28px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.9);
+  color: #ffffff;
   position: relative;
   z-index: 15;
-  caret-color: rgba(255, 255, 255, 0.3);
+  caret-color: #f8a5ab;
   font-family: inherit;
   letter-spacing: 0.02em;
-  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.08);
-  -webkit-text-fill-color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgb(110 25 33 / 0.45);
+  -webkit-text-fill-color: #ffffff;
   padding: 0;
   margin: 0;
   min-width: 0;
@@ -455,7 +458,7 @@
 }
 
 .input::selection {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(248 165 171 / 0.35);
 }
 
 /* ── Liquid Bridge — ada di CSS asli, tidak dirender oleh JSX asli ── */
@@ -482,11 +485,11 @@
   font-weight: 400;
   text-align: center;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgb(255 255 255 / 0.65);
 }
 
 .messageError {
-  color: #f87171;
+  color: #fda4af;
 }
 
 /* ── Footer Section (below OTP boxes) ─────────────────── */
@@ -503,7 +506,7 @@
 .footerResend {
   font-size: 13px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgb(255 255 255 / 0.65);
   background: none;
   border: none;
   cursor: pointer;
@@ -515,8 +518,8 @@
 }
 
 .footerResend:hover:not(:disabled) {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  background: rgb(255 255 255 / 0.08);
 }
 
 .footerResend:disabled {
@@ -525,14 +528,14 @@
 }
 
 .footerResendHighlight {
-  color: rgba(255, 255, 255, 0.7);
+  color: #ffffff;
   font-weight: 500;
 }
 
 .footerTimer {
   font-size: 12px;
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgb(255 255 255 / 0.65);
   margin-top: 6px;
   background: none;
   border: none;
@@ -543,11 +546,11 @@
   transition: all 0.25s ease;
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: rgba(255, 255, 255, 0.15);
+  text-decoration-color: rgb(255 255 255 / 0.3);
 }
 
 .footerTimer:hover {
-  color: rgba(255, 255, 255, 0.6);
+  color: #ffffff;
 }
 
 /* ── Divider ──────────────────────────────────────────── */
@@ -555,7 +558,7 @@
 .divider {
   width: 100%;
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(255 255 255 / 0.16);
   margin: 24px 0 20px;
   position: relative;
   z-index: 2;
@@ -579,14 +582,14 @@
   gap: 6px;
   font-size: 11px;
   font-weight: 300;
-  color: rgba(255, 255, 255, 0.28);
+  color: rgb(255 255 255 / 0.6);
   letter-spacing: 0.02em;
 }
 
 .securityItem svg {
   width: 13px;
   height: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgb(255 255 255 / 0.6);
   flex-shrink: 0;
 }
 
@@ -607,22 +610,23 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
+  /* Cakram putih agar centang hijau terbaca di atas air merah */
+  background: rgba(255, 255, 255, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.08),
-    0 4px 16px -4px rgba(0, 0, 0, 0.25);
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    0 6px 18px -4px rgb(20 0 5 / 0.45);
 }
 
 .liquidShadow {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.35), inset 0 1px 0px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px -4px rgb(20 0 5 / 0.45), inset 0 1px 0px rgba(255, 255, 255, 0.2);
   pointer-events: none;
   z-index: 5;
 }
@@ -630,13 +634,14 @@
 .successCheck {
   width: 26px;
   height: 26px;
-  color: rgba(255, 255, 255, 0.85);
+  color: #059669;
 }
 
 .successLabel {
   font-size: 18px;
-  font-weight: 300;
-  color: rgba(255, 255, 255, 0.78);
+  font-weight: 400;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgb(110 25 33 / 0.7);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin: 0;
@@ -649,7 +654,7 @@
   padding: 8px 22px;
   font-size: 13px;
   font-weight: 500;
-  color: #4ade80;
+  color: #6ee7b7;
   letter-spacing: 0.02em;
   text-align: center;
   font-family: inherit;

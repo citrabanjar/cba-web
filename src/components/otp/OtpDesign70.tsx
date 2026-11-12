@@ -67,7 +67,8 @@ function computeLayout(avail: number, count: number): Layout {
   };
 }
 
-const MASTER_FILL = "linear-gradient(180deg, rgba(139, 92, 246, 0.45) 0%, rgba(59, 130, 246, 0.65) 100%)";
+const MASTER_FILL =
+  "linear-gradient(180deg, rgba(226, 84, 95, 0.6) 0%, rgba(190, 53, 63, 0.75) 55%, rgba(158, 42, 51, 0.85) 100%)";
 
 // ═══════════════════════════════════════════════════════
 //  ANIMATION VARIANTS (sama dengan asli)
@@ -136,8 +137,8 @@ function morphV(l: Layout): Variants {
       height: ORB_SIZE,
       borderRadius: ORB_SIZE / 2,
       scale: 1,
-      borderColor: "rgba(255,255,255,0.16)",
-      boxShadow: "0 16px 48px -4px rgba(0,0,0,0.5), inset 0 2px 1px rgba(255,255,255,0.14)",
+      borderColor: "rgba(255,255,255,0.25)",
+      boxShadow: "0 16px 48px -4px rgba(20,0,5,0.6), inset 0 2px 1px rgba(255,255,255,0.3)",
       transition: { type: "spring", stiffness: 120, damping: 17, mass: 1.15 },
     },
     card: {
@@ -145,8 +146,8 @@ function morphV(l: Layout): Variants {
       height: CARD.h,
       borderRadius: CARD.r,
       scale: 1,
-      borderColor: "rgba(255,255,255,0.1)",
-      boxShadow: "0 24px 64px -8px rgba(0,0,0,0.55), inset 0 1px 0px rgba(255,255,255,0.08)",
+      borderColor: "rgba(255,255,255,0.2)",
+      boxShadow: "0 24px 64px -8px rgba(20,0,5,0.65), inset 0 1px 0px rgba(255,255,255,0.3)",
       transition: { type: "spring", stiffness: 100, damping: 20 },
     },
   };

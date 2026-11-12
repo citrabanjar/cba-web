@@ -320,7 +320,7 @@ export default function OtpDesign24(props: OtpDesignProps) {
                   <motion.path
                     d={pathD}
                     fill="none"
-                    stroke="#888"
+                    stroke="rgba(255, 255, 255, 0.55)"
                     strokeWidth="4"
                     strokeDasharray="4 12"
                     strokeLinecap="round"

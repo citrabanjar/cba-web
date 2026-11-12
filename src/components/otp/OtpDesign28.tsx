@@ -207,14 +207,18 @@ export default function OtpDesign28(props: OtpDesignProps) {
     if (value === "" && status === "idle") focusBox(0);
   }, [value, status, focusBox]);
 
+  // Kode terbaru langsung disimpan di ref: ketikan cepat (sebelum render ulang) tidak menimpa angka sebelumnya.
+  const latest = useRef(value);
+  useEffect(() => { latest.current = value; }, [value]);
   const commit = (next: string) => {
     const clean = next.replace(/\D/g, "").slice(0, length);
-    if (clean !== value) onChange(clean);
+    if (clean !== latest.current) { latest.current = clean; onChange(clean); }
     return clean;
   };
 
   const handleChange = (raw: string, index: number) => {
     if (locked) return;
+    const value = latest.current;
     const d = raw.replace(/\D/g, "");
     if (!d) {
       if (value[index]) commit(value.slice(0, index) + value.slice(index + 1));
@@ -236,6 +240,7 @@ export default function OtpDesign28(props: OtpDesignProps) {
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, index: number) => {
     if (locked) return;
+    const value = latest.current;
     if (e.key === "Backspace") {
       e.preventDefault();
       if (value[index]) {
@@ -429,7 +434,7 @@ export default function OtpDesign28(props: OtpDesignProps) {
                   x: spread ? layout.positions[index] : 0,
                   rotate: step === "tilting" || step === "merging" ? (index < half ? 15 : -15) : 0,
                   scale: gone ? 0 : step === "merging" ? 0.5 : 1,
-                  backgroundColor: step === "merging" ? "#10b981" : "#ffffff",
+                  backgroundColor: step === "merging" ? "rgba(16, 185, 129, 1)" : "rgba(255, 255, 255, 0.1)",
                   opacity: gone ? 0 : 1,
                   borderRadius: step === "merging" ? "50%" : `${layout.radius}px`,
                 }}

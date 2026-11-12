@@ -342,14 +342,14 @@ export default function OtpDesign67(props: OtpDesignProps) {
           </clipPath>
           <linearGradient id={cardGradId} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.75" />
-            <stop offset="15%" stopColor="#f3d790" stopOpacity="0.55" />
+            <stop offset="15%" stopColor="#f8a5ab" stopOpacity="0.55" />
             <stop offset="42%" stopColor="#ffffff" stopOpacity="0.25" />
-            <stop offset="70%" stopColor="#e5b850" stopOpacity="0.45" />
+            <stop offset="70%" stopColor="#f8a5ab" stopOpacity="0.45" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0.5" />
           </linearGradient>
           <linearGradient id={chipGradId} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-            <stop offset="50%" stopColor="#f0ca7b" stopOpacity="0.5" />
+            <stop offset="50%" stopColor="#f8a5ab" stopOpacity="0.5" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0.3" />
           </linearGradient>
         </defs>
