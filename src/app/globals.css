@@ -475,3 +475,20 @@ body {
   .task-marquee { animation: none; }
   .task-track { overflow-y: auto; }
 }
+
+/* ─── Kotak OTP beranimasi (components/OtpBoxes) ─── */
+.otp-wave { animation: otp-wave 1.6s linear infinite; }
+@keyframes otp-wave { from { transform: translateX(0); } to { transform: translateX(25%); } }
+.otp-bubble { animation: otp-bubble 1.8s ease-in infinite; }
+@keyframes otp-bubble { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-34px); opacity: 0; } }
+.otp-ring {
+  background: conic-gradient(from var(--otp-angle, 0deg), #fb7185, #ffffff, #f59e0b, #fb7185);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; padding: 2px;
+  animation: otp-ring 1.8s linear infinite;
+}
+@property --otp-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes otp-ring { to { --otp-angle: 360deg; } }
+.otp-sweep { background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.6) 50%, transparent 70%); background-size: 250% 100%; animation: otp-sweep 0.9s ease-out both; }
+@keyframes otp-sweep { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .otp-wave, .otp-bubble, .otp-ring, .otp-sweep { animation: none; } }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import OtpBoxes, { type OtpStatus } from "@/components/OtpBoxes";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Phone, KeyRound } from "lucide-react";
+import { Loader2, Mail, Phone } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { requestOtp, verifyOtp } from "./actions";
 
@@ -18,6 +19,7 @@ export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string 
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [status, setStatus] = useState<OtpStatus>("idle");
 
   function ask() {
     setError(null);
@@ -28,12 +30,21 @@ export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string 
       setInfo(r.sent ? "Kode OTP sudah dikirim ke email Anda. Berlaku 10 menit." : "Kode OTP sudah dibuat. HRD akan mengirimkannya kepada Anda. Berlaku 10 menit.");
     });
   }
-  function check() {
+  // Kode diperiksa otomatis begitu 6 angka terisi; animasi berhasil diputar dulu sebelum pindah ke formulir.
+  function check(value = code) {
+    if (value.length < 6) return;
     setError(null);
+    setStatus("checking");
     start(async () => {
-      const r = await verifyOtp(email, phone, code);
-      if (r.error) setError(r.error);
-      else router.replace("/onboarding/form");
+      const r = await verifyOtp(email, phone, value);
+      if (r.error) {
+        setError(r.error);
+        setStatus("error");
+        setTimeout(() => { setCode(""); setStatus("idle"); }, 650);
+      } else {
+        setStatus("success");
+        setTimeout(() => router.replace("/onboarding/form"), 1100);
+      }
     });
   }
 
@@ -45,18 +56,21 @@ export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string 
       <div className="relative"><Phone size={16} className={icon} />
         <input type="tel" required value={phone} disabled={step === "otp"} placeholder={t("No. HP (WhatsApp)")} onChange={(e) => setPhone(e.target.value)} className={field} /></div>
       {step === "otp" && (
-        <div className="relative"><KeyRound size={16} className={icon} />
-          <input inputMode="numeric" autoFocus required maxLength={6} value={code} placeholder={t("Kode OTP 6 angka")} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className={`${field} tracking-[0.4em]`} /></div>
+        <div className="pt-1">
+          <p className="mb-2 text-center text-xs text-white/60"><T>Masukkan 6 angka kode OTP</T></p>
+          <OtpBoxes value={code} status={status} disabled={pending}
+            onChange={(v) => { setCode(v); if (status === "error") setStatus("idle"); if (v.length === 6) check(v); }} />
+        </div>
       )}
       {info && step === "otp" && <p className="rounded-lg bg-white/10 px-3 py-2 text-xs text-white/80"><T>{info}</T></p>}
       {error && <p className="rounded-lg bg-rose-500/20 px-3 py-2 text-xs text-rose-100"><T>{error}</T></p>}
       <button type="submit" disabled={pending}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-sm font-semibold text-ink hover:bg-white/90 disabled:opacity-60">
-        {pending && <Loader2 size={15} className="animate-spin" />} <T>{step === "data" ? "Kirim Kode OTP" : "Masuk"}</T>
+        {pending && <Loader2 size={15} className="animate-spin" />} <T>{step === "data" ? "Kirim Kode OTP" : status === "success" ? "Berhasil" : "Masuk"}</T>
       </button>
       {step === "otp" && (
         <div className="flex justify-between text-xs text-white/60">
-          <button type="button" onClick={() => { setStep("data"); setCode(""); setInfo(null); }} className="hover:text-white"><T>Ganti email / nomor</T></button>
+          <button type="button" onClick={() => { setStep("data"); setCode(""); setInfo(null); setStatus("idle"); }} className="hover:text-white"><T>Ganti email / nomor</T></button>
           <button type="button" disabled={pending} onClick={ask} className="hover:text-white"><T>Kirim ulang kode</T></button>
         </div>
       )}

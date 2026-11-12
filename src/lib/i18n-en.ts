@@ -287,6 +287,8 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Berhasil": "Success",
+  "Masukkan 6 angka kode OTP": "Enter the 6-digit OTP code",
   "Admin bisa menyalakannya di Pengaturan, tab Task Admin.": "Admins can turn it on in Settings, Admin Tasks tab.",
   "Usulan aturan dari AI menunggu persetujuan Admin. Aturan yang disetujui dan catatan Bukan masalah dari admin ikut dibaca AI mulai pemeriksaan berikutnya.": "Rule proposals from the AI await Admin approval. Approved rules and admins' Not an issue notes are read by the AI from the next check.",
   "Panduan Setup Awal di Beranda": "Initial Setup guide on Home",
