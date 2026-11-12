@@ -18,7 +18,7 @@ function mailer() {
 }
 
 // Nama disimpan huruf kapital; di email ditulis kapital di awal kata (BUDI MULYONO → Budi Mulyono).
-const title = (s: string) => s.toLowerCase().replace(/(^|[\s.'-])(\p{L})/gu, (_, p: string, c: string) => p + c.toUpperCase());
+const title = (s: string) => s.toLowerCase().replace(/(^|[\s.-])(\p{L})/gu, (_, p: string, c: string) => p + c.toUpperCase());
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 export async function sendOtpEmail(to: string, name: string, code: string): Promise<boolean> {
