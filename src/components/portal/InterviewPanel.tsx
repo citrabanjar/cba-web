@@ -124,7 +124,7 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
                   : s.decision === "TOLAK" ? <XCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
                   : now.includes(s.id) ? <Clock size={16} className="mt-0.5 shrink-0 text-amber-500" /> : <Circle size={16} className="mt-0.5 shrink-0 text-gray-300" />}
                 <span className="min-w-0 flex-1">
-                  <span className="font-medium text-gray-800">{s.name}</span>{" "}
+                  <span className="font-medium text-gray-800">{s.name}{s.by && s.by !== s.name ? ` (${s.by})` : ""}</span>{" "}
                   <span className="text-xs text-gray-500">
                     {s.decision === "SETUJU" ? <><T>setuju</T> · {fmtTime(s.at)}</> : s.decision === "TOLAK" ? <><T>menolak</T> · {fmtTime(s.at)}</> : now.includes(s.id) ? <T>menunggu keputusan</T> : <T>belum giliran</T>}
                   </span>

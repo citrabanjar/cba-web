@@ -127,7 +127,7 @@ function Card({ item: i }: { item: ApprovalItem }) {
             <p className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
               {i.flow.steps.map((s, n) => (
                 <span key={s.id + n} className={s.decision === "SETUJU" ? "text-emerald-700" : s.decision === "TOLAK" ? "text-rose-700" : ""}>
-                  <T>Level</T> {n + 1}: {s.name} {s.decision === "SETUJU" ? "✓" : s.decision === "TOLAK" ? "✗" : "…"}{n < i.flow!.steps.length - 1 && " →"}
+                  <T>Level</T> {n + 1}: {s.name}{s.by && s.by !== s.name ? ` (${s.by})` : ""} {s.decision === "SETUJU" ? "✓" : s.decision === "TOLAK" ? "✗" : "…"}{n < i.flow!.steps.length - 1 && " →"}
                 </span>
               ))}
             </p>

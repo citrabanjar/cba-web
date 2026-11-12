@@ -2,21 +2,33 @@
 
 import { revalidatePath } from "next/cache";
 import { getAccess } from "@/lib/access";
-import { isSuperAdmin } from "@/lib/roles";
+import { isManagement } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { normalizeWorkflow, WORKFLOW_KEY, WORKFLOW_MODULES, type WorkflowSettings } from "@/lib/workflow";
+import { getMasterOptions } from "@/lib/master-data";
+import { levelTitle, normalizeWorkflow, WORKFLOW_KEY, WORKFLOW_MODULES, type WorkflowSettings } from "@/lib/workflow";
 
+// Admin menyimpan Level approval per modul.
 export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: string }> {
   const access = await getAccess();
-  if (!access || !isSuperAdmin(access.role)) return { error: "Hanya Super Admin yang bisa mengubah workflow." };
+  if (!access || !isManagement(access.role)) return { error: "Hanya Admin yang bisa mengubah workflow." };
   const v = normalizeWorkflow(input);
-  // Nama approver diambil ulang dari database; hanya karyawan aktif.
-  const ids = Object.values(v).flatMap((m) => m.levels.map((l) => l.id));
-  const users = await prisma.user.findMany({ where: { id: { in: ids }, isActive: true }, select: { id: true, name: true } });
+  const empIds = Object.values(v).flatMap((m) => m.levels.filter((l) => l.type === "EMPLOYEE").map((l) => l.value));
+  const [users, master] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: empIds }, isActive: true }, select: { id: true, name: true } }),
+    getMasterOptions(),
+  ]);
   for (const m of WORKFLOW_MODULES) {
     const mod = v[m.key];
-    mod.levels = mod.levels.filter((l) => users.some((u) => u.id === l.id)).map((l) => ({ id: l.id, name: users.find((u) => u.id === l.id)!.name }));
-    if (mod.enabled && mod.levels.length === 0) return { error: `Workflow ${m.label} aktif tapi Level 1 belum dipilih.` };
+    for (const [i, l] of mod.levels.entries()) {
+      if (l.type === "EMPLOYEE") {
+        const u = users.find((x) => x.id === l.value);
+        if (!u) return { error: `Workflow ${m.label} Level ${i + 1}: karyawan tidak aktif / tidak ditemukan.` };
+        l.label = u.name;
+      } else if (l.type === "POSITION" && !master.positions.some((p) => p.trim().toLowerCase() === l.value.trim().toLowerCase())) {
+        return { error: `Workflow ${m.label} Level ${i + 1}: ${levelTitle(l)} belum ada di Parameter Organisasi.` };
+      }
+    }
+    if (mod.enabled && mod.levels.length === 0) return { error: `Workflow ${m.label} aktif tapi Level 1 belum diisi.` };
   }
   await prisma.appSetting.upsert({
     where: { key: WORKFLOW_KEY },

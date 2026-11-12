@@ -1,7 +1,8 @@
-// Menu Workflow (Super Admin): approval custom per modul yang menggantikan (bypass) atasan langsung di profil karyawan.
-// Modul aktif + Level 1..3 terisi → pengajuan semua karyawan untuk modul itu disetujui berurutan Level 1 → 2 → 3.
+// Menu Workflow (Admin): approval custom per modul yang menggantikan (bypass) atasan langsung di profil karyawan.
+// Super Admin hanya menyalakan fitur Workflow di Pengaturan → Fitur; Admin mengatur Level 1..3 per modul.
+// Setiap level bisa disetujui oleh: karyawan tertentu, pemegang jabatan tertentu, atau pemegang hak akses tertentu.
 // Modul tidak aktif → aturan default (atasan langsung). Aman dipakai di server dan browser.
-import type { ApprovalStep, ApproverRef, InterviewApproval } from "@/lib/onboarding-interview";
+import { MENUS } from "@/lib/roles";
 
 export const WORKFLOW_KEY = "workflow";
 export const MAX_LEVELS = 3;
@@ -16,14 +17,44 @@ export const WORKFLOW_MODULES = [
 ] as const;
 export type WorkflowKey = (typeof WORKFLOW_MODULES)[number]["key"];
 
-export type WorkflowModule = { enabled: boolean; levels: ApproverRef[] };
+// Jenis approver per level.
+export type LevelType = "EMPLOYEE" | "POSITION" | "ROLE";
+export const LEVEL_TYPES: { value: LevelType; label: string }[] = [
+  { value: "POSITION", label: "Berdasarkan jabatan" },
+  { value: "ROLE", label: "Berdasarkan hak akses" },
+  { value: "EMPLOYEE", label: "Karyawan tertentu" },
+];
+// Hak akses: Super Admin, semua Admin, atau Admin dengan akses menu tertentu.
+export const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "SUPER_ADMIN", label: "Super Admin" },
+  { value: "ADMIN", label: "Semua Admin" },
+  ...MENUS.map((m) => ({ value: `ADMIN:${m.key}`, label: `Admin ${m.label}` })),
+];
+export const roleOptionLabel = (v: string) => ROLE_OPTIONS.find((r) => r.value === v)?.label ?? v;
+
+export type WorkflowLevel = { type: LevelType; value: string; label: string };
+export type WorkflowModule = { enabled: boolean; levels: WorkflowLevel[] };
 export type WorkflowSettings = Record<WorkflowKey, WorkflowModule>;
+
+// Nama yang tampil di jejak approval.
+export const levelTitle = (l: WorkflowLevel) =>
+  l.type === "POSITION" ? `Jabatan ${l.value}` : l.type === "ROLE" ? roleOptionLabel(l.value) : l.label || l.value;
 
 // Fitur Workflow aktif atau tidak (Pengaturan → Fitur). Nonaktif = semua approval ke atasan langsung, menu Workflow disembunyikan.
 export const WORKFLOW_FEATURE_KEY = "feature-workflow";
 export const readWorkflowFeature = (raw: unknown) => (raw as { enabled?: unknown } | null)?.enabled !== false;
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
+
+function readLevel(raw: Record<string, unknown>): WorkflowLevel | null {
+  // Format lama: { id, name } = karyawan tertentu.
+  if (!raw.type && str(raw.id)) return { type: "EMPLOYEE", value: str(raw.id), label: str(raw.name) };
+  const type = raw.type === "POSITION" || raw.type === "ROLE" || raw.type === "EMPLOYEE" ? raw.type : null;
+  const value = str(raw.value).trim();
+  if (!type || !value) return null;
+  if (type === "ROLE" && !ROLE_OPTIONS.some((r) => r.value === value)) return null;
+  return { type, value, label: str(raw.label) };
+}
 
 export function normalizeWorkflow(raw: unknown): WorkflowSettings {
   const v = (raw ?? {}) as Record<string, Record<string, unknown> | undefined>;
@@ -32,27 +63,13 @@ export function normalizeWorkflow(raw: unknown): WorkflowSettings {
     const r = v[m.key] ?? {};
     const seen = new Set<string>();
     const levels = Array.isArray(r.levels)
-      ? (r.levels as Record<string, unknown>[]).map((a) => ({ id: str(a?.id), name: str(a?.name) })).filter((a) => a.id && !seen.has(a.id) && seen.add(a.id))
+      ? (r.levels as Record<string, unknown>[]).map((x) => readLevel(x ?? {})).filter((l): l is WorkflowLevel => {
+          if (!l) return false;
+          const k = `${l.type}:${l.value.toLowerCase()}`;
+          return !seen.has(k) && !!seen.add(k);
+        })
       : [];
     out[m.key] = { enabled: r.enabled === true && !("soon" in m), levels: levels.slice(0, MAX_LEVELS) };
   }
   return out;
-}
-
-// Jejak approval berurutan dari level workflow. Pemohon tidak bisa menyetujui pengajuannya sendiri, jadi levelnya dilewati.
-export function stepsFromLevels(levels: ApproverRef[], requesterId = ""): InterviewApproval | null {
-  const steps: ApprovalStep[] = levels.filter((l) => l.id !== requesterId).map((l) => ({ id: l.id, name: l.name, decision: "", at: "", note: "" }));
-  return steps.length ? { mode: steps.length > 1 ? "SIRKULAR" : "TUNGGAL", order: "BERURUTAN", steps } : null;
-}
-
-export function readApproval(raw: unknown): InterviewApproval | null {
-  const a = raw as Record<string, unknown> | null | undefined;
-  if (!a || !Array.isArray(a.steps)) return null;
-  return {
-    mode: a.mode === "SIRKULAR" ? "SIRKULAR" : "TUNGGAL",
-    order: a.order === "BERSAMAAN" ? "BERSAMAAN" : "BERURUTAN",
-    steps: (a.steps as Record<string, unknown>[]).map((s) => ({
-      id: str(s?.id), name: str(s?.name), decision: s?.decision === "SETUJU" || s?.decision === "TOLAK" ? s.decision : "", at: str(s?.at), note: str(s?.note),
-    })),
-  };
 }

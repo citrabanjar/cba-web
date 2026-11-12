@@ -20,7 +20,8 @@ export async function submitBusinessTrip(_prevState: unknown, formData: FormData
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
   // Penyetuju = Level workflow Dinas Luar bila aktif (menu Workflow); selain itu atasan langsung aktif.
-  const flow = await workflowSteps("DINAS", session.user.id);
+  const { flow, error: flowError } = await workflowSteps("DINAS", session.user.id);
+  if (flowError) return { error: flowError };
   if (!flow && !(await hasApprover(session.user.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
 
   const destination = formData.get("destination") as string;

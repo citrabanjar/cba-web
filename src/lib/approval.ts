@@ -3,8 +3,7 @@ import { hasMenu } from "@/lib/roles";
 import { pendingSwapApprovals } from "@/lib/shift-swap";
 import { isInterviewApprover, pendingInterviewApprovals } from "@/lib/onboarding-settings";
 import { isWorkflowApprover } from "@/lib/workflow-settings";
-import { actionableApprovers } from "@/lib/onboarding-interview";
-import { readApproval } from "@/lib/workflow";
+import { actionableApprovers, readApproval } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
 
 // Pengajuan cuti/dinas tanpa jejak workflow = jalur atasan langsung.

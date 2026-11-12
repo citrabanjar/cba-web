@@ -6,10 +6,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { isApprover, noWorkflow, requesterFilter, reviewsProfiles } from "@/lib/approval";
-import { readApproval } from "@/lib/workflow";
 import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
-import { actionableApprovers, APPROVAL_STATUSES, readInterview } from "@/lib/onboarding-interview";
+import { actionableApprovers, APPROVAL_STATUSES, readApproval, readInterview, stepCandidates } from "@/lib/onboarding-interview";
 import { CANDIDATE_STATUS, readJob } from "@/lib/onboarding";
 import { Prisma } from "@prisma/client";
 import PersetujuanClient, { type ApprovalItem, type InterviewItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
@@ -66,7 +65,7 @@ export default async function PersetujuanPage() {
   const flowOf = (raw: unknown) => {
     const f = readApproval(raw);
     if (!f) return { show: true, steps: null, mine: true };
-    return { show: f.steps.some((s) => s.id === a.id), steps: f, mine: actionableApprovers(f).includes(a.id) };
+    return { show: f.steps.some((s) => stepCandidates(s).includes(a.id)), steps: f, mine: actionableApprovers(f).includes(a.id) };
   };
   const items: ApprovalItem[] = [
     ...leaves.filter((l) => flowOf(l.approval).show).map((l) => ({
@@ -99,7 +98,7 @@ export default async function PersetujuanPage() {
 
   const interviews: InterviewItem[] = candidates.flatMap((c) => {
     const iv = readInterview(c.interview);
-    if (!iv?.approval?.steps.some((x) => x.id === a.id)) return [];
+    if (!iv?.approval?.steps.some((x) => stepCandidates(x).includes(a.id))) return [];
     return [{
       id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status, statusLabel: CANDIDATE_STATUS[c.status]?.label ?? c.status,
       interview: iv, job: readJob(c.job), mine: APPROVAL_STATUSES.includes(c.status) && actionableApprovers(iv.approval).includes(a.id),

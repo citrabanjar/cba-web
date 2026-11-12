@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getWorkflow } from "@/lib/workflow-settings";
+import { getWorkflow, matchesLevels } from "@/lib/workflow-settings";
 import { actionableApprovers, APPROVAL_STATUSES, normalizeOnboardingSettings, ONBOARDING_SETTING_KEY, readInterview, type OnboardingSettings } from "@/lib/onboarding-interview";
 
 // Setup Onboarding dari Super Admin (Pengaturan → Onboarding).
@@ -17,6 +17,6 @@ export async function pendingInterviewApprovals(userId: string) {
 // User ini approver wawancara (di setup) atau masih tercatat di approval yang berjalan.
 export async function isInterviewApprover(userId: string) {
   const [s, w] = await Promise.all([getOnboardingSettings(), getWorkflow()]);
-  if (s.enabled && w.PRA_KARYAWAN.enabled && w.PRA_KARYAWAN.levels.some((a) => a.id === userId)) return true;
+  if (s.enabled && w.PRA_KARYAWAN.enabled && (await matchesLevels(userId, w.PRA_KARYAWAN.levels))) return true;
   return (await pendingInterviewApprovals(userId)) > 0;
 }

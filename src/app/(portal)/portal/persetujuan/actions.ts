@@ -7,13 +7,13 @@ import { getAccess } from "@/lib/access";
 import { canDecide } from "@/lib/approval";
 import { assessAttendance } from "@/lib/attendance-assess";
 import { decideStep } from "@/lib/workflow-settings";
-import { readApproval } from "@/lib/workflow";
+import { readApproval } from "@/lib/onboarding-interview";
 
 // Keputusan per level menu Workflow. Hasil null = bukan jalur workflow (pakai atasan langsung).
-function workflowDecision(raw: unknown, userId: string, approve: boolean, note: string) {
+function workflowDecision(raw: unknown, userId: string, approve: boolean, note: string, name: string | null) {
   const flow = readApproval(raw);
   if (!flow) return null;
-  return decideStep(flow, userId, approve, note);
+  return decideStep(flow, userId, approve, note, name);
 }
 
 type Result = { error?: string };
@@ -36,7 +36,7 @@ export async function decideLeave(id: string, approve: boolean, note: string): P
   const req = await prisma.leaveRequest.findUnique({ where: { id } });
   if (!req || req.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
   if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
-  const wf = workflowDecision(req.approval, a.id, approve, note);
+  const wf = workflowDecision(req.approval, a.id, approve, note, a.name);
   if (wf && "error" in wf) return { error: wf.error };
   if (wf && !wf.rejected && !wf.done) {
     // Level berikutnya masih harus memutus.
@@ -60,7 +60,7 @@ export async function decideTrip(id: string, approve: boolean, note: string): Pr
   const trip = await prisma.businessTrip.findUnique({ where: { id } });
   if (!trip || trip.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
   if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
-  const wf = workflowDecision(trip.approval, a.id, approve, note);
+  const wf = workflowDecision(trip.approval, a.id, approve, note, a.name);
   if (wf && "error" in wf) return { error: wf.error };
   if (wf && !wf.rejected && !wf.done) {
     await prisma.businessTrip.update({ where: { id }, data: { approval: wf.approval } });

@@ -104,7 +104,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     sections.push({
       section: "ADMIN",
       items: [
-        ...(isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+        ...(!isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
         { href: "/portal/admin/settings", label: "Pengaturan", icon: Settings },
       ],
     });

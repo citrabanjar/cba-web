@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { Bot, CheckCircle2, GitBranch, Loader2, Save, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +57,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag }
       <CardContent className="space-y-3">
         <Feature icon={GitBranch} title="Workflow" checked={workflow} onChange={(v) => { setMsg(null); setWorkflow(v); }}
           desc="Pengaturan approval per modul sesuai kebutuhan perusahaan.">
-          <Link href="/portal/admin/workflow" className="inline-flex rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"><T>Buka menu Workflow</T></Link>
+          <p className="text-[11px] text-gray-500"><T>Level approval per modul diatur Admin di menu Workflow.</T></p>
         </Feature>
 
         <Feature icon={UserPlus} title="Pra-Karyawan (onboarding)" checked={s.enabled} onChange={(v) => set({ enabled: v })}
@@ -70,7 +69,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag }
             <Choice active={!s.interview} title="Tanpa wawancara" onClick={() => set({ interview: false })}
               desc="Calon langsung diundang mengisi data. Setelah HRD memeriksa, data calon disetujui sesuai menu Workflow." />
           </div>
-          <p className="text-[11px] text-gray-500"><T>Approver Pra-Karyawan diatur di menu Workflow → Pra-Karyawan.</T></p>
+          <p className="text-[11px] text-gray-500"><T>Approver Pra-Karyawan diatur Admin di menu Workflow → Pra-Karyawan.</T></p>
         </Feature>
 
         <Feature icon={Bot} title="Agent HRD" checked={agent} onChange={(v) => { setMsg(null); setAgent(v); }}

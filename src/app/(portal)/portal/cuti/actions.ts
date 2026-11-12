@@ -30,7 +30,8 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
   const userId = session.user.id;
   // Penyetuju = Level workflow Cuti bila aktif (menu Workflow); selain itu atasan langsung aktif, tanpa itu pengajuan tidak bisa dikirim.
-  const flow = await workflowSteps("CUTI", userId);
+  const { flow, error: flowError } = await workflowSteps("CUTI", userId);
+  if (flowError) return { error: flowError };
   if (!flow && !(await hasApprover(userId))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
 
   const policyId = String(formData.get("policyId") ?? "");

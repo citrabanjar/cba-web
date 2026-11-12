@@ -42,7 +42,10 @@ export type Offer = {
   departmentName: string; position: string; branch: string;
   employmentStatus: string; salary: string; joinDate: string; contractEndDate: string;
 };
-export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string };
+// Satu level approval. ids = calon approver (pemegang jabatan / hak akses); salah satu cukup memutus, namanya dicatat di "by".
+// Tanpa ids: id = satu karyawan tertentu.
+export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string };
+export const stepCandidates = (s: ApprovalStep) => (s.ids?.length ? s.ids : [s.id]);
 export type InterviewApproval = { mode: ApprovalMode; order: ApprovalOrder; steps: ApprovalStep[] };
 export type Interview = {
   date: string; interviewer: string; score: string; notes: string; recommendation: string;
@@ -76,17 +79,23 @@ export function readInterview(raw: unknown): Interview | null {
   base.skipped = v.skipped === true;
   const o = (v.offer ?? {}) as Record<string, unknown>;
   for (const k of Object.keys(base.offer) as (keyof Offer)[]) if (typeof o[k] === "string") base.offer[k] = o[k] as string;
-  const a = v.approval as Record<string, unknown> | null | undefined;
-  if (a && Array.isArray(a.steps)) {
-    base.approval = {
-      mode: a.mode === "SIRKULAR" ? "SIRKULAR" : "TUNGGAL",
-      order: a.order === "BERSAMAAN" ? "BERSAMAAN" : "BERURUTAN",
-      steps: (a.steps as Record<string, unknown>[]).map((s) => ({
-        id: str(s?.id), name: str(s?.name), decision: s?.decision === "SETUJU" || s?.decision === "TOLAK" ? s.decision : "", at: str(s?.at), note: str(s?.note),
-      })),
-    };
-  }
+  base.approval = readApproval(v.approval);
   return base;
+}
+
+// Jejak approval tersimpan (Pra-Karyawan, cuti, dinas) dibaca ulang dengan aman.
+export function readApproval(raw: unknown): InterviewApproval | null {
+  const a = raw as Record<string, unknown> | null | undefined;
+  if (!a || !Array.isArray(a.steps)) return null;
+  return {
+    mode: a.mode === "SIRKULAR" ? "SIRKULAR" : "TUNGGAL",
+    order: a.order === "BERSAMAAN" ? "BERSAMAAN" : "BERURUTAN",
+    steps: (a.steps as Record<string, unknown>[]).map((s) => ({
+      id: str(s?.id), name: str(s?.name), decision: s?.decision === "SETUJU" || s?.decision === "TOLAK" ? s.decision : "", at: str(s?.at), note: str(s?.note),
+      ...(Array.isArray(s?.ids) ? { ids: (s.ids as unknown[]).filter((x): x is string => typeof x === "string") } : {}),
+      ...(typeof s?.by === "string" ? { by: s.by } : {}),
+    })),
+  };
 }
 
 // Isian HRD yang wajib sebelum hasil wawancara diajukan.
@@ -110,7 +119,7 @@ export function actionableApprovers(a: InterviewApproval | null): string[] {
   if (!a || a.steps.some((s) => s.decision === "TOLAK")) return [];
   const open = a.steps.filter((s) => !s.decision);
   if (!open.length) return [];
-  return a.order === "BERURUTAN" || a.mode === "TUNGGAL" ? [open[0].id] : open.map((s) => s.id);
+  return a.order === "BERURUTAN" || a.mode === "TUNGGAL" ? stepCandidates(open[0]) : open.flatMap(stepCandidates);
 }
 export const approvalComplete = (a: InterviewApproval | null) => !!a && a.steps.length > 0 && a.steps.every((s) => s.decision === "SETUJU");
 // Calon ini lewat jalur wawancara yang sudah disetujui: HRD langsung mendaftarkan karyawan, tanpa approval akhir.

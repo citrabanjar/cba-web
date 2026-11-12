@@ -11,8 +11,8 @@ import { headers } from "next/headers";
 import { sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
 import { auth } from "@/auth";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
-import { workflowSteps } from "@/lib/workflow-settings";
-import { actionableApprovers, approvalComplete, emptyInterview, interviewApproved, missingInterview, readInterview, type Interview } from "@/lib/onboarding-interview";
+import { decideStep, workflowSteps } from "@/lib/workflow-settings";
+import { approvalComplete, emptyInterview, interviewApproved, missingInterview, readInterview, type Interview } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
 
 const PATH = "/portal/admin/onboarding";
@@ -133,8 +133,9 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   if (v.missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing: v.missing }; }
   // Approval mengikuti workflow di Pengaturan → Pra-Karyawan (tunggal / sirkular).
   // Approval mengikuti menu Workflow → Pra-Karyawan (Level 1..3, berurutan).
-  const flow = await workflowSteps("PRA_KARYAWAN");
-  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Super Admin mengatur Level approval di menu Workflow." };
+  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN");
+  if (flowError) return { error: flowError };
+  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Admin mengatur Level approval di menu Workflow." };
   const wf: Interview = {
     ...emptyInterview(), skipped: true, submittedBy: access.name ?? "", submittedAt: new Date().toISOString(),
     approval: flow,
@@ -247,8 +248,9 @@ export async function submitInterview(id: string, input: Interview): Promise<Res
     missing.push(...org.problems);
   }
   if (missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing }; }
-  const flow = await workflowSteps("PRA_KARYAWAN");
-  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Super Admin mengatur Level approval di menu Workflow." };
+  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN");
+  if (flowError) return { error: flowError };
+  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Admin mengatur Level approval di menu Workflow." };
   i.approval = flow;
   i.submittedBy = access.name ?? "";
   i.submittedAt = new Date().toISOString();
@@ -265,10 +267,10 @@ export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", 
   const c = await prisma.candidate.findUnique({ where: { id } });
   const i = readInterview(c?.interview);
   if (!c || !i?.approval || c.status !== (i.skipped ? "MENUNGGU_APPROVAL" : "APPROVAL_WAWANCARA")) return { error: "Calon tidak sedang menunggu approval." };
-  if (!actionableApprovers(i.approval).includes(me)) return { error: "Belum giliran Anda memutus, atau Anda bukan approver calon ini." };
   if (decision === "TOLAK" && !note.trim()) return { error: "Tulis alasan penolakan." };
-  const step = i.approval.steps.find((x) => x.id === me && !x.decision)!;
-  step.decision = decision; step.at = new Date().toISOString(); step.note = note.trim();
+  const d = decideStep(i.approval, me, decision === "SETUJU", note, session.user?.name ?? null);
+  if ("error" in d) return { error: "Belum giliran Anda memutus, atau Anda bukan approver calon ini." };
+  const step = d.step;
   if (decision === "TOLAK") {
     await prisma.candidate.update({ where: { id }, data: { status: "DITOLAK", interview: i, note: `Ditolak saat approval ${i.skipped ? "data calon" : "wawancara"} (${step.name}): ${note.trim()}`, approvedBy: step.name, approvedAt: new Date() } });
     refresh();
