@@ -10,6 +10,7 @@ import { T, useT } from "@/components/i18n";
 import { MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
 import type { AdminRole } from "@/lib/admin-roles";
 import { saveRoles } from "./role-actions";
+import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 
 export type Person = { id: string; employeeId: string | null; name: string; position: string | null };
 const label = (p: Pick<Person, "employeeId" | "name">) => `${p.employeeId ?? "-"} - ${p.name}`;
@@ -135,6 +136,7 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
 export function MembersSettings({ roles: initial, people }: { roles: AdminRole[]; people: Person[] }) {
   const s = useSave(initial);
   const byId = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
+  const options = useMemo(() => people.filter((p) => p.employeeId).map((p) => ({ value: p.employeeId!, label: p.name })), [people]);
   const [text, setText] = useState<Record<string, string>>({});
   const [err, setErr] = useState<Record<string, string>>({});
 
@@ -159,9 +161,6 @@ export function MembersSettings({ roles: initial, people }: { roles: AdminRole[]
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <datalist id="anggota-karyawan">
-          {people.map((p) => <option key={p.id} value={label(p)} />)}
-        </datalist>
         {s.roles.length === 0 && <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-400"><T>Buat peran dulu di tab Peran Admin.</T></p>}
         {s.roles.map((r) => (
           <div key={r.id} className="rounded-2xl border border-gray-200 p-4">
@@ -182,10 +181,12 @@ export function MembersSettings({ roles: initial, people }: { roles: AdminRole[]
                 );
               })}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Input list="anggota-karyawan" value={text[r.id] ?? ""} placeholder="Employee ID"
-                onChange={(e) => { const v = e.target.value; setText((x) => ({ ...x, [r.id]: v })); setErr((x) => ({ ...x, [r.id]: "" })); }}
-                onKeyDown={(e) => { if (e.key === "Enter") add(r.id); }} className="h-9 max-w-xs flex-1" />
+            <div className="mt-3 flex flex-wrap items-start gap-2">
+              {/* Daftar karyawan selalu membuka ke bawah isian (bukan datalist bawaan browser). */}
+              <div className="max-w-xs flex-1">
+                <EmployeeCombobox id={`anggota-${r.id}`} value={text[r.id] ?? ""} options={options}
+                  onChange={(v) => { setText((x) => ({ ...x, [r.id]: v })); setErr((x) => ({ ...x, [r.id]: "" })); }} />
+              </div>
               <Button size="sm" variant="outline" onClick={() => add(r.id)} disabled={!(text[r.id] ?? "").trim()} className="h-9 gap-1.5 rounded-full px-4">
                 <UserPlus size={14} /> <T>Tambah</T>
               </Button>
