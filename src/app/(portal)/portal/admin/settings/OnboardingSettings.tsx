@@ -57,7 +57,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag }
       </CardHeader>
       <CardContent className="space-y-3">
         <Feature icon={GitBranch} title="Workflow" checked={workflow} onChange={(v) => { setMsg(null); setWorkflow(v); }}
-          desc="Atur approval per modul (Level 1, 2, 3) yang menggantikan atasan langsung. Nonaktif: semua pengajuan disetujui atasan langsung di profil karyawan.">
+          desc="Pengaturan approval per modul sesuai kebutuhan perusahaan.">
           <Link href="/portal/admin/workflow" className="inline-flex rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"><T>Buka menu Workflow</T></Link>
         </Feature>
 

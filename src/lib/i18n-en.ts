@@ -287,6 +287,7 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Pengaturan approval per modul sesuai kebutuhan perusahaan.": "Approval settings per module to fit the company's needs.",
   "AI (Claude) memeriksa ringkasan data portal secara terjadwal dan menulis temuan ke Task Admin. Nonaktif: tab Agent HRD disembunyikan, pemeriksaan berhenti, dan tidak ada biaya AI.": "AI (Claude) checks a summary of portal data on a schedule and writes findings to Admin Tasks. Off: the HR Agent tab is hidden, checks stop, and there is no AI cost.",
   "Jadwal pemeriksaan, Buku SOP, dan riwayat diatur di tab Agent HRD.": "The check schedule, SOP book, and history are set in the HR Agent tab.",
   "Fitur Agent HRD sedang nonaktif (Pengaturan → Fitur).": "The HR Agent feature is off (Settings → Features).",
