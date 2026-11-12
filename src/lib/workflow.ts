@@ -31,6 +31,8 @@ export const ROLE_OPTIONS: { value: string; label: string }[] = [
   ...MENUS.map((m) => ({ value: `ADMIN:${m.key}`, label: `Admin ${m.label}` })),
 ];
 export const roleOptionLabel = (v: string) => ROLE_OPTIONS.find((r) => r.value === v)?.label ?? v;
+// Peran Admin buatan Super Admin (Pengaturan → Peran Admin) juga bisa jadi penyetuju: nilai "PERAN:<id>".
+export const ROLE_GROUP_PREFIX = "PERAN:";
 
 export type WorkflowLevel = { type: LevelType; value: string; label: string };
 export type WorkflowModule = { enabled: boolean; levels: WorkflowLevel[] };
@@ -42,7 +44,7 @@ export const CHAIN_VALUE = "ATASAN";
 
 // Nama yang tampil di jejak approval.
 export const levelTitle = (l: WorkflowLevel) =>
-  l.type === "POSITION" ? "Atasan (bagan organisasi)" : l.type === "ROLE" ? roleOptionLabel(l.value) : l.label || l.value;
+  l.type === "POSITION" ? "Atasan (bagan organisasi)" : l.type === "ROLE" ? (l.value.startsWith(ROLE_GROUP_PREFIX) ? l.label || "Peran Admin" : roleOptionLabel(l.value)) : l.label || l.value;
 
 // Fitur Workflow aktif atau tidak (Pengaturan → Fitur). Nonaktif = semua approval ke atasan langsung, menu Workflow disembunyikan.
 export const WORKFLOW_FEATURE_KEY = "feature-workflow";
@@ -56,7 +58,7 @@ function readLevel(raw: Record<string, unknown>): WorkflowLevel | null {
   const type = raw.type === "POSITION" || raw.type === "ROLE" || raw.type === "EMPLOYEE" ? raw.type : null;
   const value = type === "POSITION" ? CHAIN_VALUE : str(raw.value).trim(); // jabatan tidak perlu nilai: mengikuti bagan organisasi
   if (!type || !value) return null;
-  if (type === "ROLE" && !ROLE_OPTIONS.some((r) => r.value === value)) return null;
+  if (type === "ROLE" && !value.startsWith(ROLE_GROUP_PREFIX) && !ROLE_OPTIONS.some((r) => r.value === value)) return null;
   return { type, value, label: str(raw.label) };
 }
 

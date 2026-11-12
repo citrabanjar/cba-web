@@ -5,7 +5,7 @@ import { CheckCircle2, GitBranch, Loader2, Plus, Save, Trash2 } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { T, useT } from "@/components/i18n";
 import {
-  CHAIN_VALUE, chainTitle, LEVEL_TYPES, levelTitle, MAX_LEVELS, ROLE_OPTIONS, WORKFLOW_MODULES,
+  CHAIN_VALUE, chainTitle, LEVEL_TYPES, levelTitle, MAX_LEVELS, ROLE_GROUP_PREFIX, ROLE_OPTIONS, WORKFLOW_MODULES,
   type LevelType, type WorkflowKey, type WorkflowLevel, type WorkflowSettings,
 } from "@/lib/workflow";
 import { saveWorkflow } from "./actions";
@@ -14,7 +14,7 @@ type UserOption = { id: string; name: string; employeeId: string };
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
 
 // Workflow per modul (Admin): Level 1..3, approver berdasarkan jabatan, hak akses, atau karyawan tertentu.
-export default function WorkflowClient({ settings, users }: { settings: WorkflowSettings; users: UserOption[] }) {
+export default function WorkflowClient({ settings, users, groups = [] }: { settings: WorkflowSettings; users: UserOption[]; groups?: { id: string; name: string }[] }) {
   const t = useT();
   const [s, setS] = useState(settings);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -23,7 +23,10 @@ export default function WorkflowClient({ settings, users }: { settings: Workflow
   const setLevel = (k: WorkflowKey, i: number, patch: Partial<WorkflowLevel>) =>
     setMod(k, { levels: s[k].levels.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
   const valueOptions = (type: LevelType) =>
-    type === "ROLE" ? ROLE_OPTIONS.map((r) => ({ value: r.value, label: t(r.label) }))
+    type === "ROLE" ? [
+      ...groups.map((g) => ({ value: `${ROLE_GROUP_PREFIX}${g.id}`, label: `${t("Peran")}: ${g.name}` })),
+      ...ROLE_OPTIONS.map((r) => ({ value: r.value, label: t(r.label) })),
+    ]
       : users.map((u) => ({ value: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }));
   // Level baru default: atasan di bagan organisasi (Pra-Karyawan: mulai dari "Calon atasan langsung" di data calon).
   const newLevel = (): WorkflowLevel => ({ type: "POSITION", value: CHAIN_VALUE, label: "" });
@@ -69,7 +72,7 @@ export default function WorkflowClient({ settings, users }: { settings: Workflow
                           <T>{m.key === "PRA_KARYAWAN" ? (chainIndex(mod.levels, i) === 1 ? "Calon atasan langsung" : chainIndex(mod.levels, i) === 2 ? "Atasan dari calon atasan" : chainTitle(chainIndex(mod.levels, i))) : chainTitle(chainIndex(mod.levels, i))}</T>
                         </p>
                       ) : (
-                        <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? "" })} className={select}>
+                        <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} className={select}>
                           <option value="">{t(l.type === "ROLE" ? "Pilih hak akses" : "Pilih karyawan")}</option>
                           {valueOptions(l.type).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>

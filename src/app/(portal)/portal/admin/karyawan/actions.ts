@@ -1,7 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { requireMenu, requireSuperAdmin } from "@/lib/access";
-import { MENUS, isSuperAdmin } from "@/lib/roles";
+import { requireMenu } from "@/lib/access";
+import { isSuperAdmin } from "@/lib/roles";
 import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow } from "@/lib/employee-import";
 import bcrypt from "bcryptjs";
@@ -525,38 +525,6 @@ export async function removePayAssignment(userId: string, componentId: string) {
   revalidatePath(`${LIST_PATH}/${userId}`);
   revalidatePath("/portal/admin/payroll");
   return {};
-}
-
-export async function setEmployeeAccess(id: string, role: string, menuAccess: string[]) {
-  const actor = await requireSuperAdmin();
-  if (role !== "KARYAWAN" && role !== "ADMIN") throw new Error("Role tidak dikenal");
-  const allowed = new Set<string>(MENUS.map((m) => m.key));
-  const menus = role === "ADMIN" ? menuAccess.filter((m) => allowed.has(m)) : [];
-
-  const target = await prisma.user.findFirst({
-    where: { id, role: { not: "SUPER_ADMIN" } },
-    select: { role: true, menuAccess: true },
-  });
-  if (!target) throw new Error("Not found");
-
-  await prisma.user.update({
-    where: { id },
-    data: {
-      role,
-      menuAccess: menus,
-      changeLogs: {
-        create: {
-          field: "access",
-          oldValue: `${target.role}: ${target.menuAccess.join(", ")}`,
-          newValue: `${role}: ${menus.join(", ")}`,
-          changedBy: actor.name,
-        },
-      },
-    },
-  });
-  revalidatePath(`${LIST_PATH}/${id}`);
-  revalidatePath("/portal/admin/settings");
-  return { success: true };
 }
 
 export type ImportResult = {

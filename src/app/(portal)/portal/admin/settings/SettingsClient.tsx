@@ -2,14 +2,15 @@
 
 import { useActionState, useState } from "react";
 import { changeAdminPassword } from "./actions";
-import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog, ToggleRight, ShieldCheck } from "lucide-react";
+import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog, ToggleRight, ShieldCheck, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/i18n";
 import IndicatorSettings from "./IndicatorSettings";
-import AccessSettings from "./AccessSettings";
+import { MembersSettings, RolesSettings, type Person } from "./AccessSettings";
+import type { AdminRole } from "@/lib/admin-roles";
 import AgentSettings from "./AgentSettings";
 import OnboardingSettings from "./OnboardingSettings";
 import type { OnboardingSettings as OnboardingSettingsValue } from "@/lib/onboarding-interview";
@@ -63,14 +64,14 @@ export default function SettingsClient({
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
   onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; setupDone: boolean } | null;
-  access?: React.ComponentProps<typeof AccessSettings> | null;
+  access?: { roles: AdminRole[]; people: Person[] } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; Super Admin: Akun & Fitur; Admin: Task Admin, Agent HRD, Running Indikator.
   const tabs = [
     { key: "akun", label: "Akun", icon: UserCog },
     ...(onboarding ? [{ key: "onboarding", label: "Fitur", icon: ToggleRight }] : []),
-    ...(access ? [{ key: "akses", label: "Hak Akses", icon: ShieldCheck }] : []),
+    ...(access ? [{ key: "peran", label: "Peran Admin", icon: ShieldCheck }, { key: "anggota", label: "Anggota Admin", icon: Users }] : []),
     ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
     ...(ai ? [{ key: "ai", label: "Agent HRD", icon: Bot }] : []),
     ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),
@@ -97,7 +98,8 @@ export default function SettingsClient({
 
       {tab === "agent" && agentSettings && <AgentSettings settings={agentSettings} />}
       {tab === "onboarding" && onboarding && <OnboardingSettings {...onboarding} />}
-      {tab === "akses" && access && <AccessSettings {...access} />}
+      {tab === "peran" && access && <RolesSettings roles={access.roles} />}
+      {tab === "anggota" && access && <MembersSettings roles={access.roles} people={access.people} />}
       {tab === "ai" && ai && <AiSettings {...ai} />}
       {tab === "beranda" && indicatorHidden && <IndicatorSettings hidden={indicatorHidden} />}
 

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { actionableApprovers, approvalComplete, stepCandidates, type ApprovalStep, type InterviewApproval } from "@/lib/onboarding-interview";
-import { chainTitle, levelTitle, normalizeWorkflow, readWorkflowFeature, WORKFLOW_FEATURE_KEY, WORKFLOW_KEY, type WorkflowKey, type WorkflowLevel, type WorkflowSettings } from "@/lib/workflow";
+import { getAdminRoles, roleMembers } from "@/lib/admin-roles";
+import { chainTitle, levelTitle, ROLE_GROUP_PREFIX, normalizeWorkflow, readWorkflowFeature, WORKFLOW_FEATURE_KEY, WORKFLOW_KEY, type WorkflowKey, type WorkflowLevel, type WorkflowSettings } from "@/lib/workflow";
 
 export async function workflowFeatureOn() {
   const row = await prisma.appSetting.findUnique({ where: { key: WORKFLOW_FEATURE_KEY } });
@@ -37,6 +38,7 @@ async function nextUp(fromId: string, seen: Set<string>) {
 // Pemegang level hak akses / karyawan tertentu (karyawan aktif).
 async function levelHolders(l: WorkflowLevel) {
   if (l.type === "EMPLOYEE") return prisma.user.findMany({ where: { id: l.value, isActive: true }, select: { id: true, name: true } });
+  if (l.value.startsWith(ROLE_GROUP_PREFIX)) return roleMembers(l.value.slice(ROLE_GROUP_PREFIX.length));
   const [role, menu] = l.value.split(":");
   const list = await prisma.user.findMany({ where: { role: role as "ADMIN" | "SUPER_ADMIN", isActive: true }, select: { id: true, name: true, menuAccess: true } });
   return menu ? list.filter((u) => u.menuAccess.includes(menu)) : list;
@@ -95,10 +97,12 @@ export async function matchesLevels(userId: string, levels: WorkflowLevel[]) {
   const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, menuAccess: true } });
   if (!u) return false;
   const subordinates = levels.some((l) => l.type === "POSITION") ? await prisma.user.count({ where: { managerId: userId, isActive: true } }) : 0;
+  const groups = levels.some((l) => l.value.startsWith(ROLE_GROUP_PREFIX)) ? await getAdminRoles() : [];
   return levels.some((l) => {
     if (l.type === "EMPLOYEE") return l.value === userId;
     if (l.type === "POSITION") return subordinates > 0; // atasan di bagan organisasi
 
+    if (l.value.startsWith(ROLE_GROUP_PREFIX)) return !!groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === l.value)?.members.includes(userId);
     const [role, menu] = l.value.split(":");
     return u.role === role && (!menu || u.menuAccess.includes(menu));
   });
