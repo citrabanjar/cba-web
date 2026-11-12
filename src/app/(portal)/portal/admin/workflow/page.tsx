@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
-import { isManagement } from "@/lib/roles";
+import { isManagement, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
 import { getWorkflowRaw, workflowFeatureOn } from "@/lib/workflow-settings";
@@ -15,6 +15,8 @@ export const metadata: Metadata = { title: "Workflow" };
 export default async function WorkflowPage() {
   const access = await getAccess();
   if (!access) redirect("/portal");
+  // Super Admin hanya menyalakan fitur di Pengaturan → Fitur; Level diatur Admin.
+  if (isSuperAdmin(access.role)) redirect("/portal/admin/settings");
   if (!isManagement(access.role)) redirect("/portal/dashboard");
   if (!(await workflowFeatureOn())) redirect("/portal/dashboard");
   const [settings, users, master] = await Promise.all([

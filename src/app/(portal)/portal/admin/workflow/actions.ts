@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getAccess } from "@/lib/access";
-import { isManagement } from "@/lib/roles";
+import { isManagement, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
 import { levelTitle, normalizeWorkflow, WORKFLOW_KEY, WORKFLOW_MODULES, type WorkflowSettings } from "@/lib/workflow";
@@ -10,7 +10,7 @@ import { levelTitle, normalizeWorkflow, WORKFLOW_KEY, WORKFLOW_MODULES, type Wor
 // Admin menyimpan Level approval per modul.
 export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: string }> {
   const access = await getAccess();
-  if (!access || !isManagement(access.role)) return { error: "Hanya Admin yang bisa mengubah workflow." };
+  if (!access || !isManagement(access.role) || isSuperAdmin(access.role)) return { error: "Hanya Admin yang bisa mengubah workflow." };
   const v = normalizeWorkflow(input);
   const empIds = Object.values(v).flatMap((m) => m.levels.filter((l) => l.type === "EMPLOYEE").map((l) => l.value));
   const [users, master] = await Promise.all([
