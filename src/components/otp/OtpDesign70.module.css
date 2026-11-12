@@ -1,0 +1,691 @@
+/* ═══════════════════════════════════════════════════════
+   OTP Desain 70 — Liquid Glass Morph (codexr 70-otp-v9)
+   Port CSS Module. Fase animasi: idle → pulse → liquid → card
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Outer Card Container ─────────────────────────────── */
+
+.card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 44px 40px 36px;
+  /* Kaca asli di atas latar hampir hitam (#050508); diberi alas gelap agar tampak sama di halaman merah tua. */
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.035)),
+    rgba(5, 5, 8, 0.82);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 28px;
+  box-shadow:
+    0 24px 80px -12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Ambient light effects (dari .otp-scene__ambient, dipindah ke dalam kartu) */
+.ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+.ambient::before {
+  content: '';
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.022) 0%, transparent 70%);
+}
+
+.ambient::after {
+  content: '';
+  position: absolute;
+  top: 60%;
+  left: 38%;
+  transform: translate(-50%, -50%);
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(130, 130, 255, 0.012) 0%, transparent 60%);
+}
+
+/* Top-light reflection on outer card */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* ── Header Section ───────────────────────────────────── */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+  position: relative;
+  z-index: 2;
+}
+
+.headerIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow:
+    0 4px 16px -4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.headerIcon svg {
+  width: 22px;
+  height: 22px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.headerTitle {
+  font-size: 20px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0 0 8px 0;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.headerSubtitle {
+  font-size: 13px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+  text-align: center;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.headerPhone {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
+}
+
+/* ── Stage (holds the morphing animation) ─────────────── */
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  z-index: 2;
+}
+
+.shake {
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Morphing Glass Container ─────────────────────────── */
+
+.glassMorph {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  will-change: width, height, border-radius;
+}
+
+/* Glass backdrop — fades in when boxes merge */
+.glassMorphBackdrop {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Top-edge reflection on unified shape */
+.glassMorphReflection {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0.015) 45%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* ── OTP Slots (Flex Container) ───────────────────────── */
+
+.slots {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: gap;
+  z-index: 10;
+}
+
+.slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+/* Individual glass panel per slot */
+.slotGlass {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  will-change: opacity, border-radius;
+  z-index: 1;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+/* Top-light reflection on each glass panel */
+.slotGlass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.01) 45%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Bottom inner shadow for depth illusion */
+.slotGlass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 -1px 3px rgba(0, 0, 0, 0.12);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Kotak yang sedang fokus — sedikit lebih terang */
+.slot:focus-within .slotGlass {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* ── Water Fill Animation ─────────────────────────────── */
+
+.waterContainer {
+  position: absolute;
+  inset: 1.5px;
+  border-radius: 18px;
+  overflow: hidden;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.waterLevel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.45) 0%, rgba(37, 99, 235, 0.65) 100%);
+  box-shadow: inset 0 2px 12px rgba(255, 255, 255, 0.15);
+}
+
+.waterWave {
+  position: absolute;
+  top: -10px;
+  left: 0;
+  width: 200%;
+  height: 11px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(14, 165, 233, 0.45)'/%3E%3C/svg%3E") repeat-x;
+  background-size: 50% 100%;
+  animation: waveMove 1.5s linear infinite;
+}
+
+.waterWaveBack {
+  position: absolute;
+  top: -14px;
+  left: 0;
+  width: 200%;
+  height: 15px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(37, 99, 235, 0.3)'/%3E%3C/svg%3E") repeat-x;
+  background-size: 50% 100%;
+  animation: waveMove 2.2s linear infinite reverse;
+}
+
+@keyframes waveMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.bubble {
+  position: absolute;
+  bottom: -10px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  animation: bubbleRise 2s infinite ease-in;
+}
+
+.b1 { left: 15%; width: 6px; height: 6px; animation-duration: 1.8s; animation-delay: 0.2s; }
+.b2 { left: 45%; width: 4px; height: 4px; animation-duration: 2.2s; animation-delay: 0.8s; }
+.b3 { left: 75%; width: 8px; height: 8px; animation-duration: 2.5s; animation-delay: 0.1s; }
+.b4 { left: 30%; width: 5px; height: 5px; animation-duration: 1.9s; animation-delay: 1.2s; }
+
+@keyframes bubbleRise {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(-70px) scale(1.5); opacity: 0; }
+}
+
+/* ── Master Water (Merge Phase) ──────────────────────── */
+
+.masterWaterContainer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 0; /* behind slots */
+  pointer-events: none;
+}
+
+.masterWaterLevel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 85%;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.45) 0%, rgba(59, 130, 246, 0.65) 100%);
+  box-shadow: inset 0 2px 12px rgba(255, 255, 255, 0.15);
+}
+
+.masterWaterWave {
+  position: absolute;
+  top: -10px;
+  left: 0;
+  width: 200%;
+  height: 11px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(139, 92, 246, 0.45)'/%3E%3C/svg%3E") repeat-x;
+  background-size: 50% 100%;
+  animation: waveMove 1s linear infinite; /* faster flow */
+}
+
+.masterWaterWaveBack {
+  position: absolute;
+  top: -14px;
+  left: 0;
+  width: 200%;
+  height: 15px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(59, 130, 246, 0.3)'/%3E%3C/svg%3E") repeat-x;
+  background-size: 50% 100%;
+  animation: waveMove 1.4s linear infinite reverse;
+}
+
+/* ── Water Stream (Between Boxes) — ada di CSS asli, tidak dirender oleh JSX asli ── */
+
+.waterStream {
+  position: absolute;
+  top: 50%;
+  right: -16px;
+  width: 16px;
+  height: 10px;
+  margin-top: -5px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.6), rgba(37, 99, 235, 0.9));
+  border-radius: 5px;
+  overflow: hidden;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+
+.waterStream::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 200%; height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 6px,
+    rgba(255, 255, 255, 0.5) 6px,
+    rgba(255, 255, 255, 0.5) 12px
+  );
+  animation: streamFlow 0.4s linear infinite;
+}
+
+@keyframes streamFlow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-12px); }
+}
+
+/* ── Error (tambahan: desain asli tidak punya efek gagal) ── */
+
+.isError .slotGlass {
+  border-color: rgba(248, 113, 113, 0.75);
+  background-color: rgba(239, 68, 68, 0.08);
+}
+
+.isError .waterLevel {
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.5) 0%, rgba(220, 38, 38, 0.7) 100%);
+}
+
+.isError .waterWave {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,20 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(248, 113, 113, 0.5)'/%3E%3C/svg%3E");
+}
+
+.isError .waterWaveBack {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q25,0 50,10 T100,10 L100,21 L0,21 Z' fill='rgba(220, 38, 38, 0.3)'/%3E%3C/svg%3E");
+}
+
+.isError .input {
+  color: #fecaca;
+  -webkit-text-fill-color: #fecaca;
+}
+
+/* ── OTP Input ────────────────────────────────────────── */
+
+.input {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.9);
+  position: relative;
+  z-index: 15;
+  caret-color: rgba(255, 255, 255, 0.3);
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.08);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9);
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  user-select: text;
+}
+
+.input::selection {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Liquid Bridge — ada di CSS asli, tidak dirender oleh JSX asli ── */
+
+.liquidBridge {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  right: -22px;
+  width: 28px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  transform-origin: center;
+}
+
+/* ── Message under the boxes ──────────────────────────── */
+
+.message {
+  min-height: 18px;
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  font-weight: 400;
+  text-align: center;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.messageError {
+  color: #f87171;
+}
+
+/* ── Footer Section (below OTP boxes) ─────────────────── */
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 28px;
+  position: relative;
+  z-index: 2;
+}
+
+.footerResend {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.25s ease;
+  letter-spacing: 0.01em;
+}
+
+.footerResend:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.footerResend:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.footerResendHighlight {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.footerTimer {
+  font-size: 12px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 8px;
+  transition: all 0.25s ease;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.15);
+}
+
+.footerTimer:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Divider ──────────────────────────────────────────── */
+
+.divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 24px 0 20px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Privacy / Security Footer ────────────────────────── */
+
+.security {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.securityItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.28);
+  letter-spacing: 0.02em;
+}
+
+.securityItem svg {
+  width: 13px;
+  height: 13px;
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+/* ── Success State ────────────────────────────────────── */
+
+.successOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.successIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 4px 16px -4px rgba(0, 0, 0, 0.25);
+}
+
+.liquidShadow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.35), inset 0 1px 0px rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.successCheck {
+  width: 26px;
+  height: 26px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.successLabel {
+  font-size: 18px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0;
+  text-align: center;
+}
+
+/* Teks di bawah kartu sukses (tombol "otp-reset" asli, bergaya inline hijau) */
+.successSub {
+  margin: 32px 0 0;
+  padding: 8px 22px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4ade80;
+  letter-spacing: 0.02em;
+  text-align: center;
+  font-family: inherit;
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+
+@media (max-width: 460px) {
+  .card {
+    padding: 36px 24px 28px;
+  }
+  .headerTitle {
+    font-size: 18px;
+  }
+  .security {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .card {
+    padding: 32px 16px 24px;
+  }
+  .security {
+    gap: 10px;
+  }
+}
+
+/* ── Reduced Motion ───────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .card *,
+  .card *::before,
+  .card *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
