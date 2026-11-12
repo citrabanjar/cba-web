@@ -394,6 +394,36 @@ body {
   border-top: 1px solid var(--color-gray-300);
 }
 
+/* Anak buah banyak: dua kolom, garis tegak masing-masing di sisi tengah */
+.org-split {
+  display: flex;
+  align-items: flex-start;
+}
+.org-split::before {
+  left: calc(50% - 6px);
+  width: 12px;
+  border-right: 0;
+}
+.org-split::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 8px;
+  border-left: 1px solid var(--color-gray-300);
+}
+.org-col-left .org-leaf {
+  padding: 8px 18px 0 0;
+}
+.org-col-left .org-leaf::before {
+  left: auto;
+  right: 6px;
+}
+.org-col-left .org-leaf::after {
+  left: auto;
+  right: 6px;
+}
+
 /* Judul kartu di profil karyawan: warnanya bergantian dalam satu tab */
 .section-head {
   --tone: var(--color-brand);

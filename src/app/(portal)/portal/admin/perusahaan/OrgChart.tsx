@@ -22,6 +22,8 @@ type Tree = Person & { reports: Tree[]; total: number };
 type Paper = "A4" | "A3";
 const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 1.6;
+// Mulai jumlah anak buah paling bawah ini, kolomnya dibagi dua (kiri dan kanan).
+const SPLIT_AT = 6;
 
 // Lebar dan tinggi area cetak dalam piksel CSS: kertas landscape dikurangi margin 10 mm.
 const PRINT_AREA: Record<Paper, { width: number; height: number }> = {
@@ -131,13 +133,28 @@ function Branch({
           ))}
           {stacked && (
             <li>
-              <div className="org-stack">
-                {leaves.map((r) => (
-                  <div key={r.id} className="org-leaf">
-                    <PersonCard person={r} canOpenProfile={canOpenProfile} />
-                  </div>
-                ))}
-              </div>
+              {leaves.length >= SPLIT_AT ? (
+                // Anak buah banyak: dibagi dua kolom kiri-kanan supaya tidak terlalu panjang ke bawah.
+                <div className="org-stack org-split">
+                  {[leaves.slice(0, Math.ceil(leaves.length / 2)), leaves.slice(Math.ceil(leaves.length / 2))].map((col, i) => (
+                    <div key={i} className={i === 0 ? "org-col org-col-left" : "org-col"}>
+                      {col.map((r) => (
+                        <div key={r.id} className="org-leaf">
+                          <PersonCard person={r} canOpenProfile={canOpenProfile} />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="org-stack">
+                  {leaves.map((r) => (
+                    <div key={r.id} className="org-leaf">
+                      <PersonCard person={r} canOpenProfile={canOpenProfile} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </li>
           )}
         </ul>
