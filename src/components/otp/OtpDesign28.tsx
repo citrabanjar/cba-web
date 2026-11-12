@@ -189,10 +189,15 @@ export default function OtpDesign28(props: OtpDesignProps) {
   // --- Input ---
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const locked = status === "checking" || status === "success";
+  // Fokus dipindah oleh kode (setelah mengetik) → lewati pengecekan "lompat ke kotak kosong pertama" di onFocus,
+  // karena nilai `value` dari induk belum ter-update pada saat itu (dulu kursor memantul kembali ke kotak 1).
+  const programmaticFocus = useRef(false);
   const focusBox = useCallback(
     (i: number) => {
       const el = inputRefs.current[Math.max(0, Math.min(i, length - 1))];
+      programmaticFocus.current = true;
       if (el) el.focus();
+      programmaticFocus.current = false;
     },
     [length],
   );
@@ -260,7 +265,7 @@ export default function OtpDesign28(props: OtpDesignProps) {
 
   const handleFocus = (el: HTMLInputElement, index: number) => {
     // Kode selalu berurutan: arahkan fokus ke kotak kosong pertama.
-    if (index > value.length) {
+    if (!programmaticFocus.current && index > value.length) {
       focusBox(value.length);
       return;
     }

@@ -262,8 +262,13 @@ export default function OtpDesign67(props: OtpDesignProps) {
     return () => controls.forEach((c) => c.stop());
   }, [status, n]);
 
+  // Fokus dipindah oleh kode (setelah mengetik) → lewati pengecekan "lompat ke kotak kosong pertama" di onFocus,
+  // karena nilai `value` dari induk belum ter-update pada saat itu (dulu kursor memantul kembali ke kotak 1).
+  const programmaticFocus = useRef(false);
   const focusAt = (i: number) => {
+    programmaticFocus.current = true;
     inputRefs.current[Math.max(0, Math.min(n - 1, i))]?.focus();
+    programmaticFocus.current = false;
   };
 
   const handleChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
@@ -314,7 +319,7 @@ export default function OtpDesign67(props: OtpDesignProps) {
 
   const handleFocus = (index: number) => {
     // Kode disimpan berurutan: arahkan ke kotak kosong pertama bila mengetuk lebih jauh.
-    if (!locked && index > value.length) focusAt(value.length);
+    if (!locked && !programmaticFocus.current && index > value.length) focusAt(value.length);
   };
 
   const titleWords = OTP_TEXT.title.split(" ");

@@ -370,9 +370,14 @@ export default function OtpDesign70(props: OtpDesignProps) {
 
   const digits = Array.from({ length }, (_, i) => value[i] ?? "");
 
+  // Fokus dipindah oleh kode (setelah mengetik) → lewati pengecekan "lompat ke kotak kosong pertama" di onFocus,
+  // karena nilai `value` dari induk belum ter-update pada saat itu (dulu kursor memantul kembali ke kotak 1).
+  const programmaticFocus = useRef(false);
   function focusBox(i: number) {
     const idx = Math.max(0, Math.min(length - 1, i));
+    programmaticFocus.current = true;
     refs.current[idx]?.focus();
+    programmaticFocus.current = false;
   }
 
   // ── Input Handlers ─────────────────────────────────────
@@ -435,7 +440,7 @@ export default function OtpDesign70(props: OtpDesignProps) {
 
   function handleFocus(i: number, e: FocusEvent<HTMLInputElement>) {
     // Jangan biarkan celah: fokus selalu ke kotak kosong pertama.
-    if (i > value.length) {
+    if (!programmaticFocus.current && i > value.length) {
       focusBox(value.length);
       return;
     }

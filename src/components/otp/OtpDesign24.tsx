@@ -163,9 +163,14 @@ export default function OtpDesign24(props: OtpDesignProps) {
   const isSuccess = status === "success";
   const digits = Array.from({ length }, (_, i) => value[i] ?? "");
 
+  // Fokus dipindah oleh kode (setelah mengetik) → lewati pengecekan "lompat ke kotak kosong pertama" di onFocus,
+  // karena nilai `value` dari induk belum ter-update pada saat itu (dulu kursor memantul kembali ke kotak 1).
+  const programmaticFocus = useRef(false);
   const focusBox = (i: number) => {
     const el = inputRefs.current[Math.max(0, Math.min(length - 1, i))];
+    programmaticFocus.current = true;
     el?.focus();
+    programmaticFocus.current = false;
     el?.select();
   };
 
@@ -218,7 +223,7 @@ export default function OtpDesign24(props: OtpDesignProps) {
 
   const handleFocus = (index: number) => {
     // Kode selalu berurutan: lompat ke kotak kosong pertama bila mengetuk kotak setelahnya.
-    if (index > value.length) focusBox(value.length);
+    if (!programmaticFocus.current && index > value.length) focusBox(value.length);
     else inputRefs.current[index]?.select();
   };
 
