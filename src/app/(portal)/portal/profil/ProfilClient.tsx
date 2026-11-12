@@ -13,6 +13,7 @@ import { PROFILE_FIELDS, fieldLabel, showValue, type FamilyRow, type ProfileChan
 import type { DayShift } from "@/lib/schedule";
 import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
 import { cancelProfileChange, changeMyPassword, submitProfileChange } from "./actions";
+import RegionSelect from "@/components/RegionSelect";
 
 type Me = {
   id: string; name: string; employeeId: string | null; image: string | null; status: string; position: string | null; branch: string | null;
@@ -83,7 +84,8 @@ export default function ProfilClient({ me, values, family, calendar, requests }:
         {groups.map((g) => (
           <Section key={g} icon={g === "Data Diri" ? User : g === "Tempat Tinggal" ? User : KeyRound} title={g}>
             {g === "Data Diri" && <Row label="Nama Lengkap" value={me.name} />}
-            {PROFILE_FIELDS.filter((f) => f.group === g && !(f.key === "currentAddress" && values.addressSameAsId === "true")).map((f) => (
+            {PROFILE_FIELDS.filter((f) => f.group === g && f.type !== "region"
+              && !((f.key === "currentAddress" || f.key === "currentRegionName") && values.addressSameAsId === "true")).map((f) => (
               <Row key={f.key} label={f.label} value={f.type === "date" ? d(values[f.key] || null) : t(showValue(f.key, values[f.key]))} />
             ))}
             {g === "Rekening & Pajak" && (
@@ -191,7 +193,14 @@ function ChangeDialog({ values, family, onClose }: { values: Record<string, stri
             <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-400"><T>{g}</T></p>
             <div className="grid gap-3 sm:grid-cols-2">
               {PROFILE_FIELDS.filter((f) => f.group === g).map((f) => {
-                if (f.key === "currentAddress" && form.addressSameAsId === "true") return null;
+                if ((f.key === "currentAddress" || f.key === "currentRegion") && form.addressSameAsId === "true") return null;
+                if (f.type === "regionName") return null;
+                if (f.type === "region") return (
+                  <div key={f.key} className="sm:col-span-2">
+                    <RegionSelect label={f.label} value={form[f.key] ?? ""}
+                      onChange={(code, name) => { set(f.key, code); if (f.nameKey) set(f.nameKey, name); }} />
+                  </div>
+                );
                 if (f.type === "flag") return (
                   <label key={f.key} className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
                     <input type="checkbox" checked={form[f.key] === "true"} onChange={(e) => set(f.key, e.target.checked ? "true" : "false")} className="h-4 w-4 accent-[var(--color-brand)]" />

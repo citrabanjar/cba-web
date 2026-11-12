@@ -27,6 +27,7 @@ export type CandidateData = {
   birthPlace: string; birthDate: string; idType: string; ktpNumber: string;
   gender: string; maritalStatus: string; religion: string;
   address: string; addressSameAsId: boolean; currentAddress: string;
+  addressRegion: string; addressRegionName: string; currentRegion: string; currentRegionName: string; // wilayah Kemendagri
   family: FamilyRow[];
   bankName: string; bankAccount: string; bankHolder: string;
   npwp: string; ptkpStatus: string; bpjsTkNumber: string; bpjsKesNumber: string;
@@ -40,6 +41,7 @@ export function emptyData(name = "", phone = ""): CandidateData {
   return {
     name, phone, birthPlace: "", birthDate: "", idType: "KTP", ktpNumber: "", gender: "", maritalStatus: "", religion: "",
     address: "", addressSameAsId: true, currentAddress: "", family: [],
+    addressRegion: "", addressRegionName: "", currentRegion: "", currentRegionName: "",
     bankName: "", bankAccount: "", bankHolder: "", npwp: "", ptkpStatus: "", bpjsTkNumber: "", bpjsKesNumber: "",
   };
 }
@@ -83,6 +85,8 @@ export function missingData(d: CandidateData): string[] {
   ];
   for (const [k, label] of need) if (!String(d[k] ?? "").trim()) miss.push(label);
   if (!d.addressSameAsId && !d.currentAddress.trim()) miss.push("Alamat saat ini");
+  if (!d.addressRegion) miss.push("Kelurahan/desa alamat identitas");
+  if (!d.addressSameAsId && !d.currentRegion) miss.push("Kelurahan/desa alamat saat ini");
   if (d.idType === "KTP" && d.ktpNumber && d.ktpNumber.replace(/\D/g, "").length !== 16) miss.push("No. KTP harus 16 digit");
   if (d.npwp && ![15, 16].includes(d.npwp.replace(/\D/g, "").length)) miss.push("NPWP harus 15 atau 16 digit");
   return miss;

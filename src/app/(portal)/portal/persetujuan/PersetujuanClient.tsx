@@ -13,7 +13,7 @@ import { decideLeave, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
 import { decideSwap } from "../tukar-shift/actions";
 import { SWAP_STATUS } from "@/lib/shift-swap-status";
-import { fieldLabel, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
+import { fieldLabel, isRegionCode, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 
 export type ApprovalItem = {
   id: string; kind: "CUTI" | "DINAS"; status: string;
@@ -198,7 +198,7 @@ function ProfileCard({ item: p }: { item: ProfileItem }) {
                 <tr><th className="px-3 py-1.5"><T>Data</T></th><th className="px-3 py-1.5"><T>Sebelumnya</T></th><th className="px-3 py-1.5"><T>Menjadi</T></th></tr>
               </thead>
               <tbody>
-                {Object.entries(p.changes).map(([k, v]) => (
+                {Object.entries(p.changes).filter(([k]) => !isRegionCode(k)).map(([k, v]) => (
                   <tr key={k} className="border-t border-gray-100">
                     <td className="px-3 py-1.5 font-medium text-gray-700">{t(fieldLabel(k))}</td>
                     <td className="px-3 py-1.5 text-gray-400">{t(showValue(k, v.old))}</td>

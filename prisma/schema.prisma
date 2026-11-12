@@ -119,6 +119,11 @@ model User {
   address           String?   @db.Text // alamat sesuai identitas
   currentAddress    String?   @db.Text
   addressSameAsId   Boolean   @default(false)
+  // Wilayah resmi Kemendagri (kode kelurahan/desa, mis. 63.71.01.1001) + nama lengkapnya, untuk alamat identitas & saat ini.
+  addressRegion     String?
+  addressRegionName String?
+  currentRegion     String?
+  currentRegionName String?
   birthPlace        String?
   birthDate         DateTime? @db.Date
   gender            String?

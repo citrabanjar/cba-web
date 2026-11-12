@@ -35,6 +35,7 @@ import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import ProfileLoans from "@/components/portal/LoanManager";
 import type { LoanView } from "@/components/portal/LoanCard";
+import RegionSelect from "@/components/RegionSelect";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; dailyWage: number | null; monthlyFactor: number | null; bpjsTkBase: number | null;
@@ -52,6 +53,7 @@ type Employee = {
   bankName: string | null; bankAccount: string | null; bankHolder: string | null;
   isActive: boolean; idType: string | null; ktpNumber: string | null; address: string | null;
   currentAddress: string | null; addressSameAsId: boolean;
+  addressRegion: string | null; addressRegionName: string | null; currentRegion: string | null; currentRegionName: string | null;
   birthPlace: string | null; birthDate: Date | null; gender: string | null;
   religion: string | null; maritalStatus: string | null; nationality: string | null;
   npwp: string | null; ptkpStatus: string | null;
@@ -88,7 +90,8 @@ type Employee = {
 type Option = { value: string; label: string };
 type FormField = {
   key: string; label: string; hint?: string;
-  type?: "date" | "email" | "select" | "suggest" | "check"; options?: Option[];
+  type?: "date" | "email" | "select" | "suggest" | "check" | "region"; options?: Option[];
+  nameKey?: string; // type "region": kunci nama lengkap wilayah yang ikut disimpan
 };
 type Section = "detail" | "unit" | "bank" | "payroll" | "pribadi" | "alamat" | "pajak" | "bpjs";
 type EditMode = "ubah" | "PERPANJANGAN" | "PEMBERHENTIAN" | "TRANSFER";
@@ -824,9 +827,11 @@ export default function KaryawanDetailClient({
       { key: "religion", label: "Agama", type: "select", options: masterOptions([...PERSONAL_CHOICES.religion], normalizeChoice("religion", emp.religion)) },
     ],
     alamat: [
-      { key: "address", label: "Alamat sesuai Identitas" },
+      { key: "address", label: "Alamat sesuai Identitas (jalan, RT/RW)" },
+      { key: "addressRegion", label: "Wilayah sesuai Identitas", type: "region", nameKey: "addressRegionName" },
       { key: "addressSameAsId", label: "Sama dengan alamat identitas", type: "check" },
-      { key: "currentAddress", label: "Alamat Saat Ini" },
+      { key: "currentAddress", label: "Alamat Saat Ini (jalan, RT/RW)" },
+      { key: "currentRegion", label: "Wilayah Alamat Saat Ini", type: "region", nameKey: "currentRegionName" },
     ],
     pajak: [
       { key: "npwp", label: "NPWP" },
@@ -859,6 +864,7 @@ export default function KaryawanDetailClient({
       else if (field.key in PERSONAL_CHOICES) values[field.key] = normalizeChoice(field.key as keyof typeof PERSONAL_CHOICES, record[field.key] as string | null);
       else if (field.type === "date") values[field.key] = toInputDate(record[field.key] as Date | null);
       else values[field.key] = String(record[field.key] ?? "");
+      if (field.nameKey) values[field.nameKey] = String(record[field.nameKey] ?? "");
     }
     return values;
   }
@@ -1137,8 +1143,8 @@ export default function KaryawanDetailClient({
             </SectionCard>
 
             <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")} grid>
-              <Field label="Alamat sesuai Identitas">{emp.address}</Field>
-              <Field label="Alamat Saat Ini">{emp.addressSameAsId ? emp.address : emp.currentAddress}</Field>
+              <Field label="Alamat sesuai Identitas">{[emp.address, emp.addressRegionName].filter(Boolean).join(", ") || null}</Field>
+              <Field label="Alamat Saat Ini">{(emp.addressSameAsId ? [emp.address, emp.addressRegionName] : [emp.currentAddress, emp.currentRegionName]).filter(Boolean).join(", ") || null}</Field>
             </SectionCard>
 
             <SectionCard title="Keluarga" onEdit={canEdit ? () => setFamilyOpen(true) : undefined}>
@@ -1388,6 +1394,11 @@ export default function KaryawanDetailClient({
                 />
                 <T>{field.label}</T>
               </label>
+            ) : field.type === "region" ? (
+              (field.key === "currentRegion" && form.addressSameAsId === "true") ? null : (
+                <RegionSelect key={field.key} label={field.label} value={form[field.key] ?? ""}
+                  onChange={(code, name) => setForm((f) => ({ ...f, [field.key]: code, [field.nameKey ?? `${field.key}Name`]: name }))} />
+              )
             ) : (field.key === "currentAddress" && form.addressSameAsId === "true")
               || (field.key === "contractEndDate" && form.employmentStatus !== "KONTRAK") ? null : (
               <div key={field.key} className="space-y-1.5">

@@ -17,7 +17,7 @@ const STATUS_MAP: Record<string, EmploymentStatus> = {
 const TEXT_FIELDS = [
   "employeeId", "email", "phone", "position", "branch", "paymentSchedule", "spkNumber",
   "bankName", "bankAccount", "bankHolder", "idType", "ktpNumber", "address",
-  "currentAddress", "birthPlace",
+  "currentAddress", "birthPlace", "addressRegion", "addressRegionName", "currentRegion", "currentRegionName",
   "gender", "religion", "maritalStatus", "nationality", "emergencyName",
   "emergencyPhone", "emergencyRelation", "npwp", "ptkpStatus", "taxability",
   "taxStatus", "taxObjectCode", "bpjsTkNumber", "bpjsKesNumber",
@@ -156,7 +156,7 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
   };
 
   if (data.idType && !ID_TYPES.includes(data.idType)) throw new Error("Jenis ID tidak dikenal");
-  if (data.addressSameAsId === "true") data = { ...data, currentAddress: "" };
+  if (data.addressSameAsId === "true") data = { ...data, currentAddress: "", currentRegion: "", currentRegionName: "" };
   // Tanggal akhir kontrak hanya berlaku untuk status Kontrak.
   if (data.employmentStatus && data.employmentStatus !== "KONTRAK") data = { ...data, contractEndDate: "" };
 
