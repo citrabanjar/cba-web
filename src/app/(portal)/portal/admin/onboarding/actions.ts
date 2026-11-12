@@ -119,6 +119,7 @@ async function validate(id: string, data: CandidateData, job: CandidateJob, emai
   if (data.ktpNumber && await prisma.user.findUnique({ where: { ktpNumber: digits(data.ktpNumber) || data.ktpNumber }, select: { id: true } })) problems.push("No. identitas sudah dipakai karyawan lain");
   const org = await orgCheck(job);
   problems.push(...org.problems);
+  if (job.managerId && !(await prisma.user.findFirst({ where: { id: job.managerId, isActive: true }, select: { id: true } }))) problems.push("Calon atasan langsung tidak aktif / tidak ditemukan");
   return { missing: problems, org };
 }
 
@@ -133,7 +134,7 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   if (v.missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing: v.missing }; }
   // Approval mengikuti workflow di Pengaturan → Pra-Karyawan (tunggal / sirkular).
   // Approval mengikuti menu Workflow → Pra-Karyawan (Level 1..3, berurutan).
-  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN");
+  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN", "", j.managerId);
   if (flowError) return { error: flowError };
   if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Admin mengatur Level approval di menu Workflow." };
   const wf: Interview = {
@@ -174,6 +175,7 @@ async function createEmployee(id: string, c: CandidateRec, data: CandidateData, 
         npwp: data.npwp ? digits(data.npwp) : null, ptkpStatus: data.ptkpStatus || null,
         bpjsTkNumber: data.bpjsTkNumber || null, bpjsKesNumber: data.bpjsKesNumber || null,
         passwordHash: await bcrypt.hash(password, 12),
+        managerId: job.managerId || null,
         family: { create: data.family.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), idNumber: f.idNumber || null, relation: f.relation || "Lainnya" })) },
       },
     });
@@ -253,7 +255,7 @@ export async function submitInterview(id: string, input: Interview): Promise<Res
     missing.push(...org.problems);
   }
   if (missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing }; }
-  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN");
+  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN", "", i.offer.managerId);
   if (flowError) return { error: flowError };
   if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Admin mengatur Level approval di menu Workflow." };
   i.approval = flow;
@@ -297,6 +299,7 @@ export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", 
   const job = {
     ...readJob(c.job), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position,
     employmentStatus: i.offer.employmentStatus, joinDate: i.offer.joinDate, contractEndDate: i.offer.employmentStatus === "TETAP" ? "" : i.offer.contractEndDate,
+    managerId: i.offer.managerId, managerName: i.offer.managerName,
   };
   await prisma.candidate.update({ where: { id }, data: { status: "DIUNDANG", interview: i, job } });
   const emailed = await sendInviteEmail(c.email, c.name, await onboardingLink(c.email));

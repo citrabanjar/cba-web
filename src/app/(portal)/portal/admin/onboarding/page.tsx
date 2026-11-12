@@ -22,11 +22,14 @@ export default async function OnboardingPage() {
   // Modul dimatikan Super Admin di Pengaturan → Pra-Karyawan.
   if (!(await getOnboardingSettings()).enabled) redirect(isSuperAdmin(access.role) ? "/portal/admin/settings" : "/portal/dashboard");
 
-  const [candidates, master, settings] = await Promise.all([
+  const [candidates, master, settings, people] = await Promise.all([
     prisma.candidate.findMany({ orderBy: { createdAt: "desc" } }),
     getMasterOptions(),
     getOnboardingSettings(),
+    // Pilihan calon atasan langsung: karyawan aktif, "Employee ID - Nama".
+    prisma.user.findMany({ where: { isActive: true, employeeId: { not: null } }, orderBy: { employeeId: "asc" }, select: { id: true, name: true, employeeId: true } }),
   ]);
+  const managers = people.map((u) => ({ value: u.id, label: `${u.employeeId} - ${u.name}` }));
   const now = new Date();
   const rows: CandidateRow[] = candidates.map((c) => ({
     id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status, note: c.note,
@@ -38,5 +41,5 @@ export default async function OnboardingPage() {
     interview: readInterview(c.interview),
     canDecide: APPROVAL_STATUSES.includes(c.status) && actionableApprovers(readInterview(c.interview)?.approval ?? null).includes(access.id),
   }));
-  return <OnboardingClient rows={rows} master={master} canApprove={isSuperAdmin(access.role)} interviewOn={settings.interview} />;
+  return <OnboardingClient rows={rows} master={{ ...master, managers }} canApprove={isSuperAdmin(access.role)} interviewOn={settings.interview} />;
 }

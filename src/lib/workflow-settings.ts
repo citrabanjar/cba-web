@@ -47,7 +47,8 @@ async function levelHolders(l: WorkflowLevel) {
 // Level "jabatan" mengikuti bagan organisasi: level jabatan ke-1 = atasan langsung pemohon, ke-2 = atasan dari atasan itu, dst.
 // (atasan kosong / tidak aktif dilewati). Bila pemohon tidak punya atasan sama sekali → pengajuan gagal; bila rantai habis di
 // level berikutnya (sudah sampai pucuk) → level itu dilewati. Level hak akses / karyawan yang tidak punya pemegang → gagal.
-export async function workflowSteps(module: WorkflowKey, requesterId = ""): Promise<{ flow: InterviewApproval | null; error?: string }> {
+// chainStartId (Pra-Karyawan): calon atasan langsung → level jabatan ke-1 = orang itu, ke-2 = atasannya, dst.
+export async function workflowSteps(module: WorkflowKey, requesterId = "", chainStartId = ""): Promise<{ flow: InterviewApproval | null; error?: string }> {
   const m = (await getWorkflow())[module];
   if (!m.enabled || !m.levels.length) return { flow: null };
   const steps: ApprovalStep[] = [];
@@ -56,16 +57,25 @@ export async function workflowSteps(module: WorkflowKey, requesterId = ""): Prom
   const seen = new Set<string>(requesterId ? [requesterId] : []);
   for (const [i, l] of m.levels.entries()) {
     if (l.type === "POSITION") {
-      if (!requesterId) return { flow: null, error: `Level ${i + 1} memakai atasan di bagan organisasi, padahal calon karyawan belum punya atasan. Minta Admin mengganti level itu di menu Workflow.` };
-      const boss = chainFrom ? await nextUp(chainFrom, seen) : null;
+      if (!requesterId && !chainStartId) return { flow: null, error: "Isi Calon atasan langsung dulu: approval level jabatan mengikuti bagan organisasi dari calon atasan itu." };
+      let boss: { id: string; name: string } | null = null;
+      if (!requesterId && chainLevel === 0) {
+        // Calon atasan langsung sendiri (bila masih aktif), selain itu naik ke atasannya.
+        const start = await prisma.user.findUnique({ where: { id: chainStartId }, select: { id: true, name: true, isActive: true } });
+        seen.add(chainStartId);
+        boss = start?.isActive ? { id: start.id, name: start.name } : start ? await nextUp(chainStartId, seen) : null;
+      } else {
+        boss = chainFrom ? await nextUp(chainFrom, seen) : null;
+      }
       chainLevel++;
       if (!boss) {
-        if (chainLevel === 1) return { flow: null, error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+        if (chainLevel === 1) return { flow: null, error: requesterId ? "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." : "Calon atasan langsung tidak aktif / tidak ditemukan. Pilih ulang di data calon." };
         chainFrom = "";
         continue; // sudah sampai pucuk bagan organisasi
       }
       chainFrom = boss.id;
-      steps.push({ id: boss.id, name: `${chainTitle(chainLevel)} · ${boss.name}`, decision: "", at: "", note: "" });
+      const title = requesterId ? chainTitle(chainLevel) : chainLevel === 1 ? "Calon atasan langsung" : chainLevel === 2 ? "Atasan dari calon atasan" : chainTitle(chainLevel);
+      steps.push({ id: boss.id, name: `${title} · ${boss.name}`, decision: "", at: "", note: "" });
       continue;
     }
     const holders = await levelHolders(l);

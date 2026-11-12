@@ -13,7 +13,7 @@ const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm 
 const fmtDate = (s: string) => (s ? new Date(s.length === 10 ? `${s}T00:00:00` : s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—");
 const fmtTime = (s: string) => new Date(s).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const label = (list: { value: string; label: string }[], v: string) => list.find((x) => x.value === v)?.label ?? (v || "—");
-type Master = { branches: string[]; departments: string[]; positions: string[] };
+type Master = { branches: string[]; departments: string[]; positions: string[]; managers?: { value: string; label: string }[] };
 
 function F({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return <div className={`space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}><Label className="text-xs"><T>{label}</T></Label>{children}</div>;
@@ -56,6 +56,13 @@ export function InterviewForm({ value, onChange, master }: { value: Interview; o
         <F label="Departemen">{pick("departmentName", master.departments)}</F>
         <F label="Jabatan">{pick("position", master.positions)}</F>
         <F label="Cabang">{pick("branch", master.branches)}</F>
+        <F label="Calon atasan langsung">
+          <select value={value.offer.managerId} className={select}
+            onChange={(e) => setO({ managerId: e.target.value, managerName: master.managers?.find((m) => m.value === e.target.value)?.label ?? "" })}>
+            <option value="">—</option>
+            {(master.managers ?? []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </F>
         <F label="Status kerja">
           <select value={value.offer.employmentStatus} onChange={(e) => setO({ employmentStatus: e.target.value })} className={select}>
             <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option>
@@ -71,7 +78,7 @@ export function InterviewForm({ value, onChange, master }: { value: Interview; o
   );
 }
 
-type JobInfo = { position: string; departmentName: string; branch: string; employmentStatus: string; joinDate: string; contractEndDate: string };
+type JobInfo = { position: string; departmentName: string; branch: string; employmentStatus: string; joinDate: string; contractEndDate: string; managerName?: string };
 
 // Ringkasan hasil wawancara, tawaran, dan jejak approval (baca saja). Tanpa wawancara: data pekerjaan + jejak approval.
 export function InterviewSummary({ interview: i, job }: { interview: Interview; job?: JobInfo }) {
@@ -86,6 +93,7 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
           {row("Jabatan", job.position || "—")}
           {row("Departemen", job.departmentName || "—")}
           {row("Cabang", job.branch || "—")}
+          {row("Calon atasan langsung", job.managerName || "—")}
           {row("Status kerja", t(job.employmentStatus === "TETAP" ? "Tetap" : "Kontrak"))}
           {row("Tanggal masuk", fmtDate(job.joinDate))}
           {job.employmentStatus !== "TETAP" && row("Akhir kontrak", fmtDate(job.contractEndDate))}
@@ -105,6 +113,7 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
         {row("Jabatan", i.offer.position || "—")}
         {row("Departemen", i.offer.departmentName || "—")}
         {row("Cabang", i.offer.branch || "—")}
+        {row("Calon atasan langsung", i.offer.managerName || "—")}
         {row("Status kerja", t(i.offer.employmentStatus === "TETAP" ? "Tetap" : "Kontrak"))}
         {row("Gaji pokok", <b>{rupiah(i.offer.salary)}</b>)}
         {row("Tanggal masuk", fmtDate(i.offer.joinDate))}

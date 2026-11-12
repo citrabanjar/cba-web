@@ -41,6 +41,7 @@ export function normalizeOnboardingSettings(raw: unknown): OnboardingSettings {
 export type Offer = {
   departmentName: string; position: string; branch: string;
   employmentStatus: string; salary: string; joinDate: string; contractEndDate: string;
+  managerId: string; managerName: string; // calon atasan langsung
 };
 // Satu level approval. ids = calon approver (pemegang jabatan / hak akses); salah satu cukup memutus, namanya dicatat di "by".
 // Tanpa ids: id = satu karyawan tertentu.
@@ -65,7 +66,7 @@ export const RECOMMENDATIONS = [
   { value: "TIDAK", label: "Tidak disarankan" },
 ];
 
-export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "" });
+export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "", managerId: "", managerName: "" });
 export const emptyInterview = (): Interview => ({
   date: "", interviewer: "", score: "", notes: "", recommendation: "", offer: emptyOffer(),
   approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false,
@@ -107,6 +108,7 @@ export function missingInterview(i: Interview): string[] {
   if (!i.recommendation) miss.push("Rekomendasi");
   if (!i.offer.departmentName.trim()) miss.push("Departemen (tawaran)");
   if (!i.offer.position.trim()) miss.push("Jabatan (tawaran)");
+  if (!i.offer.managerId) miss.push("Calon atasan langsung");
   if (!(Number(i.offer.salary) > 0)) miss.push("Gaji pokok yang ditawarkan");
   if (!i.offer.joinDate) miss.push("Rencana tanggal masuk");
   if (i.offer.employmentStatus === "KONTRAK" && !i.offer.contractEndDate) miss.push("Tanggal akhir kontrak (tawaran)");

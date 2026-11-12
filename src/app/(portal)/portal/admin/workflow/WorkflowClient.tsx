@@ -25,9 +25,8 @@ export default function WorkflowClient({ settings, users }: { settings: Workflow
   const valueOptions = (type: LevelType) =>
     type === "ROLE" ? ROLE_OPTIONS.map((r) => ({ value: r.value, label: t(r.label) }))
       : users.map((u) => ({ value: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }));
-  // Pra-Karyawan: calon belum punya atasan, jadi level "jabatan (bagan organisasi)" tidak bisa dipakai.
-  const typesFor = (k: WorkflowKey) => LEVEL_TYPES.filter((x) => !(k === "PRA_KARYAWAN" && x.value === "POSITION"));
-  const newLevel = (k: WorkflowKey): WorkflowLevel => (k === "PRA_KARYAWAN" ? { type: "ROLE", value: "", label: "" } : { type: "POSITION", value: CHAIN_VALUE, label: "" });
+  // Level baru default: atasan di bagan organisasi (Pra-Karyawan: mulai dari "Calon atasan langsung" di data calon).
+  const newLevel = (): WorkflowLevel => ({ type: "POSITION", value: CHAIN_VALUE, label: "" });
   // Level jabatan ke-n (dihitung hanya di antara level jabatan) → "Atasan langsung", "Atasan dari atasan", …
   const chainIndex = (levels: WorkflowLevel[], i: number) => levels.slice(0, i + 1).filter((l) => l.type === "POSITION").length;
 
@@ -45,7 +44,7 @@ export default function WorkflowClient({ settings, users }: { settings: Workflow
             <section key={m.key} className={`rounded-2xl border bg-white p-4 ${mod.enabled ? "border-brand/40" : "border-gray-200"} ${soon ? "opacity-60" : ""}`}>
               <label className={`flex items-start gap-3 ${soon ? "" : "cursor-pointer"}`}>
                 <input type="checkbox" disabled={soon} checked={mod.enabled}
-                  onChange={(e) => setMod(m.key, { enabled: e.target.checked, levels: e.target.checked && !mod.levels.length ? [newLevel(m.key)] : mod.levels })}
+                  onChange={(e) => setMod(m.key, { enabled: e.target.checked, levels: e.target.checked && !mod.levels.length ? [newLevel()] : mod.levels })}
                   className="mt-1 h-4 w-4 accent-[#BE353F]" />
                 <span className="min-w-0">
                   <span className="flex items-center gap-2 font-semibold text-gray-900"><T>{m.label}</T>
@@ -63,11 +62,11 @@ export default function WorkflowClient({ settings, users }: { settings: Workflow
                     <div key={i} className="grid items-center gap-2 rounded-xl bg-gray-50 p-2 sm:grid-cols-[70px_200px_1fr_32px]">
                       <span className="text-xs font-semibold text-gray-600"><T>Level</T> {i + 1}</span>
                       <select value={l.type} onChange={(e) => { const type = e.target.value as LevelType; setLevel(m.key, i, { type, value: type === "POSITION" ? CHAIN_VALUE : "", label: "" }); }} className={select}>
-                        {typesFor(m.key).map((x) => <option key={x.value} value={x.value}>{t(x.label)}</option>)}
+                        {LEVEL_TYPES.map((x) => <option key={x.value} value={x.value}>{t(x.label)}</option>)}
                       </select>
                       {l.type === "POSITION" ? (
                         <p title={t("Mengikuti bagan organisasi pemohon")} className="flex h-9 items-center truncate whitespace-nowrap rounded-lg border border-dashed border-gray-300 bg-white px-3 text-sm font-medium text-gray-700">
-                          <T>{chainTitle(chainIndex(mod.levels, i))}</T>
+                          <T>{m.key === "PRA_KARYAWAN" ? (chainIndex(mod.levels, i) === 1 ? "Calon atasan langsung" : chainIndex(mod.levels, i) === 2 ? "Atasan dari calon atasan" : chainTitle(chainIndex(mod.levels, i))) : chainTitle(chainIndex(mod.levels, i))}</T>
                         </p>
                       ) : (
                         <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? "" })} className={select}>
@@ -80,7 +79,7 @@ export default function WorkflowClient({ settings, users }: { settings: Workflow
                     </div>
                   ))}
                   {mod.levels.length < MAX_LEVELS && (
-                    <button type="button" onClick={() => setMod(m.key, { levels: [...mod.levels, newLevel(m.key)] })}
+                    <button type="button" onClick={() => setMod(m.key, { levels: [...mod.levels, newLevel()] })}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"><Plus size={12} /> <T>Tambah level</T></button>
                   )}
                   {mod.levels.some((l) => l.value) && (

@@ -36,6 +36,7 @@ export type CandidateData = {
 export type CandidateJob = {
   employeeId: string; branch: string; departmentName: string; position: string;
   employmentStatus: string; joinDate: string; contractEndDate: string;
+  managerId: string; managerName: string; // calon atasan langsung (jadi atasan langsung di profil saat didaftarkan)
 };
 
 export function emptyData(name = "", phone = ""): CandidateData {
@@ -48,6 +49,7 @@ export function emptyData(name = "", phone = ""): CandidateData {
 }
 export const emptyJob = (): CandidateJob => ({
   employeeId: "", branch: "", departmentName: "", position: "", employmentStatus: "KONTRAK", joinDate: "", contractEndDate: "",
+  managerId: "", managerName: "",
 });
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -98,6 +100,7 @@ export function missingJob(j: CandidateJob): string[] {
   const miss: string[] = [];
   if (!j.employeeId.trim()) miss.push("Employee ID");
   if (!j.departmentName.trim()) miss.push("Departemen");
+  if (!j.managerId) miss.push("Calon atasan langsung");
   if (!j.position.trim()) miss.push("Jabatan");
   if (!j.joinDate) miss.push("Tanggal masuk");
   if (j.employmentStatus === "KONTRAK" && !j.contractEndDate) miss.push("Tanggal akhir kontrak");

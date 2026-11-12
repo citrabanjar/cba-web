@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import CandidateDataForm from "@/components/portal/CandidateDataForm";
-import type { MasterOptions } from "@/lib/master-data";
+import type { MasterOptions as BaseMaster } from "@/lib/master-data";
+type MasterOptions = BaseMaster & { managers: { value: string; label: string }[] };
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, missingData, missingJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { emptyInterview, interviewApproved, missingInterview, rupiah, type Interview } from "@/lib/onboarding-interview";
 import { InterviewDecision, InterviewForm, InterviewSummary } from "@/components/portal/InterviewPanel";
@@ -177,6 +178,12 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 <div className="space-y-1.5"><Label className="text-xs"><T>Cabang</T></Label>{masterSelect("branch", master.branches)}</div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Departemen</T></Label>{masterSelect("departmentName", master.departments)}</div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Jabatan</T></Label>{masterSelect("position", master.positions)}</div>
+                <div className="space-y-1.5"><Label className="text-xs"><T>Calon atasan langsung</T></Label>
+                  <select value={job.managerId} disabled={closed} className={select}
+                    onChange={(e) => setJob((j) => ({ ...j, managerId: e.target.value, managerName: master.managers.find((m) => m.value === e.target.value)?.label ?? "" }))}>
+                    <option value="">—</option>
+                    {master.managers.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Tanggal masuk</T></Label>
                   <Input type="date" value={job.joinDate} disabled={closed} onChange={(e) => setJ("joinDate", e.target.value)} /></div>
                 {job.employmentStatus === "KONTRAK" && (

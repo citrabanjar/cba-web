@@ -20,8 +20,6 @@ export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: s
         const u = users.find((x) => x.id === l.value);
         if (!u) return { error: `Workflow ${m.label} Level ${i + 1}: karyawan tidak aktif / tidak ditemukan.` };
         l.label = u.name;
-      } else if (l.type === "POSITION" && m.key === "PRA_KARYAWAN") {
-        return { error: `Workflow ${m.label} Level ${i + 1}: calon karyawan belum punya atasan, pilih hak akses atau karyawan tertentu.` };
       }
     }
     if (mod.enabled && mod.levels.length === 0) return { error: `Workflow ${m.label} aktif tapi Level 1 belum diisi.` };
