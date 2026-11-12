@@ -151,7 +151,7 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   const activeEmp = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
   const onbOn = (await getOnboardingSettings()).enabled;
   const [onbReview, onbApproval, noPay, noShift, noManager, profileChanges] = await Promise.all([
-    onbOn ? prisma.candidate.count({ where: { status: "DIKIRIM" } }) : 0,
+    onbOn ? prisma.candidate.count({ where: { status: { in: ["DIKIRIM", "SIAP_DAFTAR"] } } }) : 0,
     onbOn ? prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }) : 0,
     prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
     prisma.user.findMany({ where: { ...activeEmp, schedules: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
@@ -161,8 +161,8 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   ]);
   const onboardingTasks: Task[] = [
     { key: "profile-change", title: "Periksa perubahan data karyawan", hint: "Karyawan mengajukan perubahan data pribadi dari Profil Saya. Data baru berlaku setelah disetujui.", count: profileChanges, unit: "pengajuan", href: "/portal/persetujuan" },
-    { key: "onb-review", title: "Periksa data calon karyawan", hint: "Cocokkan isian calon dengan dokumen fisik, lengkapi data pekerjaan, lalu ajukan approval.", count: onbReview, unit: "calon", href: "/portal/admin/onboarding" },
-    { key: "onb-approval", title: "Setujui calon karyawan", hint: "Calon yang sudah diperiksa HRD menunggu approval Owner / Super Admin.", count: onbApproval, unit: "calon", href: "/portal/admin/onboarding" },
+    { key: "onb-review", title: "Periksa data calon karyawan", hint: "Cocokkan isian calon dengan dokumen fisik dan lengkapi data pekerjaan lalu ajukan approval, atau daftarkan calon yang sudah disetujui.", count: onbReview, unit: "calon", href: "/portal/admin/onboarding" },
+    { key: "onb-approval", title: "Setujui calon karyawan", hint: "Calon yang sudah diperiksa HRD menunggu keputusan approver sesuai workflow Pra-Karyawan.", count: onbApproval, unit: "calon", href: "/portal/persetujuan" },
   ];
   const setupTasks: Task[] = [
     { key: "emp-no-pay", title: "Tempel komponen payroll", hint: "Karyawan aktif yang belum ditempel komponen gaji tidak ikut terhitung di Proses Gaji.", count: noPay.length, unit: "karyawan", href: noPay[0] ? `/portal/admin/karyawan/${noPay[0].id}` : "/portal/admin/payroll" },

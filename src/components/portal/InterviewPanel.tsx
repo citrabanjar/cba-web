@@ -71,13 +71,27 @@ export function InterviewForm({ value, onChange, master }: { value: Interview; o
   );
 }
 
-// Ringkasan hasil wawancara, tawaran, dan jejak approval (baca saja).
-export function InterviewSummary({ interview: i }: { interview: Interview }) {
+type JobInfo = { position: string; departmentName: string; branch: string; employmentStatus: string; joinDate: string; contractEndDate: string };
+
+// Ringkasan hasil wawancara, tawaran, dan jejak approval (baca saja). Tanpa wawancara: data pekerjaan + jejak approval.
+export function InterviewSummary({ interview: i, job }: { interview: Interview; job?: JobInfo }) {
   const t = useT();
   const now = actionableApprovers(i.approval);
   const row = (l: string, v: React.ReactNode) => <div className="flex justify-between gap-3 py-1"><span className="text-gray-500"><T>{l}</T></span><span className="text-right font-medium text-gray-800">{v}</span></div>;
   return (
     <div className="grid gap-3 sm:grid-cols-2">
+      {i.skipped && job && (
+        <div className="rounded-2xl border border-gray-200 p-4 text-sm sm:col-span-2">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Data pekerjaan</T></p>
+          {row("Jabatan", job.position || "—")}
+          {row("Departemen", job.departmentName || "—")}
+          {row("Cabang", job.branch || "—")}
+          {row("Status kerja", t(job.employmentStatus === "TETAP" ? "Tetap" : "Kontrak"))}
+          {row("Tanggal masuk", fmtDate(job.joinDate))}
+          {job.employmentStatus !== "TETAP" && row("Akhir kontrak", fmtDate(job.contractEndDate))}
+        </div>
+      )}
+      {!i.skipped && <>
       <div className="rounded-2xl border border-gray-200 p-4 text-sm">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Hasil wawancara</T></p>
         {row("Tanggal", fmtDate(i.date))}
@@ -96,6 +110,7 @@ export function InterviewSummary({ interview: i }: { interview: Interview }) {
         {row("Tanggal masuk", fmtDate(i.offer.joinDate))}
         {i.offer.employmentStatus === "KONTRAK" && row("Akhir kontrak", fmtDate(i.offer.contractEndDate))}
       </div>
+      </>}
       {i.approval && (
         <div className="rounded-2xl border border-gray-200 p-4 text-sm sm:col-span-2">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -136,13 +151,13 @@ export function InterviewDecision({ candidateId, onDone }: { candidateId: string
     start(async () => {
       const r = await decideInterview(candidateId, d, note);
       if (r.error) { setMsg({ ok: false, text: r.error }); return; }
-      setMsg({ ok: true, text: d === "TOLAK" ? "Calon ditolak." : !r.done ? "Disetujui. Menunggu approver berikutnya." : r.emailed ? "Disetujui semua. Undangan isi data sudah dikirim ke email calon." : "Disetujui semua. Email undangan gagal terkirim: HRD bisa kirim ulang dari menu Pra-Karyawan." });
+      setMsg({ ok: true, text: d === "TOLAK" ? "Calon ditolak." : !r.done ? "Disetujui. Menunggu approver berikutnya." : r.ready ? "Disetujui semua. HRD tinggal mendaftarkan karyawan." : r.emailed ? "Disetujui semua. Undangan isi data sudah dikirim ke email calon." : "Disetujui semua. Email undangan gagal terkirim: HRD bisa kirim ulang dari menu Pra-Karyawan." });
       onDone?.();
     });
   };
   return (
     <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
-      <p className="text-sm font-semibold text-amber-900"><T>Giliran Anda memutus hasil wawancara ini.</T></p>
+      <p className="text-sm font-semibold text-amber-900"><T>Giliran Anda memberi keputusan.</T></p>
       <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Catatan (wajib bila menolak)")} className="bg-white" />
       {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
       <div className="flex justify-end gap-2">

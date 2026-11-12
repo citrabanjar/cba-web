@@ -4,7 +4,8 @@
 // Alur bila wawancara aktif:
 //   WAWANCARA (HRD isi hasil + tawaran kerja) → APPROVAL_WAWANCARA (tunggal / sirkular)
 //   → disetujui: DIUNDANG (undangan isi data terkirim) → DIKIRIM → HRD daftarkan karyawan (langsung masuk database).
-// Bila wawancara tidak aktif: alur lama (undang → isi data → HRD ajukan → Super Admin setujui).
+// Bila wawancara tidak aktif: undang → isi data → HRD ajukan → approval sesuai workflow yang sama (tunggal / sirkular)
+//   → SIAP_DAFTAR → HRD daftarkan karyawan. Jejak approval disimpan di kolom interview dengan skipped = true.
 
 export const ONBOARDING_SETTING_KEY = "onboarding";
 
@@ -48,6 +49,7 @@ export type Interview = {
   offer: Offer;
   approval: InterviewApproval | null;
   submittedBy: string; submittedAt: string; approvedAt: string;
+  skipped: boolean; // true = tanpa wawancara; hanya jejak workflow approval data calon
 };
 
 export const SCORES = [
@@ -63,7 +65,7 @@ export const RECOMMENDATIONS = [
 export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "" });
 export const emptyInterview = (): Interview => ({
   date: "", interviewer: "", score: "", notes: "", recommendation: "", offer: emptyOffer(),
-  approval: null, submittedBy: "", submittedAt: "", approvedAt: "",
+  approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false,
 });
 
 export function readInterview(raw: unknown): Interview | null {
@@ -71,6 +73,7 @@ export function readInterview(raw: unknown): Interview | null {
   const v = raw as Record<string, unknown>;
   const base = emptyInterview();
   for (const k of ["date", "interviewer", "score", "notes", "recommendation", "submittedBy", "submittedAt", "approvedAt"] as const) base[k] = str(v[k]);
+  base.skipped = v.skipped === true;
   const o = (v.offer ?? {}) as Record<string, unknown>;
   for (const k of Object.keys(base.offer) as (keyof Offer)[]) if (typeof o[k] === "string") base.offer[k] = o[k] as string;
   const a = v.approval as Record<string, unknown> | null | undefined;
@@ -111,6 +114,8 @@ export function actionableApprovers(a: InterviewApproval | null): string[] {
 }
 export const approvalComplete = (a: InterviewApproval | null) => !!a && a.steps.length > 0 && a.steps.every((s) => s.decision === "SETUJU");
 // Calon ini lewat jalur wawancara yang sudah disetujui: HRD langsung mendaftarkan karyawan, tanpa approval akhir.
-export const interviewApproved = (i: Interview | null) => !!i && approvalComplete(i.approval);
+export const interviewApproved = (i: Interview | null) => !!i && !i.skipped && approvalComplete(i.approval);
+// Status calon yang sedang berjalan workflow approval (wawancara atau data calon).
+export const APPROVAL_STATUSES = ["APPROVAL_WAWANCARA", "MENUNGGU_APPROVAL"];
 
 export const rupiah = (v: string | number) => `Rp${Math.round(Number(v) || 0).toLocaleString("id-ID")}`;

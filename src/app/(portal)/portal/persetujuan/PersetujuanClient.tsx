@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
 import { InterviewDecision, InterviewSummary } from "@/components/portal/InterviewPanel";
 import type { Interview } from "@/lib/onboarding-interview";
+import type { CandidateJob } from "@/lib/onboarding";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { halfDayLabel } from "@/lib/leave";
@@ -40,7 +41,7 @@ export type SwapItem = {
 };
 
 export type InterviewItem = {
-  id: string; name: string; email: string; phone: string; status: string; statusLabel: string; interview: Interview; mine: boolean;
+  id: string; name: string; email: string; phone: string; status: string; statusLabel: string; interview: Interview; job: CandidateJob; mine: boolean;
 };
 
 type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara";
@@ -56,7 +57,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews }
     ["riwayat", "Riwayat 60 hari", done.length],
     ["swap", "Tukar Shift", swaps.filter((s) => s.mine).length],
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
-    ...(interviews.length ? [["wawancara", "Wawancara", interviews.filter((i) => i.mine).length] as [TabKey, string, number]] : []),
+    ...(interviews.length ? [["wawancara", "Pra-Karyawan", interviews.filter((i) => i.mine).length] as [TabKey, string, number]] : []),
   ];
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
@@ -297,7 +298,7 @@ function SwapCard({ s }: { s: SwapItem }) {
   );
 }
 
-// Approval hasil wawancara calon karyawan.
+// Approval Pra-Karyawan: hasil wawancara atau data calon.
 function InterviewCard({ item }: { item: InterviewItem }) {
   const router = useRouter();
   return (
@@ -309,7 +310,7 @@ function InterviewCard({ item }: { item: InterviewItem }) {
         </div>
         <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600"><T>{item.statusLabel}</T></span>
       </div>
-      <InterviewSummary interview={item.interview} />
+      <InterviewSummary interview={item.interview} job={item.job} />
       {item.mine && <InterviewDecision candidateId={item.id} onDone={() => router.refresh()} />}
     </div>
   );

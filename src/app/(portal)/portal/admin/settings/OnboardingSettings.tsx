@@ -66,14 +66,14 @@ export default function OnboardingSettings({ settings, users }: { settings: Sett
             <Choice active={s.interview} title="Pakai wawancara" onClick={() => set({ interview: true })}
               desc="Calon diwawancara dulu. Hasil wawancara dan tawaran kerja (jabatan, status, gaji) disetujui approver, baru calon diundang mengisi data." />
             <Choice active={!s.interview} title="Tanpa wawancara" onClick={() => set({ interview: false })}
-              desc="Calon langsung diundang mengisi data. Setelah HRD memeriksa, Super Admin menyetujui di akhir." />
+              desc="Calon langsung diundang mengisi data. Setelah HRD memeriksa, data calon disetujui sesuai workflow approval di bawah." />
           </div>
         </section>
 
-        {s.interview && (
-          <>
+        <>
             <section className="space-y-2">
-              <p className="text-xs font-semibold text-gray-700">2. <T>Model approval wawancara</T></p>
+              <p className="text-xs font-semibold text-gray-700">2. <T>Workflow approval</T></p>
+              <p className="text-xs text-gray-500"><T>{s.interview ? "Approver menyetujui hasil wawancara dan tawaran kerja sebelum calon diundang mengisi data." : "Approver menyetujui data calon (yang sudah diperiksa HRD) sebelum didaftarkan sebagai karyawan."}</T></p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Choice active={s.mode === "TUNGGAL"} title="Tunggal" onClick={() => set({ mode: "TUNGGAL" as ApprovalMode, approvers: s.approvers.slice(0, 1) })}
                   desc="Cukup satu approver." />
@@ -119,15 +119,16 @@ export default function OnboardingSettings({ settings, users }: { settings: Sett
                   <Button type="button" variant="outline" disabled={!pick} onClick={add}><T>Tambah</T></Button>
                 </div>
               )}
-              <p className="text-[11px] text-gray-400"><T>Approver memutus lewat menu Persetujuan → tab Wawancara.</T></p>
+              <p className="text-[11px] text-gray-400"><T>Approver memutus lewat menu Persetujuan → tab Pra-Karyawan.</T></p>
             </section>
 
             <div className="rounded-xl bg-gray-50 px-4 py-3 text-xs leading-relaxed text-gray-600">
-              <p className="mb-1 font-semibold text-gray-700"><T>Alur dengan wawancara</T></p>
-              <T>HRD daftarkan calon → isi hasil wawancara & tawaran kerja → approval → undangan isi data otomatis ke email calon → HRD periksa data → HRD isi Employee ID & penempatan → langsung masuk database sebagai karyawan.</T>
+              <p className="mb-1 font-semibold text-gray-700"><T>{s.interview ? "Alur dengan wawancara" : "Alur tanpa wawancara"}</T></p>
+              <T>{s.interview
+                ? "HRD daftarkan calon → isi hasil wawancara & tawaran kerja → approval → undangan isi data otomatis ke email calon → HRD periksa data → HRD isi Employee ID & penempatan → langsung masuk database sebagai karyawan."
+                : "HRD undang calon → calon isi data → HRD periksa & lengkapi data pekerjaan → approval → HRD daftarkan karyawan → masuk database."}</T>
             </div>
-          </>
-        )}
+        </>
         </>}
 
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}

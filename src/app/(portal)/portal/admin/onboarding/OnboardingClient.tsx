@@ -98,6 +98,11 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   const inInterview = row.status === "WAWANCARA" || row.status === "APPROVAL_WAWANCARA";
   // Lolos approval wawancara: HRD langsung mendaftarkan karyawan; status kerja, jabatan, gaji mengikuti tawaran.
   const viaInterview = interviewApproved(row.interview);
+  // Workflow approval data calon (tanpa wawancara) sedang berjalan / sudah selesai.
+  const pendingWorkflow = row.status === "MENUNGGU_APPROVAL" && !!row.interview?.approval;
+  const legacyApproval = row.status === "MENUNGGU_APPROVAL" && !pendingWorkflow;
+  const ready = row.status === "SIAP_DAFTAR" || (viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN"));
+  const locked = viaInterview || row.status === "SIAP_DAFTAR";
   const run = (fn: () => Promise<{ error?: string; missing?: string[] }>, ok: string, after?: () => void) => {
     setMsg(null);
     start(async () => {
@@ -107,7 +112,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   };
   const setJ = <K extends keyof CandidateJob>(k: K, v: CandidateJob[K]) => setJob((j) => ({ ...j, [k]: v }));
   const masterSelect = (k: "branch" | "departmentName" | "position", list: string[]) => (
-    <select value={job[k]} disabled={closed || (viaInterview && k === "position")} onChange={(e) => setJ(k, e.target.value)} className={select}>
+    <select value={job[k]} disabled={closed || (locked && k === "position")} onChange={(e) => setJ(k, e.target.value)} className={select}>
       <option value="">—</option>
       {[...(job[k] && !list.includes(job[k]) ? [job[k]] : []), ...list].map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
@@ -143,9 +148,11 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
         )}
         {row.status === "APPROVAL_WAWANCARA" && row.interview && <InterviewSummary interview={row.interview} />}
         {row.status === "APPROVAL_WAWANCARA" && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
-        {!inInterview && row.interview?.approval && (
+        {pendingWorkflow && row.interview && <InterviewSummary interview={row.interview} />}
+        {pendingWorkflow && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
+        {!inInterview && !pendingWorkflow && row.interview?.approval && (
           <details className="rounded-2xl border border-sky-100 bg-sky-50/50 px-4 py-2 text-sm">
-            <summary className="cursor-pointer font-semibold text-sky-800"><MessagesSquare size={14} className="mr-1 inline" /> <T>Hasil wawancara & tawaran kerja</T></summary>
+            <summary className="cursor-pointer font-semibold text-sky-800"><MessagesSquare size={14} className="mr-1 inline" /> <T>{row.interview.skipped ? "Jejak approval" : "Hasil wawancara & tawaran kerja"}</T></summary>
             <div className="mt-3"><InterviewSummary interview={row.interview} /></div>
           </details>
         )}
@@ -164,7 +171,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 <div className="space-y-1.5"><Label className="text-xs"><T>Employee ID</T></Label>
                   <Input value={job.employeeId} disabled={closed} onChange={(e) => setJ("employeeId", e.target.value.toUpperCase())} /></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Status kerja</T></Label>
-                  <select value={job.employmentStatus} disabled={closed || viaInterview} onChange={(e) => setJ("employmentStatus", e.target.value)} className={select}>
+                  <select value={job.employmentStatus} disabled={closed || locked} onChange={(e) => setJ("employmentStatus", e.target.value)} className={select}>
                     <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option>
                   </select></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Cabang</T></Label>{masterSelect("branch", master.branches)}</div>
@@ -175,6 +182,9 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 {job.employmentStatus === "KONTRAK" && (
                   <div className="space-y-1.5"><Label className="text-xs"><T>Tanggal akhir kontrak</T></Label>
                     <Input type="date" value={job.contractEndDate} disabled={closed} onChange={(e) => setJ("contractEndDate", e.target.value)} /></div>
+                )}
+                {row.status === "SIAP_DAFTAR" && (
+                  <p className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800 sm:col-span-2"><T>Status kerja dan jabatan mengikuti data yang sudah disetujui approver. Isi Employee ID dan sesuaikan penempatan bila perlu, lalu Daftarkan Karyawan.</T></p>
                 )}
                 {viaInterview && row.interview && (
                   <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800 sm:col-span-2">
@@ -209,7 +219,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
             {(row.status === "DIKIRIM" || row.status === "MENUNGGU_APPROVAL") && (
               <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon dan diberi tahu lewat email.", onClose)}><Undo2 size={14} /> <T>Kembalikan ke Calon</T></Button>
             )}
-            {canApprove && (row.status === "MENUNGGU_APPROVAL" || row.status === "WAWANCARA") && (
+            {canApprove && (legacyApproval || row.status === "WAWANCARA") && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
                 onClick={() => { if (window.confirm(t("Tolak calon karyawan ini?"))) run(() => rejectCandidate(row.id, note), "Calon ditolak.", onClose); }}><XCircle size={14} /> <T>Tolak</T></Button>
             )}
@@ -225,7 +235,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
             {!closed && !waiting && !inInterview && (
               <Button variant="outline" disabled={pending} onClick={() => run(() => saveCandidateReview(row.id, data, job), "Tersimpan.")}><T>Simpan</T></Button>
             )}
-            {viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && !password && (
+            {ready && !password && (
               <Button disabled={pending} className="gap-1.5" onClick={() => {
                 if (!window.confirm(t("Daftarkan sebagai karyawan? Data langsung masuk database."))) return;
                 setMsg(null);
@@ -239,7 +249,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
               <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitForApproval(row.id, data, job), "Diajukan untuk approval.", onClose)}>
                 {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Ajukan Approval</T></Button>
             )}
-            {canApprove && row.status === "MENUNGGU_APPROVAL" && !password && (
+            {canApprove && legacyApproval && !password && (
               <Button disabled={pending} className="gap-1.5" onClick={() => {
                 if (!window.confirm(t("Setujui dan jadikan karyawan?"))) return;
                 setMsg(null);
@@ -286,7 +296,7 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
         <h2 className="font-bold text-gray-800"><T>Pra-Karyawan</T></h2>
         <p className="text-xs text-gray-400 mt-0.5"><T>{interviewOn
           ? "Calon diwawancara dulu; hasil wawancara dan tawaran kerja disetujui approver, lalu calon mengisi data sendiri lewat /onboarding dan HRD mendaftarkannya sebagai karyawan."
-          : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan untuk approval."}</T></p>
+          : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan untuk approval sesuai workflow."}</T></p>
       </div>
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
         <div className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
@@ -333,7 +343,7 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
             </ul>
           )}
         </div>
-        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>{interviewOn ? "Alur wawancara diatur Super Admin di Pengaturan → Pra-Karyawan." : "Persetujuan sementara dilakukan Super Admin sampai peran Owner ditetapkan."}</T></p>
+        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Alur dan workflow approval diatur Super Admin di Pengaturan → Pra-Karyawan.</T></p>
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} onClose={() => setOpenId(null)} />}

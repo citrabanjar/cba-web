@@ -8,8 +8,8 @@ import { getAccess } from "@/lib/access";
 import { isApprover, requesterFilter, reviewsProfiles } from "@/lib/approval";
 import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
-import { actionableApprovers, readInterview } from "@/lib/onboarding-interview";
-import { CANDIDATE_STATUS } from "@/lib/onboarding";
+import { actionableApprovers, APPROVAL_STATUSES, readInterview } from "@/lib/onboarding-interview";
+import { CANDIDATE_STATUS, readJob } from "@/lib/onboarding";
 import { Prisma } from "@prisma/client";
 import PersetujuanClient, { type ApprovalItem, type InterviewItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
 
@@ -50,10 +50,10 @@ export default async function PersetujuanPage() {
       where: { OR: [{ managerAId: a.id }, { managerBId: a.id }], status: { in: ["MENUNGGU_ATASAN", "DISETUJUI", "DITOLAK"] }, createdAt: { gte: since } },
       include: { requester: who, partner: who }, orderBy: { date: "asc" }, take: 200,
     }),
-    // Approval hasil wawancara calon karyawan (Setup Onboarding).
+    // Approval Pra-Karyawan: hasil wawancara atau data calon (workflow di Pengaturan → Pra-Karyawan).
     prisma.candidate.findMany({
-      where: { interview: { not: Prisma.DbNull }, OR: [{ status: "APPROVAL_WAWANCARA" }, { updatedAt: { gte: since } }] },
-      select: { id: true, name: true, email: true, phone: true, status: true, interview: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 100,
+      where: { interview: { not: Prisma.DbNull }, OR: [{ status: { in: APPROVAL_STATUSES } }, { updatedAt: { gte: since } }] },
+      select: { id: true, name: true, email: true, phone: true, status: true, interview: true, job: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 100,
     }),
   ]);
 
@@ -92,7 +92,7 @@ export default async function PersetujuanPage() {
     if (!iv?.approval?.steps.some((x) => x.id === a.id)) return [];
     return [{
       id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status, statusLabel: CANDIDATE_STATUS[c.status]?.label ?? c.status,
-      interview: iv, mine: c.status === "APPROVAL_WAWANCARA" && actionableApprovers(iv.approval).includes(a.id),
+      interview: iv, job: readJob(c.job), mine: APPROVAL_STATUSES.includes(c.status) && actionableApprovers(iv.approval).includes(a.id),
     }];
   });
 

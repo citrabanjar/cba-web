@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
 import { mailerReady } from "@/lib/mailer";
 import { readData, readJob } from "@/lib/onboarding";
-import { actionableApprovers, readInterview } from "@/lib/onboarding-interview";
+import { actionableApprovers, APPROVAL_STATUSES, readInterview } from "@/lib/onboarding-interview";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import OnboardingClient, { type CandidateRow } from "./OnboardingClient";
 
@@ -36,7 +36,7 @@ export default async function OnboardingPage() {
     submittedAt: c.submittedAt?.toISOString() ?? null, createdAt: c.createdAt.toISOString(),
     invitedBy: c.invitedBy, reviewedBy: c.reviewedBy, approvedBy: c.approvedBy, approvedAt: c.approvedAt?.toISOString() ?? null, userId: c.userId,
     interview: readInterview(c.interview),
-    canDecide: c.status === "APPROVAL_WAWANCARA" && actionableApprovers(readInterview(c.interview)?.approval ?? null).includes(access.id),
+    canDecide: APPROVAL_STATUSES.includes(c.status) && actionableApprovers(readInterview(c.interview)?.approval ?? null).includes(access.id),
   }));
   return <OnboardingClient rows={rows} master={master} canApprove={isSuperAdmin(access.role)} interviewOn={settings.interview} />;
 }
