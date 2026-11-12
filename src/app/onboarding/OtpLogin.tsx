@@ -18,6 +18,7 @@ export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string 
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [status, setStatus] = useState<OtpStatus>("idle");
+  const [round, setRound] = useState(0); // naik setiap kode dikirim → kotak OTP dibuat ulang dengan gaya berikutnya
 
   function ask() {
     setError(null);
@@ -25,6 +26,7 @@ export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string 
       const r = await requestOtp(email, phone);
       if (r.error) { setError(r.error); return; }
       setStep("otp");
+      setCode(""); setStatus("idle"); setRound((n) => n + 1);
       setInfo(r.sent ? "Kode OTP sudah dikirim ke email Anda. Berlaku 10 menit." : "Kode OTP sudah dibuat. HRD akan mengirimkannya kepada Anda. Berlaku 10 menit.");
     });
   }
@@ -57,7 +59,7 @@ export default function OtpLogin({ initialEmail = "" }: { initialEmail?: string 
       {step === "otp" && (
         <div className="pt-1">
           <p className="mb-2 text-center text-xs text-white/60"><T>Masukkan 6 angka kode OTP</T></p>
-          <OtpBoxes value={code} status={status} disabled={pending}
+          <OtpBoxes key={round} value={code} status={status} disabled={pending}
             onChange={(v) => { setCode(v); if (status === "error") setStatus("idle"); if (v.length === 6) check(v); }} />
         </div>
       )}

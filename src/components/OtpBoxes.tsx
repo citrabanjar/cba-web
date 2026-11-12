@@ -15,10 +15,24 @@ export type OtpStatus = "idle" | "checking" | "success" | "error";
 export const OTP_STYLES = ["merge", "liquid", "shimmer", "pop", "flip"] as const;
 type Style = (typeof OTP_STYLES)[number];
 
+// Gaya bergiliran per browser (disimpan di localStorage), jadi setiap kali kotak OTP dibuka gayanya selalu berbeda
+// dari sebelumnya. Bila localStorage tidak bisa dipakai, pilih acak.
+const STYLE_KEY = "cba-otp-style";
+function nextStyle(): Style {
+  try {
+    const last = OTP_STYLES.indexOf(localStorage.getItem(STYLE_KEY) as Style);
+    const next = OTP_STYLES[(last + 1) % OTP_STYLES.length];
+    localStorage.setItem(STYLE_KEY, next);
+    return next;
+  } catch {
+    return OTP_STYLES[Math.floor(Math.random() * OTP_STYLES.length)];
+  }
+}
+
 export default function OtpBoxes({ value, onChange, status, length = 6, disabled }: {
   value: string; onChange: (v: string) => void; status: OtpStatus; length?: number; disabled?: boolean;
 }) {
-  const [style] = useState<Style>(() => OTP_STYLES[Math.floor(Math.random() * OTP_STYLES.length)]);
+  const [style] = useState<Style>(nextStyle);
   const [focused, setFocused] = useState(true);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { input.current?.focus(); }, []);
