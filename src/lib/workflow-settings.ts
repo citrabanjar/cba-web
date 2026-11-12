@@ -1,10 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { actionableApprovers, approvalComplete, type InterviewApproval } from "@/lib/onboarding-interview";
-import { normalizeWorkflow, stepsFromLevels, WORKFLOW_KEY, type WorkflowKey, type WorkflowSettings } from "@/lib/workflow";
+import { normalizeWorkflow, readWorkflowFeature, stepsFromLevels, WORKFLOW_FEATURE_KEY, WORKFLOW_KEY, type WorkflowKey, type WorkflowSettings } from "@/lib/workflow";
 
-export async function getWorkflow(): Promise<WorkflowSettings> {
+export async function workflowFeatureOn() {
+  const row = await prisma.appSetting.findUnique({ where: { key: WORKFLOW_FEATURE_KEY } });
+  return readWorkflowFeature(row?.value);
+}
+
+// Isian menu Workflow apa adanya (untuk halaman Workflow).
+export async function getWorkflowRaw(): Promise<WorkflowSettings> {
   const row = await prisma.appSetting.findUnique({ where: { key: WORKFLOW_KEY } });
   return normalizeWorkflow(row?.value);
+}
+
+// Workflow yang berlaku: bila fitur Workflow dimatikan, semua modul dianggap tidak aktif (kembali ke atasan langsung).
+export async function getWorkflow(): Promise<WorkflowSettings> {
+  const [w, on] = await Promise.all([getWorkflowRaw(), workflowFeatureOn()]);
+  if (!on) for (const k of Object.keys(w) as WorkflowKey[]) w[k] = { ...w[k], enabled: false };
+  return w;
 }
 
 // Jalur approval workflow untuk pengajuan baru; null = modul tidak aktif → aturan default (atasan langsung).

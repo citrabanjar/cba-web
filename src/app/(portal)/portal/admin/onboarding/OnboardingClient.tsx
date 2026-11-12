@@ -343,7 +343,7 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
             </ul>
           )}
         </div>
-        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Alur dan workflow approval diatur Super Admin di Pengaturan → Pra-Karyawan.</T></p>
+        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Fitur diatur Super Admin di Pengaturan → Fitur; approver di menu Workflow.</T></p>
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} onClose={() => setOpenId(null)} />}

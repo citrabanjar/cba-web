@@ -16,7 +16,7 @@ import type { StorageInfo } from "@/lib/storage";
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
 type NavSection = { section: string; items: NavItem[] };
 
-function getNavSections(role: string, menuAccess: string[], approvals: number | null, onboardingOn: boolean): NavSection[] {
+function getNavSections(role: string, menuAccess: string[], approvals: number | null, onboardingOn: boolean, workflowOn: boolean): NavSection[] {
   const sections: NavSection[] = [
     {
       section: "MENU UTAMA",
@@ -104,7 +104,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     sections.push({
       section: "ADMIN",
       items: [
-        ...(isSuperAdmin(role) ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+        ...(isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
         { href: "/portal/admin/settings", label: "Pengaturan", icon: Settings },
       ],
     });
@@ -114,7 +114,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; onboardingOn?: boolean; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; onboardingOn?: boolean; workflowOn?: boolean; children: React.ReactNode };
 
 // Pemakaian penyimpanan database Neon, hanya untuk super admin.
 function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
@@ -306,12 +306,12 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, storage, approvals = null, onboardingOn = true, children }: Props) {
+export default function PortalShell({ user, storage, approvals = null, onboardingOn = true, workflowOn = true, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useT();
-  const sections = getNavSections(user.role, user.menuAccess, approvals, onboardingOn);
+  const sections = getNavSections(user.role, user.menuAccess, approvals, onboardingOn, workflowOn);
 
   // Pilihan lipat menu diingat di browser ini saja.
   useEffect(() => {

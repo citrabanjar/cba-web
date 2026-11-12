@@ -19,6 +19,10 @@ export type WorkflowKey = (typeof WORKFLOW_MODULES)[number]["key"];
 export type WorkflowModule = { enabled: boolean; levels: ApproverRef[] };
 export type WorkflowSettings = Record<WorkflowKey, WorkflowModule>;
 
+// Fitur Workflow aktif atau tidak (Pengaturan → Fitur). Nonaktif = semua approval ke atasan langsung, menu Workflow disembunyikan.
+export const WORKFLOW_FEATURE_KEY = "feature-workflow";
+export const readWorkflowFeature = (raw: unknown) => (raw as { enabled?: unknown } | null)?.enabled !== false;
+
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 export function normalizeWorkflow(raw: unknown): WorkflowSettings {

@@ -7,6 +7,7 @@ import { isSuperAdmin } from "@/lib/roles";
 import { getDatabaseStorage } from "@/lib/storage";
 import { isApprover, pendingApprovals } from "@/lib/approval";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
+import { workflowFeatureOn } from "@/lib/workflow-settings";
 
 export default async function PortalLayout({
   children,
@@ -24,7 +25,7 @@ export default async function PortalLayout({
   // Menu Persetujuan (atasan langsung, Admin/HRD) dengan jumlah pengajuan yang menunggu.
   const approver = access ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
-  const onboardingOn = (await getOnboardingSettings()).enabled;
+  const [onboardingOn, workflowOn] = await Promise.all([getOnboardingSettings().then((s) => s.enabled), workflowFeatureOn()]);
 
   return (
     <PortalShell
@@ -37,6 +38,7 @@ export default async function PortalLayout({
       storage={storage}
       approvals={approvals}
       onboardingOn={onboardingOn}
+      workflowOn={workflowOn}
     >
       {children}
     </PortalShell>

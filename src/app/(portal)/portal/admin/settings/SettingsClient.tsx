@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { changeAdminPassword } from "./actions";
-import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog, UserPlus } from "lucide-react";
+import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog, ToggleRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -61,13 +61,13 @@ export default function SettingsClient({
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue } | null;
+  onboarding: { settings: OnboardingSettingsValue; workflow: boolean } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; tab Task Admin & Running Indikator hanya untuk Super Admin.
   const tabs = [
     { key: "akun", label: "Akun", icon: UserCog },
-    ...(onboarding ? [{ key: "onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
+    ...(onboarding ? [{ key: "onboarding", label: "Fitur", icon: ToggleRight }] : []),
     ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
     ...(ai ? [{ key: "ai", label: "AI Pemeriksa", icon: Bot }] : []),
     ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),

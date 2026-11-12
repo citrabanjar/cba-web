@@ -8,6 +8,7 @@ import { getAgentSettings } from "../../dashboard/agent";
 import { prisma } from "@/lib/prisma";
 import { getAiSettings, hasApiKey } from "@/lib/ai-checker";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
+import { workflowFeatureOn } from "@/lib/workflow-settings";
 import SettingsClient from "./SettingsClient";
 
 export default async function AdminSettingsPage() {
@@ -50,7 +51,8 @@ async function loadAi() {
   };
 }
 
-// Data tab Pra-Karyawan (Super Admin).
+// Data tab Fitur (Super Admin).
 async function loadOnboarding() {
-  return { settings: await getOnboardingSettings() };
+  const [settings, workflow] = await Promise.all([getOnboardingSettings(), workflowFeatureOn()]);
+  return { settings, workflow };
 }
