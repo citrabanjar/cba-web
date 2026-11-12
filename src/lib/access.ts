@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { hasMenu, type MenuKey } from "@/lib/roles";
+import { canEditMenu, type MenuKey } from "@/lib/roles";
 
 // Hak akses selalu dibaca dari database, bukan dari sesi login. Dengan begitu,
 // perubahan menu oleh super admin langsung berlaku tanpa harus login ulang.
@@ -14,9 +14,10 @@ export async function getAccess() {
   return user?.isActive ? user : null;
 }
 
+// Untuk aksi yang mengubah data: wajib hak edit (hak lihat saja ditolak).
 export async function requireMenu(menu: MenuKey) {
   const user = await getAccess();
-  if (!user || !hasMenu(user, menu)) throw new Error("Unauthorized");
+  if (!user || !canEditMenu(user, menu)) throw new Error("Anda hanya punya hak lihat di menu ini.");
   return user;
 }
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { rupiah } from "@/lib/payroll";
 import { DEFAULT_TER, type TerRow, type TerVersion } from "@/lib/pph21";
 import { deleteTerVersion, saveTerVersion } from "./actions";
@@ -22,6 +23,7 @@ const fmtDate = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id
 // Tarif TER PPh 21 (PP 58/2023) yang bisa diubah, per versi dengan tanggal berlaku.
 export default function TerSettings({ versions }: { versions: TerVersion[] }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: isian dikunci, tombol ubah/simpan/hapus disembunyikan
   const all = versions.length ? versions : [];
   const latest = all[all.length - 1];
   const [selected, setSelected] = useState<string | null>(latest?.effectiveDate ?? null); // null = bawaan / versi baru
@@ -73,7 +75,7 @@ export default function TerSettings({ versions }: { versions: TerVersion[] }) {
           className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm">
           {all.map((v) => <option key={v.effectiveDate} value={v.effectiveDate}>{t("Berlaku")} {fmtDate(v.effectiveDate)}</option>)}
           <option value="__default">{t("Bawaan PP 58/2023")} · {fmtDate(DEFAULT_TER.effectiveDate)}</option>
-          <option value="__new">+ {t("Versi baru")}</option>
+          {canEdit && <option value="__new">+ {t("Versi baru")}</option>}
         </select>
       </div>
       {!all.length && (
@@ -83,7 +85,7 @@ export default function TerSettings({ versions }: { versions: TerVersion[] }) {
       )}
       <div className="space-y-4 p-5">
         <div className="space-y-1.5 sm:w-60"><Label className="text-xs"><T>Berlaku mulai tanggal</T></Label>
-          <Input type="date" value={form.effectiveDate} onChange={(e) => { setMsg(null); setForm((f) => ({ ...f, effectiveDate: e.target.value })); }} /></div>
+          <Input type="date" disabled={!canEdit} value={form.effectiveDate} onChange={(e) => { setMsg(null); setForm((f) => ({ ...f, effectiveDate: e.target.value })); }} /></div>
         <div className="flex flex-wrap gap-1 rounded-xl bg-gray-50 p-1">
           {TABLES.map((x) => (
             <button key={x.key} type="button" onClick={() => setTable(x.key)}
@@ -92,7 +94,7 @@ export default function TerSettings({ versions }: { versions: TerVersion[] }) {
             </button>
           ))}
         </div>
-        <div className="max-h-96 space-y-1 overflow-y-auto pr-1">
+        <fieldset disabled={!canEdit} className="min-w-0 max-h-96 space-y-1 overflow-y-auto pr-1">
           {rows.map((r, i) => {
             const last = i === rows.length - 1;
             const from = i ? rows[i - 1].upTo ?? 0 : 0;
@@ -103,7 +105,7 @@ export default function TerSettings({ versions }: { versions: TerVersion[] }) {
                 {!last && <Input type="number" min={0} className="h-8 w-36" value={r.upTo ?? ""} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, upTo: Number(e.target.value) } : x)))} />}
                 <Input type="number" min={0} step="0.25" className="h-8 w-20" value={r.rate} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, rate: Number(e.target.value) } : x)))} />
                 <span className="text-gray-400">%</span>
-                {rows.length > 1 && (
+                {canEdit && rows.length > 1 && (
                   <button type="button" aria-label={t("Hapus baris")} className="rounded p-1 text-gray-400 hover:text-rose-600"
                     onClick={() => { const next = rows.filter((_, j) => j !== i); next[next.length - 1] = { ...next[next.length - 1], upTo: null }; setRows(next); }}>
                     <Trash2 size={13} />
@@ -112,21 +114,21 @@ export default function TerSettings({ versions }: { versions: TerVersion[] }) {
               </div>
             );
           })}
-        </div>
-        <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+        </fieldset>
+        {canEdit && <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
           onClick={() => {
             const prev = rows.slice(0, -1), last = rows[rows.length - 1];
             const cap = (prev.length ? prev[prev.length - 1].upTo ?? 0 : 0) + 100_000;
             setRows([...prev, { upTo: cap, rate: last.rate }, { upTo: null, rate: last.rate }]);
           }}>
           <Plus size={12} /> <T>Tambah baris</T>
-        </button>
+        </button>}
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 px-5 py-3">
+      {canEdit && <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 px-5 py-3">
         {msg && <span className={`flex items-center gap-1.5 text-sm ${msg.ok ? "text-emerald-700" : "text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></span>}
         {selected && <Button variant="outline" onClick={remove} disabled={pending} className="text-rose-600"><T>Hapus Versi</T></Button>}
         <Button onClick={save} disabled={pending} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan Tarif TER</T></Button>
-      </div>
+      </div>}
     </section>
   );
 }

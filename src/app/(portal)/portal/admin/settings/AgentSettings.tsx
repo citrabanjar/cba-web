@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { MONITOR_CHECKS, type AgentSettings as Settings, type SopReminder } from "@/lib/agent-hrd";
 import { deleteReminder, saveAgentRules, saveReminder } from "./agent-actions";
 
@@ -19,6 +20,7 @@ const describe = (r: SopReminder) =>
 // Pengaturan Task Admin (Admin): pengecekan yang aktif, batas angka, dan pengingat SOP.
 export default function AgentSettings({ settings }: { settings: Settings }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: isian terkunci, tombol simpan/tambah/ubah/hapus disembunyikan
   const [enabled, setEnabled] = useState<string[]>(settings.enabled);
   const [contractDays, setContractDays] = useState(String(settings.contractDays));
   const [remindDays, setRemindDays] = useState(String(settings.payrollRemindDays));
@@ -51,7 +53,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400"><T>{g}</T></p>
                 {MONITOR_CHECKS.filter((c) => c.group === g).map((c) => (
                   <label key={c.key} className="flex cursor-pointer items-center gap-2 py-0.5 text-sm text-gray-700">
-                    <input type="checkbox" checked={enabled.includes(c.key)} className="h-4 w-4 accent-[var(--color-brand)]"
+                    <input type="checkbox" checked={enabled.includes(c.key)} disabled={!canEdit} className="h-4 w-4 accent-[var(--color-brand)]"
                       onChange={(e) => setEnabled((d) => (e.target.checked ? [...d, c.key] : d.filter((k) => k !== c.key)))} />
                     <T>{c.title}</T>
                   </label>
@@ -61,16 +63,18 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5"><Label className="text-xs"><T>Kontrak berakhir diingatkan (hari sebelumnya)</T></Label>
-              <Input type="number" min={1} max={365} value={contractDays} onChange={(e) => setContractDays(e.target.value)} /></div>
+              <Input type="number" min={1} max={365} value={contractDays} disabled={!canEdit} onChange={(e) => setContractDays(e.target.value)} /></div>
             <div className="space-y-1.5"><Label className="text-xs"><T>Proses Gaji diingatkan (hari sebelum gajian)</T></Label>
-              <Input type="number" min={0} max={31} value={remindDays} onChange={(e) => setRemindDays(e.target.value)} /></div>
+              <Input type="number" min={0} max={31} value={remindDays} disabled={!canEdit} onChange={(e) => setRemindDays(e.target.value)} /></div>
           </div>
-          <div className="flex justify-end">
-            <Button size="sm" disabled={pending} className="gap-1.5"
-              onClick={() => run(() => saveAgentRules({ enabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) }), "Pengaturan Task Admin tersimpan.")}>
-              {pending && <Loader2 size={14} className="animate-spin" />} <T>Simpan Pengecekan</T>
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="flex justify-end">
+              <Button size="sm" disabled={pending} className="gap-1.5"
+                onClick={() => run(() => saveAgentRules({ enabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) }), "Pengaturan Task Admin tersimpan.")}>
+                {pending && <Loader2 size={14} className="animate-spin" />} <T>Simpan Pengecekan</T>
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2 border-t border-gray-100 pt-4">
@@ -79,7 +83,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
               <p className="text-xs font-semibold text-gray-600"><T>Pengingat SOP</T></p>
               <p className="text-[11px] text-gray-400"><T>Tugas berulang perusahaan yang dimunculkan Task Admin pada tanggalnya sampai ditandai selesai.</T></p>
             </div>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing({ ...EMPTY })}><Plus size={14} /> <T>Tambah</T></Button>
+            {canEdit && <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing({ ...EMPTY })}><Plus size={14} /> <T>Tambah</T></Button>}
           </div>
           {settings.reminders.length === 0 && !editing && <p className="rounded-lg bg-gray-50 px-3 py-3 text-center text-xs text-gray-400"><T>Belum ada pengingat SOP.</T></p>}
           <ul className="space-y-1.5">
@@ -90,13 +94,15 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
                   <span className="block text-[11px] text-gray-500"><T>{describe(r)}</T> · <T>muncul</T> {r.leadDays} <T>hari sebelumnya</T></span>
                   {r.note && <span className="block text-[11px] text-gray-400">{r.note}</span>}
                 </span>
-                <button type="button" aria-label={t("Ubah")} className="rounded p-1 text-gray-400 hover:text-brand" onClick={() => setEditing({ ...r })}><Pencil size={14} /></button>
-                <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
-                  onClick={() => { if (window.confirm(t("Hapus pengingat ini?"))) run(() => deleteReminder(r.id), "Pengingat dihapus."); }}><Trash2 size={14} /></button>
+                {canEdit && <>
+                  <button type="button" aria-label={t("Ubah")} className="rounded p-1 text-gray-400 hover:text-brand" onClick={() => setEditing({ ...r })}><Pencil size={14} /></button>
+                  <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
+                    onClick={() => { if (window.confirm(t("Hapus pengingat ini?"))) run(() => deleteReminder(r.id), "Pengingat dihapus."); }}><Trash2 size={14} /></button>
+                </>}
               </li>
             ))}
           </ul>
-          {editing && (
+          {canEdit && editing && (
             <div className="space-y-3 rounded-xl bg-gray-50 p-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2"><Label className="text-xs"><T>Judul</T></Label>

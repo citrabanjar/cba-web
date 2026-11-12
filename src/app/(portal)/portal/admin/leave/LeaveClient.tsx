@@ -14,6 +14,7 @@ import {
 } from "@/lib/leave";
 import { deleteLeavePolicy, saveLeavePolicy } from "./actions";
 import BalanceTab from "./BalanceTab";
+import { useCanEdit } from "@/components/portal/edit-access";
 import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
 
 export type Policy = Omit<LeavePolicyInput, "payNote" | "attachmentNote" | "legalBasis" | "note" | "carryOverExpiry"> & {
@@ -271,6 +272,7 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
   const [editing, setEditing] = useState<Policy | "new" | null>(null);
   const [filter, setFilter] = useState<string>("ALL");
   const [pending, start] = useTransition();
+  const canEdit = useCanEdit(); // hak lihat saja: tombol ubah disembunyikan
 
   const active = policies.filter((p) => p.isActive);
   const annual = policies.find((p) => p.code === "CT");
@@ -327,10 +329,12 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
               <h3 className="font-semibold text-gray-900"><T>Jenis Cuti & Izin</T></h3>
               <p className="text-xs text-gray-400"><T>Hak Cuti, syarat, dan upah setiap jenis cuti.</T></p>
             </div>
-            <button type="button" onClick={() => setEditing("new")}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-              <Plus size={14} /> <T>Tambah Jenis</T>
-            </button>
+            {canEdit && (
+              <button type="button" onClick={() => setEditing("new")}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+                <Plus size={14} /> <T>Tambah Jenis</T>
+              </button>
+            )}
           </div>
 
           <div className="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-100 px-4 py-2">
@@ -355,8 +359,10 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
                       <p className="font-bold text-gray-900">{t(p.name)}</p>
                       <p className="text-xs text-gray-500"><T>{categoryLabel(p.category)}</T>{!p.isActive && <> · <T>Nonaktif</T></>}</p>
                     </div>
+                    {canEdit && <>
                     <button type="button" onClick={() => setEditing(p)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>
                     <button type="button" onClick={() => remove(p)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>
+                    </>}
                   </div>
 
                   <p className="mt-3 text-lg font-bold text-gray-900">

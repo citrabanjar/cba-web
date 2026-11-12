@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { removePayAssignment, savePayAssignment } from "../actions";
 
 export type PayComponentRow = {
@@ -90,6 +91,7 @@ function AssignDialog({ userId, row, onClose }: { userId: string; row: PayCompon
 // Komponen gaji yang tertempel ke karyawan ini beserta masa berlakunya.
 export default function PayComponentsCard({ userId, rows }: { userId: string; rows: PayComponentRow[] }) {
   const t = useT();
+  const canEdit = useCanEdit("gaji"); // hak lihat saja: komponen tidak bisa dibuka untuk diubah
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PayComponentRow | null>(null);
   // Tertempel lebih dulu, yang belum tertempel di bawah tiap kelompok.
@@ -120,8 +122,8 @@ export default function PayComponentsCard({ userId, rows }: { userId: string; ro
                   const st = status(r.assigned);
                   return (
                     <li key={r.componentId}>
-                      <button type="button" onClick={() => setEditing(r)}
-                        className={`group flex w-full items-start gap-2 rounded-xl border border-gray-100 px-2.5 py-2 text-left hover:border-gray-300 ${st.active ? "" : "opacity-70"}`}>
+                      <button type="button" onClick={() => setEditing(r)} disabled={!canEdit}
+                        className={`group flex w-full items-start gap-2 rounded-xl border border-gray-100 px-2.5 py-2 text-left enabled:hover:border-gray-300 ${st.active ? "" : "opacity-70"}`}>
                         <span className="mt-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: st.active ? k.color : "#9ca3af" }}>{r.code}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm text-gray-900">{t(r.name)}</span>
@@ -129,7 +131,7 @@ export default function PayComponentsCard({ userId, rows }: { userId: string; ro
                           <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.tone}`}>{t(st.label)}</span>
                           {r.assigned?.note && <span className="ml-1.5 text-[10px] text-gray-500">{r.assigned.note}</span>}
                         </span>
-                        <Settings2 size={13} className="mt-1 shrink-0 text-gray-300 group-hover:text-brand" />
+                        {canEdit && <Settings2 size={13} className="mt-1 shrink-0 text-gray-300 group-hover:text-brand" />}
                       </button>
                     </li>
                   );

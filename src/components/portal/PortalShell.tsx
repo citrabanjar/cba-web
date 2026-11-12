@@ -12,6 +12,7 @@ import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
+import { EditAccessProvider, ViewOnlyBanner } from "@/components/portal/edit-access";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
 type NavSection = { section: string; items: NavItem[]; admin?: boolean };
@@ -405,7 +406,12 @@ export default function PortalShell({ user, storage, approvals = null, onboardin
       </AnimatePresence>
 
       {/* Konten */}
-      <main className="min-w-0 pt-16 transition-[margin] duration-300 lg:ml-[var(--sb)] print:ml-0 print:p-0">{children}</main>
+      <main className="min-w-0 pt-16 transition-[margin] duration-300 lg:ml-[var(--sb)] print:ml-0 print:p-0">
+        <EditAccessProvider access={{ role: user.role, menuAccess: user.menuAccess }}>
+          <ViewOnlyBanner access={{ role: user.role, menuAccess: user.menuAccess }} />
+          {children}
+        </EditAccessProvider>
+      </main>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { hasMenu } from "@/lib/roles";
+import { canEditMenu } from "@/lib/roles";
 import { pendingSwapApprovals } from "@/lib/shift-swap";
 import { isInterviewApprover, pendingInterviewApprovals } from "@/lib/onboarding-settings";
 import { isWorkflowApprover } from "@/lib/workflow-settings";
@@ -27,7 +27,7 @@ async function pendingWorkflowRequests(userId: string) {
 export type Approver = { id: string; role: string; menuAccess?: string[] };
 
 // Perubahan data pribadi (Profil Saya) diputus Admin yang punya akses menu Data Karyawan.
-export const reviewsProfiles = (a: Approver) => hasMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "karyawan");
+export const reviewsProfiles = (a: Approver) => canEditMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "karyawan");
 
 // Karyawan yang pengajuannya diputus penyetuju ini: bawahan langsungnya.
 export function requesterFilter(a: Approver) {

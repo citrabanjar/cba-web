@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
-import { MENUS } from "@/lib/roles";
+import { MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
 import type { AdminRole } from "@/lib/admin-roles";
 import { saveRoles } from "./role-actions";
 
@@ -95,15 +95,30 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
               </Button>
             </div>
             <p className="mt-3 text-xs font-medium text-gray-500"><T>Kewenangan</T></p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
               {MENUS.map((m) => {
-                const on = r.menus.includes(m.key);
+                const level = menuLevelOf(r.menus, m.key);
+                const choices: { v: MenuLevel | null; label: string }[] = [
+                  { v: null, label: "Tidak" },
+                  ...(m.levels as readonly MenuLevel[]).map((l) => ({ v: l, label: l === "view" ? "Lihat" : "Edit" })),
+                ];
+                const pick = (v: MenuLevel | null) => s.patch(r.id, {
+                  menus: [...r.menus.filter((k) => k !== m.key && k !== menuEntry(m.key, "view")), ...(v ? [menuEntry(m.key, v)] : [])],
+                });
                 return (
-                  <button key={m.key} type="button" title={t(m.desc)}
-                    onClick={() => s.patch(r.id, { menus: on ? r.menus.filter((k) => k !== m.key) : [...r.menus, m.key] })}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${on ? "border-brand bg-brand text-white" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"}`}>
-                    <T>{m.label}</T>
-                  </button>
+                  <div key={m.key} title={t(m.desc)} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-1.5">
+                    <span className={`truncate text-xs font-medium ${level ? "text-gray-900" : "text-gray-400"}`}><T>{m.label}</T></span>
+                    <span className="flex shrink-0 rounded-full border border-gray-200 bg-white p-0.5">
+                      {choices.map((c) => (
+                        <button key={c.label} type="button" onClick={() => pick(c.v)}
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${level === c.v
+                            ? c.v === "edit" ? "bg-brand text-white" : c.v === "view" ? "bg-sky-600 text-white" : "bg-gray-200 text-gray-700"
+                            : "text-gray-400 hover:text-gray-700"}`}>
+                          <T>{c.label}</T>
+                        </button>
+                      ))}
+                    </span>
+                  </div>
                 );
               })}
             </div>
@@ -152,7 +167,7 @@ export function MembersSettings({ roles: initial, people }: { roles: AdminRole[]
           <div key={r.id} className="rounded-2xl border border-gray-200 p-4">
             <p className="font-semibold text-gray-900">{r.name}</p>
             <p className="text-xs text-gray-500">
-              {r.menus.length ? r.menus.map((k) => MENUS.find((m) => m.key === k)?.label ?? k).join(" · ") : <T>Belum ada kewenangan.</T>}
+              {r.menus.length ? MENUS.flatMap((m) => { const l = menuLevelOf(r.menus, m.key); return l ? [`${m.label} (${l === "view" ? "Lihat" : "Edit"})`] : []; }).join(" · ") : <T>Belum ada kewenangan.</T>}
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {r.members.length === 0 && <span className="text-xs text-gray-400"><T>Belum ada anggota.</T></span>}

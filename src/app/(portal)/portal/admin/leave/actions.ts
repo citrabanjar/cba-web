@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import { canEditMenu, isSuperAdmin } from "@/lib/roles";
 import { LEAVE_BALANCE_KEY } from "@/lib/leave-balance";
 import { isLeaveCategory, isLeavePeriod, isLeaveUnit, type LeavePolicyInput } from "@/lib/leave";
 
@@ -12,7 +12,7 @@ type Result = { error?: string };
 
 async function requireAdmin() {
   const access = await getAccess();
-  if (!access || !hasMenu(access, "absensi")) throw new Error("Unauthorized");
+  if (!access || !canEditMenu(access, "absensi")) throw new Error("Anda hanya punya hak lihat di menu ini.");
   return access;
 }
 

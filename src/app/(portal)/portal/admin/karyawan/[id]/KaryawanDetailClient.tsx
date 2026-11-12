@@ -26,6 +26,7 @@ import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import AttendanceCalendar from "./AttendanceCalendar";
 import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
 import type { DayShift } from "@/lib/schedule";
@@ -677,7 +678,7 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, initialAction, initialTab, canSeeLoans, loans, master, canSeePay, isSuper, canEdit,
+  employee: emp, tenure, managers, initialAction, initialTab, canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
   schedules, patterns, shiftDays, leaveBalances, payOptions, payComponents,
 }: {
   employee: Employee;
@@ -699,6 +700,11 @@ export default function KaryawanDetailClient({
   payComponents: PayComponentRow[];
 }) {
   const t = useT();
+  // canEditTarget: aturan siapa yang boleh diubah (dari server); ditambah hak Edit menu admin (hak lihat saja = tombol ubah disembunyikan).
+  const canEditMenu = useCanEdit("karyawan");
+  const canEditPay = useCanEdit("gaji");
+  const canEditSchedule = useCanEdit("absensi");
+  const canEdit = canEditTarget && canEditMenu;
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
   const [tab, setTab] = useState(() => (quick ? "pekerjaan" : initialTab && TAB_LIST.some((x) => x.key === initialTab) ? initialTab : "pribadi"));
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
@@ -1055,11 +1061,11 @@ export default function KaryawanDetailClient({
 
             <SectionCard
               title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
-              action={
+              action={canEditTarget && canEditPay ? (
                 <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-7 px-3 text-xs">
                   <T>Penyesuaian Gaji</T>
                 </Button>
-              }
+              ) : undefined}
             >
               {currentSalary
                 ? <SalaryCard salary={currentSalary} />
@@ -1131,7 +1137,7 @@ export default function KaryawanDetailClient({
 
         {tab === "absensi" && (
           <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} editUserId={isSuper ? emp.id : undefined}
-            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEdit} />} />
+            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} />} />
         )}
 
         {tab === "absensi" && (

@@ -3,6 +3,7 @@
 import { Fragment, useState, useTransition } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { parseHours, rupiah } from "@/lib/payroll";
 import { isWeekly, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
@@ -54,6 +55,7 @@ const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" 
 
 export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]; nonRoutine: NonRoutine[]; weekStartDay: number }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: tombol hitung/final/hapus & isian baris disembunyikan
   const [weekly, setWeekly] = useState(false);
   const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT" && !isWeekly(r.period))?.period ?? thisMonth());
   const switchFreq = (w: boolean) => {
@@ -100,7 +102,7 @@ export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]
             }}
             className="h-9 rounded-lg border border-gray-200 px-3 text-sm" />
         </div>
-        {nonRoutine.length > 0 && (
+        {canEdit && nonRoutine.length > 0 && (
           <div className="space-y-1">
             <p className="text-xs font-medium text-gray-500"><T>Sertakan komponen tidak rutin</T></p>
             <div className="flex h-9 flex-wrap items-center gap-3">
@@ -115,13 +117,13 @@ export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]
           </div>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
-          {!final && (
+          {canEdit && !final && (
             <button type="button" disabled={pending} onClick={() => act(() => generatePayroll(period, extra), "Gaji dihitung.")}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85 disabled:opacity-50">
               <Play size={14} /> <T>{run ? "Hitung Ulang" : "Hitung Gaji"}</T>
             </button>
           )}
-          {run && !final && (
+          {canEdit && run && !final && (
             <>
               <button type="button" disabled={pending || lines.length === 0}
                 onClick={() => { if (window.confirm(t("Finalkan periode ini? Angka dikunci dan slip gaji terbit untuk karyawan."))) act(() => finalizePayroll(run.id), "Final. {n} slip gaji terbit."); }}
@@ -141,7 +143,7 @@ export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]
 
       {!run ? (
         <p className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-10 text-center text-sm text-gray-500">
-          <T>Belum ada proses gaji untuk</T> {weekly ? periodLabel(period) : `${MONTHS[Number(period.slice(5, 7)) - 1]} ${period.slice(0, 4)}`}. <T>Klik Hitung Gaji.</T>
+          <T>Belum ada proses gaji untuk</T> {weekly ? periodLabel(period) : `${MONTHS[Number(period.slice(5, 7)) - 1]} ${period.slice(0, 4)}`}.{canEdit && <> <T>Klik Hitung Gaji.</T></>}
         </p>
       ) : (
         <>
@@ -194,11 +196,11 @@ export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]
                           </span>
                         </button>
                       </td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.daysPresent} disabled={final} onSave={(v) => save(l.id, { daysPresent: v })} /></td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.absentDays} disabled={final} onSave={(v) => save(l.id, { absentDays: v })} /></td>
+                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.daysPresent} disabled={final || !canEdit} onSave={(v) => save(l.id, { daysPresent: v })} /></td>
+                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.absentDays} disabled={final || !canEdit} onSave={(v) => save(l.id, { absentDays: v })} /></td>
                       <td className="px-2 py-2 text-right tabular-nums text-gray-600">{l.inputs.tripDays ?? 0} / {l.inputs.trips ?? 0}</td>
-                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otWork ?? []} disabled={final} onSave={(v) => save(l.id, { otWork: v })} /></td>
-                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otRest ?? []} disabled={final} onSave={(v) => save(l.id, { otRest: v })} /></td>
+                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otWork ?? []} disabled={final || !canEdit} onSave={(v) => save(l.id, { otWork: v })} /></td>
+                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otRest ?? []} disabled={final || !canEdit} onSave={(v) => save(l.id, { otRest: v })} /></td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.earnings)}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-rose-600">{rupiah(l.items.filter((i) => i.kind === "POTONGAN" && i.code !== "PPH21").reduce((a, i) => a + i.amount, 0))}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.pph21)}{l.terRate !== null && <span className="block text-[10px] text-gray-400">TER {l.terRate}%</span>}</td>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { PAY_KINDS, categoryLabel, describe, type PayComponentInput } from "@/lib/payroll";
 import { deletePayComponent, setComponentAssignments } from "./actions";
 import ComponentDialog from "./ComponentDialog";
@@ -86,6 +87,7 @@ function AssignDialog({ comp, employees, onClose }: { comp: Component; employees
 
 export default function ComponentsTab({ components, employees, workDaysPerWeek }: { components: Component[]; employees: PayEmployee[]; workDaysPerWeek: 5 | 6 }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: tombol tambah/ubah/hapus/tempel disembunyikan
   const [editing, setEditing] = useState<Component | "new" | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -102,10 +104,12 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
           <h3 className="font-semibold text-gray-900"><T>Komponen Gaji & Benefit</T></h3>
           <p className="text-xs text-gray-400"><T>Setiap komponen menjadi kolom hasil Proses Gaji. Nilainya Input atau Rumus, lalu tempel ke karyawan yang mendapatkannya.</T></p>
         </div>
-        <button type="button" onClick={() => setEditing("new")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-          <Plus size={14} /> <T>Tambah Komponen</T>
-        </button>
+        {canEdit && (
+          <button type="button" onClick={() => setEditing("new")}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+            <Plus size={14} /> <T>Tambah Komponen</T>
+          </button>
+        )}
       </div>
       {PAY_KINDS.map((k) => {
         const list = components.filter((c) => c.kind === k.key);
@@ -127,16 +131,24 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                         <p className="font-bold text-gray-900">{t(c.name)}</p>
                         <p className="text-xs text-gray-500"><T>{categoryLabel(c.category)}</T> · <T>{c.method === "INPUT" ? "Input" : c.method === "PPH21" ? "Sistem" : "Rumus"}</T>{!c.isActive && <> · <T>Nonaktif</T></>}</p>
                       </div>
-                      <button type="button" onClick={() => setEditing(c)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>
-                      <button type="button" onClick={() => remove(c)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>
+                      {canEdit && <button type="button" onClick={() => setEditing(c)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>}
+                      {canEdit && <button type="button" onClick={() => remove(c)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
                     </div>
                     <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <button type="button" onClick={() => setAssigning(c.id)}
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.employeeIds.length ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-600 text-white hover:bg-red-700"}`}>
-                        {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
-                        {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")} · <T>Tempel</T>
-                      </button>
+                      {canEdit ? (
+                        <button type="button" onClick={() => setAssigning(c.id)}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.employeeIds.length ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-600 text-white hover:bg-red-700"}`}>
+                          {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
+                          {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")} · <T>Tempel</T>
+                        </button>
+                      ) : (
+                        // hak lihat saja: jumlah karyawan tetap tampil, tanpa tombol Tempel
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white ${c.employeeIds.length ? "bg-emerald-600" : "bg-red-600"}`}>
+                          {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
+                          {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")}
+                        </span>
+                      )}
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.taxable ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
                         <T>{c.taxable ? "Objek PPh 21" : "Bukan objek PPh 21"}</T>
                       </span>
@@ -151,8 +163,8 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
           </div>
         );
       })}
-      {editing && <ComponentDialog comp={editing} all={components} workDaysPerWeek={workDaysPerWeek} onClose={() => setEditing(null)} onCreated={setAssigning} />}
-      {assignComp && <AssignDialog key={assignComp.id} comp={assignComp} employees={employees} onClose={() => setAssigning(null)} />}
+      {canEdit && editing && <ComponentDialog comp={editing} all={components} workDaysPerWeek={workDaysPerWeek} onClose={() => setEditing(null)} onCreated={setAssigning} />}
+      {canEdit && assignComp && <AssignDialog key={assignComp.id} comp={assignComp} employees={employees} onClose={() => setAssigning(null)} />}
     </section>
   );
 }

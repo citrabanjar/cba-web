@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
 import { approveLoan, cancelLoan, deleteLoan, markDisbursed, rejectLoan, saveSchedule } from "@/app/(portal)/portal/admin/pinjaman/actions";
@@ -232,6 +233,8 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
   const t = useT();
   const [pending, start] = useTransition();
   const canCancel = ["DISETUJUI", "BERJALAN"].includes(loan.status) && !loan.installments.some((i) => i.status === "LUNAS");
+  const canEdit = useCanEdit("pinjaman"); // hak lihat saja: tombol proses pinjaman disembunyikan
+  if (!canEdit) return null;
   return (
     <div className="flex flex-col gap-1.5">
       {loan.status === "PENDING" && <Button size="sm" onClick={() => onOpen("approve")}><T>Proses</T></Button>}
@@ -252,7 +255,8 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
 export function DeleteLoanButton({ loan }: { loan: { id: string; status: string; seqNo: number } }) {
   const t = useT();
   const [pending, start] = useTransition();
-  if (!["BATAL", "DITOLAK"].includes(loan.status)) return null;
+  const canEdit = useCanEdit("pinjaman");
+  if (!canEdit || !["BATAL", "DITOLAK"].includes(loan.status)) return null;
   return (
     <Button size="sm" variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
       onClick={() => {

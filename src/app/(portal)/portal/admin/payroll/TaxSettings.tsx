@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { rupiah } from "@/lib/payroll";
 import { ptkpOf, taxYearConfig, type TaxYearConfig } from "@/lib/pph21";
 import { saveTaxYear } from "./actions";
@@ -16,6 +17,7 @@ const thisYear = () => Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia
 // Tahun tanpa pengaturan memakai tahun terdekat sebelumnya (atau bawaan pemerintah).
 export default function TaxSettings({ all }: { all: Record<string, TaxYearConfig> }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: isian dikunci, tombol ubah/simpan disembunyikan
   const years = [...new Set([...Object.keys(all).map(Number), thisYear(), thisYear() + 1])].sort((a, b) => a - b);
   const [year, setYear] = useState(thisYear());
   const [form, setForm] = useState<TaxYearConfig>(() => taxYearConfig(all, thisYear()));
@@ -55,7 +57,7 @@ export default function TaxSettings({ all }: { all: Record<string, TaxYearConfig
           <T>Tahun ini belum diatur; angka di bawah diambil dari tahun sebelumnya atau ketentuan bawaan. Simpan untuk menetapkannya.</T>
         </p>
       )}
-      <div className="grid gap-5 p-5 lg:grid-cols-2">
+      <fieldset disabled={!canEdit} className="min-w-0 grid gap-5 p-5 lg:grid-cols-2">
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400"><T>PTKP setahun</T></p>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -85,7 +87,7 @@ export default function TaxSettings({ all }: { all: Record<string, TaxYearConfig
                 {!last && <Input type="number" min={0} className="h-8 w-36" value={b.upTo ?? ""} onChange={(e) => setBracket(i, { upTo: Number(e.target.value) })} />}
                 <Input type="number" min={0} step="0.5" className="h-8 w-16" value={b.rate} onChange={(e) => setBracket(i, { rate: Number(e.target.value) })} />
                 <span className="text-gray-400">%</span>
-                {form.brackets.length > 1 && (
+                {canEdit && form.brackets.length > 1 && (
                   <button type="button" aria-label={t("Hapus baris")} className="rounded p-1 text-gray-400 hover:text-rose-600"
                     onClick={() => {
                       const next = form.brackets.filter((_, j) => j !== i);
@@ -96,20 +98,20 @@ export default function TaxSettings({ all }: { all: Record<string, TaxYearConfig
               </div>
             );
           })}
-          <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+          {canEdit && <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
             onClick={() => {
               const prev = form.brackets.slice(0, -1), last = form.brackets[form.brackets.length - 1];
               const cap = (prev.length ? prev[prev.length - 1].upTo ?? 0 : 0) * 2 || 60_000_000;
               set("brackets", [...prev, { upTo: cap, rate: last.rate }, { upTo: null, rate: last.rate }]);
             }}>
             <Plus size={12} /> <T>Tambah lapisan</T>
-          </button>
+          </button>}
         </div>
-      </div>
-      <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-3">
+      </fieldset>
+      {canEdit && <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-3">
         {msg && <span className={`flex items-center gap-1.5 text-sm ${msg.ok ? "text-emerald-700" : "text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></span>}
         <Button onClick={save} disabled={pending} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan Tahun</T> {year}</Button>
-      </div>
+      </div>}
     </section>
   );
 }

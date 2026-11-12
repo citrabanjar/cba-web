@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { hasMenu, isManagement, isSuperAdmin } from "@/lib/roles";
+import { canEditMenu, isManagement, isSuperAdmin } from "@/lib/roles";
 import { getAccess } from "@/lib/access";
 import { AGENT_SETTING_KEY, MONITOR_CHECKS, normalizeAgentSettings, type AgentSettings, type SopReminder } from "@/lib/agent-hrd";
 
@@ -25,7 +25,7 @@ async function store(value: AgentSettings, by: string | null) {
 async function requireAdminOnly() {
   const session = await auth();
   const access = await getAccess();
-  if (!session?.user || !access || !hasMenu(access, "pengaturan") || isSuperAdmin(access.role)) throw new Error("Unauthorized");
+  if (!session?.user || !access || !canEditMenu(access, "pengaturan") || isSuperAdmin(access.role)) throw new Error("Unauthorized");
   return session.user;
 }
 async function requireSuper() {

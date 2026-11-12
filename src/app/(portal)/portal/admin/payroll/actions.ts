@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu } from "@/lib/roles";
+import { canEditMenu } from "@/lib/roles";
 import { Prisma } from "@prisma/client";
 import {
   NEEDS_BASE, NEEDS_PARAM, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, PAYROLL_SETTING_KEY, isOneOf, isTaxableCategory,
@@ -18,7 +18,7 @@ type Result = { error?: string };
 
 async function requirePayroll() {
   const access = await getAccess();
-  if (!access || !hasMenu(access, "gaji")) throw new Error("Unauthorized");
+  if (!access || !canEditMenu(access, "gaji")) throw new Error("Anda hanya punya hak lihat di menu ini.");
   return access;
 }
 

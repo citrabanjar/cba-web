@@ -32,6 +32,7 @@ import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
 import PhotoUpload from "./PhotoUpload";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 
 type Dept = { id: string; name: string };
 type Employee = {
@@ -94,6 +95,7 @@ export default function KaryawanClient({
 }) {
   const t = useT();
   const router = useRouter();
+  const canEdit = useCanEdit("karyawan"); // hak lihat saja: tombol ubah data disembunyikan
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"none" | "add" | "edit" | "upload" | "photo">("none");
@@ -251,9 +253,11 @@ export default function KaryawanClient({
           <p className="text-xs text-gray-400 mt-0.5">{employees.length} <T>karyawan terdaftar</T></p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={openAdd} size="sm" className="h-9 gap-1.5 rounded-full px-4">
-            <Plus size={15} /> <T>Tambah Karyawan</T>
-          </Button>
+          {canEdit && (
+            <Button onClick={openAdd} size="sm" className="h-9 gap-1.5 rounded-full px-4">
+              <Plus size={15} /> <T>Tambah Karyawan</T>
+            </Button>
+          )}
           {canImport && (
             <>
               <Button variant="outline" size="sm"
@@ -389,14 +393,14 @@ export default function KaryawanClient({
                       ...(emp.id.startsWith("tmp-") ? [] : [
                         { label: "Detail", onClick: () => router.push(`/portal/admin/karyawan/${emp.id}`) },
                       ]),
-                      { label: "Edit", onClick: () => openEdit(emp) },
-                      ...(emp.id.startsWith("tmp-") ? [] : QUICK_ACTIONS
+                      ...(canEdit ? [{ label: "Edit", onClick: () => openEdit(emp) }] : []),
+                      ...(emp.id.startsWith("tmp-") || !canEdit ? [] : QUICK_ACTIONS
                         .filter((item) => emp.isActive || item.key !== "resign")
                         .map((item) => ({
                           label: item.label,
                           onClick: () => router.push(`/portal/admin/karyawan/${emp.id}?aksi=${item.key}`),
                         }))),
-                      ...(emp.isActive ? [] : [{
+                      ...(emp.isActive || !canEdit ? [] : [{
                         label: "Aktifkan Kembali",
                         onClick: () => handleReactivate(emp),
                         disabled: isPending,

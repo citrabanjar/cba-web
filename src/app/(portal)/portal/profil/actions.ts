@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu } from "@/lib/roles";
+import { canEditMenu } from "@/lib/roles";
 import { FAMILY_RELATIONS } from "@/lib/personal-info";
 import { PROFILE_FIELDS, PROFILE_KEYS, profileValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 import { saveFamily, updateEmployee } from "../admin/karyawan/actions";
@@ -75,7 +75,7 @@ export async function cancelProfileChange(id: string): Promise<Result> {
 // jalur edit Data Karyawan biasa, jadi tercatat di riwayat perubahan profil.
 export async function decideProfileChange(id: string, approve: boolean, note: string): Promise<Result> {
   const access = await getAccess();
-  if (!access || !hasMenu(access, "karyawan")) return { error: "Hanya Admin yang bisa memutus perubahan data." };
+  if (!access || !canEditMenu(access, "karyawan")) return { error: "Hanya Admin yang bisa memutus perubahan data." };
   const req = await prisma.profileChangeRequest.findUnique({ where: { id } });
   if (!req || req.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
   if (req.userId === access.id) return { error: "Tidak bisa menyetujui perubahan data sendiri." };

@@ -9,6 +9,7 @@ import {
   type LevelType, type WorkflowKey, type WorkflowLevel, type WorkflowSettings,
 } from "@/lib/workflow";
 import { saveWorkflow } from "./actions";
+import { useCanEdit } from "@/components/portal/edit-access";
 
 type UserOption = { id: string; name: string; employeeId: string };
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
@@ -16,6 +17,7 @@ const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm"
 // Workflow per modul (Admin): Level 1..3, approver berdasarkan jabatan, hak akses, atau karyawan tertentu.
 export default function WorkflowClient({ settings, users, groups = [] }: { settings: WorkflowSettings; users: UserOption[]; groups?: { id: string; name: string }[] }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: isian dikunci, tombol ubah disembunyikan
   const [s, setS] = useState(settings);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -45,8 +47,8 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
           const soon = "soon" in m;
           return (
             <section key={m.key} className={`rounded-2xl border bg-white p-4 ${mod.enabled ? "border-brand/40" : "border-gray-200"} ${soon ? "opacity-60" : ""}`}>
-              <label className={`flex items-start gap-3 ${soon ? "" : "cursor-pointer"}`}>
-                <input type="checkbox" disabled={soon} checked={mod.enabled}
+              <label className={`flex items-start gap-3 ${soon || !canEdit ? "" : "cursor-pointer"}`}>
+                <input type="checkbox" disabled={soon || !canEdit} checked={mod.enabled}
                   onChange={(e) => setMod(m.key, { enabled: e.target.checked, levels: e.target.checked && !mod.levels.length ? [newLevel()] : mod.levels })}
                   className="mt-1 h-4 w-4 accent-[#BE353F]" />
                 <span className="min-w-0">
@@ -64,7 +66,7 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                   {mod.levels.map((l, i) => (
                     <div key={i} className="grid items-center gap-2 rounded-xl bg-gray-50 p-2 sm:grid-cols-[70px_200px_1fr_32px]">
                       <span className="text-xs font-semibold text-gray-600"><T>Level</T> {i + 1}</span>
-                      <select value={l.type} onChange={(e) => { const type = e.target.value as LevelType; setLevel(m.key, i, { type, value: type === "POSITION" ? CHAIN_VALUE : "", label: "" }); }} className={select}>
+                      <select value={l.type} onChange={(e) => { const type = e.target.value as LevelType; setLevel(m.key, i, { type, value: type === "POSITION" ? CHAIN_VALUE : "", label: "" }); }} disabled={!canEdit} className={select}>
                         {LEVEL_TYPES.map((x) => <option key={x.value} value={x.value}>{t(x.label)}</option>)}
                       </select>
                       {l.type === "POSITION" ? (
@@ -72,16 +74,18 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                           <T>{m.key === "PRA_KARYAWAN" ? (chainIndex(mod.levels, i) === 1 ? "Calon atasan langsung" : chainIndex(mod.levels, i) === 2 ? "Atasan dari calon atasan" : chainTitle(chainIndex(mod.levels, i))) : chainTitle(chainIndex(mod.levels, i))}</T>
                         </p>
                       ) : (
-                        <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} className={select}>
+                        <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} disabled={!canEdit} className={select}>
                           <option value="">{t(l.type === "ROLE" ? "Pilih hak akses" : "Pilih karyawan")}</option>
                           {valueOptions(l.type).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       )}
-                      <button type="button" aria-label={t("Hapus")} onClick={() => setMod(m.key, { levels: mod.levels.filter((_, j) => j !== i) })}
-                        className="justify-self-end rounded p-1.5 text-gray-400 hover:text-rose-600"><Trash2 size={14} /></button>
+                      {canEdit && (
+                        <button type="button" aria-label={t("Hapus")} onClick={() => setMod(m.key, { levels: mod.levels.filter((_, j) => j !== i) })}
+                          className="justify-self-end rounded p-1.5 text-gray-400 hover:text-rose-600"><Trash2 size={14} /></button>
+                      )}
                     </div>
                   ))}
-                  {mod.levels.length < MAX_LEVELS && (
+                  {canEdit && mod.levels.length < MAX_LEVELS && (
                     <button type="button" onClick={() => setMod(m.key, { levels: [...mod.levels, newLevel()] })}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"><Plus size={12} /> <T>Tambah level</T></button>
                   )}
@@ -102,11 +106,11 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
         </div>
 
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
-        <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
+        {canEdit && <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
           const cleaned = Object.fromEntries(Object.entries(s).map(([k, mod]) => [k, { ...mod, levels: mod.levels.filter((l) => l.value) }])) as WorkflowSettings;
           const r = await saveWorkflow(cleaned);
           setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Workflow tersimpan. Berlaku untuk pengajuan baru." });
-        })}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan</T></Button>
+        })}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan</T></Button>}
       </main>
     </div>
   );

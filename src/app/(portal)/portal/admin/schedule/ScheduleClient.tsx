@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import LocationTab, { type Location } from "./LocationTab";
 import RosterTab from "./RosterTab";
@@ -94,15 +95,15 @@ function ErrorText({ text }: { text: string | null }) {
 }
 
 function NumberField({
-  label, hint, value, onChange,
+  label, hint, value, onChange, disabled,
 }: {
-  label: string; hint?: string; value: number; onChange: (n: number) => void;
+  label: string; hint?: string; value: number; onChange: (n: number) => void; disabled?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs"><T>{label}</T></Label>
       <div className="relative">
-        <Input type="number" min={0} value={Number.isFinite(value) ? value : ""} className="pr-14"
+        <Input type="number" min={0} value={Number.isFinite(value) ? value : ""} className="pr-14" disabled={disabled}
           onChange={(e) => onChange(e.target.value === "" ? NaN : Number(e.target.value))} />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400"><T>menit</T></span>
       </div>
@@ -111,15 +112,15 @@ function NumberField({
   );
 }
 
-function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
+function Toggle({ checked, onChange, label, hint, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string; disabled?: boolean }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/70 px-4 py-3">
+    <label className={`flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/70 px-4 py-3 ${disabled ? "cursor-default" : "cursor-pointer"}`}>
       <span>
         <span className="block text-sm font-semibold text-gray-900"><T>{label}</T></span>
         {hint && <span className="mt-0.5 block text-xs text-gray-500"><T>{hint}</T></span>}
       </span>
-      <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
-        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-emerald-500" : "bg-gray-300"}`}>
+      <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} disabled={disabled}
+        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${checked ? "bg-emerald-500" : "bg-gray-300"}`}>
         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
       </button>
     </label>
@@ -258,6 +259,7 @@ function ShiftDialog({ shift, onClose }: { shift: Shift | "new"; onClose: () => 
 
 function ShiftTab({ shifts }: { shifts: Shift[] }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: tanpa tambah/ubah/hapus/geser urutan
   const [editing, setEditing] = useState<Shift | "new" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -302,20 +304,22 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
 
   return (
     <SectionCard icon={Clock} title="Master Shift" desc="Jam kerja, istirahat, toleransi, dan aturan lembur per shift."
-      action={<PillButton onClick={() => setEditing("new")}><Plus size={14} /> <T>Tambah Shift</T></PillButton>}>
+      action={canEdit && <PillButton onClick={() => setEditing("new")}><Plus size={14} /> <T>Tambah Shift</T></PillButton>}>
       <ErrorText text={error} />
-      <p className="mb-3 flex items-center gap-1.5 text-[11px] text-gray-400">
-        <GripVertical size={13} /> <T>Tahan dan geser kartu untuk mengatur urutan. Urutan ini dipakai di semua daftar shift.</T>
-        {pending && <Loader2 size={12} className="animate-spin" />}
-      </p>
+      {canEdit && (
+        <p className="mb-3 flex items-center gap-1.5 text-[11px] text-gray-400">
+          <GripVertical size={13} /> <T>Tahan dan geser kartu untuk mengatur urutan. Urutan ini dipakai di semua daftar shift.</T>
+          {pending && <Loader2 size={12} className="animate-spin" />}
+        </p>
+      )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {ordered.map((s) => (
-          <div key={s.id} draggable
-            onDragStart={(e) => { setDragId(s.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.id); }}
-            onDragOver={(e) => { e.preventDefault(); moveOver(s.id); }}
-            onDrop={(e) => { e.preventDefault(); finishDrag(); }}
-            onDragEnd={finishDrag}
-            className={`relative cursor-grab overflow-hidden rounded-2xl border border-gray-200 bg-white transition-shadow active:cursor-grabbing ${s.isActive ? "" : "opacity-55"} ${dragId === s.id ? "opacity-40 ring-2 ring-brand/40" : "hover:shadow-md"}`}>
+          <div key={s.id} draggable={canEdit}
+            onDragStart={canEdit ? (e) => { setDragId(s.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.id); } : undefined}
+            onDragOver={canEdit ? (e) => { e.preventDefault(); moveOver(s.id); } : undefined}
+            onDrop={canEdit ? (e) => { e.preventDefault(); finishDrag(); } : undefined}
+            onDragEnd={canEdit ? finishDrag : undefined}
+            className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition-shadow ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${s.isActive ? "" : "opacity-55"} ${dragId === s.id ? "opacity-40 ring-2 ring-brand/40" : "hover:shadow-md"}`}>
             <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: s.color }} />
             <div className="p-4 pl-5">
               <div className="flex items-start justify-between gap-2">
@@ -331,6 +335,7 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
                     </p>
                   </div>
                 </div>
+                {canEdit && (
                 <div className="flex shrink-0">
                   <button type="button" onClick={() => setEditing(s)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand">
                     <Pencil size={14} />
@@ -340,6 +345,7 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
                     <Trash2 size={14} />
                   </button>
                 </div>
+                )}
               </div>
               {!s.isOff && (
                 <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -465,13 +471,14 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
   const t = useT();
   const [editing, setEditing] = useState<Pattern | "new" | null>(null);
   const [assigning, setAssigning] = useState<Pattern | null>(null);
+  const canEdit = useCanEdit(); // hak lihat saja: tanpa tambah/ubah/hapus/tempel pola
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const byId = new Map(shifts.map((s) => [s.id, s]));
 
   return (
     <SectionCard icon={Repeat} title="Pola Kerja" desc="Susunan shift yang berulang. Pola inilah yang nanti ditempel ke karyawan."
-      action={<PillButton onClick={() => setEditing("new")}><Plus size={14} /> <T>Tambah Pola</T></PillButton>}>
+      action={canEdit && <PillButton onClick={() => setEditing("new")}><Plus size={14} /> <T>Tambah Pola</T></PillButton>}>
       <ErrorText text={error} />
       {patterns.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-400"><T>Belum ada pola kerja.</T></p>
@@ -492,6 +499,7 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
                     <span className="mr-1 rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-gray-500 ring-1 ring-gray-200">
                       {p.assigned} <T>karyawan</T>
                     </span>
+                    {canEdit && (<>
                     <button type="button" onClick={() => setAssigning(p)}
                       className="mr-1 inline-flex h-7 items-center rounded-full bg-ink px-3 text-[11px] font-semibold text-white hover:bg-ink/85">
                       <T>Tempel ke Karyawan</T>
@@ -504,6 +512,7 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
+                    </>)}
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -537,6 +546,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const years = [...new Set(holidays.map((h) => h.date.slice(0, 4)))].sort();
+  const canEdit = useCanEdit(); // hak lihat saja: form tambah dan tombol ubah/hapus disembunyikan
 
   function save() {
     setError(null);
@@ -549,6 +559,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
 
   return (
     <SectionCard icon={CalendarOff} title="Kalender Libur" desc="Hari libur otomatis OFF; masuk kerja di hari libur dihitung lembur hari libur.">
+      {canEdit && (
       <div className="grid gap-2 rounded-2xl border border-gray-100 bg-gray-50/70 p-3 sm:grid-cols-[170px_1fr_190px_auto]">
         <Input type="date" value={form.date} aria-label={t("Tanggal")} onChange={(e) => setForm({ ...form, date: e.target.value })} />
         <Input value={form.name} placeholder={t("Nama hari libur")} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -567,6 +578,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
           )}
         </div>
       </div>
+      )}
       <div className="mt-3"><ErrorText text={error} /></div>
 
       {holidays.length === 0 ? (
@@ -586,6 +598,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
                     <span className={`hidden shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium sm:inline ${HOLIDAY_TYPE[h.type]?.cls ?? ""}`}>
                       <T>{HOLIDAY_TYPE[h.type]?.label ?? h.type}</T>
                     </span>
+                    {canEdit && (<>
                     <button type="button" onClick={() => { setEditId(h.id); setForm({ date: h.date, name: h.name, type: h.type }); }}
                       aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand">
                       <Pencil size={14} />
@@ -595,6 +608,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
+                    </>)}
                   </li>
                 ))}
               </ul>
@@ -615,6 +629,7 @@ function RuleTab({ rule }: { rule: Rule }) {
   });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
+  const canEdit = useCanEdit(); // hak lihat saja: isian dikunci, tombol simpan disembunyikan
 
   function save() {
     setMsg(null);
@@ -638,25 +653,27 @@ function RuleTab({ rule }: { rule: Rule }) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
       <SectionCard icon={Scale} title="Aturan Kehadiran" desc="Berlaku untuk semua karyawan.">
         <div className="space-y-2.5">
-          <Toggle checked={form.noCheckInIsAlpha} onChange={(v) => setForm({ ...form, noCheckInIsAlpha: v })}
+          <Toggle disabled={!canEdit} checked={form.noCheckInIsAlpha} onChange={(v) => setForm({ ...form, noCheckInIsAlpha: v })}
             label="Tidak absen dihitung Alpha" hint="Hari kerja tanpa absen dan tanpa pengajuan yang disetujui." />
-          <Toggle checked={form.overtimeNeedsApproval} onChange={(v) => setForm({ ...form, overtimeNeedsApproval: v })}
+          <Toggle disabled={!canEdit} checked={form.overtimeNeedsApproval} onChange={(v) => setForm({ ...form, overtimeNeedsApproval: v })}
             label="Lembur harus disetujui atasan" hint="Kalau dimatikan, lembur dihitung otomatis dari jam absen." />
-          <Toggle checked={form.holidayWorkIsOvertime} onChange={(v) => setForm({ ...form, holidayWorkIsOvertime: v })}
+          <Toggle disabled={!canEdit} checked={form.holidayWorkIsOvertime} onChange={(v) => setForm({ ...form, holidayWorkIsOvertime: v })}
             label="Masuk di hari libur dihitung lembur" hint="Dicatat terpisah: lembur hari libur dan libur nasional." />
           <div className="grid gap-3 pt-2 sm:grid-cols-2">
-            <NumberField label="Setengah hari jika kerja kurang dari" value={form.halfDayMinutes}
+            <NumberField disabled={!canEdit} label="Setengah hari jika kerja kurang dari" value={form.halfDayMinutes}
               onChange={(n) => setForm({ ...form, halfDayMinutes: n })} hint="240 = 4 jam." />
             <div className="space-y-1.5">
-              <NumberField label="Terlambat lebih dari ini = setengah hari" value={form.lateAsHalfDayMinutes ?? NaN}
+              <NumberField disabled={!canEdit} label="Terlambat lebih dari ini = setengah hari" value={form.lateAsHalfDayMinutes ?? NaN}
                 onChange={(n) => setForm({ ...form, lateAsHalfDayMinutes: Number.isFinite(n) ? n : null })} hint="Kosongkan jika tidak dipakai." />
             </div>
           </div>
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button onClick={save} disabled={pending} className="gap-1.5 rounded-full px-5">
-            {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan Aturan</T>
-          </Button>
+          {canEdit && (
+            <Button onClick={save} disabled={pending} className="gap-1.5 rounded-full px-5">
+              {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan Aturan</T>
+            </Button>
+          )}
           {msg && <span className={`text-sm ${msg.ok ? "text-emerald-700" : "text-red-700"}`}><T>{msg.text}</T></span>}
           {rule.updatedBy && rule.updatedAt && (
             <span className="ml-auto text-xs text-gray-400">

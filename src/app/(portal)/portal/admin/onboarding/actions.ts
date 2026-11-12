@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import { canEditMenu, isSuperAdmin } from "@/lib/roles";
 import { missingData, missingJob, readData, readJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { headers } from "next/headers";
 import { sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
@@ -20,7 +20,7 @@ type Result = { error?: string; missing?: string[] };
 
 async function requireHR() {
   const access = await getAccess();
-  if (!access || !hasMenu(access, "prakaryawan")) throw new Error("Unauthorized");
+  if (!access || !canEditMenu(access, "prakaryawan")) throw new Error("Anda hanya punya hak lihat di menu ini.");
   return access;
 }
 const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); revalidatePath("/portal/persetujuan"); };

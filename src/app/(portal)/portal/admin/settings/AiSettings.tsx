@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { AI_INTERVALS, AI_MODEL_LABEL, USD_TO_IDR, estimateCostUsd, type AiSettings as Settings } from "@/lib/ai-checker-settings";
 import { collectAiNow, decideAiRule, deleteAiNote, runAiNow, saveAiNote, saveAiSettings } from "./ai-actions";
 
@@ -27,6 +28,7 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
   settings: Settings; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[];
 }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: isian terkunci, tombol simpan/jalankan/setujui/hapus disembunyikan
   const [form, setForm] = useState(settings);
   const [editing, setEditing] = useState<{ id?: string; title: string; content: string } | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -68,12 +70,12 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
             </div>
           )}
           <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800">
-            <input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} className="h-4 w-4 accent-[var(--color-brand)]" />
+            <input type="checkbox" checked={form.enabled} disabled={!canEdit} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} className="h-4 w-4 accent-[var(--color-brand)]" />
             <T>Aktifkan pemeriksaan terjadwal</T>
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5"><Label className="text-xs"><T>Jadwal pemeriksaan</T></Label>
-              <select className={select} value={form.intervalDays} onChange={(e) => setForm({ ...form, intervalDays: Number(e.target.value) })}>
+              <select className={select} value={form.intervalDays} disabled={!canEdit} onChange={(e) => setForm({ ...form, intervalDays: Number(e.target.value) })}>
                 {AI_INTERVALS.map((i) => <option key={i.days} value={i.days}>{t(i.label)}</option>)}
               </select>
               <p className="text-[11px] text-gray-400"><T>Berjalan dini hari (± 01.00 WIB), hasil siap sebelum jam kerja.</T></p>
@@ -84,11 +86,11 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
             </div>
           </div>
           <label className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
-            <input type="checkbox" checked={form.includeSalary} onChange={(e) => setForm({ ...form, includeSalary: e.target.checked })} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
+            <input type="checkbox" checked={form.includeSalary} disabled={!canEdit} onChange={(e) => setForm({ ...form, includeSalary: e.target.checked })} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]" />
             <span><T>Sertakan angka gaji</T> <span className="block text-[11px] text-gray-400"><T>Gaji pokok, komponen, potongan, dan gaji bersih per periode ikut dibaca AI. Kalau dimatikan, AI hanya melihat persentase perubahan.</T></span></span>
           </label>
           {notice}
-          <div className="flex flex-wrap justify-end gap-2">
+          {canEdit && <div className="flex flex-wrap justify-end gap-2">
             <Button size="sm" variant="outline" disabled={pending || !waiting} className="gap-1.5" onClick={() => act(collectAiNow)}><RefreshCw size={14} /> <T>Ambil hasil</T></Button>
             <Button size="sm" variant="outline" disabled={pending || waiting || !hasKey} className="gap-1.5"
               onClick={() => { if (window.confirm(t("Jalankan pemeriksaan AI sekarang? Biaya dihitung per pemeriksaan."))) act(runAiNow); }}>
@@ -97,7 +99,7 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
             <Button size="sm" disabled={pending} className="gap-1.5" onClick={() => act(() => saveAiSettings(form), "Pengaturan AI tersimpan.")}>
               {pending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} <T>Simpan</T>
             </Button>
-          </div>
+          </div>}
         </CardContent>
       </Card>
 
@@ -112,14 +114,16 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
             <div key={n.id} className="rounded-xl border border-gray-100 p-3">
               <div className="flex items-start gap-2">
                 <p className="flex-1 text-sm font-semibold text-gray-900">{n.title}</p>
-                <button type="button" aria-label={t("Ubah")} className="rounded p-1 text-gray-400 hover:text-gray-700" onClick={() => setEditing({ id: n.id, title: n.title, content: n.content })}><Pencil size={14} /></button>
-                <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
-                  onClick={() => { if (window.confirm(t("Hapus SOP ini?"))) act(() => deleteAiNote(n.id), "SOP dihapus."); }}><Trash2 size={14} /></button>
+                {canEdit && <>
+                  <button type="button" aria-label={t("Ubah")} className="rounded p-1 text-gray-400 hover:text-gray-700" onClick={() => setEditing({ id: n.id, title: n.title, content: n.content })}><Pencil size={14} /></button>
+                  <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
+                    onClick={() => { if (window.confirm(t("Hapus SOP ini?"))) act(() => deleteAiNote(n.id), "SOP dihapus."); }}><Trash2 size={14} /></button>
+                </>}
               </div>
               <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs text-gray-500">{n.content}</p>
             </div>
           ))}
-          {editing ? (
+          {!canEdit ? null : editing ? (
             <div className="space-y-2 rounded-xl border border-gray-200 p-3">
               <Input placeholder={t("Judul, mis. SOP Lembur")} value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
               <textarea rows={8} placeholder={t("Isi SOP")} value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })}
@@ -141,7 +145,7 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
           <p className="text-xs text-gray-400"><T>Usulan aturan dari AI menunggu persetujuan Admin. Aturan yang disetujui dan catatan Bukan masalah dari admin ikut dibaca AI mulai pemeriksaan berikutnya.</T></p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <NoteList title="Usulan aturan dari AI" empty="Belum ada usulan." list={proposals} actions={(n) => (
+          <NoteList title="Usulan aturan dari AI" empty="Belum ada usulan." list={proposals} actions={(n) => canEdit && (
             <>
               <button type="button" disabled={pending} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
                 onClick={() => act(() => decideAiRule(n.id, true), "Aturan disetujui.")}><Check size={12} /> <T>Setujui</T></button>
@@ -149,11 +153,11 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
                 onClick={() => act(() => decideAiRule(n.id, false), "Usulan ditolak.")}><X size={12} /> <T>Tolak</T></button>
             </>
           )} />
-          <NoteList title="Aturan aktif" empty="Belum ada aturan tambahan." list={rules} actions={(n) => (
+          <NoteList title="Aturan aktif" empty="Belum ada aturan tambahan." list={rules} actions={(n) => canEdit && (
             <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
               onClick={() => { if (window.confirm(t("Hapus aturan ini?"))) act(() => deleteAiNote(n.id), "Aturan dihapus."); }}><Trash2 size={14} /></button>
           )} />
-          <NoteList title="Catatan Bukan masalah" empty="Belum ada catatan." list={dismissed} actions={(n) => (
+          <NoteList title="Catatan Bukan masalah" empty="Belum ada catatan." list={dismissed} actions={(n) => canEdit && (
             <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
               onClick={() => { if (window.confirm(t("Hapus catatan ini? AI boleh melaporkan hal ini lagi."))) act(() => deleteAiNote(n.id), "Catatan dihapus."); }}><Trash2 size={14} /></button>
           )} />

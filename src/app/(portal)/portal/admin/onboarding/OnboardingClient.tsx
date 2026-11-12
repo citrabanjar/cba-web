@@ -14,6 +14,7 @@ type MasterOptions = BaseMaster & { managers: { value: string; label: string }[]
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, missingData, missingJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { emptyInterview, interviewApproved, missingInterview, rupiah, type Interview } from "@/lib/onboarding-interview";
 import { InterviewDecision, InterviewForm, InterviewSummary } from "@/components/portal/InterviewPanel";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { approveCandidate, deleteCandidate, inviteCandidate, registerCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, saveInterview, submitForApproval, submitInterview } from "./actions";
 
 export type CandidateRow = {
@@ -86,6 +87,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
 
 function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow; master: MasterOptions; canApprove: boolean; onClose: () => void }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: form terkunci, tombol ubah disembunyikan
   const [tab, setTab] = useState<"data" | "job">("data");
   const [data, setData] = useState(row.data);
   const [job, setJob] = useState(row.job);
@@ -104,6 +106,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   const legacyApproval = row.status === "MENUNGGU_APPROVAL" && !pendingWorkflow;
   const ready = row.status === "SIAP_DAFTAR" || (viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN"));
   const locked = viaInterview || row.status === "SIAP_DAFTAR";
+  const ro = closed || !canEdit;
   const run = (fn: () => Promise<{ error?: string; missing?: string[] }>, ok: string, after?: () => void) => {
     setMsg(null);
     start(async () => {
@@ -113,7 +116,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   };
   const setJ = <K extends keyof CandidateJob>(k: K, v: CandidateJob[K]) => setJob((j) => ({ ...j, [k]: v }));
   const masterSelect = (k: "branch" | "departmentName" | "position", list: string[]) => (
-    <select value={job[k]} disabled={closed || (locked && k === "position")} onChange={(e) => setJ(k, e.target.value)} className={select}>
+    <select value={job[k]} disabled={ro || (locked && k === "position")} onChange={(e) => setJ(k, e.target.value)} className={select}>
       <option value="">—</option>
       {[...(job[k] && !list.includes(job[k]) ? [job[k]] : []), ...list].map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
@@ -136,14 +139,14 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
         {waiting && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-600">
             <span className="min-w-0 flex-1"><T>Calon belum mengirim data. Undangan dikirim ke email calon; minta calon cek email (termasuk Spam).</T></span>
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendInvite(row.id), "Email undangan dikirim ulang.")}><T>Kirim ulang undangan</T></Button>
+            {canEdit && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendInvite(row.id), "Email undangan dikirim ulang.")}><T>Kirim ulang undangan</T></Button>}
           </div>
         )}
         {row.note && (row.status === "DIKEMBALIKAN" || row.status === "DITOLAK") && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800"><b><T>Catatan</T>:</b> {row.note}</p>}
 
         {row.status === "WAWANCARA" && (
           <>
-            <InterviewForm value={iv} onChange={setIv} master={master} />
+            <fieldset disabled={!canEdit} className="min-w-0"><InterviewForm value={iv} onChange={setIv} master={master} /></fieldset>
             {missingInterview(iv).length > 0 && <p className="text-xs text-amber-700"><T>Belum lengkap</T>: {missingInterview(iv).map((m) => t(m)).join(", ")}</p>}
           </>
         )}
@@ -166,29 +169,29 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
               ))}
             </div>
             {tab === "data" ? (
-              <div className="rounded-2xl bg-gray-50 p-3"><CandidateDataForm value={data} onChange={setData} disabled={closed} /></div>
+              <div className="rounded-2xl bg-gray-50 p-3"><CandidateDataForm value={data} onChange={setData} disabled={ro} /></div>
             ) : (
               <div className="grid gap-3 rounded-2xl border border-gray-200 p-4 sm:grid-cols-2">
                 <div className="space-y-1.5"><Label className="text-xs"><T>Employee ID</T></Label>
-                  <Input value={job.employeeId} disabled={closed} onChange={(e) => setJ("employeeId", e.target.value.toUpperCase())} /></div>
+                  <Input value={job.employeeId} disabled={ro} onChange={(e) => setJ("employeeId", e.target.value.toUpperCase())} /></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Status kerja</T></Label>
-                  <select value={job.employmentStatus} disabled={closed || locked} onChange={(e) => setJ("employmentStatus", e.target.value)} className={select}>
+                  <select value={job.employmentStatus} disabled={ro || locked} onChange={(e) => setJ("employmentStatus", e.target.value)} className={select}>
                     <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option>
                   </select></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Cabang</T></Label>{masterSelect("branch", master.branches)}</div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Departemen</T></Label>{masterSelect("departmentName", master.departments)}</div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Jabatan</T></Label>{masterSelect("position", master.positions)}</div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Calon atasan langsung</T></Label>
-                  <select value={job.managerId} disabled={closed} className={select}
+                  <select value={job.managerId} disabled={ro} className={select}
                     onChange={(e) => setJob((j) => ({ ...j, managerId: e.target.value, managerName: master.managers.find((m) => m.value === e.target.value)?.label ?? "" }))}>
                     <option value="">—</option>
                     {master.managers.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Tanggal masuk</T></Label>
-                  <Input type="date" value={job.joinDate} disabled={closed} onChange={(e) => setJ("joinDate", e.target.value)} /></div>
+                  <Input type="date" value={job.joinDate} disabled={ro} onChange={(e) => setJ("joinDate", e.target.value)} /></div>
                 {job.employmentStatus === "KONTRAK" && (
                   <div className="space-y-1.5"><Label className="text-xs"><T>Tanggal akhir kontrak</T></Label>
-                    <Input type="date" value={job.contractEndDate} disabled={closed} onChange={(e) => setJ("contractEndDate", e.target.value)} /></div>
+                    <Input type="date" value={job.contractEndDate} disabled={ro} onChange={(e) => setJ("contractEndDate", e.target.value)} /></div>
                 )}
                 {row.status === "SIAP_DAFTAR" && (
                   <p className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800 sm:col-span-2"><T>Status kerja dan jabatan mengikuti data yang sudah disetujui approver. Isi Employee ID dan sesuaikan penempatan bila perlu, lalu Daftarkan Karyawan.</T></p>
@@ -212,18 +215,18 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
         )}
         <MsgBox msg={msg} />
 
-        {!closed && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN" || row.status === "MENUNGGU_APPROVAL" || (canApprove && row.status === "WAWANCARA")) && (
+        {!closed && canEdit && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN" || row.status === "MENUNGGU_APPROVAL" || (canApprove && row.status === "WAWANCARA")) && (
           <div className="space-y-1.5"><Label className="text-xs"><T>Catatan (untuk mengembalikan ke calon / menolak)</T></Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Contoh: No. KTP tidak sesuai dokumen")} /></div>
         )}
 
         <DialogFooter className="flex-wrap gap-2 sm:justify-between">
           <div className="flex flex-wrap gap-2">
-            {!closed && (
+            {!closed && canEdit && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
                 onClick={() => { if (window.confirm(t("Hapus calon karyawan ini?"))) run(() => deleteCandidate(row.id), "Calon dihapus.", onClose); }}><Trash2 size={14} /> <T>Hapus</T></Button>
             )}
-            {(row.status === "DIKIRIM" || row.status === "MENUNGGU_APPROVAL") && (
+            {canEdit && (row.status === "DIKIRIM" || row.status === "MENUNGGU_APPROVAL") && (
               <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon dan diberi tahu lewat email.", onClose)}><Undo2 size={14} /> <T>Kembalikan ke Calon</T></Button>
             )}
             {canApprove && (legacyApproval || row.status === "WAWANCARA") && (
@@ -232,17 +235,17 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {row.status === "WAWANCARA" && (
+            {canEdit && row.status === "WAWANCARA" && (
               <>
                 <Button variant="outline" disabled={pending} onClick={() => run(() => saveInterview(row.id, iv), "Tersimpan.")}><T>Simpan</T></Button>
                 <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitInterview(row.id, iv), "Hasil wawancara diajukan ke approver.", onClose)}>
                   {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Ajukan Approval Wawancara</T></Button>
               </>
             )}
-            {!closed && !waiting && !inInterview && (
+            {canEdit && !closed && !waiting && !inInterview && (
               <Button variant="outline" disabled={pending} onClick={() => run(() => saveCandidateReview(row.id, data, job), "Tersimpan.")}><T>Simpan</T></Button>
             )}
-            {ready && !password && (
+            {canEdit && ready && !password && (
               <Button disabled={pending} className="gap-1.5" onClick={() => {
                 if (!window.confirm(t("Daftarkan sebagai karyawan? Data langsung masuk database."))) return;
                 setMsg(null);
@@ -252,7 +255,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 });
               }}>{pending ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Daftarkan Karyawan</T></Button>
             )}
-            {!viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
+            {canEdit && !viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
               <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitForApproval(row.id, data, job), "Diajukan untuk approval.", onClose)}>
                 {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Ajukan Approval</T></Button>
             )}
@@ -281,6 +284,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
 
 export default function OnboardingClient({ rows, master, canApprove, interviewOn }: { rows: CandidateRow[]; master: MasterOptions; canApprove: boolean; interviewOn: boolean }) {
   const t = useT();
+  const canEdit = useCanEdit();
   const [tab, setTab] = useState<string>("proses");
   const [q, setQ] = useState("");
   const [invite, setInvite] = useState(false);
@@ -326,8 +330,10 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
             <Search size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama / email / HP")} className="h-9 w-56 pl-8" />
           </div>
-          <button type="button" onClick={() => setInvite(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85"><UserPlus size={14} /> <T>Undang Calon</T></button>
+          {canEdit && (
+            <button type="button" onClick={() => setInvite(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85"><UserPlus size={14} /> <T>Undang Calon</T></button>
+          )}
         </div>
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           {list.length === 0 ? (

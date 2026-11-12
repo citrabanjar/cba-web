@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import type { PayrollSettings } from "@/lib/payroll";
 import { savePayrollSettings } from "./actions";
 import RunTab, { type NonRoutine, type Run } from "./RunTab";
@@ -20,6 +21,7 @@ const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm"
 
 function SettingsTab({ settings }: { settings: PayrollSettings }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: isian dikunci, tombol simpan disembunyikan
   const [form, setForm] = useState<PayrollSettings>(settings);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -42,7 +44,7 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
           <p className="text-xs text-gray-400"><T>Periode gaji, tanggal gajian, dan aturan hitung yang berlaku untuk semua karyawan.</T></p>
         </div>
       </div>
-      <div className="grid gap-5 p-5 md:grid-cols-3">
+      <fieldset disabled={!canEdit} className="min-w-0 grid gap-5 p-5 md:grid-cols-3">
         {field("Periode gaji mulai tanggal", "1 = sebulan penuh (1 s/d akhir bulan). Isi mis. 21 bila periode 21 s/d 20 bulan berikutnya.",
           <Input type="number" min={1} max={28} value={form.periodStartDay} onChange={(e) => set("periodStartDay", Number(e.target.value))} />)}
         {field("Tanggal gajian", "0 = hari kerja terakhir bulan itu.", <Input type="number" min={0} max={31} value={form.payDay} onChange={(e) => set("payDay", Number(e.target.value))} />)}
@@ -68,11 +70,11 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
         {field("NPWP pemotong", "NPWP perusahaan (15/16 digit).", <Input value={form.companyNpwp} onChange={(e) => set("companyNpwp", e.target.value)} />)}
         {field("Nama penandatangan", "Pejabat yang menandatangani bukti potong.", <Input value={form.signerName} onChange={(e) => set("signerName", e.target.value)} />)}
         {field("NPWP/NIK penandatangan", "Identitas penandatangan bukti potong.", <Input value={form.signerId} onChange={(e) => set("signerId", e.target.value)} />)}
-      </div>
-      <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-3">
+      </fieldset>
+      {canEdit && <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-3">
         {msg && <span className={`flex items-center gap-1.5 text-sm ${msg.ok ? "text-emerald-700" : "text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></span>}
         <Button onClick={save} disabled={pending} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan Pengaturan</T></Button>
-      </div>
+      </div>}
     </section>
   );
 }

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
+import { useCanEdit } from "@/components/portal/edit-access";
 import { adjustLeaveBalance, importLeaveBalances, setLeaveBalanceActive, type BalanceImportRow } from "./actions";
 
 const HEADERS = ["Employee ID", "Nama", "Kode Cuti", "Saldo (hari)", "Per Tanggal (YYYY-MM-DD)", "Keterangan"];
@@ -154,6 +155,7 @@ function AdjustDialog({ row, onClose }: { row: BalanceRow; onClose: () => void }
 // Tab Saldo Cuti: saldo tiap karyawan aktif untuk Cuti Tahunan (tetap) atau Cuti Masa Kontrak (kontrak).
 export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean }) {
   const t = useT();
+  const canEdit = useCanEdit(); // hak lihat saja: Import & Koreksi Saldo disembunyikan
   const [switching, startSwitch] = useTransition();
   const toggle = (on: boolean) => {
     const ask = on
@@ -180,10 +182,12 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama atau ID...")} className="h-9 w-56 rounded-full bg-gray-50 pl-9" />
         </div>
-        <button type="button" onClick={() => setImporting(true)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-          <Upload size={14} /> <T>Import Saldo</T>
-        </button>
+        {canEdit && (
+          <button type="button" onClick={() => setImporting(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+            <Upload size={14} /> <T>Import Saldo</T>
+          </button>
+        )}
       </div>
       {superAdmin ? (
         <label className={`mx-5 mt-4 flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${balanceSwitch.active ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-gray-50"}`}>
@@ -247,9 +251,11 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
                     : r.nextDate ? <>+{fmt(r.nextDays ?? 0)} <T>hari</T> · {formatDate(new Date(r.nextDate))}</> : "—"}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  <button type="button" onClick={() => setAdjusting(r)} aria-label={t("Koreksi Saldo")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand">
-                    <SlidersHorizontal size={14} />
-                  </button>
+                  {canEdit && (
+                    <button type="button" onClick={() => setAdjusting(r)} aria-label={t("Koreksi Saldo")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand">
+                      <SlidersHorizontal size={14} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

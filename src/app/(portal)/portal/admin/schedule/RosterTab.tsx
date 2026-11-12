@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Copy, Eraser, Loader2, RotateCcw, Save, TriangleAlert } from "lucide-react";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import type { DayShift } from "@/lib/schedule";
 import { saveShiftDays } from "./actions";
 
@@ -36,6 +37,7 @@ export default function RosterTab({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
+  const canEdit = useCanEdit(); // hak lihat saja: tabel hanya ditampilkan, tanpa kartu shift dan tombol simpan
 
   const byId = useMemo(() => new Map(shifts.map((s) => [s.id, s])), [shifts]);
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
@@ -137,6 +139,7 @@ export default function RosterTab({
           </div>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama atau ID...")}
             className="h-9 w-48 rounded-full border border-gray-200 bg-gray-50 px-4 text-sm" />
+          {canEdit && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <button type="button" onClick={fillFromPreviousWeek}
               className="inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50">
@@ -153,9 +156,11 @@ export default function RosterTab({
               {pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan</T> {pendingCount > 0 && `(${pendingCount})`}
             </button>
           </div>
+          )}
         </div>
 
         {/* Kartu shift: pilih lalu klik/seret di tabel, atau seret kartunya ke kotak tanggal */}
+        {canEdit && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-3">
           <span className="mr-1 text-xs font-semibold text-gray-500"><T>Kartu shift</T>:</span>
           {shifts.map((s) => (
@@ -178,6 +183,7 @@ export default function RosterTab({
             <T>Pilih kartu, lalu klik atau tahan-dan-geser di kotak tanggal. Kartu juga bisa diseret ke kotak.</T>
           </span>
         </div>
+        )}
 
         {msg && <p className={`rounded-xl px-4 py-2.5 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
         {emptyCount > 0 && (
@@ -239,13 +245,14 @@ export default function RosterTab({
                       return (
                         <td key={d} className="border-b border-gray-100 p-0.5">
                           <div
-                            onMouseDown={(e) => { e.preventDefault(); setPainting(true); paint(row.id, d); }}
-                            onMouseEnter={() => { if (painting) paint(row.id, d); }}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); if (v) paint(row.id, d, v); }}
+                            onMouseDown={canEdit ? (e) => { e.preventDefault(); setPainting(true); paint(row.id, d); } : undefined}
+                            onMouseEnter={canEdit ? () => { if (painting) paint(row.id, d); } : undefined}
+                            onDragOver={canEdit ? (e) => e.preventDefault() : undefined}
+                            onDrop={canEdit ? (e) => { e.preventDefault(); const v = e.dataTransfer.getData("text/plain"); if (v) paint(row.id, d, v); } : undefined}
                             title={isEmpty(row, d) ? t("Belum diisi") : s ? (s.holiday ?? (s.manual ? t("Belum diisi") : `${s.name}${s.startTime ? ` · ${s.startTime}–${s.endTime}` : ""}`)) : ""}
                             className={[
-                              "flex h-8 min-w-9 cursor-pointer items-center justify-center rounded-md text-[11px] font-bold transition-transform hover:scale-105",
+                              "flex h-8 min-w-9 items-center justify-center rounded-md text-[11px] font-bold",
+                              canEdit ? "cursor-pointer transition-transform hover:scale-105" : "",
                               c.changed ? "ring-2 ring-amber-400" : "",
                               c.cleared ? "border border-dashed border-gray-300 text-gray-300" : "",
                               isEmpty(row, d) ? "border border-dashed border-amber-300 bg-amber-50/60" : "",

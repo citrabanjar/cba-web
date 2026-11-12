@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
+import { useCanEdit } from "@/components/portal/edit-access";
 import LocationMap from "./LocationMap";
 import { deleteLocation, saveLocation, type LocationInput } from "./actions";
 
@@ -218,6 +219,7 @@ export default function LocationTab({
   const t = useT();
   const [editing, setEditing] = useState<Location | "new" | null>(null);
   const [pending, start] = useTransition();
+  const canEdit = useCanEdit(); // hak lihat saja: tanpa tambah/ubah/hapus lokasi
   const names = (ids: string[], list: Option[]) => ids.map((id) => list.find((o) => o.id === id)?.label).filter(Boolean) as string[];
   const overview = locations.filter((l) => l.isActive);
 
@@ -231,10 +233,12 @@ export default function LocationTab({
             <p className="text-xs text-gray-500"><T>Absen di luar radius ditolak. Saat Dinas Luar, absen boleh di mana saja dan lokasinya tetap disimpan.</T></p>
           </div>
         </div>
-        <button type="button" onClick={() => setEditing("new")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-          <Plus size={14} /> <T>Tambah Lokasi</T>
-        </button>
+        {canEdit && (
+          <button type="button" onClick={() => setEditing("new")}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+            <Plus size={14} /> <T>Tambah Lokasi</T>
+          </button>
+        )}
       </div>
 
       <div className="space-y-5 p-5">
@@ -276,6 +280,7 @@ export default function LocationTab({
                           <p className="truncate text-xs text-gray-500">{l.address || `${l.latitude.toFixed(5)}, ${l.longitude.toFixed(5)}`}</p>
                         </div>
                       </div>
+                      {canEdit && (
                       <div className="flex shrink-0">
                         <button type="button" onClick={() => setEditing(l)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand">
                           <Pencil size={14} />
@@ -286,6 +291,7 @@ export default function LocationTab({
                           <Trash2 size={14} />
                         </button>
                       </div>
+                      )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       <span className="rounded-full bg-rose-50 px-2.5 py-0.5 font-semibold text-rose-700"><T>Radius</T> {l.radius} m</span>

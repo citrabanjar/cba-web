@@ -52,6 +52,9 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Lihat": "View",
+  "Anda hanya punya hak lihat di menu ini.": "You only have view access to this menu.",
+  "Mode lihat saja: Anda bisa melihat data di menu ini, tetapi tidak bisa mengubahnya.": "View-only mode: you can see the data in this menu but cannot change it.",
   "Nama peran tidak boleh sama.": "Role names must be unique.",
   "Nama peran wajib diisi.": "Role name is required.",
   "Tersimpan dan langsung berlaku.": "Saved and in effect immediately.",
