@@ -18,7 +18,7 @@ export default async function SchedulePage({
 }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
-  if (!hasMenu(access, "karyawan")) redirect("/portal/dashboard");
+  if (!hasMenu(access, "absensi")) redirect("/portal/dashboard");
 
   const params = await searchParams;
   const initialTab = params.tab === "jadwal" ? "jadwal" : "shift";

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
-import { isManagement, isSuperAdmin } from "@/lib/roles";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { buildSchedule, buildScheduleByAmount, isPeriod, unpaidTotal } from "@/lib/loans";
 import { nextLoanNo } from "@/lib/loan-view";
 
@@ -13,7 +13,7 @@ type Result = { error?: string };
 // Pinjaman dikelola Admin dan Super Admin; upload saldo awal migrasi hanya Super Admin.
 async function requireAdmin() {
   const access = await getAccess();
-  if (!access || !isManagement(access.role)) throw new Error("Unauthorized");
+  if (!access || !hasMenu(access, "pinjaman")) throw new Error("Unauthorized");
   return access;
 }
 const refresh = (userId?: string) => {

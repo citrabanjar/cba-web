@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { isManagement, isSuperAdmin } from "@/lib/roles";
+import { hasMenu, isManagement, isSuperAdmin } from "@/lib/roles";
+import { getAccess } from "@/lib/access";
 import { AGENT_SETTING_KEY, MONITOR_CHECKS, normalizeAgentSettings, type AgentSettings, type SopReminder } from "@/lib/agent-hrd";
 
 type Result = { error?: string };
@@ -23,7 +24,8 @@ async function store(value: AgentSettings, by: string | null) {
 // Setup detail fitur dikerjakan Admin; Super Admin hanya menyalakan fitur (Pengaturan → Fitur).
 async function requireAdminOnly() {
   const session = await auth();
-  if (!session?.user || !isManagement(session.user.role) || isSuperAdmin(session.user.role)) throw new Error("Unauthorized");
+  const access = await getAccess();
+  if (!session?.user || !access || !hasMenu(access, "pengaturan") || isSuperAdmin(access.role)) throw new Error("Unauthorized");
   return session.user;
 }
 async function requireSuper() {

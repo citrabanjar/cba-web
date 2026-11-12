@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Leave" };
 export default async function LeavePage() {
   const access = await getAccess();
   if (!access) redirect("/portal");
-  if (!hasMenu(access, "karyawan")) redirect("/portal/dashboard");
+  if (!hasMenu(access, "absensi")) redirect("/portal/dashboard");
 
   const [policies, computed, balanceSwitch] = await Promise.all([
     prisma.leavePolicy.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }] }),

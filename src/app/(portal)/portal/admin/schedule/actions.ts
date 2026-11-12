@@ -43,7 +43,7 @@ function breaksInside(start: string, end: string, breaks: BreakTime[]) {
 }
 
 export async function saveShift(id: string | null, input: ShiftInput): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   const code = input.code.trim().toUpperCase();
   const name = input.name.trim();
   if (!code || !name) return { error: "Kode dan nama shift wajib diisi." };
@@ -88,7 +88,7 @@ export async function saveShift(id: string | null, input: ShiftInput): Promise<R
 
 // Simpan urutan kartu shift hasil digeser (drag & drop). ids = urutan baru dari atas.
 export async function reorderShifts(ids: string[]): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   const unique = [...new Set(ids)];
   if (unique.length === 0 || unique.length > 200) return { error: "Urutan tidak valid." };
   const found = await prisma.workShift.count({ where: { id: { in: unique } } });
@@ -99,7 +99,7 @@ export async function reorderShifts(ids: string[]): Promise<Result> {
 }
 
 export async function deleteShift(id: string): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   const used = await prisma.workPatternDay.count({ where: { shiftId: id } });
   if (used > 0) return { error: "Shift masih dipakai di pola kerja. Nonaktifkan saja, atau ganti dulu di pola kerja." };
   const scheduled = await prisma.employeeShiftDay.count({ where: { shiftId: id } });
@@ -110,7 +110,7 @@ export async function deleteShift(id: string): Promise<Result> {
 }
 
 export async function savePattern(id: string | null, input: PatternInput): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   const name = input.name.trim();
   if (!name) return { error: "Nama pola kerja wajib diisi." };
   const cycle = Math.trunc(input.cycleDays);
@@ -146,7 +146,7 @@ export async function savePattern(id: string | null, input: PatternInput): Promi
 }
 
 export async function deletePattern(id: string): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   const used = await prisma.employeeSchedule.count({ where: { patternId: id } });
   if (used > 0) return { error: "Pola kerja masih dipakai karyawan. Ganti jadwal karyawannya dulu." };
   await prisma.workPattern.delete({ where: { id } });
@@ -159,7 +159,7 @@ const HOLIDAY_TYPES: HolidayType[] = ["NASIONAL", "CUTI_BERSAMA", "PERUSAHAAN"];
 export async function saveHoliday(
   id: string | null, input: { date: string; name: string; type: string },
 ): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   const name = input.name.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !name) return { error: "Tanggal dan nama libur wajib diisi." };
   const type = HOLIDAY_TYPES.includes(input.type as HolidayType) ? (input.type as HolidayType) : "NASIONAL";
@@ -173,14 +173,14 @@ export async function saveHoliday(
 }
 
 export async function deleteHoliday(id: string): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   await prisma.holiday.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
 }
 
 export async function saveRule(input: RuleInput): Promise<Result> {
-  const user = await requireMenu("karyawan");
+  const user = await requireMenu("absensi");
   if (!minutes(input.halfDayMinutes)) return { error: "Batas setengah hari harus 0 sampai 1440 menit." };
   if (input.lateAsHalfDayMinutes !== null && !minutes(input.lateAsHalfDayMinutes)) {
     return { error: "Batas terlambat harus 0 sampai 1440 menit." };
@@ -199,7 +199,7 @@ export type LocationInput = {
 };
 
 export async function saveLocation(id: string | null, input: LocationInput): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   const name = input.name.trim();
   if (!name) return { error: "Nama lokasi wajib diisi." };
   const { latitude, longitude } = input;
@@ -242,7 +242,7 @@ export async function saveLocation(id: string | null, input: LocationInput): Pro
 }
 
 export async function deleteLocation(id: string): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   await prisma.workLocation.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -254,7 +254,7 @@ export type ScheduleInput = { type: "POLA" | "MANUAL"; patternId: string; effect
 
 // Tempel jadwal ke satu atau banyak karyawan. Jadwal di tanggal berlaku yang sama diganti.
 export async function assignSchedule(userIds: string[], input: ScheduleInput): Promise<Result & { count?: number }> {
-  const user = await requireMenu("karyawan");
+  const user = await requireMenu("absensi");
   const ids = [...new Set(userIds)].filter(Boolean);
   if (ids.length === 0) return { error: "Pilih minimal satu karyawan." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveDate)) return { error: "Tanggal mulai berlaku wajib diisi." };
@@ -281,7 +281,7 @@ export async function assignSchedule(userIds: string[], input: ScheduleInput): P
 }
 
 export async function deleteEmployeeSchedule(id: string): Promise<Result> {
-  await requireMenu("karyawan");
+  await requireMenu("absensi");
   await prisma.employeeSchedule.delete({ where: { id } });
   revalidatePath(PATH);
   revalidatePath("/portal/admin/karyawan", "layout");
@@ -295,7 +295,7 @@ export type ShiftDayChange = { userId: string; date: string; shiftId: string | n
 // Simpan isian Jadwal Bulanan. shiftId null berarti isian tanggal itu dihapus
 // (kembali mengikuti pola kerja, atau "?" untuk jadwal manual).
 export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result & { count?: number; marked?: number }> {
-  const user = await requireMenu("karyawan");
+  const user = await requireMenu("absensi");
   const valid = changes.filter((c) => c.userId && /^\d{4}-\d{2}-\d{2}$/.test(c.date));
   if (valid.length === 0) return { error: "Tidak ada perubahan untuk disimpan." };
   if (valid.length > 5000) return { error: "Perubahan terlalu banyak sekaligus. Simpan per bulan." };

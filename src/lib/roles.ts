@@ -9,6 +9,11 @@ export const MENUS = [
   { key: "gaji", label: "Gaji & Payroll", desc: "Lihat gaji, riwayat gaji, dan slip gaji" },
   { key: "import", label: "Import Data", desc: "Upload data karyawan dari Excel" },
   { key: "perusahaan", label: "Company", desc: "Lihat struktur organisasi perusahaan" },
+  { key: "absensi", label: "Absensi & Cuti", desc: "Schedule, jadwal kerja, aturan absensi, jenis & saldo cuti" },
+  { key: "prakaryawan", label: "Pra-Karyawan", desc: "Rekrutmen dan onboarding calon karyawan" },
+  { key: "pinjaman", label: "Pinjaman Karyawan", desc: "Kelola pinjaman dan cicilan karyawan" },
+  { key: "workflow", label: "Workflow", desc: "Atur alur persetujuan pengajuan" },
+  { key: "pengaturan", label: "Pengaturan", desc: "Task Admin, Agent HRD, dan running indikator Beranda" },
 ] as const;
 
 export type MenuKey = (typeof MENUS)[number]["key"];

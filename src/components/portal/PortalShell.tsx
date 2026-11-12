@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
-import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
+import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
@@ -58,27 +58,27 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   const admin: NavSection[] = [];
   const add = (section: string, items: NavItem[]) => { if (items.length) admin.push({ section, items, admin: true }); };
 
-  // Jadwal kerja & jenis cuti dikelola admin data karyawan.
-  add("TIME", can("karyawan") ? [
+  // Jadwal kerja, aturan absensi, jenis & saldo cuti: akses Absensi & Cuti.
+  add("TIME", can("absensi") ? [
     { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock },
     { href: "/portal/admin/leave", label: "Leave", icon: CalendarHeart },
   ] : []);
   add("FINANCE", [
     ...(can("gaji") ? [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }] : []),
     // Pinjaman karyawan dikelola Admin dan Super Admin.
-    ...(isManagement(role) ? [{ href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins }] : []),
+    ...(can("pinjaman") ? [{ href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins }] : []),
   ]);
-  add("EMPLOYEE", can("karyawan") ? [
-    { href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users },
-    ...(onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
-  ] : []);
+  add("EMPLOYEE", [
+    ...(can("karyawan") ? [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }] : []),
+    ...(can("prakaryawan") && onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
+  ]);
   // COMPANY: struktur organisasi, Organisasi (Super Admin), dan Workflow (Admin, bila fitur Workflow aktif).
   add("COMPANY", [
     ...(can("perusahaan") ? [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }] : []),
     ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
-    ...(isManagement(role) && !isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+    ...(can("workflow") && !isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
   ]);
-  add("PENGATURAN", isManagement(role) ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
+  add("PENGATURAN", can("pengaturan") ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
 
   return [...sections, ...admin];
 }

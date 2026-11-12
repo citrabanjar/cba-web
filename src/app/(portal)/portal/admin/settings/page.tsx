@@ -2,7 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { isManagement, isSuperAdmin } from "@/lib/roles";
+import { hasMenu, isManagement, isSuperAdmin } from "@/lib/roles";
+import { getAccess } from "@/lib/access";
 import { getHiddenIndicators } from "@/lib/app-settings";
 import { getAgentSettings } from "../../dashboard/agent";
 import { prisma } from "@/lib/prisma";
@@ -14,7 +15,8 @@ import SettingsClient from "./SettingsClient";
 export default async function AdminSettingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/portal");
-  if (!isManagement(session.user.role)) redirect("/portal/dashboard");
+  const access = await getAccess();
+  if (!access || !hasMenu(access, "pengaturan")) redirect("/portal/dashboard");
 
   // Super Admin: Akun + Fitur (menyiapkan perusahaan). Admin: setup detail Task Admin, Agent HRD, Running Indikator.
   const admin = isManagement(session.user.role) && !isSuperAdmin(session.user.role);

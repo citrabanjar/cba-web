@@ -12,7 +12,7 @@ type Result = { error?: string };
 
 async function requireAdmin() {
   const access = await getAccess();
-  if (!access || !hasMenu(access, "karyawan")) throw new Error("Unauthorized");
+  if (!access || !hasMenu(access, "absensi")) throw new Error("Unauthorized");
   return access;
 }
 

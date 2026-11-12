@@ -4,7 +4,7 @@ import { describe, type PayParams } from "@/lib/payroll";
 import { toLoanView } from "@/lib/loan-view";
 import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isManagement, isSuperAdmin } from "@/lib/roles";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
 import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
@@ -38,7 +38,7 @@ export default async function KaryawanDetailPage({
   const { id } = await params;
   const canSeePay = hasMenu(access, "gaji");
   // Tab Pinjaman hanya untuk Admin dan Super Admin.
-  const canSeeLoans = isManagement(access.role);
+  const canSeeLoans = hasMenu(access, "pinjaman");
 
   // Pakai select eksplisit supaya passwordHash tidak ikut terkirim ke client.
   const employee = await prisma.user.findFirst({

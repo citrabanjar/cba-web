@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
-import { isManagement, isSuperAdmin } from "@/lib/roles";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { T } from "@/components/i18n";
 import { toLoanView } from "@/lib/loan-view";
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Pinjaman Karyawan" };
 export default async function PinjamanAdminPage() {
   const access = await getAccess();
   if (!access) redirect("/portal");
-  if (!isManagement(access.role)) redirect("/portal/dashboard");
+  if (!hasMenu(access, "pinjaman")) redirect("/portal/dashboard");
   const [loans, employees] = await Promise.all([
     prisma.employeeLoan.findMany({
       orderBy: [{ createdAt: "desc" }],

@@ -20,7 +20,7 @@ type Result = { error?: string; missing?: string[] };
 
 async function requireHR() {
   const access = await getAccess();
-  if (!access || !hasMenu(access, "karyawan")) throw new Error("Unauthorized");
+  if (!access || !hasMenu(access, "prakaryawan")) throw new Error("Unauthorized");
   return access;
 }
 const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); revalidatePath("/portal/persetujuan"); };

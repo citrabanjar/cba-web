@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Pra-Karyawan" };
 export default async function OnboardingPage() {
   const access = await getAccess();
   if (!access) redirect("/portal");
-  if (!hasMenu(access, "karyawan")) redirect("/portal/dashboard");
+  if (!hasMenu(access, "prakaryawan")) redirect("/portal/dashboard");
   // Modul dimatikan Super Admin di Pengaturan → Pra-Karyawan.
   if (!(await getOnboardingSettings()).enabled) redirect(isSuperAdmin(access.role) ? "/portal/admin/settings" : "/portal/dashboard");
 
