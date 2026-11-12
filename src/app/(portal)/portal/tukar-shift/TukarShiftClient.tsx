@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 import { useEffect, useState, useTransition } from "react";
 import { ArrowLeftRight, Check, Loader2, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
@@ -63,7 +65,7 @@ function SwapForm({ colleagues }: { colleagues: Person[] }) {
       <h3 className="flex items-center gap-2 font-semibold text-gray-700"><ArrowLeftRight size={16} className="text-brand" /> <T>Ajukan Tukar Shift</T></h3>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-xs font-medium text-gray-500"><span><T>Tanggal</T></span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} /></label>
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} /></label>
         <label className="space-y-1 text-xs font-medium text-gray-500"><span><T>Tukar dengan</T></span>
           <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)} className={field}>
             <option value="">{t("-- Pilih rekan --")}</option>
