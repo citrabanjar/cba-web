@@ -85,7 +85,7 @@ export default function WorkflowClient({ settings, users, positions }: { setting
         })}
 
         <div className="rounded-xl bg-white/80 px-4 py-3 text-[11px] leading-relaxed text-gray-500">
-          <T>Berdasarkan jabatan: disetujui pemegang jabatan itu (diutamakan yang satu departemen dengan pemohon). Berdasarkan hak akses: disetujui salah satu pemegang hak akses itu. Bila pemohon sendiri pemegang satu-satunya, level itu dilewati.</T>
+          <T>Berdasarkan jabatan: dicari naik mengikuti bagan organisasi pemohon (atasan langsung → atasan dari atasan → dst.) sampai ketemu jabatan itu. Untuk Pra-Karyawan (belum punya atasan): salah satu pemegang jabatan itu. Berdasarkan hak akses: salah satu pemegang hak akses itu.</T>
         </div>
 
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}

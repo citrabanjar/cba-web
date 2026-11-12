@@ -287,6 +287,7 @@ export const en: Record<string, string> = {
   "Organisasi": "Organization",
   "Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.": "Branches, departments and positions here become the options in employee data.",
   "Tambah baru": "Add new",
+  "Berdasarkan jabatan: dicari naik mengikuti bagan organisasi pemohon (atasan langsung → atasan dari atasan → dst.) sampai ketemu jabatan itu. Untuk Pra-Karyawan (belum punya atasan): salah satu pemegang jabatan itu. Berdasarkan hak akses: salah satu pemegang hak akses itu.": "By position: searched upward through the requester's org chart (direct manager → manager's manager → …) until that position is found. For Onboarding (no manager yet): any holder of that position. By access role: any holder of that role.",
   "Kode pos": "Postal code",
   "Kode pos kelurahan ini belum ada di data. Isi sesuai KTP / surat.": "This village's postal code isn't in the data yet. Fill it in from the ID card / letter.",
   "Kode pos alamat identitas (5 angka)": "ID address postal code (5 digits)",
