@@ -10,7 +10,7 @@ import {
 } from "@/lib/workflow";
 import { saveWorkflow } from "./actions";
 
-type UserOption = { id: string; name: string; info: string };
+type UserOption = { id: string; name: string; employeeId: string };
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
 
 // Workflow per modul (Admin): Level 1..3, approver berdasarkan jabatan, hak akses, atau karyawan tertentu.
@@ -24,7 +24,7 @@ export default function WorkflowClient({ settings, users }: { settings: Workflow
     setMod(k, { levels: s[k].levels.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
   const valueOptions = (type: LevelType) =>
     type === "ROLE" ? ROLE_OPTIONS.map((r) => ({ value: r.value, label: t(r.label) }))
-      : users.map((u) => ({ value: u.id, label: `${u.name}${u.info ? ` · ${u.info}` : ""}` }));
+      : users.map((u) => ({ value: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }));
   // Pra-Karyawan: calon belum punya atasan, jadi level "jabatan (bagan organisasi)" tidak bisa dipakai.
   const typesFor = (k: WorkflowKey) => LEVEL_TYPES.filter((x) => !(k === "PRA_KARYAWAN" && x.value === "POSITION"));
   const newLevel = (k: WorkflowKey): WorkflowLevel => (k === "PRA_KARYAWAN" ? { type: "ROLE", value: "", label: "" } : { type: "POSITION", value: CHAIN_VALUE, label: "" });

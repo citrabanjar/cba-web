@@ -21,12 +21,12 @@ export default async function WorkflowPage() {
   const [settings, users] = await Promise.all([
     getWorkflowRaw(),
     prisma.user.findMany({
-      where: { isActive: true }, orderBy: { name: "asc" },
-      select: { id: true, name: true, position: true, department: { select: { name: true } } },
+      where: { isActive: true }, orderBy: [{ employeeId: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, employeeId: true },
     }),
   ]);
   return (
     <WorkflowClient settings={settings}
-      users={users.map((u) => ({ id: u.id, name: u.name, info: [u.position, u.department?.name].filter(Boolean).join(" · ") }))} />
+      users={users.map((u) => ({ id: u.id, name: u.name, employeeId: u.employeeId ?? "" }))} />
   );
 }
