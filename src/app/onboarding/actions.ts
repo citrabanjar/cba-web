@@ -7,6 +7,7 @@ import {
   OTP_MAX_TRIES, OTP_MINUTES, clearCandidateSession, getCandidateSession, newOtp, setCandidateSession,
 } from "@/lib/onboarding-session";
 import { candidateCanEdit, missingData, readData, type CandidateData } from "@/lib/onboarding";
+import { getOnboardingSettings } from "@/lib/onboarding-settings";
 
 type Result = { error?: string };
 const digits = (v: string) => v.replace(/\D/g, "");
@@ -23,6 +24,7 @@ async function findCandidate(email: string, phone: string) {
 export async function requestOtp(email: string, phone: string): Promise<Result & { sent?: boolean }> {
   const c = await findCandidate(email, phone);
   if (!c) return { error: "Email atau nomor HP tidak terdaftar sebagai calon karyawan. Hubungi HRD." };
+  if (!(await getOnboardingSettings()).enabled) return { error: "Pendaftaran calon karyawan sedang ditutup. Hubungi HRD." };
   if (c.status === "DISETUJUI") return { error: "Data Anda sudah disetujui. Silakan masuk lewat Portal Karyawan." };
   if (c.status === "DITOLAK") return { error: "Pendaftaran Anda tidak dilanjutkan. Hubungi HRD." };
   if (c.status === "WAWANCARA" || c.status === "APPROVAL_WAWANCARA") return { error: "Pendaftaran Anda masih di tahap wawancara. Undangan mengisi data dikirim ke email setelah hasil wawancara disetujui." };

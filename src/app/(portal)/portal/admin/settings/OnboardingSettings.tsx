@@ -51,6 +51,15 @@ export default function OnboardingSettings({ settings, users }: { settings: Sett
         <p className="text-xs text-gray-400"><T>Atur alur penerimaan calon karyawan: pakai tahap wawancara atau tidak, dan siapa yang menyetujui hasil wawancara.</T></p>
       </CardHeader>
       <CardContent className="space-y-6">
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-3">
+          <input type="checkbox" checked={s.enabled} onChange={(e) => set({ enabled: e.target.checked })} className="mt-0.5 h-4 w-4 accent-[#BE353F]" />
+          <span>
+            <span className="block text-sm font-semibold text-gray-800"><T>Aktifkan modul Pra-Karyawan</T></span>
+            <span className="block text-xs text-gray-500"><T>Matikan bila perusahaan tidak butuh onboarding di portal: menu Pra-Karyawan disembunyikan dan calon tidak bisa masuk ke halaman isi data. Karyawan baru tetap bisa ditambahkan lewat Data Karyawan.</T></span>
+          </span>
+        </label>
+
+        {s.enabled && <>
         <section className="space-y-2">
           <p className="text-xs font-semibold text-gray-700">1. <T>Tahap wawancara</T></p>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -119,6 +128,7 @@ export default function OnboardingSettings({ settings, users }: { settings: Sett
             </div>
           </>
         )}
+        </>}
 
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
         <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {

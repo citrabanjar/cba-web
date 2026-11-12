@@ -16,7 +16,7 @@ import type { StorageInfo } from "@/lib/storage";
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
 type NavSection = { section: string; items: NavItem[] };
 
-function getNavSections(role: string, menuAccess: string[], approvals: number | null): NavSection[] {
+function getNavSections(role: string, menuAccess: string[], approvals: number | null, onboardingOn: boolean): NavSection[] {
   const sections: NavSection[] = [
     {
       section: "MENU UTAMA",
@@ -83,7 +83,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
       section: "EMPLOYEE",
       items: [
         { href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users },
-        { href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus },
+        ...(onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
       ],
     });
   }
@@ -111,7 +111,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; onboardingOn?: boolean; children: React.ReactNode };
 
 // Pemakaian penyimpanan database Neon, hanya untuk super admin.
 function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
@@ -303,12 +303,12 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, storage, approvals = null, children }: Props) {
+export default function PortalShell({ user, storage, approvals = null, onboardingOn = true, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useT();
-  const sections = getNavSections(user.role, user.menuAccess, approvals);
+  const sections = getNavSections(user.role, user.menuAccess, approvals, onboardingOn);
 
   // Pilihan lipat menu diingat di browser ini saja.
   useEffect(() => {

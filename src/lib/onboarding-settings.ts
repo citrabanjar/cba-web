@@ -16,6 +16,6 @@ export async function pendingInterviewApprovals(userId: string) {
 // User ini approver wawancara (di setup) atau masih tercatat di approval yang berjalan.
 export async function isInterviewApprover(userId: string) {
   const s = await getOnboardingSettings();
-  if (s.interview && s.approvers.some((a) => a.id === userId)) return true;
+  if (s.enabled && s.interview && s.approvers.some((a) => a.id === userId)) return true;
   return (await pendingInterviewApprovals(userId)) > 0;
 }

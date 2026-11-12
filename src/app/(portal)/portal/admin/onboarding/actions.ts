@@ -38,11 +38,13 @@ export async function inviteCandidate(input: { name: string; email: string; phon
   const access = await requireHR();
   const name = input.name.trim().toUpperCase(), email = input.email.trim().toLowerCase(), phone = input.phone.trim();
   if (!name) return { error: "Nama wajib diisi." };
+  const setup = await getOnboardingSettings();
+  if (!setup.enabled) return { error: "Modul Pra-Karyawan sedang nonaktif." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Email tidak valid." };
   if (digits(phone).length < 9 || digits(phone).length > 15) return { error: "Nomor HP 9-15 digit." };
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah dipakai karyawan lain." };
   if (await prisma.candidate.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah terdaftar sebagai calon karyawan." };
-  if ((await getOnboardingSettings()).interview) {
+  if (setup.interview) {
     const c = await prisma.candidate.create({ data: { name, email, phone, status: "WAWANCARA", data: { name, phone }, interview: emptyInterview(), invitedBy: access.name ?? null } });
     refresh();
     return { id: c.id, interview: true };

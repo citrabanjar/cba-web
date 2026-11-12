@@ -3,6 +3,7 @@ import { AGENT_SETTING_KEY, dueReminders, normalizeAgentSettings, type AgentSett
 import { PAYROLL_SETTING_KEY, DEFAULT_PAYROLL_SETTINGS, type PayrollSettings } from "@/lib/payroll";
 import { TAX_SETTING_KEY } from "@/lib/pph21";
 import { loadInsights, type Task } from "./insights";
+import { getOnboardingSettings } from "@/lib/onboarding-settings";
 
 const DAY = 86_400_000;
 const todayKey = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -148,9 +149,10 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   };
   // Onboarding & karyawan yang belum di-setup payroll / jadwal.
   const activeEmp = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
+  const onbOn = (await getOnboardingSettings()).enabled;
   const [onbReview, onbApproval, noPay, noShift, noManager, profileChanges] = await Promise.all([
-    prisma.candidate.count({ where: { status: "DIKIRIM" } }),
-    prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }),
+    onbOn ? prisma.candidate.count({ where: { status: "DIKIRIM" } }) : 0,
+    onbOn ? prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }) : 0,
     prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
     prisma.user.findMany({ where: { ...activeEmp, schedules: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
     // Tanpa atasan langsung aktif = pengajuan cuti/dinasnya tidak punya penyetuju (jatuh ke HRD).

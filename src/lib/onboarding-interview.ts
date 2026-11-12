@@ -11,9 +11,9 @@ export const ONBOARDING_SETTING_KEY = "onboarding";
 export type ApprovalMode = "TUNGGAL" | "SIRKULAR";
 export type ApprovalOrder = "BERURUTAN" | "BERSAMAAN";
 export type ApproverRef = { id: string; name: string };
-export type OnboardingSettings = { interview: boolean; mode: ApprovalMode; order: ApprovalOrder; approvers: ApproverRef[] };
+export type OnboardingSettings = { enabled: boolean; interview: boolean; mode: ApprovalMode; order: ApprovalOrder; approvers: ApproverRef[] };
 
-export const DEFAULT_ONBOARDING_SETTINGS: OnboardingSettings = { interview: false, mode: "TUNGGAL", order: "BERURUTAN", approvers: [] };
+export const DEFAULT_ONBOARDING_SETTINGS: OnboardingSettings = { enabled: true, interview: false, mode: "TUNGGAL", order: "BERURUTAN", approvers: [] };
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
@@ -26,6 +26,8 @@ export function normalizeOnboardingSettings(raw: unknown): OnboardingSettings {
         .filter((a) => a.id && !seen.has(a.id) && seen.add(a.id))
     : [];
   return {
+    // Modul Pra-Karyawan aktif kecuali dimatikan Super Admin (perusahaan tidak butuh onboarding di portal).
+    enabled: v.enabled !== false,
     interview: v.interview === true,
     mode: v.mode === "SIRKULAR" ? "SIRKULAR" : "TUNGGAL",
     order: v.order === "BERSAMAAN" ? "BERSAMAAN" : "BERURUTAN",
