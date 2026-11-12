@@ -24,6 +24,7 @@ export default async function AdminSettingsPage() {
   const agent = admin ? await getAgentSettings() : null;
   const ai = admin && (await aiFeatureOn()) ? await loadAi() : null;
   const onboarding = isSuperAdmin(session.user.role) ? await loadOnboarding() : null;
+  const access2 = isSuperAdmin(session.user.role) ? await loadAccess() : null;
 
   return (
     <SettingsClient
@@ -31,11 +32,26 @@ export default async function AdminSettingsPage() {
       agentSettings={agent}
       ai={ai}
       onboarding={onboarding}
+      access={access2}
       name={session.user.name ?? ""}
       employeeId={session.user.employeeId ?? session.user.email ?? ""}
       role={session.user.role}
     />
   );
+}
+
+// Data tab Hak Akses (Super Admin): daftar Admin dan karyawan aktif yang bisa dijadikan Admin.
+async function loadAccess() {
+  const people = await prisma.user.findMany({
+    where: { role: { in: ["ADMIN", "KARYAWAN"] }, isActive: true },
+    select: { id: true, employeeId: true, name: true, position: true, menuAccess: true, role: true },
+    orderBy: [{ employeeId: "asc" }, { name: "asc" }],
+  });
+  const strip = (p: (typeof people)[number]) => ({ id: p.id, employeeId: p.employeeId, name: p.name, position: p.position, menuAccess: p.menuAccess });
+  return {
+    admins: people.filter((p) => p.role === "ADMIN").map(strip),
+    employees: people.filter((p) => p.role === "KARYAWAN").map(strip),
+  };
 }
 
 // Data tab Agent HRD (Admin).

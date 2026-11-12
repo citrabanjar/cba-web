@@ -555,6 +555,7 @@ export async function setEmployeeAccess(id: string, role: string, menuAccess: st
     },
   });
   revalidatePath(`${LIST_PATH}/${id}`);
+  revalidatePath("/portal/admin/settings");
   return { success: true };
 }
 

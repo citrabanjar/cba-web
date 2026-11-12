@@ -20,11 +20,10 @@ import {
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS as ACTION_ITEMS } from "@/components/portal/ActionMenu";
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
-import { MENUS } from "@/lib/roles";
 import type { MasterOptions } from "@/lib/master-data";
 import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS, normalizeChoice } from "@/lib/personal-info";
 import {
-  addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, setEmployeeAccess, updateEmployee,
+  addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
 import AttendanceCalendar from "./AttendanceCalendar";
@@ -109,7 +108,6 @@ const TAB_LIST = [
   { key: "gaji", label: "Payroll" },
   { key: "pinjaman", label: "Pinjaman" },
   { key: "payslip", label: "Slip Gaji" },
-  { key: "akses", label: "Akses" },
 ];
 
 const STATUS_LABEL: Record<string, string> = {
@@ -539,58 +537,6 @@ function FamilyDialog({ employee, onClose }: { employee: Employee; onClose: () =
   );
 }
 
-function AccessPanel({ employee }: { employee: Employee }) {
-  const [isAdmin, setIsAdmin] = useState(employee.role === "ADMIN");
-  const [menus, setMenus] = useState<string[]>(employee.menuAccess);
-  const [message, setMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function save() {
-    startTransition(async () => {
-      await setEmployeeAccess(employee.id, isAdmin ? "ADMIN" : "KARYAWAN", menus);
-      setMessage("Akses tersimpan dan langsung berlaku.");
-    });
-  }
-
-  return (
-    <SectionCard title="Akses Portal">
-      <div className="space-y-4 py-2">
-        <label className="flex items-center gap-3 text-sm text-gray-800">
-          <input type="checkbox" checked={isAdmin} className="accent-[var(--color-brand)] w-4 h-4"
-            onChange={(e) => { setIsAdmin(e.target.checked); setMessage(null); }} />
-          <T>Jadikan Admin</T>
-        </label>
-        {isAdmin && (
-          <div className="space-y-2 pl-7">
-            <p className="text-xs text-gray-500"><T>Pilih menu yang boleh dibuka:</T></p>
-            {MENUS.map((menu) => (
-              <label key={menu.key} className="flex items-start gap-3 text-sm text-gray-800">
-                <input type="checkbox" className="accent-[var(--color-brand)] w-4 h-4 mt-0.5"
-                  checked={menus.includes(menu.key)}
-                  onChange={(e) => {
-                    setMessage(null);
-                    setMenus((prev) => e.target.checked
-                      ? [...prev, menu.key]
-                      : prev.filter((m) => m !== menu.key));
-                  }} />
-                <span>
-                  <T>{menu.label}</T>
-                  <span className="block text-xs text-gray-500"><T>{menu.desc}</T></span>
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-        {message && <p className="text-sm text-green-700">{message}</p>}
-        <Button size="sm" onClick={save} disabled={isPending} className="gap-2">
-          {isPending && <Loader2 size={14} className="animate-spin" />}
-          <T>Simpan Akses</T>
-        </Button>
-      </div>
-    </SectionCard>
-  );
-}
-
 function SalaryDialog({
   employee, current, open, onClose, payOptions,
 }: {
@@ -765,7 +711,7 @@ export default function KaryawanDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const tabs = TAB_LIST.filter(
-    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans) && (t.key !== "akses" || isSuper),
+    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans),
   );
 
   const fields = useMemo<Record<Section, FormField[]>>(() => ({
@@ -1317,7 +1263,6 @@ export default function KaryawanDetailClient({
           )
         )}
 
-        {tab === "akses" && isSuper && <AccessPanel employee={emp} />}
       </main>
 
       {familyOpen && <FamilyDialog employee={emp} onClose={() => setFamilyOpen(false)} />}
