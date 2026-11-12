@@ -1400,7 +1400,6 @@ export const en: Record<string, string> = {
   "Belum ada komponen yang ditempel": "No components assigned",
   "Angka perhitungan": "Calculation values",
   "Dasar perhitungan ini tidak memerlukan angka tambahan.": "This basis needs no extra values.",
-  "Pilih dari komponen di Payroll & Benefit supaya sifat pajak dan dasar hitungnya ikut aturan komponen.": "Choose from Payroll & Benefit components so tax treatment and calculation basis follow the component rules.",
   "Lainnya (ketik nama)": "Other (type a name)",
   "Nominal per karyawan (diisi di profil / per periode)": "Per-employee amount (set in profile / per period)",
   "Nominal sama untuk semua karyawan per bulan": "Same monthly amount for all employees",

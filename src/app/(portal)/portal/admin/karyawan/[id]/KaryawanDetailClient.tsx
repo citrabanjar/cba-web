@@ -671,7 +671,6 @@ function SalaryDialog({
           )}
           <div className="space-y-2">
             <Label className="text-xs"><T>Tunjangan dan Potongan</T></Label>
-            <p className="text-[11px] text-gray-400"><T>Pilih dari komponen di Payroll & Benefit supaya sifat pajak dan dasar hitungnya ikut aturan komponen.</T></p>
             {components.map((c, i) => (
               <div key={i} className="grid grid-cols-[1fr_110px_auto] gap-2 items-center">
                 <div className="space-y-1">
