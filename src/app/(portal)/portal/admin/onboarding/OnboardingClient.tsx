@@ -56,7 +56,8 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
           <div className="space-y-3">
             {(["name", "email", "phone"] as const).map((k) => (
               <div key={k} className="space-y-1.5"><Label className="text-xs"><T>{k === "name" ? "Nama calon karyawan" : k === "email" ? "Email" : "No. HP (WhatsApp)"}</T></Label>
-                <Input type={k === "email" ? "email" : k === "phone" ? "tel" : "text"} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} /></div>
+                <Input type={k === "email" ? "email" : k === "phone" ? "tel" : "text"} value={form[k]} className={k === "name" ? "uppercase" : undefined}
+                  onChange={(e) => setForm({ ...form, [k]: k === "name" ? e.target.value.toUpperCase() : e.target.value })} /></div>
             ))}
             <MsgBox msg={msg} />
           </div>

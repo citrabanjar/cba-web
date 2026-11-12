@@ -32,7 +32,7 @@ async function onboardingLink(email: string) {
 // HRD mendaftarkan calon: nama, email, nomor HP (WhatsApp). Undangan otomatis dikirim ke email calon.
 export async function inviteCandidate(input: { name: string; email: string; phone: string }): Promise<Result & { id?: string; emailed?: boolean; link?: string }> {
   const access = await requireHR();
-  const name = input.name.trim(), email = input.email.trim().toLowerCase(), phone = input.phone.trim();
+  const name = input.name.trim().toUpperCase(), email = input.email.trim().toLowerCase(), phone = input.phone.trim();
   if (!name) return { error: "Nama wajib diisi." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Email tidak valid." };
   if (digits(phone).length < 9 || digits(phone).length > 15) return { error: "Nomor HP 9-15 digit." };
