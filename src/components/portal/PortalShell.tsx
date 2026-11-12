@@ -83,7 +83,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
       section: "EMPLOYEE",
       items: [
         { href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users },
-        { href: "/portal/admin/onboarding", label: "Onboarding", icon: UserPlus },
+        { href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus },
       ],
     });
   }

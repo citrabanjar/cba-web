@@ -136,7 +136,7 @@ export function InterviewDecision({ candidateId, onDone }: { candidateId: string
     start(async () => {
       const r = await decideInterview(candidateId, d, note);
       if (r.error) { setMsg({ ok: false, text: r.error }); return; }
-      setMsg({ ok: true, text: d === "TOLAK" ? "Calon ditolak." : !r.done ? "Disetujui. Menunggu approver berikutnya." : r.emailed ? "Disetujui semua. Undangan isi data sudah dikirim ke email calon." : "Disetujui semua. Email undangan gagal terkirim: HRD bisa kirim ulang dari menu Onboarding." });
+      setMsg({ ok: true, text: d === "TOLAK" ? "Calon ditolak." : !r.done ? "Disetujui. Menunggu approver berikutnya." : r.emailed ? "Disetujui semua. Undangan isi data sudah dikirim ke email calon." : "Disetujui semua. Email undangan gagal terkirim: HRD bisa kirim ulang dari menu Pra-Karyawan." });
       onDone?.();
     });
   };

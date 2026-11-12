@@ -233,7 +233,7 @@ export async function submitInterview(id: string, input: Interview): Promise<Res
   if (missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing }; }
   const s = await getOnboardingSettings();
   const approvers = s.mode === "TUNGGAL" ? s.approvers.slice(0, 1) : s.approvers;
-  if (!approvers.length) return { error: "Approver wawancara belum diatur. Minta Super Admin mengisi Pengaturan → Onboarding." };
+  if (!approvers.length) return { error: "Approver wawancara belum diatur. Minta Super Admin mengisi Pengaturan → Pra-Karyawan." };
   i.approval = { mode: s.mode, order: s.order, steps: approvers.map((a) => ({ id: a.id, name: a.name, decision: "", at: "", note: "" })) };
   i.submittedBy = access.name ?? "";
   i.submittedAt = new Date().toISOString();

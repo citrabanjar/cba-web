@@ -12,7 +12,7 @@ import { actionableApprovers, readInterview } from "@/lib/onboarding-interview";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import OnboardingClient, { type CandidateRow } from "./OnboardingClient";
 
-export const metadata: Metadata = { title: "Onboarding" };
+export const metadata: Metadata = { title: "Pra-Karyawan" };
 
 // Onboarding calon karyawan: undang, periksa data, ajukan, setujui.
 export default async function OnboardingPage() {

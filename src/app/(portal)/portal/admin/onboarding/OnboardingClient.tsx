@@ -283,7 +283,7 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
   return (
     <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h2 className="font-bold text-gray-800"><T>Onboarding</T></h2>
+        <h2 className="font-bold text-gray-800"><T>Pra-Karyawan</T></h2>
         <p className="text-xs text-gray-400 mt-0.5"><T>{interviewOn
           ? "Calon diwawancara dulu; hasil wawancara dan tawaran kerja disetujui approver, lalu calon mengisi data sendiri lewat /onboarding dan HRD mendaftarkannya sebagai karyawan."
           : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan untuk approval."}</T></p>
@@ -333,7 +333,7 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
             </ul>
           )}
         </div>
-        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>{interviewOn ? "Alur wawancara diatur Super Admin di Pengaturan → Onboarding." : "Persetujuan sementara dilakukan Super Admin sampai peran Owner ditetapkan."}</T></p>
+        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>{interviewOn ? "Alur wawancara diatur Super Admin di Pengaturan → Pra-Karyawan." : "Persetujuan sementara dilakukan Super Admin sampai peran Owner ditetapkan."}</T></p>
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} onClose={() => setOpenId(null)} />}

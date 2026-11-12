@@ -47,7 +47,7 @@ export default function OnboardingSettings({ settings, users }: { settings: Sett
   return (
     <Card className="border-gray-100">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600"><T>Setup Onboarding</T></CardTitle>
+        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-gray-600"><T>Setup Pra-Karyawan</T></CardTitle>
         <p className="text-xs text-gray-400"><T>Atur alur penerimaan calon karyawan: pakai tahap wawancara atau tidak, dan siapa yang menyetujui hasil wawancara.</T></p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -123,7 +123,7 @@ export default function OnboardingSettings({ settings, users }: { settings: Sett
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
         <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
           const r = await saveOnboardingSettings(s);
-          setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Setup onboarding tersimpan." });
+          setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Setup Pra-Karyawan tersimpan." });
         })}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan</T></Button>
       </CardContent>
     </Card>
