@@ -8,7 +8,10 @@ import { getAccess } from "@/lib/access";
 import { isApprover, requesterFilter, reviewsProfiles } from "@/lib/approval";
 import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
-import PersetujuanClient, { type ApprovalItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
+import { actionableApprovers, readInterview } from "@/lib/onboarding-interview";
+import { CANDIDATE_STATUS } from "@/lib/onboarding";
+import { Prisma } from "@prisma/client";
+import PersetujuanClient, { type ApprovalItem, type InterviewItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
 
 export const metadata: Metadata = { title: "Persetujuan" };
 
@@ -28,7 +31,7 @@ export default async function PersetujuanPage() {
   const since = daysAgo(60);
   const who = { select: { id: true, name: true, employeeId: true, position: true, department: { select: { name: true } } } };
   const reviewer = reviewsProfiles(a);
-  const [leaves, trips, profileReqs, swapReqs] = await Promise.all([
+  const [leaves, trips, profileReqs, swapReqs, candidates] = await Promise.all([
     prisma.leaveRequest.findMany({
       where: { user, OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
       include: { user: who, policy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 200,
@@ -46,6 +49,11 @@ export default async function PersetujuanPage() {
     prisma.shiftSwapRequest.findMany({
       where: { OR: [{ managerAId: a.id }, { managerBId: a.id }], status: { in: ["MENUNGGU_ATASAN", "DISETUJUI", "DITOLAK"] }, createdAt: { gte: since } },
       include: { requester: who, partner: who }, orderBy: { date: "asc" }, take: 200,
+    }),
+    // Approval hasil wawancara calon karyawan (Setup Onboarding).
+    prisma.candidate.findMany({
+      where: { interview: { not: Prisma.DbNull }, OR: [{ status: "APPROVAL_WAWANCARA" }, { updatedAt: { gte: since } }] },
+      select: { id: true, name: true, email: true, phone: true, status: true, interview: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 100,
     }),
   ]);
 
@@ -79,13 +87,22 @@ export default async function PersetujuanPage() {
     managerA: s.managerAName, managerB: s.managerBId ? s.managerBName : undefined, decidedBy: s.decidedBy,
   }));
 
+  const interviews: InterviewItem[] = candidates.flatMap((c) => {
+    const iv = readInterview(c.interview);
+    if (!iv?.approval?.steps.some((x) => x.id === a.id)) return [];
+    return [{
+      id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status, statusLabel: CANDIDATE_STATUS[c.status]?.label ?? c.status,
+      interview: iv, mine: c.status === "APPROVAL_WAWANCARA" && actionableApprovers(iv.approval).includes(a.id),
+    }];
+  });
+
   return (
     <div className="min-h-full bg-gray-50">
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Persetujuan</T></h2>
-        <p className="text-xs text-gray-400"><T>Pengajuan cuti dan dinas luar dari karyawan yang Anda pimpin langsung.</T></p>
+        <p className="text-xs text-gray-400"><T>Pengajuan yang menunggu keputusan Anda: cuti, dinas luar, tukar shift, perubahan data, dan wawancara calon karyawan.</T></p>
       </div>
-      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} />
+      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} />
     </div>
   );
 }

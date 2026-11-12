@@ -768,9 +768,10 @@ model Candidate {
   name        String
   email       String    @unique
   phone       String
-  status      String    @default("DIUNDANG") // DIUNDANG | DIKIRIM | DIKEMBALIKAN | MENUNGGU_APPROVAL | DISETUJUI | DITOLAK
+  status      String    @default("DIUNDANG") // WAWANCARA | APPROVAL_WAWANCARA | DIUNDANG | DIKIRIM | DIKEMBALIKAN | MENUNGGU_APPROVAL | DISETUJUI | DITOLAK
   data        Json? // isian calon: data diri, alamat, keluarga, rekening, pajak, BPJS
   job         Json? // isian HRD: employeeId, branch, departmentName, position, employmentStatus, joinDate, contractEndDate
+  interview   Json? // tahap wawancara (bila diaktifkan Super Admin): hasil, tawaran kerja, dan jejak approval
   note        String?   @db.Text // catatan pengembalian / penolakan
   otpCode     String? // kode OTP terakhir (berlaku singkat)
   otpExpires  DateTime?

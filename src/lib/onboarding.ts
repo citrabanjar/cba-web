@@ -2,6 +2,8 @@
 // Aman dipakai di server dan browser.
 
 export const CANDIDATE_STATUS: Record<string, { label: string; tone: string }> = {
+  WAWANCARA: { label: "Tahap wawancara", tone: "bg-sky-50 text-sky-700" },
+  APPROVAL_WAWANCARA: { label: "Menunggu approval wawancara", tone: "bg-indigo-50 text-indigo-700" },
   DIUNDANG: { label: "Diundang", tone: "bg-gray-100 text-gray-600" },
   DIKIRIM: { label: "Menunggu pemeriksaan HRD", tone: "bg-amber-50 text-amber-700" },
   DIKEMBALIKAN: { label: "Dikembalikan ke calon", tone: "bg-rose-50 text-rose-700" },
@@ -10,7 +12,7 @@ export const CANDIDATE_STATUS: Record<string, { label: string; tone: string }> =
   DITOLAK: { label: "Ditolak", tone: "bg-gray-100 text-gray-500" },
 };
 export const CANDIDATE_GROUPS = [
-  { key: "proses", label: "Dalam proses", statuses: ["DIUNDANG", "DIKIRIM", "DIKEMBALIKAN", "MENUNGGU_APPROVAL"] },
+  { key: "proses", label: "Dalam proses", statuses: ["WAWANCARA", "APPROVAL_WAWANCARA", "DIUNDANG", "DIKIRIM", "DIKEMBALIKAN", "MENUNGGU_APPROVAL"] },
   { key: "selesai", label: "Selesai", statuses: ["DISETUJUI", "DITOLAK"] },
 ] as const;
 // Calon boleh mengubah isiannya selama belum dikirim atau saat dikembalikan HRD.

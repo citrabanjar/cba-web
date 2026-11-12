@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { hasMenu } from "@/lib/roles";
 import { pendingSwapApprovals } from "@/lib/shift-swap";
+import { isInterviewApprover, pendingInterviewApprovals } from "@/lib/onboarding-settings";
 
 // Jalur persetujuan cuti & dinas luar (keputusan pemilik 2026-11-10): penyetuju = ATASAN LANGSUNG
 // yang aktif. Karyawan tanpa atasan aktif tidak bisa mengirim pengajuan (ditolak saat dikirim), dan
@@ -31,17 +32,19 @@ export async function canDecide(a: Approver, requesterId: string) {
 // Jumlah pengajuan yang menunggu keputusan penyetuju ini (untuk badge menu).
 export async function pendingApprovals(a: Approver) {
   const user = requesterFilter(a);
-  const [leaves, trips, profiles, swaps] = await Promise.all([
+  const [leaves, trips, profiles, swaps, interviews] = await Promise.all([
     prisma.leaveRequest.count({ where: { status: "PENDING", user } }),
     prisma.businessTrip.count({ where: { status: "PENDING", user } }),
     reviewsProfiles(a) ? prisma.profileChangeRequest.count({ where: { status: "PENDING", userId: { not: a.id } } }) : 0,
     pendingSwapApprovals(a.id),
+    pendingInterviewApprovals(a.id),
   ]);
-  return leaves + trips + profiles + swaps;
+  return leaves + trips + profiles + swaps + interviews;
 }
 
 // Menu Persetujuan tampil untuk atasan (punya bawahan langsung) dan Admin Data Karyawan (perubahan data).
 export async function isApprover(a: Approver) {
   if (reviewsProfiles(a)) return true;
+  if (await isInterviewApprover(a.id)) return true;
   return (await prisma.user.count({ where: { managerId: a.id } })) > 0;
 }

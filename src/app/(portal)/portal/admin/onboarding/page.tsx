@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { getMasterOptions } from "@/lib/master-data";
 import { mailerReady } from "@/lib/mailer";
 import { readData, readJob } from "@/lib/onboarding";
+import { actionableApprovers, readInterview } from "@/lib/onboarding-interview";
+import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import OnboardingClient, { type CandidateRow } from "./OnboardingClient";
 
 export const metadata: Metadata = { title: "Onboarding" };
@@ -18,9 +20,10 @@ export default async function OnboardingPage() {
   if (!access) redirect("/portal");
   if (!hasMenu(access, "karyawan")) redirect("/portal/dashboard");
 
-  const [candidates, master] = await Promise.all([
+  const [candidates, master, settings] = await Promise.all([
     prisma.candidate.findMany({ orderBy: { createdAt: "desc" } }),
     getMasterOptions(),
+    getOnboardingSettings(),
   ]);
   const now = new Date();
   const rows: CandidateRow[] = candidates.map((c) => ({
@@ -30,6 +33,8 @@ export default async function OnboardingPage() {
     otp: !mailerReady() && c.otpCode && c.otpExpires && c.otpExpires > now ? { code: c.otpCode, until: c.otpExpires.toISOString() } : null,
     submittedAt: c.submittedAt?.toISOString() ?? null, createdAt: c.createdAt.toISOString(),
     invitedBy: c.invitedBy, reviewedBy: c.reviewedBy, approvedBy: c.approvedBy, approvedAt: c.approvedAt?.toISOString() ?? null, userId: c.userId,
+    interview: readInterview(c.interview),
+    canDecide: c.status === "APPROVAL_WAWANCARA" && actionableApprovers(readInterview(c.interview)?.approval ?? null).includes(access.id),
   }));
-  return <OnboardingClient rows={rows} master={master} canApprove={isSuperAdmin(access.role)} />;
+  return <OnboardingClient rows={rows} master={master} canApprove={isSuperAdmin(access.role)} interviewOn={settings.interview} />;
 }

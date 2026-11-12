@@ -7,6 +7,7 @@ import { getHiddenIndicators } from "@/lib/app-settings";
 import { getAgentSettings } from "../../dashboard/agent";
 import { prisma } from "@/lib/prisma";
 import { getAiSettings, hasApiKey } from "@/lib/ai-checker";
+import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import SettingsClient from "./SettingsClient";
 
 export default async function AdminSettingsPage() {
@@ -17,12 +18,14 @@ export default async function AdminSettingsPage() {
   const hidden = isSuperAdmin(session.user.role) ? await getHiddenIndicators() : null;
   const agent = isSuperAdmin(session.user.role) ? await getAgentSettings() : null;
   const ai = isSuperAdmin(session.user.role) ? await loadAi() : null;
+  const onboarding = isSuperAdmin(session.user.role) ? await loadOnboarding() : null;
 
   return (
     <SettingsClient
       indicatorHidden={hidden}
       agentSettings={agent}
       ai={ai}
+      onboarding={onboarding}
       name={session.user.name ?? ""}
       employeeId={session.user.employeeId ?? session.user.email ?? ""}
       role={session.user.role}
@@ -45,4 +48,16 @@ async function loadAi() {
       inputTokens: r.inputTokens, outputTokens: r.outputTokens, cacheReadTokens: r.cacheReadTokens, summary: r.summary, error: r.error,
     })),
   };
+}
+
+// Data tab Onboarding (Super Admin): setup + pilihan approver (karyawan aktif).
+async function loadOnboarding() {
+  const [settings, users] = await Promise.all([
+    getOnboardingSettings(),
+    prisma.user.findMany({
+      where: { isActive: true }, orderBy: { name: "asc" },
+      select: { id: true, name: true, position: true, department: { select: { name: true } } },
+    }),
+  ]);
+  return { settings, users: users.map((u) => ({ id: u.id, name: u.name, info: [u.position, u.department?.name].filter(Boolean).join(" · ") })) };
 }

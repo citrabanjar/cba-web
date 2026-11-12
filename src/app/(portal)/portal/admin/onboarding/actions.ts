@@ -9,6 +9,9 @@ import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { missingData, missingJob, readData, readJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { headers } from "next/headers";
 import { sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
+import { auth } from "@/auth";
+import { getOnboardingSettings } from "@/lib/onboarding-settings";
+import { actionableApprovers, approvalComplete, emptyInterview, interviewApproved, missingInterview, readInterview, type Interview } from "@/lib/onboarding-interview";
 
 const PATH = "/portal/admin/onboarding";
 type Result = { error?: string; missing?: string[] };
@@ -18,7 +21,7 @@ async function requireHR() {
   if (!access || !hasMenu(access, "karyawan")) throw new Error("Unauthorized");
   return access;
 }
-const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); };
+const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); revalidatePath("/portal/persetujuan"); };
 const digits = (v: string) => v.replace(/\D/g, "");
 
 // Alamat halaman onboarding (absolut, untuk email undangan), email calon sudah terisi.
@@ -30,7 +33,8 @@ async function onboardingLink(email: string) {
 }
 
 // HRD mendaftarkan calon: nama, email, nomor HP (WhatsApp). Undangan otomatis dikirim ke email calon.
-export async function inviteCandidate(input: { name: string; email: string; phone: string }): Promise<Result & { id?: string; emailed?: boolean; link?: string }> {
+// Bila Super Admin mengaktifkan tahap wawancara, calon masuk tahap wawancara dulu; undangan dikirim setelah disetujui.
+export async function inviteCandidate(input: { name: string; email: string; phone: string }): Promise<Result & { id?: string; emailed?: boolean; link?: string; interview?: boolean }> {
   const access = await requireHR();
   const name = input.name.trim().toUpperCase(), email = input.email.trim().toLowerCase(), phone = input.phone.trim();
   if (!name) return { error: "Nama wajib diisi." };
@@ -38,6 +42,11 @@ export async function inviteCandidate(input: { name: string; email: string; phon
   if (digits(phone).length < 9 || digits(phone).length > 15) return { error: "Nomor HP 9-15 digit." };
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah dipakai karyawan lain." };
   if (await prisma.candidate.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah terdaftar sebagai calon karyawan." };
+  if ((await getOnboardingSettings()).interview) {
+    const c = await prisma.candidate.create({ data: { name, email, phone, status: "WAWANCARA", data: { name, phone }, interview: emptyInterview(), invitedBy: access.name ?? null } });
+    refresh();
+    return { id: c.id, interview: true };
+  }
   const c = await prisma.candidate.create({ data: { name, email, phone, data: { name, phone }, invitedBy: access.name ?? null } });
   const link = await onboardingLink(email);
   const emailed = await sendInviteEmail(email, name, link);
@@ -49,7 +58,7 @@ export async function inviteCandidate(input: { name: string; email: string; phon
 export async function resendInvite(id: string): Promise<Result & { emailed?: boolean }> {
   await requireHR();
   const c = await prisma.candidate.findUnique({ where: { id } });
-  if (!c || c.status === "DISETUJUI" || c.status === "DITOLAK") return { error: "Calon tidak bisa diundang ulang." };
+  if (!c || !["DIUNDANG", "DIKEMBALIKAN"].includes(c.status)) return { error: "Calon tidak bisa diundang ulang." };
   const emailed = await sendInviteEmail(c.email, c.name, await onboardingLink(c.email));
   return emailed ? { emailed } : { error: "Email undangan gagal dikirim. Bagikan link /onboarding lewat WhatsApp." };
 }
@@ -110,6 +119,7 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   const access = await requireHR();
   const c = await prisma.candidate.findUnique({ where: { id } });
   if (!c || !["DIKIRIM", "DIKEMBALIKAN"].includes(c.status)) return { error: "Calon belum mengirim data atau sudah diproses." };
+  if (interviewApproved(readInterview(c.interview))) return { error: "Calon ini sudah lolos approval wawancara: langsung Daftarkan Karyawan." };
   const clean = readData(data, c.name, c.phone), j = readJob(job);
   await prisma.candidate.update({ where: { id }, data: { data: clean, job: j, reviewedBy: access.name ?? null } });
   const v = await validate(id, clean, j, c.email);
@@ -119,15 +129,11 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   return {};
 }
 
-// Persetujuan (sementara Super Admin, sampai peran Owner dibuat): calon menjadi karyawan.
-export async function approveCandidate(id: string): Promise<Result & { password?: string; userId?: string }> {
-  const access = await getAccess();
-  if (!access || !isSuperAdmin(access.role)) return { error: "Hanya Owner / Super Admin yang bisa menyetujui." };
-  const c = await prisma.candidate.findUnique({ where: { id } });
-  if (!c || c.status !== "MENUNGGU_APPROVAL") return { error: "Calon tidak sedang menunggu approval." };
-  const data = readData(c.data, c.name, c.phone), job = readJob(c.job);
-  const v = await validate(id, data, job, c.email);
-  if (v.missing.length || !v.org) return { error: "Belum bisa disetujui:", missing: v.missing };
+type Org = NonNullable<Awaited<ReturnType<typeof validate>>["org"]>;
+type CandidateRec = NonNullable<Awaited<ReturnType<typeof prisma.candidate.findUnique>>>;
+
+// Calon menjadi karyawan (satu transaksi): data karyawan + keluarga, gaji pokok dari tawaran wawancara (bila ada).
+async function createEmployee(id: string, c: CandidateRec, data: CandidateData, job: CandidateJob, org: Org, opts: { approvedBy: string | null; salary?: number }) {
   const password = randomBytes(6).toString("base64url").slice(0, 8);
   const top = await prisma.user.aggregate({ _max: { employeeNo: true } });
   const date = (s: string) => (s ? new Date(`${s}T00:00:00Z`) : null);
@@ -138,7 +144,7 @@ export async function approveCandidate(id: string): Promise<Result & { password?
         email: c.email, phone: data.phone || c.phone, role: "KARYAWAN", isActive: true,
         employmentStatus: job.employmentStatus === "TETAP" ? "TETAP" : "KONTRAK",
         joinDate: date(job.joinDate), contractEndDate: job.employmentStatus === "TETAP" ? null : date(job.contractEndDate),
-        departmentId: v.org!.departmentId, branch: v.org!.branch, position: v.org!.position,
+        departmentId: org.departmentId, branch: org.branch, position: org.position,
         birthPlace: data.birthPlace || null, birthDate: date(data.birthDate), idType: data.idType || null,
         ktpNumber: digits(data.ktpNumber) || data.ktpNumber || null, gender: data.gender || null, maritalStatus: data.maritalStatus || null,
         religion: data.religion || null, address: data.address || null, addressSameAsId: data.addressSameAsId,
@@ -150,9 +156,27 @@ export async function approveCandidate(id: string): Promise<Result & { password?
         family: { create: data.family.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), idNumber: f.idNumber || null, relation: f.relation || "Lainnya" })) },
       },
     });
-    await tx.candidate.update({ where: { id }, data: { status: "DISETUJUI", userId: u.id, approvedBy: access.name ?? null, approvedAt: new Date(), otpCode: null } });
+    if (opts.salary && opts.salary > 0 && job.joinDate) {
+      await tx.employeeSalary.create({
+        data: { userId: u.id, effectiveDate: new Date(`${job.joinDate}T00:00:00Z`), basicSalary: opts.salary, note: "Tawaran kerja (approval wawancara)", createdBy: opts.approvedBy },
+      });
+    }
+    await tx.candidate.update({ where: { id }, data: { status: "DISETUJUI", userId: u.id, approvedBy: opts.approvedBy, approvedAt: new Date(), otpCode: null } });
     return u;
   });
+  return { password, user };
+}
+
+// Persetujuan (sementara Super Admin, sampai peran Owner dibuat): calon menjadi karyawan.
+export async function approveCandidate(id: string): Promise<Result & { password?: string; userId?: string }> {
+  const access = await getAccess();
+  if (!access || !isSuperAdmin(access.role)) return { error: "Hanya Owner / Super Admin yang bisa menyetujui." };
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  if (!c || c.status !== "MENUNGGU_APPROVAL") return { error: "Calon tidak sedang menunggu approval." };
+  const data = readData(c.data, c.name, c.phone), job = readJob(c.job);
+  const v = await validate(id, data, job, c.email);
+  if (v.missing.length || !v.org) return { error: "Belum bisa disetujui:", missing: v.missing };
+  const { password, user } = await createEmployee(id, c, data, job, v.org, { approvedBy: access.name ?? null });
   refresh();
   revalidatePath("/portal/admin/karyawan");
   return { password, userId: user.id };
@@ -175,4 +199,99 @@ export async function deleteCandidate(id: string): Promise<Result> {
   await prisma.candidate.delete({ where: { id } });
   refresh();
   return {};
+}
+
+// ─── Tahap wawancara ────────────────────────────────────────────────────────
+
+const cleanInterview = (input: Interview, prev: Interview | null): Interview => {
+  const i = readInterview(input) ?? emptyInterview();
+  return { ...i, interviewer: i.interviewer.toUpperCase(), approval: prev?.approval ?? null, submittedBy: prev?.submittedBy ?? "", submittedAt: prev?.submittedAt ?? "", approvedAt: prev?.approvedAt ?? "" };
+};
+
+// HRD menyimpan hasil wawancara + tawaran kerja (selama tahap wawancara).
+export async function saveInterview(id: string, input: Interview): Promise<Result> {
+  await requireHR();
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  if (!c || c.status !== "WAWANCARA") return { error: "Calon tidak sedang di tahap wawancara." };
+  await prisma.candidate.update({ where: { id }, data: { interview: cleanInterview(input, readInterview(c.interview)) } });
+  refresh();
+  return {};
+}
+
+// Hasil wawancara diajukan ke approver (tunggal / sirkular) sesuai Setup Onboarding.
+export async function submitInterview(id: string, input: Interview): Promise<Result> {
+  const access = await requireHR();
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  if (!c || c.status !== "WAWANCARA") return { error: "Calon tidak sedang di tahap wawancara." };
+  const i = cleanInterview(input, readInterview(c.interview));
+  await prisma.candidate.update({ where: { id }, data: { interview: i } });
+  const missing = missingInterview(i);
+  if (i.offer.departmentName && i.offer.position) {
+    const org = await orgCheck({ ...readJob(null), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position });
+    missing.push(...org.problems);
+  }
+  if (missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing }; }
+  const s = await getOnboardingSettings();
+  const approvers = s.mode === "TUNGGAL" ? s.approvers.slice(0, 1) : s.approvers;
+  if (!approvers.length) return { error: "Approver wawancara belum diatur. Minta Super Admin mengisi Pengaturan → Onboarding." };
+  i.approval = { mode: s.mode, order: s.order, steps: approvers.map((a) => ({ id: a.id, name: a.name, decision: "", at: "", note: "" })) };
+  i.submittedBy = access.name ?? "";
+  i.submittedAt = new Date().toISOString();
+  await prisma.candidate.update({ where: { id }, data: { status: "APPROVAL_WAWANCARA", interview: i, note: null } });
+  refresh();
+  return {};
+}
+
+// Approver memutus hasil wawancara. Semua setuju → undangan isi data otomatis ke email calon.
+export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", note: string): Promise<Result & { emailed?: boolean; done?: boolean }> {
+  const session = await auth();
+  const me = session?.user?.id;
+  if (!me) return { error: "Unauthorized" };
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  const i = readInterview(c?.interview);
+  if (!c || !i?.approval || c.status !== "APPROVAL_WAWANCARA") return { error: "Calon tidak sedang menunggu approval wawancara." };
+  if (!actionableApprovers(i.approval).includes(me)) return { error: "Belum giliran Anda memutus, atau Anda bukan approver calon ini." };
+  if (decision === "TOLAK" && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const step = i.approval.steps.find((x) => x.id === me && !x.decision)!;
+  step.decision = decision; step.at = new Date().toISOString(); step.note = note.trim();
+  if (decision === "TOLAK") {
+    await prisma.candidate.update({ where: { id }, data: { status: "DITOLAK", interview: i, note: `Ditolak saat approval wawancara (${step.name}): ${note.trim()}`, approvedBy: step.name, approvedAt: new Date() } });
+    refresh();
+    return { done: true };
+  }
+  if (!approvalComplete(i.approval)) {
+    await prisma.candidate.update({ where: { id }, data: { interview: i } });
+    refresh();
+    return { done: false };
+  }
+  i.approvedAt = new Date().toISOString();
+  // Tawaran kerja yang disetujui menjadi isian awal Data Pekerjaan.
+  const job = {
+    ...readJob(c.job), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position,
+    employmentStatus: i.offer.employmentStatus, joinDate: i.offer.joinDate, contractEndDate: i.offer.employmentStatus === "TETAP" ? "" : i.offer.contractEndDate,
+  };
+  await prisma.candidate.update({ where: { id }, data: { status: "DIUNDANG", interview: i, job } });
+  const emailed = await sendInviteEmail(c.email, c.name, await onboardingLink(c.email));
+  refresh();
+  return { done: true, emailed };
+}
+
+// Jalur wawancara: setelah data calon cocok, HRD isi Employee ID & penempatan lalu langsung masuk database.
+// Status kerja, jabatan, dan gaji pokok mengikuti tawaran yang sudah disetujui (tidak bisa diubah di sini).
+export async function registerCandidate(id: string, data: CandidateData, job: CandidateJob): Promise<Result & { password?: string; userId?: string }> {
+  const access = await requireHR();
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  if (!c || !["DIKIRIM", "DIKEMBALIKAN"].includes(c.status)) return { error: "Calon belum mengirim data atau sudah diproses." };
+  const i = readInterview(c.interview);
+  if (!i || !interviewApproved(i)) return { error: "Calon ini tidak lewat approval wawancara: ajukan approval ke Super Admin." };
+  const clean = readData(data, c.name, c.phone);
+  const j = { ...readJob(job), position: i.offer.position, employmentStatus: i.offer.employmentStatus };
+  if (j.employmentStatus === "TETAP") j.contractEndDate = "";
+  await prisma.candidate.update({ where: { id }, data: { data: clean, job: j, reviewedBy: access.name ?? null } });
+  const v = await validate(id, clean, j, c.email);
+  if (v.missing.length || !v.org) { refresh(); return { error: "Belum bisa didaftarkan:", missing: v.missing }; }
+  const { password, user } = await createEmployee(id, c, clean, j, v.org, { approvedBy: access.name ?? null, salary: Number(i.offer.salary) || 0 });
+  refresh();
+  revalidatePath("/portal/admin/karyawan");
+  return { password, userId: user.id };
 }

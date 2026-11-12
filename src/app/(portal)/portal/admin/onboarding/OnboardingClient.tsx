@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, ClipboardCheck, Copy, KeyRound, Loader2, Plus, Search, Send, Trash2, Undo2, UserCheck, UserPlus, Users, XCircle } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ClipboardCheck, Copy, KeyRound, Loader2, MessagesSquare, Plus, Search, Send, Trash2, Undo2, UserCheck, UserPlus, Users, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +11,16 @@ import { T, useT } from "@/components/i18n";
 import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions } from "@/lib/master-data";
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, missingData, missingJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
-import { approveCandidate, deleteCandidate, inviteCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, submitForApproval } from "./actions";
+import { emptyInterview, interviewApproved, missingInterview, rupiah, type Interview } from "@/lib/onboarding-interview";
+import { InterviewDecision, InterviewForm, InterviewSummary } from "@/components/portal/InterviewPanel";
+import { approveCandidate, deleteCandidate, inviteCandidate, registerCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, saveInterview, submitForApproval, submitInterview } from "./actions";
 
 export type CandidateRow = {
   id: string; name: string; email: string; phone: string; status: string; note: string | null;
   data: CandidateData; job: CandidateJob; otp: { code: string; until: string } | null;
   submittedAt: string | null; createdAt: string; invitedBy: string | null; reviewedBy: string | null;
   approvedBy: string | null; approvedAt: string | null; userId: string | null;
+  interview: Interview | null; canDecide: boolean;
 };
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm disabled:bg-gray-50";
@@ -33,7 +36,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [msg, setMsg] = useState<Msg>(null);
-  const [done, setDone] = useState<{ emailed: boolean; link: string } | null>(null);
+  const [done, setDone] = useState<{ emailed: boolean; link: string; interview?: boolean } | null>(null);
   const [pending, start] = useTransition();
   const link = done?.link ?? (typeof window !== "undefined" ? `${window.location.origin}/onboarding` : "/onboarding");
   return (
@@ -43,6 +46,9 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
         {done ? (
           <div className="min-w-0 space-y-3 text-sm text-gray-700">
             <p className="flex items-center gap-2 font-semibold text-emerald-700"><CheckCircle2 size={16} /> <T>Calon karyawan terdaftar.</T></p>
+            {done.interview ? (
+              <p className="rounded-lg bg-sky-50 px-3 py-2 text-sky-800"><T>Calon masuk tahap wawancara. Isi hasil wawancara dan tawaran kerja, lalu ajukan approval. Undangan isi data dikirim otomatis ke email calon setelah disetujui.</T></p>
+            ) : <>
             {done.emailed
               ? <p className="break-words rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><T>Email undangan sudah dikirim ke</T> <b>{form.email}</b>.</p>
               : <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800"><T>Email undangan belum terkirim. Kirim link berikut ke calon lewat WhatsApp.</T></p>}
@@ -51,6 +57,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
               <code className="min-w-0 flex-1 break-all text-xs">{link}</code>
               <button type="button" aria-label={t("Salin")} onClick={() => navigator.clipboard?.writeText(link)} className="text-gray-500 hover:text-brand"><Copy size={14} /></button>
             </div>
+            </>}
           </div>
         ) : (
           <div className="space-y-3">
@@ -67,7 +74,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
           {!done && (
             <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
               const r = await inviteCandidate(form);
-              if (r.error) setMsg({ ok: false, text: r.error }); else setDone({ emailed: !!r.emailed, link: r.link ?? link });
+              if (r.error) setMsg({ ok: false, text: r.error }); else setDone({ emailed: !!r.emailed, link: r.link ?? link, interview: r.interview });
             })}>{pending && <Loader2 size={15} className="animate-spin" />} <T>Daftarkan</T></Button>
           )}
         </DialogFooter>
@@ -81,12 +88,16 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   const [tab, setTab] = useState<"data" | "job">("data");
   const [data, setData] = useState(row.data);
   const [job, setJob] = useState(row.job);
+  const [iv, setIv] = useState<Interview>(row.interview ?? emptyInterview());
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [password, setPassword] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const closed = row.status === "DISETUJUI" || row.status === "DITOLAK";
   const waiting = row.status === "DIUNDANG";
+  const inInterview = row.status === "WAWANCARA" || row.status === "APPROVAL_WAWANCARA";
+  // Lolos approval wawancara: HRD langsung mendaftarkan karyawan; status kerja, jabatan, gaji mengikuti tawaran.
+  const viaInterview = interviewApproved(row.interview);
   const run = (fn: () => Promise<{ error?: string; missing?: string[] }>, ok: string, after?: () => void) => {
     setMsg(null);
     start(async () => {
@@ -96,7 +107,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   };
   const setJ = <K extends keyof CandidateJob>(k: K, v: CandidateJob[K]) => setJob((j) => ({ ...j, [k]: v }));
   const masterSelect = (k: "branch" | "departmentName" | "position", list: string[]) => (
-    <select value={job[k]} disabled={closed} onChange={(e) => setJ(k, e.target.value)} className={select}>
+    <select value={job[k]} disabled={closed || (viaInterview && k === "position")} onChange={(e) => setJ(k, e.target.value)} className={select}>
       <option value="">—</option>
       {[...(job[k] && !list.includes(job[k]) ? [job[k]] : []), ...list].map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
@@ -124,7 +135,22 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
         )}
         {row.note && (row.status === "DIKEMBALIKAN" || row.status === "DITOLAK") && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800"><b><T>Catatan</T>:</b> {row.note}</p>}
 
-        {!waiting && (
+        {row.status === "WAWANCARA" && (
+          <>
+            <InterviewForm value={iv} onChange={setIv} master={master} />
+            {missingInterview(iv).length > 0 && <p className="text-xs text-amber-700"><T>Belum lengkap</T>: {missingInterview(iv).map((m) => t(m)).join(", ")}</p>}
+          </>
+        )}
+        {row.status === "APPROVAL_WAWANCARA" && row.interview && <InterviewSummary interview={row.interview} />}
+        {row.status === "APPROVAL_WAWANCARA" && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
+        {!inInterview && row.interview?.approval && (
+          <details className="rounded-2xl border border-sky-100 bg-sky-50/50 px-4 py-2 text-sm">
+            <summary className="cursor-pointer font-semibold text-sky-800"><MessagesSquare size={14} className="mr-1 inline" /> <T>Hasil wawancara & tawaran kerja</T></summary>
+            <div className="mt-3"><InterviewSummary interview={row.interview} /></div>
+          </details>
+        )}
+
+        {!waiting && !inInterview && (
           <>
             <div className="flex gap-1 rounded-xl bg-gray-100 p-1 text-sm">
               {([["data", "Data Pribadi"], ["job", "Data Pekerjaan (HRD)"]] as const).map(([k, l]) => (
@@ -138,7 +164,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 <div className="space-y-1.5"><Label className="text-xs"><T>Employee ID</T></Label>
                   <Input value={job.employeeId} disabled={closed} onChange={(e) => setJ("employeeId", e.target.value.toUpperCase())} /></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Status kerja</T></Label>
-                  <select value={job.employmentStatus} disabled={closed} onChange={(e) => setJ("employmentStatus", e.target.value)} className={select}>
+                  <select value={job.employmentStatus} disabled={closed || viaInterview} onChange={(e) => setJ("employmentStatus", e.target.value)} className={select}>
                     <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option>
                   </select></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Cabang</T></Label>{masterSelect("branch", master.branches)}</div>
@@ -149,6 +175,11 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 {job.employmentStatus === "KONTRAK" && (
                   <div className="space-y-1.5"><Label className="text-xs"><T>Tanggal akhir kontrak</T></Label>
                     <Input type="date" value={job.contractEndDate} disabled={closed} onChange={(e) => setJ("contractEndDate", e.target.value)} /></div>
+                )}
+                {viaInterview && row.interview && (
+                  <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800 sm:col-span-2">
+                    <T>Status kerja, jabatan, dan gaji pokok</T> (<b>{rupiah(row.interview.offer.salary)}</b>) <T>mengikuti tawaran yang sudah disetujui di approval wawancara. Gaji pokok dicatat otomatis mulai tanggal masuk.</T>
+                  </p>
                 )}
               </div>
             )}
@@ -164,7 +195,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
         )}
         <MsgBox msg={msg} />
 
-        {!closed && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN" || row.status === "MENUNGGU_APPROVAL") && (
+        {!closed && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN" || row.status === "MENUNGGU_APPROVAL" || (canApprove && row.status === "WAWANCARA")) && (
           <div className="space-y-1.5"><Label className="text-xs"><T>Catatan (untuk mengembalikan ke calon / menolak)</T></Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Contoh: No. KTP tidak sesuai dokumen")} /></div>
         )}
@@ -178,16 +209,33 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
             {(row.status === "DIKIRIM" || row.status === "MENUNGGU_APPROVAL") && (
               <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon dan diberi tahu lewat email.", onClose)}><Undo2 size={14} /> <T>Kembalikan ke Calon</T></Button>
             )}
-            {canApprove && row.status === "MENUNGGU_APPROVAL" && (
+            {canApprove && (row.status === "MENUNGGU_APPROVAL" || row.status === "WAWANCARA") && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
                 onClick={() => { if (window.confirm(t("Tolak calon karyawan ini?"))) run(() => rejectCandidate(row.id, note), "Calon ditolak.", onClose); }}><XCircle size={14} /> <T>Tolak</T></Button>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {!closed && !waiting && (
+            {row.status === "WAWANCARA" && (
+              <>
+                <Button variant="outline" disabled={pending} onClick={() => run(() => saveInterview(row.id, iv), "Tersimpan.")}><T>Simpan</T></Button>
+                <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitInterview(row.id, iv), "Hasil wawancara diajukan ke approver.", onClose)}>
+                  {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Ajukan Approval Wawancara</T></Button>
+              </>
+            )}
+            {!closed && !waiting && !inInterview && (
               <Button variant="outline" disabled={pending} onClick={() => run(() => saveCandidateReview(row.id, data, job), "Tersimpan.")}><T>Simpan</T></Button>
             )}
-            {(row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
+            {viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && !password && (
+              <Button disabled={pending} className="gap-1.5" onClick={() => {
+                if (!window.confirm(t("Daftarkan sebagai karyawan? Data langsung masuk database."))) return;
+                setMsg(null);
+                start(async () => {
+                  const r = await registerCandidate(row.id, data, job);
+                  if (r.error) setMsg({ ok: false, text: r.error, list: r.missing }); else setPassword(r.password ?? null);
+                });
+              }}>{pending ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Daftarkan Karyawan</T></Button>
+            )}
+            {!viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
               <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitForApproval(row.id, data, job), "Diajukan untuk approval.", onClose)}>
                 {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Ajukan Approval</T></Button>
             )}
@@ -214,7 +262,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   );
 }
 
-export default function OnboardingClient({ rows, master, canApprove }: { rows: CandidateRow[]; master: MasterOptions; canApprove: boolean }) {
+export default function OnboardingClient({ rows, master, canApprove, interviewOn }: { rows: CandidateRow[]; master: MasterOptions; canApprove: boolean; interviewOn: boolean }) {
   const t = useT();
   const [tab, setTab] = useState<string>("proses");
   const [q, setQ] = useState("");
@@ -225,6 +273,8 @@ export default function OnboardingClient({ rows, master, canApprove }: { rows: C
   const list = inGroup(tab).filter((r) => !q || `${r.name} ${r.email} ${r.phone}`.toLowerCase().includes(q.toLowerCase()));
   const count = (s: string) => rows.filter((r) => r.status === s).length;
   const stats = [
+    ...(interviewOn || count("WAWANCARA") + count("APPROVAL_WAWANCARA") > 0
+      ? [{ label: "Tahap wawancara", value: count("WAWANCARA") + count("APPROVAL_WAWANCARA"), icon: MessagesSquare, tone: "from-sky-500 to-cyan-400" }] : []),
     { label: "Diundang / mengisi", value: count("DIUNDANG") + count("DIKEMBALIKAN"), icon: Users, tone: "from-slate-500 to-slate-400" },
     { label: "Menunggu pemeriksaan HRD", value: count("DIKIRIM"), icon: ClipboardCheck, tone: "from-amber-500 to-orange-400" },
     { label: "Menunggu approval", value: count("MENUNGGU_APPROVAL"), icon: UserCheck, tone: "from-violet-500 to-fuchsia-400" },
@@ -234,10 +284,12 @@ export default function OnboardingClient({ rows, master, canApprove }: { rows: C
     <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Onboarding</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5"><T>Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan untuk approval.</T></p>
+        <p className="text-xs text-gray-400 mt-0.5"><T>{interviewOn
+          ? "Calon diwawancara dulu; hasil wawancara dan tawaran kerja disetujui approver, lalu calon mengisi data sendiri lewat /onboarding dan HRD mendaftarkannya sebagai karyawan."
+          : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan untuk approval."}</T></p>
       </div>
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
           {stats.map((s) => (
             <div key={s.label} className="rounded-2xl border border-gray-200 bg-white p-4">
               <div className="flex items-center justify-between"><p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
@@ -281,7 +333,7 @@ export default function OnboardingClient({ rows, master, canApprove }: { rows: C
             </ul>
           )}
         </div>
-        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Persetujuan sementara dilakukan Super Admin sampai peran Owner ditetapkan.</T></p>
+        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>{interviewOn ? "Alur wawancara diatur Super Admin di Pengaturan → Onboarding." : "Persetujuan sementara dilakukan Super Admin sampai peran Owner ditetapkan."}</T></p>
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} onClose={() => setOpenId(null)} />}

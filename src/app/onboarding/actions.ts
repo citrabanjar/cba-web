@@ -25,6 +25,7 @@ export async function requestOtp(email: string, phone: string): Promise<Result &
   if (!c) return { error: "Email atau nomor HP tidak terdaftar sebagai calon karyawan. Hubungi HRD." };
   if (c.status === "DISETUJUI") return { error: "Data Anda sudah disetujui. Silakan masuk lewat Portal Karyawan." };
   if (c.status === "DITOLAK") return { error: "Pendaftaran Anda tidak dilanjutkan. Hubungi HRD." };
+  if (c.status === "WAWANCARA" || c.status === "APPROVAL_WAWANCARA") return { error: "Pendaftaran Anda masih di tahap wawancara. Undangan mengisi data dikirim ke email setelah hasil wawancara disetujui." };
   const code = newOtp();
   await prisma.candidate.update({
     where: { id: c.id }, data: { otpCode: code, otpExpires: new Date(Date.now() + OTP_MINUTES * 60_000), otpTries: 0 },

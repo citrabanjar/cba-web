@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
+import { InterviewDecision, InterviewSummary } from "@/components/portal/InterviewPanel";
+import type { Interview } from "@/lib/onboarding-interview";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { halfDayLabel } from "@/lib/leave";
@@ -36,11 +39,15 @@ export type SwapItem = {
   mine: boolean; managerA: string | null; managerB?: string | null; decidedBy: string | null;
 };
 
-type TabKey = "menunggu" | "riwayat" | "data" | "swap";
+export type InterviewItem = {
+  id: string; name: string; email: string; phone: string; status: string; statusLabel: string; interview: Interview; mine: boolean;
+};
 
-export default function PersetujuanClient({ items, profiles, swaps }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[] }) {
+type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara";
+
+export default function PersetujuanClient({ items, profiles, swaps, interviews }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[] }) {
   const [tab, setTab] = useState<TabKey>(() =>
-    items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
+    interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
       : profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
   const pending = items.filter((i) => i.status === "PENDING").sort((a, b) => a.start.localeCompare(b.start));
   const done = items.filter((i) => i.status !== "PENDING").sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
@@ -49,6 +56,7 @@ export default function PersetujuanClient({ items, profiles, swaps }: { items: A
     ["riwayat", "Riwayat 60 hari", done.length],
     ["swap", "Tukar Shift", swaps.filter((s) => s.mine).length],
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
+    ...(interviews.length ? [["wawancara", "Wawancara", interviews.filter((i) => i.mine).length] as [TabKey, string, number]] : []),
   ];
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
@@ -60,7 +68,9 @@ export default function PersetujuanClient({ items, profiles, swaps }: { items: A
           </button>
         ))}
       </div>
-      {tab === "swap" ? (
+      {tab === "wawancara" ? (
+        [...interviews].sort((a, b) => Number(b.mine) - Number(a.mine)).map((i) => <InterviewCard key={i.id} item={i} />)
+      ) : tab === "swap" ? (
         swaps.length === 0 ? <Empty text="Tidak ada pengajuan tukar shift." /> : [...swaps]
           .sort((a, b) => Number(b.mine) - Number(a.mine) || a.date.localeCompare(b.date))
           .map((s) => <SwapCard key={s.id} s={s} />)
@@ -283,6 +293,24 @@ function SwapCard({ s }: { s: SwapItem }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Approval hasil wawancara calon karyawan.
+function InterviewCard({ item }: { item: InterviewItem }) {
+  const router = useRouter();
+  return (
+    <div className={`space-y-3 rounded-2xl border bg-white p-4 ${item.mine ? "border-amber-300" : "border-gray-200"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900">{item.name}</p>
+          <p className="text-xs text-gray-500">{item.email} · {item.phone}</p>
+        </div>
+        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600"><T>{item.statusLabel}</T></span>
+      </div>
+      <InterviewSummary interview={item.interview} />
+      {item.mine && <InterviewDecision candidateId={item.id} onDone={() => router.refresh()} />}
     </div>
   );
 }
