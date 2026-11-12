@@ -636,6 +636,10 @@ export async function importEmployees(rows: ImportRow[]) {
           idType: row.ktpNumber ? "KTP" : null,
           ktpNumber: row.ktpNumber,
           address: row.address,
+          // Wilayah hanya disimpan bila cocok dengan data Kemendagri (dicocokkan di browser); selain itu kosong.
+          addressRegion: row.addressRegion && /^\d{2}\.\d{2}\.\d{2}\.\d{4}$/.test(row.addressRegion) ? row.addressRegion : null,
+          addressRegionName: row.addressRegion && row.addressRegionName ? row.addressRegionName.toUpperCase() : null,
+          addressPostal: row.addressPostal && /^\d{5}$/.test(row.addressPostal) ? row.addressPostal : null,
           birthPlace: row.birthPlace,
           birthDate: toDate(row.birthDate),
           gender: row.gender,

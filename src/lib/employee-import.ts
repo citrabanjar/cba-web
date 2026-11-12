@@ -38,6 +38,14 @@ export type ImportRow = {
   phone?: string;
   ktpNumber?: string;
   address?: string;
+  // Wilayah alamat KTP (nama, dicocokkan ke data Kemendagri di browser sebelum dikirim).
+  addressVillage?: string;
+  addressDistrict?: string;
+  addressCity?: string;
+  addressProvince?: string;
+  addressPostal?: string;
+  addressRegion?: string; // hasil pencocokan: kode kelurahan/desa; kosong bila tidak ketemu
+  addressRegionName?: string;
   birthPlace?: string;
   birthDate?: string;
   gender?: string;
@@ -49,7 +57,7 @@ export type ImportRow = {
   emergencyRelation?: string;
 };
 
-type Field = Exclude<keyof ImportRow, "components">;
+type Field = Exclude<keyof ImportRow, "components" | "addressRegion" | "addressRegionName">;
 type Kind = "text" | "digits" | "date" | "money" | "email" | "phone";
 
 type Column = {
@@ -99,7 +107,12 @@ const COLUMNS: Column[] = [
   { field: "bankHolder", names: ["Nama Pemilik Rekening", "Bank Account Holder"], example: "Ahmad Subarjo" },
   { field: "phone", names: ["No HP", "Mobile Phone (WhatsApp)"], kind: "phone", example: "081234567890", note: "Boleh diawali 08 atau 62. Tulis sebagai teks." },
   { field: "ktpNumber", names: ["No KTP", "ID Number"], kind: "digits", example: "3201010101010001", note: "16 digit. Tidak boleh sama dengan karyawan lain. Tulis sebagai teks." },
-  { field: "address", names: ["Alamat KTP", "Residential Address"], example: "Jl. Contoh No. 1, Banjarmasin" },
+  { field: "address", names: ["Alamat KTP", "Residential Address"], example: "JL. CONTOH NO. 1 RT 01 RW 02", note: "Jalan, nomor, RT/RW saja. Kelurahan s/d provinsi diisi di kolom berikutnya." },
+  { field: "addressVillage", names: ["Kelurahan/Desa KTP", "Kelurahan/Desa"], example: "BASIRIH SELATAN", note: "Dicocokkan ke data resmi Kemendagri bersama 3 kolom berikutnya. Bila tidak ketemu, karyawan tetap terimport dan wilayah dikosongkan." },
+  { field: "addressDistrict", names: ["Kecamatan KTP", "Kecamatan"], example: "BANJARMASIN SELATAN" },
+  { field: "addressCity", names: ["Kabupaten/Kota KTP", "Kabupaten/Kota"], example: "KOTA BANJARMASIN", note: "Tulis KOTA / KABUPATEN bila ada nama yang sama (mis. KOTA BEKASI vs KABUPATEN BEKASI)." },
+  { field: "addressProvince", names: ["Provinsi KTP", "Provinsi"], example: "KALIMANTAN SELATAN" },
+  { field: "addressPostal", names: ["Kode Pos KTP", "Kode Pos"], kind: "digits", example: "70245", note: "Boleh kosong: terisi otomatis dari kelurahan bila datanya ada." },
   { field: "birthPlace", names: ["Tempat Lahir", "Birth Place"], example: "Banjarmasin" },
   { field: "birthDate", names: ["Tanggal Lahir", "Birth Date"], kind: "date", example: "20-Mei-1990" },
   { field: "gender", names: ["Jenis Kelamin", "Gender"], choices: { "laki-laki": "Laki-laki", male: "Laki-laki", perempuan: "Perempuan", female: "Perempuan" }, shown: "Laki-laki, Perempuan", example: "Laki-laki" },

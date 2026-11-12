@@ -27,4 +27,4 @@ export const isVillageCode = (code: string | null | undefined) => !!code && /^\d
 export const isPostalCode = (v: string | null | undefined) => !!v && /^\d{5}$/.test(v);
 
 export const regionLabel = (village: string, district: string, city: string, province: string) =>
-  [village, district && `Kec. ${district}`, city, province].filter(Boolean).join(", ");
+  [village, district && `KEC. ${district}`, city, province].filter(Boolean).join(", ");

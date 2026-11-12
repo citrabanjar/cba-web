@@ -25,6 +25,7 @@ import {
 import {
   downloadTemplate, parseEmployeeFile, type ParsedFile,
 } from "@/lib/employee-import";
+import { matchRegion } from "@/lib/wilayah-match";
 import type { MasterOptions } from "@/lib/master-data";
 import { BANK_OPTIONS } from "@/lib/personal-info";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
@@ -99,6 +100,8 @@ export default function KaryawanClient({
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [form, setForm] = useState<Partial<EmployeeInput>>({ ...EMPTY });
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  const [matching, setMatching] = useState(false);
+  const [regionStat, setRegionStat] = useState<{ matched: number; missed: string[] } | null>(null);
   const [importResult, setImportResult] = useState<ImportResult[] | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -199,14 +202,32 @@ export default function KaryawanClient({
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setParsed(parseEmployeeFile(ev.target?.result as ArrayBuffer, master));
+      const p = parseEmployeeFile(ev.target?.result as ArrayBuffer, master);
+      setParsed(p);
+      setRegionStat(null);
       setImportResult(null);
+      // Cocokkan wilayah alamat KTP ke data Kemendagri; yang tidak ketemu tetap diimport dengan wilayah kosong.
+      if (p.rows.length) {
+        setMatching(true);
+        Promise.all(p.rows.map(async (r) => {
+          const filled = !!(r.addressVillage || r.addressDistrict || r.addressCity || r.addressProvince);
+          const m = filled ? await matchRegion({ village: r.addressVillage, district: r.addressDistrict, city: r.addressCity, province: r.addressProvince }).catch(() => null) : null;
+          const postal = /^\d{5}$/.test(r.addressPostal ?? "") ? r.addressPostal : m?.postal || undefined;
+          return { row: { ...r, addressRegion: m?.code, addressRegionName: m?.name, addressPostal: postal }, filled, ok: !!m };
+        })).then((list) => {
+          setParsed({ ...p, rows: list.map((x) => x.row) });
+          setRegionStat({
+            matched: list.filter((x) => x.ok).length,
+            missed: list.filter((x) => x.filled && !x.ok).map((x) => `${x.row.employeeId}: ${[x.row.addressVillage, x.row.addressDistrict, x.row.addressCity, x.row.addressProvince].filter(Boolean).join(", ")}`),
+          });
+        }).finally(() => setMatching(false));
+      }
     };
     reader.readAsArrayBuffer(file);
   }
 
   function handleImport() {
-    if (!parsed?.rows.length || parsed.orgMissing.length) return;
+    if (!parsed?.rows.length || parsed.orgMissing.length || matching) return;
     startTransition(async () => {
       const { results } = await importEmployees(parsed.rows);
       setImportResult(results);
@@ -549,6 +570,21 @@ export default function KaryawanClient({
                       <Link href="/portal/admin/setup" className="font-semibold underline"><T>Setup Organisasi</T></Link>{" "}
                       <T>atau perbaiki penulisannya di file, lalu pilih file lagi.</T>
                     </p>
+                  </div>
+                )}
+                {(matching || regionStat) && (
+                  <div className="rounded-lg bg-sky-50 p-3 text-sky-900">
+                    {matching ? <p><T>Mencocokkan wilayah dengan data Kemendagri…</T></p> : regionStat && (
+                      <>
+                        <p><T>Wilayah alamat KTP dikenali</T>: <b>{regionStat.matched}</b> <T>dari</T> {parsed.rows.length} <T>karyawan</T>.</p>
+                        {regionStat.missed.length > 0 && (
+                          <div className="mt-1 max-h-24 overflow-y-auto text-amber-800">
+                            <p className="font-semibold"><T>Tidak ketemu (tetap diimport, wilayah dikosongkan untuk diisi manual):</T></p>
+                            {regionStat.missed.map((m) => <p key={m}>{m}</p>)}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
                 {parsed.unknown.length > 0 && (
