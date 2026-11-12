@@ -10,11 +10,21 @@ import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import { CANDIDATE_STATUS, candidateCanEdit, missingData, type CandidateData } from "@/lib/onboarding";
 import { logoutCandidate, saveCandidateData } from "../actions";
 
+const DRAFT_KEY = "cba-onboarding-draft";
+
 export default function CandidateFormClient({ name, status, note, initial }: {
   name: string; status: string; note: string | null; initial: CandidateData;
 }) {
   const router = useRouter();
-  const [data, setData] = useState(initial);
+  // Isian yang belum terkirim karena halaman perlu dimuat ulang dipulihkan dari browser (lihat save()).
+  const [data, setData] = useState<CandidateData>(() => {
+    if (typeof window === "undefined" || !candidateCanEdit(status)) return initial;
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      sessionStorage.removeItem(DRAFT_KEY);
+      return saved ? { ...initial, ...(JSON.parse(saved) as Partial<CandidateData>) } : initial;
+    } catch { return initial; }
+  });
   const [msg, setMsg] = useState<{ ok: boolean; text: string; list?: string[] } | null>(null);
   const [pending, start] = useTransition();
   const editable = candidateCanEdit(status);
@@ -24,7 +34,15 @@ export default function CandidateFormClient({ name, status, note, initial }: {
     setMsg(null);
     if (submit && !window.confirm("Kirim data ke HRD? Setelah dikirim, data tidak bisa diubah kecuali dikembalikan HRD.")) return;
     start(async () => {
-      const r = await saveCandidateData(data, submit);
+      // Bila portal baru diperbarui saat halaman ini masih terbuka, panggilan ke server bisa gagal:
+      // tampilkan pesan (isian tidak hilang) alih-alih halaman error.
+      let r: Awaited<ReturnType<typeof saveCandidateData>>;
+      try { r = await saveCandidateData(data, submit); }
+      catch {
+        try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch { /* abaikan */ }
+        setMsg({ ok: false, text: "Portal baru saja diperbarui. Muat ulang halaman ini (tekan F5 / tarik ke bawah), isian Anda tetap ada, lalu tekan tombol kirim lagi." });
+        return;
+      }
       if (r.error) setMsg({ ok: false, text: r.error, list: r.missing });
       else { setMsg({ ok: true, text: submit ? "Data terkirim ke HRD. Terima kasih." : "Draf tersimpan." }); router.refresh(); }
     });
