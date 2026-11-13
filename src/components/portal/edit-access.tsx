@@ -7,9 +7,7 @@
 // Server tetap menolak aksi ubah dari pemegang hak lihat (requireMenu / canEditMenu), jadi ini hanya kenyamanan tampilan.
 import { createContext, useContext } from "react";
 import { usePathname } from "next/navigation";
-import { Eye } from "lucide-react";
-import { canEditMenu, hasMenu, MENUS, type MenuKey } from "@/lib/roles";
-import { T } from "@/components/i18n";
+import { canEditMenu, type MenuKey } from "@/lib/roles";
 
 type Access = { role: string; menuAccess: string[] };
 const Ctx = createContext<Access | null>(null);
@@ -39,18 +37,4 @@ export function useCanEdit(menu?: MenuKey) {
   const key = menu ?? pageMenu(path);
   if (!key) return true; // bukan halaman menu admin
   return canEditMenu(access, key);
-}
-
-// Pita "Mode lihat saja" di atas halaman admin yang hanya boleh dilihat.
-export function ViewOnlyBanner({ access }: { access: Access }) {
-  const path = usePathname();
-  const key = pageMenu(path);
-  if (!key || !hasMenu(access, key) || canEditMenu(access, key)) return null;
-  const levels = MENUS.find((m) => m.key === key)?.levels as readonly string[] | undefined;
-  if (levels && !levels.includes("edit")) return null; // menu memang hanya untuk dilihat (Company)
-  return (
-    <div className="print:hidden flex items-center gap-2 bg-sky-50 px-4 py-2 text-xs font-medium text-sky-800 sm:px-6">
-      <Eye size={14} /> <T>Mode lihat saja: Anda bisa melihat data di menu ini, tetapi tidak bisa mengubahnya.</T>
-    </div>
-  );
 }

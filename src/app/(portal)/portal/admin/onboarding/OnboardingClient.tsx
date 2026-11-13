@@ -315,12 +315,13 @@ export default function OnboardingClient({ rows, master, canApprove, flow, peopl
   ];
   return (
     <div className="bg-gray-50 min-h-full">
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
+      {/* Judul & keterangan alur hanya untuk Admin yang bisa mengubah; hak lihat langsung ke daftar calon. */}
+      {canEdit && <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Pra-Karyawan</T></h2>
         <p className="text-xs text-gray-400 mt-0.5"><T>{interviewOn
           ? "Calon diwawancara dulu oleh pewawancara; penilaian dan tawaran kerja disetujui approver, lalu calon mengisi data sendiri lewat /onboarding dan HRD mendaftarkannya sebagai karyawan."
           : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan ke approver."}</T></p>
-      </div>
+      </div>}
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
         <FlowSetup flow={flow} people={people} />
         <div className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
