@@ -369,7 +369,7 @@ export default function OnboardingClient({ rows, master, canApprove, flow, peopl
             </ul>
           )}
         </div>
-        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Modul dinyalakan Super Admin di Pengaturan → Fitur; wawancara dan approver diatur di Alur Pra-Karyawan di atas.</T></p>
+        {canEdit && <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Modul dinyalakan Super Admin di Pengaturan → Fitur; wawancara dan approver diatur di Alur Pra-Karyawan di atas.</T></p>}
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} onClose={() => setOpenId(null)} />}
