@@ -166,7 +166,7 @@ export default function AgentPanel({ groups, setup, reminders, ai = [] }: { grou
         <div className="flex h-[18rem] flex-col items-center justify-center gap-2 px-6 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400"><ClipboardList size={22} /></span>
           <p className="text-sm font-semibold text-gray-800"><T>Belum ada pengecekan yang dinyalakan.</T></p>
-          <p className="text-xs text-gray-400"><T>Admin bisa menyalakannya di Pengaturan, tab Task Admin.</T></p>
+          <p className="text-xs text-gray-400"><T>Super Admin bisa menyalakannya di Pengaturan, tab Task Admin.</T></p>
         </div>
       ) : total === 0 ? (
         <div className="flex h-[18rem] flex-col items-center justify-center gap-2 text-center">

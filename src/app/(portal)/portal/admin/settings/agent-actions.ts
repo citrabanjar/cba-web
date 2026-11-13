@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEditMenu, isManagement, isSuperAdmin } from "@/lib/roles";
-import { getAccess } from "@/lib/access";
+import { isManagement, isSuperAdmin } from "@/lib/roles";
 import { AGENT_SETTING_KEY, MONITOR_CHECKS, normalizeAgentSettings, type AgentSettings, type SopReminder } from "@/lib/agent-hrd";
 
 type Result = { error?: string };
@@ -22,21 +21,15 @@ async function store(value: AgentSettings, by: string | null) {
   revalidatePath("/portal/admin/settings");
 }
 // Setup detail fitur dikerjakan Admin; Super Admin hanya menyalakan fitur (Pengaturan → Fitur).
-async function requireAdminOnly() {
-  const session = await auth();
-  const access = await getAccess();
-  if (!session?.user || !access || !canEditMenu(access, "pengaturan") || isSuperAdmin(access.role)) throw new Error("Unauthorized");
-  return session.user;
-}
 async function requireSuper() {
   const session = await auth();
   if (!session?.user || !isSuperAdmin(session.user.role)) throw new Error("Unauthorized");
   return session.user;
 }
 
-// Pengecekan yang dinyalakan/dimatikan dan batas angkanya (Admin).
+// Pengecekan yang dinyalakan/dimatikan dan batas angkanya (Super Admin).
 export async function saveAgentRules(input: { enabled: string[]; contractDays: number; payrollRemindDays: number }): Promise<Result> {
-  const user = await requireAdminOnly();
+  const user = await requireSuper();
   const keys = new Set<string>(MONITOR_CHECKS.map((c) => c.key));
   const s = await load();
   s.enabled = input.enabled.filter((k) => keys.has(k));
@@ -48,7 +41,7 @@ export async function saveAgentRules(input: { enabled: string[]; contractDays: n
 
 // Tambah / ubah pengingat SOP (Admin).
 export async function saveReminder(input: SopReminder): Promise<Result> {
-  const user = await requireAdminOnly();
+  const user = await requireSuper();
   const title = input.title.trim().slice(0, 120);
   if (!title) return { error: "Judul pengingat wajib diisi." };
   if (!["MONTHLY", "YEARLY", "ONCE"].includes(input.freq)) return { error: "Jenis pengingat tidak valid." };
@@ -65,7 +58,7 @@ export async function saveReminder(input: SopReminder): Promise<Result> {
 }
 
 export async function deleteReminder(id: string): Promise<Result> {
-  const user = await requireAdminOnly();
+  const user = await requireSuper();
   const s = await load();
   s.reminders = s.reminders.filter((x) => x.id !== id);
   delete s.done[id];

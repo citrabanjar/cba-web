@@ -67,7 +67,7 @@ export default function SettingsClient({
   access?: { roles: AdminRole[]; people: Person[] } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
-  // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; Super Admin: Akun & Fitur; Admin: Task Admin, Agent HRD, Running Indikator.
+  // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; Super Admin: Akun, Fitur, Task Admin, Peran & Anggota Admin; Admin: Agent HRD, Running Indikator.
   const tabs = [
     { key: "akun", label: "Akun", icon: UserCog },
     ...(onboarding ? [{ key: "onboarding", label: "Fitur", icon: ToggleRight }] : []),

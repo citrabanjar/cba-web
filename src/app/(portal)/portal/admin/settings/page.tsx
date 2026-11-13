@@ -19,10 +19,11 @@ export default async function AdminSettingsPage() {
   const access = await getAccess();
   if (!access || !hasMenu(access, "pengaturan")) redirect("/portal/dashboard");
 
-  // Super Admin: Akun + Fitur (menyiapkan perusahaan). Admin: setup detail Task Admin, Agent HRD, Running Indikator.
+  // Super Admin: Akun, Fitur, Task Admin, Peran & Anggota Admin. Admin: setup detail Agent HRD, Running Indikator.
   const admin = isManagement(session.user.role) && !isSuperAdmin(session.user.role);
   const hidden = admin ? await getHiddenIndicators() : null;
-  const agent = admin ? await getAgentSettings() : null;
+  // Parameter Task Admin diatur Super Admin.
+  const agent = isSuperAdmin(session.user.role) ? await getAgentSettings() : null;
   const ai = admin && (await aiFeatureOn()) ? await loadAi() : null;
   const onboarding = isSuperAdmin(session.user.role) ? await loadOnboarding() : null;
   const access2 = isSuperAdmin(session.user.role) ? await loadAccess() : null;
