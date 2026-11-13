@@ -66,6 +66,8 @@ export default function FlowSetup({ flow, people }: { flow: OnboardingFlow; peop
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const set = (patch: Partial<OnboardingFlow>) => { setMsg(null); setF((x) => ({ ...x, ...patch })); };
+  // Hak lihat saja: kotak setup alur tidak ditampilkan.
+  if (!canEdit) return null;
   const problems = flowProblems(flow);
   const summary = flow.interview
     ? `Wawancara (${flow.interviewers.length} pewawancara) → ${flow.approval ? `Approval (${flow.approvers.length} approver)` : "tanpa approval"}`
