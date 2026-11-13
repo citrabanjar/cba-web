@@ -12,7 +12,7 @@ import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions as BaseMaster } from "@/lib/master-data";
 type MasterOptions = BaseMaster & { managers: { value: string; label: string }[] };
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, type CandidateData, type CandidateJob } from "@/lib/onboarding";
-import { emptyInterview, flowProblems, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview } from "@/lib/onboarding-interview";
+import { emptyInterview, flowProblems, offerChoices, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview } from "@/lib/onboarding-interview";
 import { InterviewDecision, InterviewSummary, OfferForm } from "@/components/portal/InterviewPanel";
 import ReviewerBox, { emptyReviewers, type PersonOption } from "./ReviewerBox";
 import { useCanEdit } from "@/components/portal/edit-access";
@@ -159,7 +159,7 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
           </>
         )}
         {row.status === "APPROVAL_WAWANCARA" && row.interview && <InterviewSummary interview={row.interview} />}
-        {row.status === "APPROVAL_WAWANCARA" && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
+        {row.status === "APPROVAL_WAWANCARA" && row.canDecide && <InterviewDecision candidateId={row.id} choices={offerChoices(row.interview)} onDone={onClose} />}
         {pendingWorkflow && row.interview && <InterviewSummary interview={row.interview} />}
         {pendingWorkflow && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
         {!inInterview && !pendingWorkflow && (row.interview?.approval || !!row.interview?.reviews.length) && (

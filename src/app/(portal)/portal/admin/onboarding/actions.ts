@@ -14,7 +14,7 @@ import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { decideStep } from "@/lib/workflow-settings";
 import {
   actionableApprovers, approvalComplete, approvalFrom, emptyInterview, emptyReview, flowProblems, interviewApproved, missingInterview, missingReview,
-  normalizeOnboardingFlow, pendingReviews, readInterview, type Interview, type OnboardingFlow, type Review,
+  missingOffer, normalizeOnboardingFlow, offerChoices, pendingReviews, readInterview, type Interview, type OnboardingFlow, type Review,
 } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
 
@@ -284,6 +284,9 @@ export async function saveInterview(id: string, input: Interview): Promise<Resul
 
 // Semua pewawancara sudah menilai + tawaran lengkap → ke approver (bila Approval dicentang) atau langsung lolos.
 async function finishInterview(c: CandidateRec, i: Interview, by: string): Promise<Result & { emailed?: boolean; sent?: boolean }> {
+  // Tawaran awal = usulan pewawancara pertama; approver bisa memilih usulan pewawancara lain sebagai keputusan akhir.
+  const firstOffer = i.reviews.find((r) => r.at && r.offer)?.offer;
+  if (firstOffer) i.offer = firstOffer;
   const missing = missingInterview(i);
   if (i.offer.departmentName && i.offer.position) {
     const org = await orgCheck({ ...readJob(null), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position });
@@ -346,10 +349,10 @@ export async function saveReview(id: string, input: Pick<Review, "date" | "score
   if (!mine) return { error: "Anda bukan pewawancara calon ini." };
   if (mine.at) return { error: "Penilaian Anda sudah dikirim." };
   Object.assign(mine, { date: input.date, score: input.score, recommendation: input.recommendation, notes: input.notes.trim() });
-  // Tawaran kerja boleh dilengkapi pewawancara.
-  i.offer = cleanInterview({ ...i, offer }, i).offer;
+  // Tiap pewawancara mengusulkan tawaran kerjanya sendiri; approver memilih salah satu sebagai keputusan akhir.
+  mine.offer = cleanInterview({ ...i, offer }, i).offer;
   if (submit) {
-    const miss = missingReview(mine);
+    const miss = [...missingReview(mine), ...missingOffer({ ...i, offer: mine.offer })];
     if (miss.length) { await prisma.candidate.update({ where: { id }, data: { interview: i } }); refresh(); return { error: "Penilaian belum lengkap:", missing: miss }; }
     mine.at = new Date().toISOString();
     mine.name = session.user?.name ?? mine.name;
@@ -370,7 +373,7 @@ export async function saveReview(id: string, input: Pick<Review, "date" | "score
 }
 
 // Approver memutus hasil wawancara. Semua setuju → undangan isi data otomatis ke email calon.
-export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", note: string): Promise<Result & { emailed?: boolean; done?: boolean; ready?: boolean }> {
+export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", note: string, pickId = ""): Promise<Result & { emailed?: boolean; done?: boolean; ready?: boolean }> {
   const session = await auth();
   const me = session?.user?.id;
   if (!me) return { error: "Unauthorized" };
@@ -378,9 +381,14 @@ export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", 
   const i = readInterview(c?.interview);
   if (!c || !i?.approval || c.status !== (i.skipped ? "MENUNGGU_APPROVAL" : "APPROVAL_WAWANCARA")) return { error: "Calon tidak sedang menunggu approval." };
   if (decision === "TOLAK" && !note.trim()) return { error: "Tulis alasan penolakan." };
+  // Lebih dari satu usulan tawaran: approver wajib memilih tawaran final.
+  const choices = i.skipped ? [] : offerChoices(i);
+  const picked = choices.length > 1 && decision === "SETUJU" ? i.reviews.find((r) => r.id === pickId && r.at && r.offer) : null;
+  if (choices.length > 1 && decision === "SETUJU" && !picked) return { error: "Pilih tawaran kerja final dari salah satu pewawancara." };
   const d = decideStep(i.approval, me, decision === "SETUJU", note, session.user?.name ?? null);
   if ("error" in d) return { error: "Belum giliran Anda memutus, atau Anda bukan approver calon ini." };
   const step = d.step;
+  if (picked?.offer) { i.offer = picked.offer; step.pick = picked.name; }
   if (decision === "TOLAK") {
     await prisma.candidate.update({ where: { id }, data: { status: "DITOLAK", interview: i, note: `Ditolak saat approval ${i.skipped ? "data calon" : "wawancara"} (${step.name}): ${note.trim()}`, approvedBy: step.name, approvedAt: new Date() } });
     refresh();

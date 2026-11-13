@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
 import { InterviewDecision, InterviewSummary, ReviewForm } from "@/components/portal/InterviewPanel";
-import type { Interview, InterviewApproval, Review } from "@/lib/onboarding-interview";
+import { offerChoices, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -324,9 +324,9 @@ function InterviewCard({ item, master }: { item: InterviewItem; master: OfferMas
       </div>
       <InterviewSummary interview={item.interview} job={item.job} />
       {item.review && master && (
-        <ReviewForm candidateId={item.id} review={item.review} offer={item.interview.offer} master={master} onDone={() => router.refresh()} />
+        <ReviewForm candidateId={item.id} review={item.review} offer={item.review.offer ?? item.interview.offer} master={master} onDone={() => router.refresh()} />
       )}
-      {item.mine && !item.review && <InterviewDecision candidateId={item.id} onDone={() => router.refresh()} />}
+      {item.mine && !item.review && <InterviewDecision candidateId={item.id} choices={offerChoices(item.interview)} onDone={() => router.refresh()} />}
     </div>
   );
 }

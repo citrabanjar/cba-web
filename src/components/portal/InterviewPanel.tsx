@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, CheckCircle2, Circle, Clock, Loader2, X, XCircle } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Circle, Clock, Loader2, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -131,29 +131,58 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
           {job.employmentStatus !== "TETAP" && row("Akhir kontrak", fmtDate(job.contractEndDate))}
         </div>
       )}
-      {!i.skipped && <>
-      {i.reviews.length > 0 ? (
-        <div className="rounded-2xl border border-gray-200 p-4 text-sm">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Penilaian pewawancara</T></p>
-          <ol className="space-y-2.5">
-            {i.reviews.map((rv) => (
-              <li key={rv.id} className="flex items-start gap-2">
-                {rv.at ? <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" /> : <Clock size={16} className="mt-0.5 shrink-0 text-amber-500" />}
-                <span className="min-w-0 flex-1">
-                  <span className="font-medium text-gray-800">{rv.name}</span>{" "}
-                  <span className="text-xs text-gray-500">{rv.at ? <><T>menilai</T> · {fmtTime(rv.at)}</> : <T>belum menilai</T>}</span>
-                  {rv.at && (
-                    <span className="block text-xs text-gray-700">
-                      {fmtDate(rv.date)} · <T>Nilai</T> {t(label(SCORES, rv.score))} · {t(label(RECOMMENDATIONS, rv.recommendation))}
-                    </span>
-                  )}
-                  {rv.at && rv.notes && <span className="mt-0.5 block whitespace-pre-line rounded-lg bg-gray-50 px-2 py-1 text-xs text-gray-600">“{rv.notes}”</span>}
+      {!i.skipped && i.reviews.length > 0 && (() => {
+        // Usulan tawaran per pewawancara, bersusun ke bawah; isian yang berbeda antar-pewawancara di-highlight.
+        const offers = i.reviews.filter((r) => r.at && r.offer).map((r) => r.offer!);
+        const differs = (k: keyof Offer) => offers.length > 1 && new Set(offers.map((o) => o[k])).size > 1;
+        const offerRow = (k: keyof Offer, l: string, v: React.ReactNode) => (
+          <div key={k} className={`flex justify-between gap-3 rounded-md px-2 py-1 ${differs(k) ? "bg-amber-100 ring-1 ring-amber-300" : ""}`}>
+            <span className="text-gray-500"><T>{l}</T></span><span className="text-right font-medium text-gray-800">{v}</span>
+          </div>
+        );
+        return i.reviews.map((rv, n) => (
+          // Bisa dibuka-tutup supaya tidak terlalu panjang; saat tertutup tampil ringkasan satu baris.
+          <details key={rv.id} className="group rounded-2xl border border-gray-200 text-sm sm:col-span-2">
+            <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 [&::-webkit-details-marker]:hidden">
+              <ChevronDown size={15} className="text-gray-400 transition group-open:rotate-180" />
+              {rv.at ? <CheckCircle2 size={15} className="text-emerald-600" /> : <Clock size={15} className="text-amber-500" />}
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Pewawancara</T> {n + 1}</span>
+              <span className="font-semibold text-gray-800">{rv.name}</span>
+              {rv.at ? (
+                <span className="text-xs text-gray-600">
+                  · <T>Nilai</T> {rv.score} · {t(label(RECOMMENDATIONS, rv.recommendation))}
+                  {rv.offer && <> · <span className={differs("salary") ? "rounded bg-amber-100 px-1 font-semibold" : "font-semibold"}>{rupiah(rv.offer.salary)}</span></>}
                 </span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : (
+              ) : <span className="text-xs text-gray-500">· <T>belum menilai</T></span>}
+            </summary>
+            {rv.at && (
+              <div className="grid gap-4 border-t border-gray-100 px-4 py-3 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[11px] font-semibold uppercase text-gray-400"><T>Penilaian</T></p>
+                  {row("Tanggal", fmtDate(rv.date))}
+                  {row("Nilai", t(label(SCORES, rv.score)))}
+                  {row("Rekomendasi", t(label(RECOMMENDATIONS, rv.recommendation)))}
+                  {rv.notes && <p className="mt-1 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">“{rv.notes}”</p>}
+                </div>
+                {rv.offer && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase text-gray-400"><T>Tawaran kerja</T></p>
+                    {offerRow("position", "Jabatan", rv.offer.position || "—")}
+                    {offerRow("departmentName", "Departemen", rv.offer.departmentName || "—")}
+                    {offerRow("branch", "Cabang", rv.offer.branch || "—")}
+                    {offerRow("managerId", "Calon atasan langsung", rv.offer.managerName || "—")}
+                    {offerRow("employmentStatus", "Status kerja", t(rv.offer.employmentStatus === "TETAP" ? "Tetap" : "Kontrak"))}
+                    {offerRow("salary", "Gaji pokok", <b>{rupiah(rv.offer.salary)}</b>)}
+                    {offerRow("joinDate", "Tanggal masuk", fmtDate(rv.offer.joinDate))}
+                    {rv.offer.employmentStatus === "KONTRAK" && offerRow("contractEndDate", "Akhir kontrak", fmtDate(rv.offer.contractEndDate))}
+                  </div>
+                )}
+              </div>
+            )}
+          </details>
+        ));
+      })()}
+      {!i.skipped && i.reviews.length === 0 && (
       <div className="rounded-2xl border border-gray-200 p-4 text-sm">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Hasil wawancara</T></p>
         {row("Tanggal", fmtDate(i.date))}
@@ -163,8 +192,10 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
         {i.notes && <p className="mt-2 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">{i.notes}</p>}
       </div>
       )}
-      <div className="rounded-2xl border border-gray-200 p-4 text-sm">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Tawaran kerja</T></p>
+      {/* Tawaran final: data lama (tanpa usulan per pewawancara) atau setelah approver memutus. */}
+      {!i.skipped && (i.reviews.every((r) => !r.offer) || !!i.approvedAt) && (
+      <div className={`rounded-2xl border p-4 text-sm ${i.approvedAt && i.reviews.some((r) => r.offer) ? "border-emerald-300 bg-emerald-50/40 sm:col-span-2" : "border-gray-200"}`}>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{i.approvedAt && i.reviews.some((r) => r.offer) ? "Tawaran kerja final" : "Tawaran kerja"}</T></p>
         {row("Jabatan", i.offer.position || "—")}
         {row("Departemen", i.offer.departmentName || "—")}
         {row("Cabang", i.offer.branch || "—")}
@@ -174,7 +205,7 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
         {row("Tanggal masuk", fmtDate(i.offer.joinDate))}
         {i.offer.employmentStatus === "KONTRAK" && row("Akhir kontrak", fmtDate(i.offer.contractEndDate))}
       </div>
-      </>}
+      )}
       {i.approval && (
         <div className="rounded-2xl border border-gray-200 p-4 text-sm sm:col-span-2">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -192,6 +223,7 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
                   <span className="text-xs text-gray-500">
                     {s.decision === "SETUJU" ? <><T>setuju</T> · {fmtTime(s.at)}</> : s.decision === "TOLAK" ? <><T>menolak</T> · {fmtTime(s.at)}</> : now.includes(s.id) ? <T>menunggu keputusan</T> : <T>belum giliran</T>}
                   </span>
+                  {s.pick && <span className="block text-xs text-emerald-700"><T>Memilih tawaran dari</T> {s.pick}</span>}
                   {s.note && <span className="block text-xs text-gray-600">“{s.note}”</span>}
                 </span>
               </li>
@@ -204,16 +236,18 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
 }
 
 // Tombol keputusan approver (Persetujuan → Wawancara, juga di dialog Onboarding).
-export function InterviewDecision({ candidateId, onDone }: { candidateId: string; onDone?: () => void }) {
+export function InterviewDecision({ candidateId, choices = [], onDone }: { candidateId: string; choices?: { id: string; name: string }[]; onDone?: () => void }) {
   const t = useT();
   const [note, setNote] = useState("");
+  // Lebih dari satu usulan tawaran: approver memilih tawaran final (keputusan akhir).
+  const [pick, setPick] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const decide = (d: "SETUJU" | "TOLAK") => {
     if (d === "TOLAK" && !window.confirm(t("Tolak calon karyawan ini?"))) return;
     setMsg(null);
     start(async () => {
-      const r = await decideInterview(candidateId, d, note);
+      const r = await decideInterview(candidateId, d, note, pick);
       if (r.error) { setMsg({ ok: false, text: r.error }); return; }
       setMsg({ ok: true, text: d === "TOLAK" ? "Calon ditolak." : !r.done ? "Disetujui. Menunggu approver berikutnya." : r.ready ? "Disetujui semua. HRD tinggal mendaftarkan karyawan." : r.emailed ? "Disetujui semua. Undangan isi data sudah dikirim ke email calon." : "Disetujui semua. Email undangan gagal terkirim: HRD bisa kirim ulang dari menu Pra-Karyawan." });
       onDone?.();
@@ -222,12 +256,23 @@ export function InterviewDecision({ candidateId, onDone }: { candidateId: string
   return (
     <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
       <p className="text-sm font-semibold text-amber-900"><T>Giliran Anda memberi keputusan.</T></p>
+      {choices.length > 1 && (
+        <div className="space-y-1.5 rounded-xl bg-white p-3">
+          <p className="text-xs font-semibold text-gray-700"><T>Tawaran kerja final (keputusan akhir)</T></p>
+          {choices.map((c, n) => (
+            <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
+              <input type="radio" name={`pick-${candidateId}`} checked={pick === c.id} onChange={() => setPick(c.id)} className="h-4 w-4 accent-[#BE353F]" />
+              <T>Tawaran Pewawancara</T> {n + 1} · {c.name}
+            </label>
+          ))}
+        </div>
+      )}
       <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t("Catatan approver (wajib bila menolak)")}
         className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm" />
       {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
       <div className="flex justify-end gap-2">
         <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600" onClick={() => decide("TOLAK")}><X size={14} /> <T>Tolak</T></Button>
-        <Button disabled={pending} className="gap-1.5" onClick={() => decide("SETUJU")}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} <T>Setujui</T></Button>
+        <Button disabled={pending || (choices.length > 1 && !pick)} className="gap-1.5" onClick={() => decide("SETUJU")}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} <T>Setujui</T></Button>
       </div>
     </div>
   );

@@ -52,6 +52,12 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Pilih tawaran kerja final dari salah satu pewawancara.": "Choose the final job offer from one of the interviewers.",
+  "Memilih tawaran dari": "Chose the offer from",
+  "Tawaran Pewawancara": "Offer from Interviewer",
+  "Tawaran kerja final (keputusan akhir)": "Final job offer (final decision)",
+  "Tawaran kerja final": "Final job offer",
+  "Penilaian": "Assessment",
   "Centang pernyataan kebenaran data sebelum mengirim.": "Tick the data declaration before sending.",
   "dari email": "from email",
   "Disetujui secara elektronik oleh calon pada": "Agreed electronically by the candidate on",

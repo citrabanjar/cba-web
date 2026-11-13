@@ -73,8 +73,9 @@ export type Offer = {
 // Satu level approval. ids = calon approver (pemegang jabatan / hak akses); salah satu cukup memutus, namanya dicatat di "by".
 // Tanpa ids: id = satu karyawan tertentu.
 // Penilaian satu pewawancara (diisi sendiri di menu Persetujuan). at = waktu dikirim; kosong = belum.
-export type Review = { id: string; name: string; date: string; score: string; recommendation: string; notes: string; at: string };
-export const emptyReview = (id: string, name: string): Review => ({ id, name, date: "", score: "", recommendation: "", notes: "", at: "" });
+// offer = tawaran kerja usulan pewawancara ini (approver memilih salah satu sebagai keputusan akhir).
+export type Review = { id: string; name: string; date: string; score: string; recommendation: string; notes: string; at: string; offer: Offer | null };
+export const emptyReview = (id: string, name: string): Review => ({ id, name, date: "", score: "", recommendation: "", notes: "", at: "", offer: null });
 export function missingReview(r: Review): string[] {
   const m: string[] = [];
   if (!r.date) m.push("Tanggal wawancara");
@@ -82,7 +83,8 @@ export function missingReview(r: Review): string[] {
   if (!r.recommendation) m.push("Rekomendasi");
   return m;
 }
-export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string };
+// pick = nama pewawancara yang tawarannya dipilih approver ini sebagai keputusan akhir.
+export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string; pick?: string };
 export const stepCandidates = (s: ApprovalStep) => (s.ids?.length ? s.ids : [s.id]);
 export type InterviewApproval = { mode: ApprovalMode; order: ApprovalOrder; steps: ApprovalStep[] };
 export type Interview = {
@@ -111,19 +113,30 @@ export const emptyInterview = (): Interview => ({
   approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false, reviews: [], approvers: [],
 });
 
+export function readOffer(raw: unknown): Offer | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const out = emptyOffer();
+  for (const k of Object.keys(out) as (keyof Offer)[]) if (typeof o[k] === "string") out[k] = o[k] as string;
+  return out;
+}
+// Isian tawaran yang dibandingkan antar-pewawancara (yang berbeda di-highlight).
+export const OFFER_FIELDS: (keyof Offer)[] = ["position", "departmentName", "branch", "managerId", "employmentStatus", "salary", "joinDate", "contractEndDate"];
+// Pewawancara yang sudah mengirim tawaran (pilihan keputusan akhir approver).
+export const offerChoices = (i: Interview | null) => (i?.reviews ?? []).filter((r) => r.at && r.offer).map((r) => ({ id: r.id, name: r.name }));
+
 export function readInterview(raw: unknown): Interview | null {
   if (!raw || typeof raw !== "object") return null;
   const v = raw as Record<string, unknown>;
   const base = emptyInterview();
   for (const k of ["date", "interviewer", "score", "notes", "recommendation", "submittedBy", "submittedAt", "approvedAt"] as const) base[k] = str(v[k]);
   base.skipped = v.skipped === true;
-  const o = (v.offer ?? {}) as Record<string, unknown>;
-  for (const k of Object.keys(base.offer) as (keyof Offer)[]) if (typeof o[k] === "string") base.offer[k] = o[k] as string;
+  base.offer = readOffer(v.offer) ?? base.offer;
   base.approval = readApproval(v.approval);
   base.reviews = Array.isArray(v.reviews)
     ? (v.reviews as Record<string, unknown>[]).map((x) => ({
         id: str(x?.id), name: str(x?.name), date: str(x?.date), score: str(x?.score),
-        recommendation: str(x?.recommendation), notes: str(x?.notes), at: str(x?.at),
+        recommendation: str(x?.recommendation), notes: str(x?.notes), at: str(x?.at), offer: readOffer(x?.offer),
       })).filter((x) => x.id)
     : [];
   base.approvers = refs(v.approvers);
@@ -141,6 +154,7 @@ export function readApproval(raw: unknown): InterviewApproval | null {
       id: str(s?.id), name: str(s?.name), decision: s?.decision === "SETUJU" || s?.decision === "TOLAK" ? s.decision : "", at: str(s?.at), note: str(s?.note),
       ...(Array.isArray(s?.ids) ? { ids: (s.ids as unknown[]).filter((x): x is string => typeof x === "string") } : {}),
       ...(typeof s?.by === "string" ? { by: s.by } : {}),
+      ...(typeof s?.pick === "string" ? { pick: s.pick } : {}),
     })),
   };
 }
