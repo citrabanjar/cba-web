@@ -12,9 +12,9 @@ import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions as BaseMaster } from "@/lib/master-data";
 type MasterOptions = BaseMaster & { managers: { value: string; label: string }[] };
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, missingData, missingJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
-import { emptyInterview, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview, type OnboardingFlow } from "@/lib/onboarding-interview";
+import { emptyInterview, flowProblems, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview } from "@/lib/onboarding-interview";
 import { InterviewDecision, InterviewSummary, OfferForm } from "@/components/portal/InterviewPanel";
-import FlowSetup, { type PersonOption } from "./FlowSetup";
+import ReviewerBox, { emptyReviewers, type PersonOption } from "./ReviewerBox";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { approveCandidate, deleteCandidate, inviteCandidate, registerCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, saveInterview, submitForApproval, submitInterview } from "./actions";
 
@@ -86,7 +86,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow; master: MasterOptions; canApprove: boolean; onClose: () => void }) {
+function DetailDialog({ row, master, canApprove, people, onClose }: { row: CandidateRow; master: MasterOptions; canApprove: boolean; people: PersonOption[]; onClose: () => void }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: form terkunci, tombol ubah disembunyikan
   const [tab, setTab] = useState<"data" | "job">("data");
@@ -94,6 +94,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   const [job, setJob] = useState(row.job);
   const [iv, setIv] = useState<Interview>(row.interview ?? emptyInterview());
   const [note, setNote] = useState("");
+  const [reviewers, setReviewers] = useState(emptyReviewers);
   const [msg, setMsg] = useState<Msg>(null);
   const [password, setPassword] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -157,7 +158,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
         {row.status === "APPROVAL_WAWANCARA" && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
         {pendingWorkflow && row.interview && <InterviewSummary interview={row.interview} />}
         {pendingWorkflow && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
-        {!inInterview && !pendingWorkflow && row.interview?.approval && (
+        {!inInterview && !pendingWorkflow && (row.interview?.approval || !!row.interview?.reviews.length) && (
           <details className="rounded-2xl border border-sky-100 bg-sky-50/50 px-4 py-2 text-sm">
             <summary className="cursor-pointer font-semibold text-sky-800"><MessagesSquare size={14} className="mr-1 inline" /> <T>{row.interview.skipped ? "Jejak approval" : "Hasil wawancara & tawaran kerja"}</T></summary>
             <div className="mt-3"><InterviewSummary interview={row.interview} /></div>
@@ -207,6 +208,10 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
               </div>
             )}
             {!closed && missing.length > 0 && <p className="text-xs text-amber-700"><T>Belum lengkap</T>: {missing.map((m) => t(m)).join(", ")}</p>}
+            {/* Setelah data cocok dengan berkas asli: pilih reviewer (wawancara dan/atau approval). */}
+            {canEdit && !viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
+              <ReviewerBox value={reviewers} onChange={setReviewers} people={people} />
+            )}
           </>
         )}
 
@@ -262,8 +267,9 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
               }}>{pending ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Daftarkan Karyawan</T></Button>
             )}
             {canEdit && !viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
-              <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitForApproval(row.id, data, job), "Diajukan untuk approval.", onClose)}>
-                {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Ajukan Approval</T></Button>
+              <Button disabled={pending || flowProblems(reviewers).length > 0} className="gap-1.5"
+                onClick={() => run(() => submitForApproval(row.id, data, job, reviewers), reviewers.interview ? "Dikirim ke pewawancara." : "Dikirim ke approver.", onClose)}>
+                {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Kirim ke Reviewer</T></Button>
             )}
             {canApprove && legacyApproval && !password && (
               <Button disabled={pending} className="gap-1.5" onClick={() => {
@@ -293,8 +299,7 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   );
 }
 
-export default function OnboardingClient({ rows, master, canApprove, flow, people }: { rows: CandidateRow[]; master: MasterOptions; canApprove: boolean; flow: OnboardingFlow; people: PersonOption[] }) {
-  const interviewOn = flow.interview;
+export default function OnboardingClient({ rows, master, canApprove, people }: { rows: CandidateRow[]; master: MasterOptions; canApprove: boolean; people: PersonOption[] }) {
   const t = useT();
   const canEdit = useCanEdit();
   const [tab, setTab] = useState<string>("proses");
@@ -306,7 +311,7 @@ export default function OnboardingClient({ rows, master, canApprove, flow, peopl
   const list = inGroup(tab).filter((r) => !q || `${r.name} ${r.email} ${r.phone}`.toLowerCase().includes(q.toLowerCase()));
   const count = (s: string) => rows.filter((r) => r.status === s).length;
   const stats = [
-    ...(interviewOn || count("WAWANCARA") + count("APPROVAL_WAWANCARA") > 0
+    ...(count("WAWANCARA") + count("APPROVAL_WAWANCARA") > 0
       ? [{ label: "Tahap wawancara", value: count("WAWANCARA") + count("APPROVAL_WAWANCARA"), icon: MessagesSquare, tone: "from-sky-500 to-cyan-400" }] : []),
     { label: "Diundang / mengisi", value: count("DIUNDANG") + count("DIKEMBALIKAN"), icon: Users, tone: "from-slate-500 to-slate-400" },
     { label: "Menunggu pemeriksaan HRD", value: count("DIKIRIM"), icon: ClipboardCheck, tone: "from-amber-500 to-orange-400" },
@@ -318,12 +323,9 @@ export default function OnboardingClient({ rows, master, canApprove, flow, peopl
       {/* Judul & keterangan alur hanya untuk Admin yang bisa mengubah; hak lihat langsung ke daftar calon. */}
       {canEdit && <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Pra-Karyawan</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5"><T>{interviewOn
-          ? "Calon diwawancara dulu oleh pewawancara; penilaian dan tawaran kerja disetujui approver, lalu calon mengisi data sendiri lewat /onboarding dan HRD mendaftarkannya sebagai karyawan."
-          : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan ke approver."}</T></p>
+        <p className="text-xs text-gray-400 mt-0.5"><T>Calon mengisi data sendiri lewat /onboarding (masuk dengan OTP). HRD mencocokkan dengan berkas asli lalu memilih reviewer (wawancara dan/atau approval). Setelah selesai, berkas kembali ke HRD untuk didaftarkan sebagai karyawan.</T></p>
       </div>}
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
-        <FlowSetup flow={flow} people={people} />
         <div className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
           {stats.map((s) => (
             <div key={s.label} className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -370,10 +372,10 @@ export default function OnboardingClient({ rows, master, canApprove, flow, peopl
             </ul>
           )}
         </div>
-        {canEdit && <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Modul dinyalakan Super Admin di Pengaturan → Fitur; wawancara dan approver diatur di Alur Pra-Karyawan di atas.</T></p>}
+        {canEdit && <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Modul dinyalakan Super Admin di Pengaturan → Fitur; wawancara dan approver dipilih per calon saat HRD memeriksa data.</T></p>}
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
-      {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} onClose={() => setOpenId(null)} />}
+      {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} people={people} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

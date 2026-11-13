@@ -1,5 +1,6 @@
 // Tahap wawancara onboarding. Aman dipakai di server dan browser.
-// Super Admin hanya menyalakan modul Pra-Karyawan (Pengaturan → Fitur). Alurnya diatur Admin di menu Pra-Karyawan → Alur:
+// Super Admin hanya menyalakan modul Pra-Karyawan (Pengaturan → Fitur). Reviewer dipilih HRD per calon di kotak Reviewer
+// saat memeriksa isian calon dengan berkas asli:
 //   [x] Wawancara → pewawancara (Employee ID, boleh lebih dari satu) mengisi penilaian + catatan sendiri di menu Persetujuan.
 //   [x] Approval  → approver (Employee ID, boleh lebih dari satu, berurutan) menyetujui / menolak dengan catatan.
 //   Tanpa wawancara, approval wajib. Setelah semua beres, berkas kembali ke Admin (bisa dicetak) untuk dilanjutkan.
@@ -17,8 +18,7 @@ export type ApprovalOrder = "BERURUTAN" | "BERSAMAAN";
 export type ApproverRef = { id: string; name: string };
 export type OnboardingSettings = { enabled: boolean; interview: boolean; mode: ApprovalMode; order: ApprovalOrder; approvers: ApproverRef[] };
 
-// Alur Pra-Karyawan (diatur Admin).
-export const ONBOARDING_FLOW_KEY = "onboarding-flow";
+// Pilihan reviewer per calon (kotak Reviewer).
 export type OnboardingFlow = { interview: boolean; interviewers: ApproverRef[]; approval: boolean; approvers: ApproverRef[] };
 const refs = (raw: unknown) => {
   const seen = new Set<string>();
@@ -92,6 +92,7 @@ export type Interview = {
   submittedBy: string; submittedAt: string; approvedAt: string;
   skipped: boolean; // true = tanpa wawancara; hanya jejak workflow approval data calon
   reviews: Review[]; // penilaian per pewawancara (alur baru); kosong = data lama (satu isian HRD)
+  approvers: ApproverRef[]; // approver yang dipilih HRD untuk setelah wawancara (kosong = tanpa approval)
 };
 
 export const SCORES = [
@@ -107,7 +108,7 @@ export const RECOMMENDATIONS = [
 export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "", managerId: "", managerName: "" });
 export const emptyInterview = (): Interview => ({
   date: "", interviewer: "", score: "", notes: "", recommendation: "", offer: emptyOffer(),
-  approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false, reviews: [],
+  approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false, reviews: [], approvers: [],
 });
 
 export function readInterview(raw: unknown): Interview | null {
@@ -125,6 +126,7 @@ export function readInterview(raw: unknown): Interview | null {
         recommendation: str(x?.recommendation), notes: str(x?.notes), at: str(x?.at),
       })).filter((x) => x.id)
     : [];
+  base.approvers = refs(v.approvers);
   return base;
 }
 
