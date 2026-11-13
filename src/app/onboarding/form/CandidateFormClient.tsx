@@ -7,7 +7,7 @@ import { CheckCircle2, Loader2, LogOut, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher, T } from "@/components/i18n";
 import CandidateDataForm from "@/components/portal/CandidateDataForm";
-import { CANDIDATE_STATUS, candidateCanEdit, missingData, type CandidateData } from "@/lib/onboarding";
+import { candidateCanEdit, missingData, type CandidateData } from "@/lib/onboarding";
 import { logoutCandidate, saveCandidateData } from "../actions";
 
 const DRAFT_KEY = "cba-onboarding-draft";
@@ -54,7 +54,7 @@ export default function CandidateFormClient({ name, status, note, initial }: {
         <span className="inline-flex rounded-xl bg-white px-3 py-2"><Image src="/logo.jpg" alt="PT. Citra Banjar Abadi" width={150} height={22} /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold text-white"><T>Data Calon Karyawan</T></h1>
-          <p className="text-xs text-white/65">{name} · <T>{CANDIDATE_STATUS[status]?.label ?? status}</T></p>
+          <p className="text-xs text-white/65">{name}</p>
         </div>
         <LanguageSwitcher />
         <button type="button" onClick={() => start(async () => { await logoutCandidate(); router.replace("/onboarding"); })}
