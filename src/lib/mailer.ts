@@ -108,3 +108,38 @@ export async function sendReturnedEmail(to: string, name: string, note: string, 
     return false;
   }
 }
+
+// Pemberitahuan tugas Pra-Karyawan ke pewawancara / approver. Isi & keputusan tetap di portal (menu Persetujuan).
+export async function sendCandidateTaskEmail(to: string, name: string, kind: "WAWANCARA" | "APPROVAL", candidate: string, link: string): Promise<boolean> {
+  if (!mailerReady()) return false;
+  const job = kind === "WAWANCARA" ? "mewawancarai" : "memberi persetujuan untuk";
+  const button = kind === "WAWANCARA" ? "Buka Halaman Wawancara" : "Buka Halaman Persetujuan";
+  const subject = kind === "WAWANCARA" ? `Tugas wawancara calon karyawan: ${candidate}` : `Persetujuan calon karyawan: ${candidate}`;
+  try {
+    await mailer().sendMail({
+      from: { name: "HRD PT. Citra Banjar Abadi", address: process.env.SMTP_FROM || process.env.SMTP_USER! },
+      to,
+      subject,
+      text: `Halo ${title(name)},
+
+Anda diminta ${job} calon karyawan ${candidate}.
+Silakan buka portal karyawan, menu Persetujuan → Pra-Karyawan:
+${link}
+
+Terima kasih
+HRD PT. Citra Banjar Abadi`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937">
+        <h2 style="color:#BE353F;margin-bottom:4px">PT. Citra Banjar Abadi</h2>
+        <p>Halo <b>${esc(title(name))}</b>,</p>
+        <p>Anda diminta <b>${job}</b> calon karyawan <b>${esc(candidate)}</b>.</p>
+        <p style="text-align:center;margin:24px 0"><a href="${esc(link)}" style="background:#BE353F;color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:bold;display:inline-block">${button}</a></p>
+        <p style="font-size:13px;color:#6b7280">Login ke portal karyawan, lalu buka menu <b>Persetujuan → Pra-Karyawan</b>. Penilaian / keputusan diisi di portal, bukan membalas email ini.</p>
+        <p style="font-size:13px;color:#6b7280">HRD PT. Citra Banjar Abadi</p>
+      </div>`,
+    });
+    return true;
+  } catch (e) {
+    console.error("[mailer] gagal kirim pemberitahuan tugas Pra-Karyawan:", e instanceof Error ? e.message : e);
+    return false;
+  }
+}

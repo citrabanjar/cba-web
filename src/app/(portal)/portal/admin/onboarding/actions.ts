@@ -8,12 +8,12 @@ import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
 import { missingData, missingJob, readData, readJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { headers } from "next/headers";
-import { sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
+import { sendCandidateTaskEmail, sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
 import { auth } from "@/auth";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { decideStep } from "@/lib/workflow-settings";
 import {
-  approvalComplete, approvalFrom, emptyInterview, emptyReview, flowProblems, interviewApproved, missingInterview, missingReview,
+  actionableApprovers, approvalComplete, approvalFrom, emptyInterview, emptyReview, flowProblems, interviewApproved, missingInterview, missingReview,
   normalizeOnboardingFlow, pendingReviews, readInterview, type Interview, type OnboardingFlow, type Review,
 } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
@@ -35,6 +35,17 @@ async function onboardingLink(email: string) {
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const base = host ? `${h.get("x-forwarded-proto") ?? "https"}://${host}` : (process.env.NEXTAUTH_URL ?? "https://www.citrabanjar.com");
   return `${base.replace(/\/$/, "")}/onboarding?email=${encodeURIComponent(email)}`;
+}
+
+// Email pemberitahuan tugas ke pewawancara / approver (yang punya email). Penilaian & keputusan tetap di portal.
+async function notifyTask(userIds: string[], kind: "WAWANCARA" | "APPROVAL", candidate: string) {
+  if (!userIds.length) return;
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const base = host ? `${h.get("x-forwarded-proto") ?? "https"}://${host}` : (process.env.NEXTAUTH_URL ?? "https://www.citrabanjar.com");
+  const link = `${base.replace(/\/$/, "")}/portal/persetujuan`;
+  const users = await prisma.user.findMany({ where: { id: { in: userIds }, isActive: true, email: { not: null } }, select: { email: true, name: true } });
+  await Promise.all(users.map((u) => sendCandidateTaskEmail(u.email!, u.name, kind, candidate, link)));
 }
 
 // HRD mendaftarkan calon: nama, email, nomor HP (WhatsApp). Undangan otomatis dikirim ke email calon.
@@ -158,11 +169,13 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
       },
     };
     await prisma.candidate.update({ where: { id }, data: { status: "WAWANCARA", note: null, interview } });
+    await notifyTask(f.interviewers.map((x) => x.id), "WAWANCARA", c.name);
     refresh();
     return {};
   }
   const wf: Interview = { ...emptyInterview(), skipped: true, submittedBy: access.name ?? "", submittedAt: now, approval: approvalFrom(f.approvers) };
   await prisma.candidate.update({ where: { id }, data: { status: "MENUNGGU_APPROVAL", note: null, interview: wf } });
+  await notifyTask(actionableApprovers(wf.approval), "APPROVAL", c.name);
   refresh();
   return {};
 }
@@ -280,6 +293,7 @@ async function finishInterview(c: CandidateRec, i: Interview, by: string): Promi
   if (i.approvers.length) {
     i.approval = approvalFrom(i.approvers);
     await prisma.candidate.update({ where: { id: c.id }, data: { status: "APPROVAL_WAWANCARA", interview: i, note: null } });
+    await notifyTask(actionableApprovers(i.approval), "APPROVAL", c.name);
     return { sent: true };
   }
   // Tanpa approval: hasil wawancara langsung kembali ke Admin.
@@ -372,6 +386,8 @@ export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", 
   }
   if (!approvalComplete(i.approval)) {
     await prisma.candidate.update({ where: { id }, data: { interview: i } });
+    // Giliran approver berikutnya.
+    await notifyTask(actionableApprovers(i.approval), "APPROVAL", c.name);
     refresh();
     return { done: false };
   }
