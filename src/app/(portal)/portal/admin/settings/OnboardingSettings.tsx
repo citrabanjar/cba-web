@@ -9,18 +9,6 @@ import type { OnboardingSettings as Settings } from "@/lib/onboarding-interview"
 import { saveFeatures } from "./onboarding-actions";
 import { setSetupDone } from "./agent-actions";
 
-function Choice({ active, title, desc, onClick }: { active: boolean; title: string; desc: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={`flex-1 rounded-xl border p-3 text-left transition ${active ? "border-brand bg-brand/5 ring-1 ring-brand" : "border-gray-200 hover:bg-gray-50"}`}>
-      <span className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-        <span className={`h-3.5 w-3.5 rounded-full border-2 ${active ? "border-brand bg-brand" : "border-gray-300"}`} /> <T>{title}</T>
-      </span>
-      <span className="mt-1 block text-xs text-gray-500"><T>{desc}</T></span>
-    </button>
-  );
-}
-
 function Feature({ icon: Icon, title, desc, checked, onChange, children }: {
   icon: typeof GitBranch; title: string; desc: string; checked: boolean; onChange: (v: boolean) => void; children?: React.ReactNode;
 }) {
@@ -63,14 +51,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag, 
 
         <Feature icon={UserPlus} title="Pra-Karyawan (onboarding)" checked={s.enabled} onChange={(v) => set({ enabled: v })}
           desc="Proses rekrutmen karyawan secara mandiri.">
-          <p className="text-xs font-semibold text-gray-700"><T>Tahap wawancara</T></p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Choice active={s.interview} title="Pakai wawancara" onClick={() => set({ interview: true })}
-              desc="Calon diwawancara dulu. Hasil wawancara dan tawaran kerja (jabatan, status, gaji) disetujui approver, baru calon diundang mengisi data." />
-            <Choice active={!s.interview} title="Tanpa wawancara" onClick={() => set({ interview: false })}
-              desc="Calon langsung diundang mengisi data. Setelah HRD memeriksa, data calon disetujui sesuai menu Workflow." />
-          </div>
-          <p className="text-[11px] text-gray-500"><T>Approver Pra-Karyawan diatur Admin di menu Workflow → Pra-Karyawan.</T></p>
+          <p className="text-[11px] text-gray-500"><T>Wawancara, pewawancara, dan approver diatur Admin di menu Pra-Karyawan → Alur.</T></p>
         </Feature>
 
         <Feature icon={Bot} title="Agent HRD" checked={agent} onChange={(v) => { setMsg(null); setAgent(v); }}

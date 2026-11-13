@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, ClipboardCheck, Copy, KeyRound, Loader2, MessagesSquare, Plus, Search, Send, Trash2, Undo2, UserCheck, UserPlus, Users, XCircle } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ClipboardCheck, Copy, KeyRound, Loader2, MessagesSquare, Plus, Printer, Search, Send, Trash2, Undo2, UserCheck, UserPlus, Users, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,9 @@ import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions as BaseMaster } from "@/lib/master-data";
 type MasterOptions = BaseMaster & { managers: { value: string; label: string }[] };
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, missingData, missingJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
-import { emptyInterview, interviewApproved, missingInterview, rupiah, type Interview } from "@/lib/onboarding-interview";
-import { InterviewDecision, InterviewForm, InterviewSummary } from "@/components/portal/InterviewPanel";
+import { emptyInterview, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview, type OnboardingFlow } from "@/lib/onboarding-interview";
+import { InterviewDecision, InterviewSummary, OfferForm } from "@/components/portal/InterviewPanel";
+import FlowSetup, { type PersonOption } from "./FlowSetup";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { approveCandidate, deleteCandidate, inviteCandidate, registerCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, saveInterview, submitForApproval, submitInterview } from "./actions";
 
@@ -49,7 +50,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
           <div className="min-w-0 space-y-3 text-sm text-gray-700">
             <p className="flex items-center gap-2 font-semibold text-emerald-700"><CheckCircle2 size={16} /> <T>Calon karyawan terdaftar.</T></p>
             {done.interview ? (
-              <p className="rounded-lg bg-sky-50 px-3 py-2 text-sky-800"><T>Calon masuk tahap wawancara. Isi hasil wawancara dan tawaran kerja, lalu ajukan approval. Undangan isi data dikirim otomatis ke email calon setelah disetujui.</T></p>
+              <p className="rounded-lg bg-sky-50 px-3 py-2 text-sky-800"><T>Calon masuk tahap wawancara. Pewawancara mengisi penilaian di menu Persetujuan; setelah semua menilai, hasilnya diajukan ke approver. Undangan isi data dikirim otomatis ke email calon setelah disetujui.</T></p>
             ) : <>
             {done.emailed
               ? <p className="break-words rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><T>Email undangan sudah dikirim ke</T> <b>{form.email}</b>.</p>
@@ -146,7 +147,9 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
 
         {row.status === "WAWANCARA" && (
           <>
-            <fieldset disabled={!canEdit} className="min-w-0"><InterviewForm value={iv} onChange={setIv} master={master} /></fieldset>
+            {/* Penilaian diisi pewawancara sendiri di menu Persetujuan; HRD memantau dan boleh melengkapi tawaran kerja. */}
+            {row.interview && <InterviewSummary interview={row.interview} />}
+            <fieldset disabled={!canEdit} className="min-w-0"><OfferForm value={iv.offer} onChange={(o) => setIv((x) => ({ ...x, offer: o }))} master={master} /></fieldset>
             {missingInterview(iv).length > 0 && <p className="text-xs text-amber-700"><T>Belum lengkap</T>: {missingInterview(iv).map((m) => t(m)).join(", ")}</p>}
           </>
         )}
@@ -237,9 +240,12 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
           <div className="flex flex-wrap gap-2">
             {canEdit && row.status === "WAWANCARA" && (
               <>
-                <Button variant="outline" disabled={pending} onClick={() => run(() => saveInterview(row.id, iv), "Tersimpan.")}><T>Simpan</T></Button>
-                <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitInterview(row.id, iv), "Hasil wawancara diajukan ke approver.", onClose)}>
-                  {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Ajukan Approval Wawancara</T></Button>
+                <Button variant="outline" disabled={pending} onClick={() => run(() => saveInterview(row.id, iv), "Tawaran kerja tersimpan.")}><T>Simpan</T></Button>
+                {/* Biasanya otomatis saat pewawancara terakhir mengirim penilaian; tombol ini untuk bila tawaran kerja baru dilengkapi HRD. */}
+                {pendingReviews(row.interview).length === 0 && (
+                  <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitInterview(row.id, iv), "Hasil wawancara diproses.", onClose)}>
+                    {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Ajukan ke Approval</T></Button>
+                )}
               </>
             )}
             {canEdit && !closed && !waiting && !inInterview && (
@@ -271,6 +277,11 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
                 });
               }}>{pending ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Setujui, Jadikan Karyawan</T></Button>
             )}
+            {row.interview && (row.interview.reviews.length > 0 || row.interview.approval) && (
+              <a href={`/portal/admin/onboarding/${row.id}/berkas`} target="_blank" rel="noreferrer"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <Printer size={14} /> <T>Cetak berkas</T></a>
+            )}
             {row.userId && (
               <Link href={`/portal/admin/karyawan/${row.userId}`} className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 <T>Lihat profil karyawan</T> <ArrowUpRight size={14} /></Link>
@@ -282,7 +293,8 @@ function DetailDialog({ row, master, canApprove, onClose }: { row: CandidateRow;
   );
 }
 
-export default function OnboardingClient({ rows, master, canApprove, interviewOn }: { rows: CandidateRow[]; master: MasterOptions; canApprove: boolean; interviewOn: boolean }) {
+export default function OnboardingClient({ rows, master, canApprove, flow, people }: { rows: CandidateRow[]; master: MasterOptions; canApprove: boolean; flow: OnboardingFlow; people: PersonOption[] }) {
+  const interviewOn = flow.interview;
   const t = useT();
   const canEdit = useCanEdit();
   const [tab, setTab] = useState<string>("proses");
@@ -306,10 +318,11 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Pra-Karyawan</T></h2>
         <p className="text-xs text-gray-400 mt-0.5"><T>{interviewOn
-          ? "Calon diwawancara dulu; hasil wawancara dan tawaran kerja disetujui approver, lalu calon mengisi data sendiri lewat /onboarding dan HRD mendaftarkannya sebagai karyawan."
-          : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan untuk approval sesuai workflow."}</T></p>
+          ? "Calon diwawancara dulu oleh pewawancara; penilaian dan tawaran kerja disetujui approver, lalu calon mengisi data sendiri lewat /onboarding dan HRD mendaftarkannya sebagai karyawan."
+          : "Calon karyawan mengisi data sendiri lewat /onboarding (masuk dengan OTP), HRD mencocokkan dengan dokumen fisik, lalu diajukan ke approver."}</T></p>
       </div>
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
+        <FlowSetup flow={flow} people={people} />
         <div className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
           {stats.map((s) => (
             <div key={s.label} className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -356,7 +369,7 @@ export default function OnboardingClient({ rows, master, canApprove, interviewOn
             </ul>
           )}
         </div>
-        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Fitur diatur Super Admin di Pengaturan → Fitur; approver di menu Workflow.</T></p>
+        <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Modul dinyalakan Super Admin di Pengaturan → Fitur; wawancara dan approver diatur di Alur Pra-Karyawan di atas.</T></p>
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} onClose={() => setOpenId(null)} />}

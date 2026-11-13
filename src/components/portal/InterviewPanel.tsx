@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
-import { actionableApprovers, RECOMMENDATIONS, rupiah, SCORES, type Interview, type Offer } from "@/lib/onboarding-interview";
-import { decideInterview } from "@/app/(portal)/portal/admin/onboarding/actions";
+import { actionableApprovers, missingReview, RECOMMENDATIONS, rupiah, SCORES, type Interview, type Offer, type Review } from "@/lib/onboarding-interview";
+import { decideInterview, saveReview } from "@/app/(portal)/portal/admin/onboarding/actions";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm disabled:bg-gray-50";
 const fmtDate = (s: string) => (s ? new Date(s.length === 10 ? `${s}T00:00:00` : s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—");
@@ -19,60 +19,93 @@ function F({ label, children, wide }: { label: string; children: React.ReactNode
   return <div className={`space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}><Label className="text-xs"><T>{label}</T></Label>{children}</div>;
 }
 
-// Isian HRD: hasil wawancara + tawaran kerja.
-export function InterviewForm({ value, onChange, master }: { value: Interview; onChange: (v: Interview) => void; master: Master }) {
+// Tawaran kerja (diisi HRD atau pewawancara selama tahap wawancara; ikut disetujui approver).
+export function OfferForm({ value, onChange, master }: { value: Offer; onChange: (v: Offer) => void; master: Master }) {
   const t = useT();
-  const set = (patch: Partial<Interview>) => onChange({ ...value, ...patch });
-  const setO = (patch: Partial<Offer>) => onChange({ ...value, offer: { ...value.offer, ...patch } });
+  const setO = (patch: Partial<Offer>) => onChange({ ...value, ...patch });
   const pick = (k: "branch" | "departmentName" | "position", list: string[]) => (
-    <select value={value.offer[k]} onChange={(e) => setO({ [k]: e.target.value })} className={select}>
+    <select value={value[k]} onChange={(e) => setO({ [k]: e.target.value })} className={select}>
       <option value="">—</option>
-      {[...(value.offer[k] && !list.includes(value.offer[k]) ? [value.offer[k]] : []), ...list].map((o) => <option key={o} value={o}>{o}</option>)}
+      {[...(value[k] && !list.includes(value[k]) ? [value[k]] : []), ...list].map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
   );
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 rounded-2xl border border-gray-200 p-4 sm:grid-cols-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 sm:col-span-2"><T>Hasil wawancara</T></p>
-        <F label="Tanggal wawancara"><Input type="date" value={value.date} onChange={(e) => set({ date: e.target.value })} /></F>
-        <F label="Pewawancara"><Input value={value.interviewer} className="uppercase" onChange={(e) => set({ interviewer: e.target.value.toUpperCase() })} placeholder={t("Nama pewawancara")} /></F>
+    <div className="grid gap-3 rounded-2xl border border-gray-200 p-4 sm:grid-cols-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 sm:col-span-2"><T>Tawaran kerja (ikut disetujui approver)</T></p>
+      <F label="Departemen">{pick("departmentName", master.departments)}</F>
+      <F label="Jabatan">{pick("position", master.positions)}</F>
+      <F label="Cabang">{pick("branch", master.branches)}</F>
+      <F label="Calon atasan langsung">
+        <select value={value.managerId} className={select}
+          onChange={(e) => setO({ managerId: e.target.value, managerName: master.managers?.find((m) => m.value === e.target.value)?.label ?? "" })}>
+          <option value="">—</option>
+          {(master.managers ?? []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
+      </F>
+      <F label="Status kerja">
+        <select value={value.employmentStatus} onChange={(e) => setO({ employmentStatus: e.target.value })} className={select}>
+          <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option>
+        </select>
+      </F>
+      <F label="Gaji pokok yang ditawarkan (Rp / bulan)"><Input type="number" min={0} value={value.salary} onChange={(e) => setO({ salary: e.target.value })} /></F>
+      <F label="Rencana tanggal masuk"><Input type="date" value={value.joinDate} onChange={(e) => setO({ joinDate: e.target.value })} /></F>
+      {value.employmentStatus === "KONTRAK" && (
+        <F label="Tanggal akhir kontrak"><Input type="date" value={value.contractEndDate} onChange={(e) => setO({ contractEndDate: e.target.value })} /></F>
+      )}
+    </div>
+  );
+}
+
+// Pewawancara mengisi penilaiannya sendiri (menu Persetujuan): tanggal, nilai, rekomendasi, catatan + boleh melengkapi tawaran kerja.
+export function ReviewForm({ candidateId, review, offer: initialOffer, master, onDone }: { candidateId: string; review: Review; offer: Offer; master: Master; onDone?: () => void }) {
+  const t = useT();
+  const [r, setR] = useState(review);
+  const [offer, setOffer] = useState(initialOffer);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; list?: string[] } | null>(null);
+  const [pending, start] = useTransition();
+  const set = (patch: Partial<Review>) => { setMsg(null); setR((x) => ({ ...x, ...patch })); };
+  const save = (submit: boolean) => {
+    if (submit && !window.confirm(t("Kirim penilaian? Setelah dikirim tidak bisa diubah."))) return;
+    setMsg(null);
+    start(async () => {
+      const res = await saveReview(candidateId, r, offer, submit);
+      if (res.error) { setMsg({ ok: false, text: res.error, list: res.missing }); if (res.done) onDone?.(); return; }
+      setMsg({ ok: true, text: !submit ? "Tersimpan." : res.sent ? "Penilaian terkirim. Semua pewawancara selesai: hasil wawancara diajukan ke approver." : res.done ? "Penilaian terkirim." : "Tersimpan." });
+      if (submit) onDone?.();
+    });
+  };
+  const miss = missingReview(r);
+  return (
+    <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
+      <p className="text-sm font-semibold text-amber-900"><T>Giliran Anda mewawancarai calon ini. Isi penilaian Anda lalu kirim.</T></p>
+      <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 sm:col-span-2"><T>Penilaian saya</T></p>
+        <F label="Tanggal wawancara"><Input type="date" value={r.date} onChange={(e) => set({ date: e.target.value })} /></F>
         <F label="Nilai">
-          <select value={value.score} onChange={(e) => set({ score: e.target.value })} className={select}>
-            <option value="">—</option>{SCORES.map((s) => <option key={s.value} value={s.value}>{t(s.label)}</option>)}
+          <select value={r.score} onChange={(e) => set({ score: e.target.value })} className={select}>
+            <option value="">—</option>{SCORES.map((x) => <option key={x.value} value={x.value}>{t(x.label)}</option>)}
           </select>
         </F>
-        <F label="Rekomendasi">
-          <select value={value.recommendation} onChange={(e) => set({ recommendation: e.target.value })} className={select}>
-            <option value="">—</option>{RECOMMENDATIONS.map((s) => <option key={s.value} value={s.value}>{t(s.label)}</option>)}
+        <F label="Rekomendasi" wide>
+          <select value={r.recommendation} onChange={(e) => set({ recommendation: e.target.value })} className={select}>
+            <option value="">—</option>{RECOMMENDATIONS.map((x) => <option key={x.value} value={x.value}>{t(x.label)}</option>)}
           </select>
         </F>
-        <F label="Catatan wawancara" wide>
-          <textarea value={value.notes} onChange={(e) => set({ notes: e.target.value })} rows={3} placeholder={t("Kesan, kelebihan, kekurangan, pengalaman yang relevan")}
+        <F label="Catatan pewawancara" wide>
+          <textarea value={r.notes} onChange={(e) => set({ notes: e.target.value })} rows={3} placeholder={t("Kesan, kelebihan, kekurangan, pengalaman yang relevan")}
             className="w-full rounded-lg border border-input px-3 py-2 text-sm" />
         </F>
       </div>
-      <div className="grid gap-3 rounded-2xl border border-gray-200 p-4 sm:grid-cols-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 sm:col-span-2"><T>Tawaran kerja (ikut disetujui approver)</T></p>
-        <F label="Departemen">{pick("departmentName", master.departments)}</F>
-        <F label="Jabatan">{pick("position", master.positions)}</F>
-        <F label="Cabang">{pick("branch", master.branches)}</F>
-        <F label="Calon atasan langsung">
-          <select value={value.offer.managerId} className={select}
-            onChange={(e) => setO({ managerId: e.target.value, managerName: master.managers?.find((m) => m.value === e.target.value)?.label ?? "" })}>
-            <option value="">—</option>
-            {(master.managers ?? []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
-        </F>
-        <F label="Status kerja">
-          <select value={value.offer.employmentStatus} onChange={(e) => setO({ employmentStatus: e.target.value })} className={select}>
-            <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option>
-          </select>
-        </F>
-        <F label="Gaji pokok yang ditawarkan (Rp / bulan)"><Input type="number" min={0} value={value.offer.salary} onChange={(e) => setO({ salary: e.target.value })} /></F>
-        <F label="Rencana tanggal masuk"><Input type="date" value={value.offer.joinDate} onChange={(e) => setO({ joinDate: e.target.value })} /></F>
-        {value.offer.employmentStatus === "KONTRAK" && (
-          <F label="Tanggal akhir kontrak"><Input type="date" value={value.offer.contractEndDate} onChange={(e) => setO({ contractEndDate: e.target.value })} /></F>
-        )}
+      <div className="bg-white rounded-2xl"><OfferForm value={offer} onChange={(v) => { setMsg(null); setOffer(v); }} master={master} /></div>
+      {miss.length > 0 && <p className="text-xs text-amber-800"><T>Belum lengkap</T>: {miss.map((m) => t(m)).join(", ")}</p>}
+      {msg && (
+        <div className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+          <T>{msg.text}</T>{msg.list && <ul className="mt-1 list-disc pl-5 text-xs">{msg.list.map((x) => <li key={x}><T>{x}</T></li>)}</ul>}
+        </div>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" disabled={pending} onClick={() => save(false)}><T>Simpan</T></Button>
+        <Button disabled={pending} className="gap-1.5" onClick={() => save(true)}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} <T>Kirim Penilaian</T></Button>
       </div>
     </div>
   );
@@ -100,6 +133,28 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
         </div>
       )}
       {!i.skipped && <>
+      {i.reviews.length > 0 ? (
+        <div className="rounded-2xl border border-gray-200 p-4 text-sm">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Penilaian pewawancara</T></p>
+          <ol className="space-y-2.5">
+            {i.reviews.map((rv) => (
+              <li key={rv.id} className="flex items-start gap-2">
+                {rv.at ? <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" /> : <Clock size={16} className="mt-0.5 shrink-0 text-amber-500" />}
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium text-gray-800">{rv.name}</span>{" "}
+                  <span className="text-xs text-gray-500">{rv.at ? <><T>menilai</T> · {fmtTime(rv.at)}</> : <T>belum menilai</T>}</span>
+                  {rv.at && (
+                    <span className="block text-xs text-gray-700">
+                      {fmtDate(rv.date)} · <T>Nilai</T> {t(label(SCORES, rv.score))} · {t(label(RECOMMENDATIONS, rv.recommendation))}
+                    </span>
+                  )}
+                  {rv.at && rv.notes && <span className="mt-0.5 block whitespace-pre-line rounded-lg bg-gray-50 px-2 py-1 text-xs text-gray-600">“{rv.notes}”</span>}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : (
       <div className="rounded-2xl border border-gray-200 p-4 text-sm">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Hasil wawancara</T></p>
         {row("Tanggal", fmtDate(i.date))}
@@ -108,6 +163,7 @@ export function InterviewSummary({ interview: i, job }: { interview: Interview; 
         {row("Rekomendasi", t(label(RECOMMENDATIONS, i.recommendation)))}
         {i.notes && <p className="mt-2 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">{i.notes}</p>}
       </div>
+      )}
       <div className="rounded-2xl border border-gray-200 p-4 text-sm">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Tawaran kerja</T></p>
         {row("Jabatan", i.offer.position || "—")}
@@ -167,7 +223,8 @@ export function InterviewDecision({ candidateId, onDone }: { candidateId: string
   return (
     <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
       <p className="text-sm font-semibold text-amber-900"><T>Giliran Anda memberi keputusan.</T></p>
-      <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Catatan (wajib bila menolak)")} className="bg-white" />
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t("Catatan approver (wajib bila menolak)")}
+        className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm" />
       {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
       <div className="flex justify-end gap-2">
         <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600" onClick={() => decide("TOLAK")}><X size={14} /> <T>Tolak</T></Button>

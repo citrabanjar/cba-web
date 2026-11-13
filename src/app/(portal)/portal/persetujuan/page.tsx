@@ -9,6 +9,7 @@ import { isApprover, noWorkflow, requesterFilter, reviewsProfiles } from "@/lib/
 import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
 import { actionableApprovers, APPROVAL_STATUSES, readApproval, readInterview, stepCandidates } from "@/lib/onboarding-interview";
+import { getMasterOptions } from "@/lib/master-data";
 import { CANDIDATE_STATUS, readJob } from "@/lib/onboarding";
 import { Prisma } from "@prisma/client";
 import PersetujuanClient, { type ApprovalItem, type InterviewItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
@@ -53,7 +54,7 @@ export default async function PersetujuanPage() {
     }),
     // Approval Pra-Karyawan: hasil wawancara atau data calon (workflow di Pengaturan → Pra-Karyawan).
     prisma.candidate.findMany({
-      where: { interview: { not: Prisma.DbNull }, OR: [{ status: { in: APPROVAL_STATUSES } }, { updatedAt: { gte: since } }] },
+      where: { interview: { not: Prisma.DbNull }, OR: [{ status: { in: [...APPROVAL_STATUSES, "WAWANCARA"] } }, { updatedAt: { gte: since } }] },
       select: { id: true, name: true, email: true, phone: true, status: true, interview: true, job: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 100,
     }),
   ]);
@@ -98,12 +99,21 @@ export default async function PersetujuanPage() {
 
   const interviews: InterviewItem[] = candidates.flatMap((c) => {
     const iv = readInterview(c.interview);
-    if (!iv?.approval?.steps.some((x) => stepCandidates(x).includes(a.id))) return [];
+    // Pewawancara (penilaian) atau approver calon ini.
+    const myReview = iv?.reviews.find((x) => x.id === a.id) ?? null;
+    if (!iv || (!myReview && !iv.approval?.steps.some((x) => stepCandidates(x).includes(a.id)))) return [];
+    const reviewing = c.status === "WAWANCARA" && !!myReview && !myReview.at;
     return [{
       id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status, statusLabel: CANDIDATE_STATUS[c.status]?.label ?? c.status,
-      interview: iv, job: readJob(c.job), mine: APPROVAL_STATUSES.includes(c.status) && actionableApprovers(iv.approval).includes(a.id),
+      interview: iv, job: readJob(c.job), review: reviewing ? myReview : null,
+      mine: reviewing || (APPROVAL_STATUSES.includes(c.status) && actionableApprovers(iv.approval).includes(a.id)),
     }];
   });
+
+  // Pilihan tawaran kerja untuk pewawancara (departemen, jabatan, cabang, calon atasan).
+  const master = interviews.some((i) => i.review)
+    ? { ...(await getMasterOptions()), managers: (await prisma.user.findMany({ where: { isActive: true, employeeId: { not: null } }, orderBy: { employeeId: "asc" }, select: { id: true, name: true, employeeId: true } })).map((u) => ({ value: u.id, label: `${u.employeeId} - ${u.name}` })) }
+    : null;
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -111,7 +121,7 @@ export default async function PersetujuanPage() {
         <h2 className="font-bold text-gray-800"><T>Persetujuan</T></h2>
         <p className="text-xs text-gray-400"><T>Pengajuan yang menunggu keputusan Anda: cuti, dinas luar, tukar shift, perubahan data, dan wawancara calon karyawan.</T></p>
       </div>
-      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} />
+      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} master={master} />
     </div>
   );
 }

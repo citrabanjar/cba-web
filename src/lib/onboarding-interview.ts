@@ -1,5 +1,8 @@
-// Tahap wawancara onboarding (diatur Super Admin di Pengaturan → Onboarding).
-// Aman dipakai di server dan browser.
+// Tahap wawancara onboarding. Aman dipakai di server dan browser.
+// Super Admin hanya menyalakan modul Pra-Karyawan (Pengaturan → Fitur). Alurnya diatur Admin di menu Pra-Karyawan → Alur:
+//   [x] Wawancara → pewawancara (Employee ID, boleh lebih dari satu) mengisi penilaian + catatan sendiri di menu Persetujuan.
+//   [x] Approval  → approver (Employee ID, boleh lebih dari satu, berurutan) menyetujui / menolak dengan catatan.
+//   Tanpa wawancara, approval wajib. Setelah semua beres, berkas kembali ke Admin (bisa dicetak) untuk dilanjutkan.
 //
 // Alur bila wawancara aktif:
 //   WAWANCARA (HRD isi hasil + tawaran kerja) → APPROVAL_WAWANCARA (tunggal / sirkular)
@@ -13,6 +16,30 @@ export type ApprovalMode = "TUNGGAL" | "SIRKULAR";
 export type ApprovalOrder = "BERURUTAN" | "BERSAMAAN";
 export type ApproverRef = { id: string; name: string };
 export type OnboardingSettings = { enabled: boolean; interview: boolean; mode: ApprovalMode; order: ApprovalOrder; approvers: ApproverRef[] };
+
+// Alur Pra-Karyawan (diatur Admin).
+export const ONBOARDING_FLOW_KEY = "onboarding-flow";
+export type OnboardingFlow = { interview: boolean; interviewers: ApproverRef[]; approval: boolean; approvers: ApproverRef[] };
+const refs = (raw: unknown) => {
+  const seen = new Set<string>();
+  return Array.isArray(raw)
+    ? (raw as Record<string, unknown>[]).map((a) => ({ id: str(a?.id), name: str(a?.name) })).filter((a) => a.id && !seen.has(a.id) && seen.add(a.id)).slice(0, 10)
+    : [];
+};
+export function normalizeOnboardingFlow(raw: unknown, legacyInterview = false): OnboardingFlow {
+  const v = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!v) return { interview: legacyInterview, interviewers: [], approval: true, approvers: [] };
+  const interview = v.interview === true;
+  // Tanpa wawancara, approval wajib.
+  return { interview, interviewers: refs(v.interviewers), approval: interview ? v.approval !== false : true, approvers: refs(v.approvers) };
+}
+// Yang masih kurang di setup alur (kosong = siap dipakai).
+export function flowProblems(f: OnboardingFlow): string[] {
+  const out: string[] = [];
+  if (f.interview && !f.interviewers.length) out.push("Pilih minimal satu pewawancara.");
+  if (f.approval && !f.approvers.length) out.push("Pilih minimal satu approver.");
+  return out;
+}
 
 export const DEFAULT_ONBOARDING_SETTINGS: OnboardingSettings = { enabled: true, interview: false, mode: "TUNGGAL", order: "BERURUTAN", approvers: [] };
 
@@ -45,6 +72,16 @@ export type Offer = {
 };
 // Satu level approval. ids = calon approver (pemegang jabatan / hak akses); salah satu cukup memutus, namanya dicatat di "by".
 // Tanpa ids: id = satu karyawan tertentu.
+// Penilaian satu pewawancara (diisi sendiri di menu Persetujuan). at = waktu dikirim; kosong = belum.
+export type Review = { id: string; name: string; date: string; score: string; recommendation: string; notes: string; at: string };
+export const emptyReview = (id: string, name: string): Review => ({ id, name, date: "", score: "", recommendation: "", notes: "", at: "" });
+export function missingReview(r: Review): string[] {
+  const m: string[] = [];
+  if (!r.date) m.push("Tanggal wawancara");
+  if (!r.score) m.push("Nilai");
+  if (!r.recommendation) m.push("Rekomendasi");
+  return m;
+}
 export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string };
 export const stepCandidates = (s: ApprovalStep) => (s.ids?.length ? s.ids : [s.id]);
 export type InterviewApproval = { mode: ApprovalMode; order: ApprovalOrder; steps: ApprovalStep[] };
@@ -54,6 +91,7 @@ export type Interview = {
   approval: InterviewApproval | null;
   submittedBy: string; submittedAt: string; approvedAt: string;
   skipped: boolean; // true = tanpa wawancara; hanya jejak workflow approval data calon
+  reviews: Review[]; // penilaian per pewawancara (alur baru); kosong = data lama (satu isian HRD)
 };
 
 export const SCORES = [
@@ -69,7 +107,7 @@ export const RECOMMENDATIONS = [
 export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "", managerId: "", managerName: "" });
 export const emptyInterview = (): Interview => ({
   date: "", interviewer: "", score: "", notes: "", recommendation: "", offer: emptyOffer(),
-  approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false,
+  approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false, reviews: [],
 });
 
 export function readInterview(raw: unknown): Interview | null {
@@ -81,6 +119,12 @@ export function readInterview(raw: unknown): Interview | null {
   const o = (v.offer ?? {}) as Record<string, unknown>;
   for (const k of Object.keys(base.offer) as (keyof Offer)[]) if (typeof o[k] === "string") base.offer[k] = o[k] as string;
   base.approval = readApproval(v.approval);
+  base.reviews = Array.isArray(v.reviews)
+    ? (v.reviews as Record<string, unknown>[]).map((x) => ({
+        id: str(x?.id), name: str(x?.name), date: str(x?.date), score: str(x?.score),
+        recommendation: str(x?.recommendation), notes: str(x?.notes), at: str(x?.at),
+      })).filter((x) => x.id)
+    : [];
   return base;
 }
 
@@ -99,13 +143,9 @@ export function readApproval(raw: unknown): InterviewApproval | null {
   };
 }
 
-// Isian HRD yang wajib sebelum hasil wawancara diajukan.
-export function missingInterview(i: Interview): string[] {
+// Tawaran kerja yang wajib lengkap sebelum hasil wawancara diajukan ke approval.
+export function missingOffer(i: Interview): string[] {
   const miss: string[] = [];
-  if (!i.date) miss.push("Tanggal wawancara");
-  if (!i.interviewer.trim()) miss.push("Pewawancara");
-  if (!i.score) miss.push("Nilai");
-  if (!i.recommendation) miss.push("Rekomendasi");
   if (!i.offer.departmentName.trim()) miss.push("Departemen (tawaran)");
   if (!i.offer.position.trim()) miss.push("Jabatan (tawaran)");
   if (!i.offer.managerId) miss.push("Calon atasan langsung");
@@ -113,6 +153,13 @@ export function missingInterview(i: Interview): string[] {
   if (!i.offer.joinDate) miss.push("Rencana tanggal masuk");
   if (i.offer.employmentStatus === "KONTRAK" && !i.offer.contractEndDate) miss.push("Tanggal akhir kontrak (tawaran)");
   return miss;
+}
+// Pewawancara yang belum mengirim penilaian.
+export const pendingReviews = (i: Interview | null) => (i?.reviews ?? []).filter((r) => !r.at);
+// Semua syarat sebelum hasil wawancara diajukan: semua pewawancara sudah menilai + tawaran lengkap.
+export function missingInterview(i: Interview): string[] {
+  const waiting = pendingReviews(i).map((r) => `Penilaian ${r.name}`);
+  return [...waiting, ...missingOffer(i)];
 }
 
 // Approver yang saat ini boleh memberi keputusan: berurutan = approver pertama yang belum memutus;
@@ -125,7 +172,13 @@ export function actionableApprovers(a: InterviewApproval | null): string[] {
 }
 export const approvalComplete = (a: InterviewApproval | null) => !!a && a.steps.length > 0 && a.steps.every((s) => s.decision === "SETUJU");
 // Calon ini lewat jalur wawancara yang sudah disetujui: HRD langsung mendaftarkan karyawan, tanpa approval akhir.
-export const interviewApproved = (i: Interview | null) => !!i && !i.skipped && approvalComplete(i.approval);
+// Tanpa approval (setup alur): lolos begitu semua pewawancara menilai (approvedAt terisi, approval kosong).
+export const interviewApproved = (i: Interview | null) => !!i && !i.skipped && (approvalComplete(i.approval) || (!i.approval && !!i.approvedAt));
+// Susun jejak approval dari daftar approver (berurutan).
+export const approvalFrom = (approvers: ApproverRef[]): InterviewApproval => ({
+  mode: approvers.length > 1 ? "SIRKULAR" : "TUNGGAL", order: "BERURUTAN",
+  steps: approvers.map((a) => ({ id: a.id, name: a.name, decision: "", at: "", note: "" })),
+});
 // Status calon yang sedang berjalan workflow approval (wawancara atau data calon).
 export const APPROVAL_STATUSES = ["APPROVAL_WAWANCARA", "MENUNGGU_APPROVAL"];
 

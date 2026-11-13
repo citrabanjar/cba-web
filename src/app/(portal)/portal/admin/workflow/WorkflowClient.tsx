@@ -30,7 +30,7 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
       ...ROLE_OPTIONS.map((r) => ({ value: r.value, label: t(r.label) })),
     ]
       : users.map((u) => ({ value: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }));
-  // Level baru default: atasan di bagan organisasi (Pra-Karyawan: mulai dari "Calon atasan langsung" di data calon).
+  // Level baru default: atasan di bagan organisasi.
   const newLevel = (): WorkflowLevel => ({ type: "POSITION", value: CHAIN_VALUE, label: "" });
   // Level jabatan ke-n (dihitung hanya di antara level jabatan) → "Atasan langsung", "Atasan dari atasan", …
   const chainIndex = (levels: WorkflowLevel[], i: number) => levels.slice(0, i + 1).filter((l) => l.type === "POSITION").length;
@@ -55,7 +55,7 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                   <span className="flex items-center gap-2 font-semibold text-gray-900"><T>{m.label}</T>
                     {soon ? <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500"><T>Segera</T></span>
                       : <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${mod.enabled ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                        <T>{mod.enabled ? "Aktif" : m.key === "PRA_KARYAWAN" ? "Belum diatur" : "Default: atasan langsung"}</T></span>}
+                        <T>{mod.enabled ? "Aktif" : "Default: atasan langsung"}</T></span>}
                   </span>
                   <span className="block text-xs text-gray-500"><T>{m.desc}</T></span>
                 </span>
@@ -71,7 +71,7 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                       </select>
                       {l.type === "POSITION" ? (
                         <p title={t("Mengikuti bagan organisasi pemohon")} className="flex h-9 items-center truncate whitespace-nowrap rounded-lg border border-dashed border-gray-300 bg-white px-3 text-sm font-medium text-gray-700">
-                          <T>{m.key === "PRA_KARYAWAN" ? (chainIndex(mod.levels, i) === 1 ? "Calon atasan langsung" : chainIndex(mod.levels, i) === 2 ? "Atasan dari calon atasan" : chainTitle(chainIndex(mod.levels, i))) : chainTitle(chainIndex(mod.levels, i))}</T>
+                          <T>{chainTitle(chainIndex(mod.levels, i))}</T>
                         </p>
                       ) : (
                         <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} disabled={!canEdit} className={select}>

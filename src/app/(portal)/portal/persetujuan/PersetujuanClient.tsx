@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
-import { InterviewDecision, InterviewSummary } from "@/components/portal/InterviewPanel";
-import type { Interview, InterviewApproval } from "@/lib/onboarding-interview";
+import { InterviewDecision, InterviewSummary, ReviewForm } from "@/components/portal/InterviewPanel";
+import type { Interview, InterviewApproval, Review } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -43,11 +43,13 @@ export type SwapItem = {
 
 export type InterviewItem = {
   id: string; name: string; email: string; phone: string; status: string; statusLabel: string; interview: Interview; job: CandidateJob; mine: boolean;
+  review: Review | null; // penilaian saya yang belum dikirim (pewawancara)
 };
+type OfferMaster = { branches: string[]; departments: string[]; positions: string[]; managers: { value: string; label: string }[] } | null;
 
 type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara";
 
-export default function PersetujuanClient({ items, profiles, swaps, interviews }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[] }) {
+export default function PersetujuanClient({ items, profiles, swaps, interviews, master = null }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[]; master?: OfferMaster }) {
   const [tab, setTab] = useState<TabKey>(() =>
     interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
       : profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
@@ -71,7 +73,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews }
         ))}
       </div>
       {tab === "wawancara" ? (
-        [...interviews].sort((a, b) => Number(b.mine) - Number(a.mine)).map((i) => <InterviewCard key={i.id} item={i} />)
+        [...interviews].sort((a, b) => Number(b.mine) - Number(a.mine)).map((i) => <InterviewCard master={master} key={i.id} item={i} />)
       ) : tab === "swap" ? (
         swaps.length === 0 ? <Empty text="Tidak ada pengajuan tukar shift." /> : [...swaps]
           .sort((a, b) => Number(b.mine) - Number(a.mine) || a.date.localeCompare(b.date))
@@ -309,7 +311,7 @@ function SwapCard({ s }: { s: SwapItem }) {
 }
 
 // Approval Pra-Karyawan: hasil wawancara atau data calon.
-function InterviewCard({ item }: { item: InterviewItem }) {
+function InterviewCard({ item, master }: { item: InterviewItem; master: OfferMaster }) {
   const router = useRouter();
   return (
     <div className={`space-y-3 rounded-2xl border bg-white p-4 ${item.mine ? "border-amber-300" : "border-gray-200"}`}>
@@ -321,7 +323,10 @@ function InterviewCard({ item }: { item: InterviewItem }) {
         <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600"><T>{item.statusLabel}</T></span>
       </div>
       <InterviewSummary interview={item.interview} job={item.job} />
-      {item.mine && <InterviewDecision candidateId={item.id} onDone={() => router.refresh()} />}
+      {item.review && master && (
+        <ReviewForm candidateId={item.id} review={item.review} offer={item.interview.offer} master={master} onDone={() => router.refresh()} />
+      )}
+      {item.mine && !item.review && <InterviewDecision candidateId={item.id} onDone={() => router.refresh()} />}
     </div>
   );
 }

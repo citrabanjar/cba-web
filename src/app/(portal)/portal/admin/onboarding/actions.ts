@@ -10,9 +10,12 @@ import { missingData, missingJob, readData, readJob, type CandidateData, type Ca
 import { headers } from "next/headers";
 import { sendInviteEmail, sendReturnedEmail } from "@/lib/mailer";
 import { auth } from "@/auth";
-import { getOnboardingSettings } from "@/lib/onboarding-settings";
-import { decideStep, workflowSteps } from "@/lib/workflow-settings";
-import { approvalComplete, emptyInterview, interviewApproved, missingInterview, readInterview, type Interview } from "@/lib/onboarding-interview";
+import { getOnboardingFlow, getOnboardingSettings } from "@/lib/onboarding-settings";
+import { decideStep } from "@/lib/workflow-settings";
+import {
+  approvalComplete, approvalFrom, emptyInterview, emptyReview, flowProblems, interviewApproved, missingInterview, missingReview,
+  normalizeOnboardingFlow, ONBOARDING_FLOW_KEY, pendingReviews, readInterview, type Interview, type OnboardingFlow, type Review,
+} from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
 
 const PATH = "/portal/admin/onboarding";
@@ -46,8 +49,13 @@ export async function inviteCandidate(input: { name: string; email: string; phon
   if (digits(phone).length < 9 || digits(phone).length > 15) return { error: "Nomor HP 9-15 digit." };
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah dipakai karyawan lain." };
   if (await prisma.candidate.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah terdaftar sebagai calon karyawan." };
-  if (setup.interview) {
-    const c = await prisma.candidate.create({ data: { name, email, phone, status: "WAWANCARA", data: { name, phone }, interview: emptyInterview(), invitedBy: access.name ?? null } });
+  const flow = await getOnboardingFlow();
+  const problems = flowProblems(flow);
+  if (problems.length) return { error: `Atur dulu Alur Pra-Karyawan: ${problems.join(" ")}` };
+  if (flow.interview) {
+    // Tiap pewawancara mendapat tugas penilaian di menu Persetujuan.
+    const interview: Interview = { ...emptyInterview(), reviews: flow.interviewers.map((x) => emptyReview(x.id, x.name)) };
+    const c = await prisma.candidate.create({ data: { name, email, phone, status: "WAWANCARA", data: { name, phone }, interview, invitedBy: access.name ?? null } });
     refresh();
     return { id: c.id, interview: true };
   }
@@ -132,14 +140,12 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   await prisma.candidate.update({ where: { id }, data: { data: clean, job: j, reviewedBy: access.name ?? null } });
   const v = await validate(id, clean, j, c.email);
   if (v.missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing: v.missing }; }
-  // Approval mengikuti workflow di Pengaturan → Pra-Karyawan (tunggal / sirkular).
-  // Approval mengikuti menu Workflow → Pra-Karyawan (Level 1..3, berurutan).
-  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN", "", j.managerId);
-  if (flowError) return { error: flowError };
-  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Admin mengatur Level approval di menu Workflow." };
+  // Approver mengikuti menu Pra-Karyawan → Alur (berurutan).
+  const setup = await getOnboardingFlow();
+  if (!setup.approvers.length) return { error: "Approver Pra-Karyawan belum diatur. Atur di menu Pra-Karyawan → Alur." };
   const wf: Interview = {
     ...emptyInterview(), skipped: true, submittedBy: access.name ?? "", submittedAt: new Date().toISOString(),
-    approval: flow,
+    approval: approvalFrom(setup.approvers),
   };
   await prisma.candidate.update({ where: { id }, data: { status: "MENUNGGU_APPROVAL", note: null, interview: wf } });
   refresh();
@@ -232,38 +238,120 @@ const cleanInterview = (input: Interview, prev: Interview | null): Interview => 
   return { ...i, interviewer: i.interviewer.toUpperCase(), approval: prev?.approval ?? null, submittedBy: prev?.submittedBy ?? "", submittedAt: prev?.submittedAt ?? "", approvedAt: prev?.approvedAt ?? "" };
 };
 
-// HRD menyimpan hasil wawancara + tawaran kerja (selama tahap wawancara).
+// Admin mengatur alur Pra-Karyawan: wawancara (+ pewawancara) dan approval (+ approver).
+export async function saveOnboardingFlow(input: OnboardingFlow): Promise<Result> {
+  const access = await requireHR();
+  const f = normalizeOnboardingFlow(input);
+  const ids = [...f.interviewers, ...f.approvers].map((x) => x.id);
+  const people = await prisma.user.findMany({ where: { id: { in: ids }, isActive: true }, select: { id: true, name: true } });
+  const known = new Map(people.map((u) => [u.id, u.name]));
+  const keep = (list: { id: string; name: string }[]) => list.filter((x) => known.has(x.id)).map((x) => ({ id: x.id, name: known.get(x.id)! }));
+  f.interviewers = f.interview ? keep(f.interviewers) : [];
+  f.approvers = f.approval ? keep(f.approvers) : [];
+  const problems = flowProblems(f);
+  if (problems.length) return { error: problems.join(" ") };
+  await prisma.appSetting.upsert({
+    where: { key: ONBOARDING_FLOW_KEY }, update: { value: f, updatedBy: access.name ?? null }, create: { key: ONBOARDING_FLOW_KEY, value: f, updatedBy: access.name ?? null },
+  });
+  refresh();
+  revalidatePath("/portal", "layout");
+  return {};
+}
+
+// HRD menyimpan tawaran kerja selama tahap wawancara (penilaian diisi pewawancara sendiri).
 export async function saveInterview(id: string, input: Interview): Promise<Result> {
   await requireHR();
   const c = await prisma.candidate.findUnique({ where: { id } });
   if (!c || c.status !== "WAWANCARA") return { error: "Calon tidak sedang di tahap wawancara." };
-  await prisma.candidate.update({ where: { id }, data: { interview: cleanInterview(input, readInterview(c.interview)) } });
+  const prev = readInterview(c.interview);
+  const i = cleanInterview(input, prev);
+  // Penilaian pewawancara tidak diubah HRD.
+  if (prev?.reviews.length) i.reviews = prev.reviews;
+  await prisma.candidate.update({ where: { id }, data: { interview: i } });
   refresh();
   return {};
 }
 
-// Hasil wawancara diajukan ke approver (tunggal / sirkular) sesuai Setup Onboarding.
-export async function submitInterview(id: string, input: Interview): Promise<Result> {
-  const access = await requireHR();
-  const c = await prisma.candidate.findUnique({ where: { id } });
-  if (!c || c.status !== "WAWANCARA") return { error: "Calon tidak sedang di tahap wawancara." };
-  const i = cleanInterview(input, readInterview(c.interview));
-  await prisma.candidate.update({ where: { id }, data: { interview: i } });
+// Semua pewawancara sudah menilai + tawaran lengkap → ke approver (bila Approval dicentang) atau langsung lolos.
+async function finishInterview(c: CandidateRec, i: Interview, by: string): Promise<Result & { emailed?: boolean; sent?: boolean }> {
   const missing = missingInterview(i);
   if (i.offer.departmentName && i.offer.position) {
     const org = await orgCheck({ ...readJob(null), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position });
     missing.push(...org.problems);
   }
-  if (missing.length) { refresh(); return { error: "Belum bisa diajukan:", missing }; }
-  const { flow, error: flowError } = await workflowSteps("PRA_KARYAWAN", "", i.offer.managerId);
-  if (flowError) return { error: flowError };
-  if (!flow) return { error: "Workflow Pra-Karyawan belum diaktifkan. Minta Admin mengatur Level approval di menu Workflow." };
-  i.approval = flow;
-  i.submittedBy = access.name ?? "";
+  if (missing.length) return { error: "Belum bisa diajukan:", missing };
+  const flow = await getOnboardingFlow();
+  i.submittedBy = by;
   i.submittedAt = new Date().toISOString();
-  await prisma.candidate.update({ where: { id }, data: { status: "APPROVAL_WAWANCARA", interview: i, note: null } });
+  if (flow.approval && flow.approvers.length) {
+    i.approval = approvalFrom(flow.approvers);
+    await prisma.candidate.update({ where: { id: c.id }, data: { status: "APPROVAL_WAWANCARA", interview: i, note: null } });
+    return { sent: true };
+  }
+  // Tanpa approval: hasil wawancara langsung kembali ke Admin, undangan isi data dikirim ke calon.
+  i.approval = null;
+  i.approvedAt = new Date().toISOString();
+  return { emailed: await inviteAfterInterview(c, i), sent: false };
+}
+
+// Wawancara lolos: tawaran kerja jadi isian awal Data Pekerjaan, undangan isi data dikirim ke email calon.
+async function inviteAfterInterview(c: CandidateRec, i: Interview) {
+  const job = {
+    ...readJob(c.job), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position,
+    employmentStatus: i.offer.employmentStatus, joinDate: i.offer.joinDate, contractEndDate: i.offer.employmentStatus === "TETAP" ? "" : i.offer.contractEndDate,
+    managerId: i.offer.managerId, managerName: i.offer.managerName,
+  };
+  await prisma.candidate.update({ where: { id: c.id }, data: { status: "DIUNDANG", interview: i, job, note: null } });
+  return sendInviteEmail(c.email, c.name, await onboardingLink(c.email));
+}
+
+// HRD mengajukan hasil wawancara (mis. setelah melengkapi tawaran kerja). Semua pewawancara harus sudah menilai.
+export async function submitInterview(id: string, input: Interview): Promise<Result> {
+  const access = await requireHR();
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  if (!c || c.status !== "WAWANCARA") return { error: "Calon tidak sedang di tahap wawancara." };
+  const prev = readInterview(c.interview);
+  const i = cleanInterview(input, prev);
+  if (prev?.reviews.length) i.reviews = prev.reviews;
+  await prisma.candidate.update({ where: { id }, data: { interview: i } });
+  const r = await finishInterview(c, i, access.name ?? "");
   refresh();
-  return {};
+  return r;
+}
+
+// Pewawancara mengisi penilaiannya sendiri (menu Persetujuan). submit = kirim; penilaian terakhir sekaligus mengajukan ke approver.
+export async function saveReview(id: string, input: Pick<Review, "date" | "score" | "recommendation" | "notes">, offer: Interview["offer"], submit: boolean): Promise<Result & { sent?: boolean; done?: boolean }> {
+  const session = await auth();
+  const me = session?.user?.id;
+  if (!me) return { error: "Unauthorized" };
+  const c = await prisma.candidate.findUnique({ where: { id } });
+  const i = readInterview(c?.interview);
+  if (!c || !i || c.status !== "WAWANCARA") return { error: "Calon tidak sedang di tahap wawancara." };
+  const mine = i.reviews.find((x) => x.id === me);
+  if (!mine) return { error: "Anda bukan pewawancara calon ini." };
+  if (mine.at) return { error: "Penilaian Anda sudah dikirim." };
+  Object.assign(mine, { date: input.date, score: input.score, recommendation: input.recommendation, notes: input.notes.trim() });
+  // Tawaran kerja boleh dilengkapi pewawancara.
+  i.offer = cleanInterview({ ...i, offer }, i).offer;
+  if (submit) {
+    const miss = missingReview(mine);
+    if (miss.length) { await prisma.candidate.update({ where: { id }, data: { interview: i } }); refresh(); return { error: "Penilaian belum lengkap:", missing: miss }; }
+    mine.at = new Date().toISOString();
+    mine.name = session.user?.name ?? mine.name;
+  }
+  await prisma.candidate.update({ where: { id }, data: { interview: i } });
+  if (submit && pendingReviews(i).length === 0) {
+    const r = await finishInterview(c, i, session.user?.name ?? "");
+    if (r.error) {
+      // Penilaian tetap terkirim; tawaran kerja yang belum lengkap dilengkapi HRD lalu diajukan dari menu Pra-Karyawan.
+      refresh();
+      return { done: true, error: "Penilaian terkirim. Belum bisa diajukan ke approval karena:", missing: r.missing };
+    }
+    refresh();
+    return { done: true, sent: r.sent };
+  }
+  refresh();
+  return { done: submit };
 }
 
 // Approver memutus hasil wawancara. Semua setuju → undangan isi data otomatis ke email calon.
@@ -295,14 +383,8 @@ export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", 
     refresh();
     return { done: true, ready: true };
   }
-  // Tawaran kerja yang disetujui menjadi isian awal Data Pekerjaan.
-  const job = {
-    ...readJob(c.job), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position,
-    employmentStatus: i.offer.employmentStatus, joinDate: i.offer.joinDate, contractEndDate: i.offer.employmentStatus === "TETAP" ? "" : i.offer.contractEndDate,
-    managerId: i.offer.managerId, managerName: i.offer.managerName,
-  };
-  await prisma.candidate.update({ where: { id }, data: { status: "DIUNDANG", interview: i, job } });
-  const emailed = await sendInviteEmail(c.email, c.name, await onboardingLink(c.email));
+  // Tawaran kerja yang disetujui menjadi isian awal Data Pekerjaan; berkas kembali ke Admin.
+  const emailed = await inviteAfterInterview(c, i);
   refresh();
   return { done: true, emailed };
 }

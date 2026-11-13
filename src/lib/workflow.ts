@@ -8,7 +8,7 @@ export const WORKFLOW_KEY = "workflow";
 export const MAX_LEVELS = 3;
 
 export const WORKFLOW_MODULES = [
-  { key: "PRA_KARYAWAN", label: "Pra-Karyawan", desc: "Persetujuan hasil wawancara (bila dipakai) atau data calon sebelum didaftarkan sebagai karyawan." },
+  // Pra-Karyawan tidak lagi di sini: pewawancara & approver diatur Admin di menu Pra-Karyawan → Alur.
   { key: "CUTI", label: "Cuti", desc: "Pengajuan cuti dan izin karyawan." },
   { key: "DINAS", label: "Dinas Luar", desc: "Pengajuan dinas luar karyawan." },
   { key: "LEMBUR", label: "Lembur", desc: "Pengajuan lembur (modul Lembur menyusul).", soon: true },

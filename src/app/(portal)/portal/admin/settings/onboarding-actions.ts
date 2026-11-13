@@ -13,8 +13,7 @@ export async function saveFeatures(input: { workflow: boolean; agent: boolean; o
   const session = await auth();
   if (!session?.user || !isSuperAdmin(session.user.role)) return { error: "Hanya Super Admin yang bisa mengubah fitur." };
   const v = normalizeOnboardingSettings(input.onboarding);
-  // Approver Pra-Karyawan diatur di menu Workflow → Pra-Karyawan, jadi Pra-Karyawan butuh fitur Workflow.
-  if (v.enabled && !input.workflow) return { error: "Pra-Karyawan butuh fitur Workflow untuk menentukan approver. Aktifkan Workflow atau matikan Pra-Karyawan." };
+  // Pewawancara & approver Pra-Karyawan diatur Admin di menu Pra-Karyawan → Alur (tidak butuh fitur Workflow).
   v.approvers = [];
   const by = session.user.name ?? null;
   await prisma.$transaction([
