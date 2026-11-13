@@ -2,7 +2,7 @@
 // setiap kali Kirim ke HRD (termasuk kirim ulang setelah perbaikan). Dipakai di form calon dan di Cetak berkas.
 export function DeclarationText({ name, idType, idNumber }: { name: string; idType: string; idNumber: string }) {
   return (
-    <div className="space-y-2 text-sm leading-relaxed text-gray-700">
+    <div className="space-y-2 text-justify text-sm leading-relaxed text-gray-700">
       <p className="text-center text-sm font-bold uppercase tracking-wide text-gray-900">Pernyataan Kebenaran Data dan Persetujuan Pengolahan Data Pribadi</p>
       <p>
         Saya, <b>{name || "—"}</b>, pemegang <b>{idType || "KTP"} No. {idNumber || "—"}</b>, menyatakan dengan sebenar-benarnya bahwa:
