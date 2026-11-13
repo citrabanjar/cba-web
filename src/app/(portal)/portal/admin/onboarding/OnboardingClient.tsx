@@ -109,7 +109,11 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
   const ready = row.status === "SIAP_DAFTAR" || (viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN"));
   const locked = viaInterview || row.status === "SIAP_DAFTAR";
   const ro = closed || !canEdit;
-  const run = (fn: () => Promise<{ error?: string; missing?: string[] }>, ok: string, after?: () => void) => {
+  // Tombol yang sedang diproses (ikon putar hanya di tombol yang diklik).
+  const [act, setAct] = useState("");
+  const spin = (key: string) => pending && act === key;
+  const run = (fn: () => Promise<{ error?: string; missing?: string[] }>, ok: string, after?: () => void, key = "") => {
+    setAct(key);
     setMsg(null);
     start(async () => {
       const r = await fn();
@@ -231,14 +235,14 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
           <div className="flex flex-wrap gap-2">
             {!closed && canEdit && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
-                onClick={() => { if (window.confirm(t("Hapus calon karyawan ini?"))) run(() => deleteCandidate(row.id), "Calon dihapus.", onClose); }}><Trash2 size={14} /> <T>Hapus</T></Button>
+                onClick={() => { if (window.confirm(t("Hapus calon karyawan ini?"))) run(() => deleteCandidate(row.id), "Calon dihapus.", onClose, "hapus"); }}>{spin("hapus") ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} <T>Hapus</T></Button>
             )}
             {canEdit && (row.status === "DIKIRIM" || row.status === "MENUNGGU_APPROVAL") && (
-              <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon dan diberi tahu lewat email.", onClose)}><Undo2 size={14} /> <T>Kembalikan ke Calon</T></Button>
+              <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon dan diberi tahu lewat email.", onClose, "kembali")}>{spin("kembali") ? <Loader2 size={14} className="animate-spin" /> : <Undo2 size={14} />} <T>Kembalikan ke Calon</T></Button>
             )}
             {canApprove && (legacyApproval || row.status === "WAWANCARA") && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
-                onClick={() => { if (window.confirm(t("Tolak calon karyawan ini?"))) run(() => rejectCandidate(row.id, note), "Calon ditolak.", onClose); }}><XCircle size={14} /> <T>Tolak</T></Button>
+                onClick={() => { if (window.confirm(t("Tolak calon karyawan ini?"))) run(() => rejectCandidate(row.id, note), "Calon ditolak.", onClose, "tolak"); }}>{spin("tolak") ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} <T>Tolak</T></Button>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -247,8 +251,8 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
                 <Button variant="outline" disabled={pending} onClick={() => run(() => saveInterview(row.id, iv), "Tawaran kerja tersimpan.")}><T>Simpan</T></Button>
                 {/* Biasanya otomatis saat pewawancara terakhir mengirim penilaian; tombol ini untuk bila tawaran kerja baru dilengkapi HRD. */}
                 {pendingReviews(row.interview).length === 0 && (
-                  <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitInterview(row.id, iv), "Hasil wawancara diproses.", onClose)}>
-                    {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Ajukan ke Approval</T></Button>
+                  <Button disabled={pending} className="gap-1.5" onClick={() => run(() => submitInterview(row.id, iv), "Hasil wawancara diproses.", onClose, "ajukan")}>
+                    {spin("ajukan") ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Ajukan ke Approval</T></Button>
                 )}
               </>
             )}
@@ -258,29 +262,29 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
             {canEdit && ready && !password && (
               <Button disabled={pending} className="gap-1.5" onClick={() => {
                 if (!window.confirm(t("Daftarkan sebagai karyawan? Data langsung masuk database."))) return;
-                setMsg(null);
+                setMsg(null); setAct("daftar");
                 start(async () => {
                   const r = await registerCandidate(row.id, data, job);
                   if (r.error) setMsg({ ok: false, text: r.error, list: r.missing }); else setPassword(r.password ?? null);
                 });
-              }}>{pending ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Daftarkan Karyawan</T></Button>
+              }}>{spin("daftar") ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Daftarkan Karyawan</T></Button>
             )}
             {canEdit && !viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
               <Button disabled={pending || flowProblems(reviewers).length > 0} className="gap-1.5"
-                onClick={() => run(() => submitForApproval(row.id, data, job, reviewers), reviewers.interview ? "Dikirim ke pewawancara." : "Dikirim ke approver.", onClose)}>
-                {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Kirim ke Reviewer</T></Button>
+                onClick={() => run(() => submitForApproval(row.id, data, job, reviewers), reviewers.interview ? "Dikirim ke pewawancara." : "Dikirim ke approver.", onClose, "kirim")}>
+                {spin("kirim") ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Kirim ke Reviewer</T></Button>
             )}
             {canApprove && legacyApproval && !password && (
               <Button disabled={pending} className="gap-1.5" onClick={() => {
                 if (!window.confirm(t("Setujui dan jadikan karyawan?"))) return;
-                setMsg(null);
+                setMsg(null); setAct("setujui");
                 start(async () => {
                   const r = await saveCandidateReview(row.id, data, job);
                   if (r.error) { setMsg({ ok: false, text: r.error }); return; }
                   const a = await approveCandidate(row.id);
                   if (a.error) setMsg({ ok: false, text: a.error, list: a.missing }); else setPassword(a.password ?? null);
                 });
-              }}>{pending ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Setujui, Jadikan Karyawan</T></Button>
+              }}>{spin("setujui") ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Setujui, Jadikan Karyawan</T></Button>
             )}
             {(row.data.declaredAt || (row.interview && (row.interview.reviews.length > 0 || row.interview.approval))) && (
               <a href={`/portal/admin/onboarding/${row.id}/berkas`} target="_blank" rel="noreferrer"
