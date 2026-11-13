@@ -28,6 +28,8 @@ async function requireHR() {
 }
 const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); revalidatePath("/portal/persetujuan"); };
 const digits = (v: string) => v.replace(/\D/g, "");
+// Waktu persetujuan pernyataan calon tidak bisa diubah HRD: selalu diambil dari database.
+const keepDeclared = (d: CandidateData, c: { data: unknown; name: string; phone: string }) => ({ ...d, declaredAt: readData(c.data, c.name, c.phone).declaredAt });
 
 // Alamat halaman onboarding (absolut, untuk email undangan), email calon sudah terisi.
 async function onboardingLink(email: string) {
@@ -81,7 +83,7 @@ export async function saveCandidateReview(id: string, data: CandidateData, job: 
   const access = await requireHR();
   const c = await prisma.candidate.findUnique({ where: { id } });
   if (!c || c.status === "DISETUJUI" || c.status === "DITOLAK") return { error: "Calon tidak bisa diubah." };
-  const clean = readData(data, c.name, c.phone);
+  const clean = keepDeclared(readData(data, c.name, c.phone), c);
   await prisma.candidate.update({ where: { id }, data: { data: clean, job: readJob(job), name: clean.name || c.name, reviewedBy: access.name ?? null } });
   refresh();
   return {};
@@ -139,7 +141,7 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   const c = await prisma.candidate.findUnique({ where: { id } });
   if (!c || !["DIKIRIM", "DIKEMBALIKAN"].includes(c.status)) return { error: "Calon belum mengirim data atau sudah diproses." };
   if (interviewApproved(readInterview(c.interview))) return { error: "Calon ini sudah lolos approval wawancara: langsung Daftarkan Karyawan." };
-  const clean = readData(data, c.name, c.phone), j = readJob(job);
+  const clean = keepDeclared(readData(data, c.name, c.phone), c), j = readJob(job);
   await prisma.candidate.update({ where: { id }, data: { data: clean, job: j, reviewedBy: access.name ?? null } });
   const v = await validate(id, clean, j, c.email);
   if (v.missing.length) { refresh(); return { error: "Belum bisa dikirim:", missing: v.missing }; }
@@ -415,7 +417,7 @@ export async function registerCandidate(id: string, data: CandidateData, job: Ca
   // Lolos wawancara: alur baru (SIAP_DAFTAR) atau data lama (wawancara dulu, lalu calon mengisi data).
   const viaInterview = (c.status === "SIAP_DAFTAR" || ["DIKIRIM", "DIKEMBALIKAN"].includes(c.status)) && interviewApproved(i);
   if (!i || (!viaData && !viaInterview)) return { error: "Calon ini belum lolos workflow approval." };
-  const clean = readData(data, c.name, c.phone);
+  const clean = keepDeclared(readData(data, c.name, c.phone), c);
   // Status kerja dan jabatan mengikuti yang sudah disetujui approver.
   const approved = viaInterview ? { position: i.offer.position, employmentStatus: i.offer.employmentStatus } : { position: readJob(c.job).position, employmentStatus: readJob(c.job).employmentStatus };
   const j = { ...readJob(job), ...approved };

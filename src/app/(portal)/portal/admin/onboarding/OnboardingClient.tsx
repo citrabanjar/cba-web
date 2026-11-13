@@ -128,7 +128,8 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader><DialogTitle>{row.name} <span className={`ml-2 rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold ${CANDIDATE_STATUS[row.status]?.tone}`}><T>{CANDIDATE_STATUS[row.status]?.label ?? row.status}</T></span></DialogTitle></DialogHeader>
-        <p className="-mt-2 text-xs text-gray-500">{row.email} · {row.phone}{row.submittedAt && <> · <T>dikirim</T> {fmt(row.submittedAt)}</>}</p>
+        <p className="-mt-2 text-xs text-gray-500">{row.email} · {row.phone}{row.submittedAt && <> · <T>dikirim</T> {fmt(row.submittedAt)}</>}
+          {row.data.declaredAt && <> · <span className="text-emerald-700">☑ <T>pernyataan disetujui</T> {fmt(row.data.declaredAt)}</span></>}</p>
 
         {row.otp && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -281,7 +282,7 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
                 });
               }}>{pending ? <Loader2 size={14} className="animate-spin" /> : <UserCheck size={14} />} <T>Setujui, Jadikan Karyawan</T></Button>
             )}
-            {row.interview && (row.interview.reviews.length > 0 || row.interview.approval) && (
+            {(row.data.declaredAt || (row.interview && (row.interview.reviews.length > 0 || row.interview.approval))) && (
               <a href={`/portal/admin/onboarding/${row.id}/berkas`} target="_blank" rel="noreferrer"
                 className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 <Printer size={14} /> <T>Cetak berkas</T></a>

@@ -52,6 +52,13 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Centang pernyataan kebenaran data sebelum mengirim.": "Tick the data declaration before sending.",
+  "dari email": "from email",
+  "Disetujui secara elektronik oleh calon pada": "Agreed electronically by the candidate on",
+  "pernyataan disetujui": "declaration agreed",
+  "Setuju & Kirim": "Agree & Send",
+  "Saya telah membaca, memahami, dan menyetujui pernyataan di atas.": "I have read, understood and agree to the declaration above.",
+  "Pernyataan Calon Karyawan": "Candidate Declaration",
   "Wawancara, pewawancara, dan approver diatur Admin di menu Pra-Karyawan → Alur.": "Interviews, interviewers and approvers are set by Admin in Pre-Employee → Flow.",
   "Hasil wawancara diproses.": "Interview results processed.",
   "Tawaran kerja tersimpan.": "Job offer saved.",

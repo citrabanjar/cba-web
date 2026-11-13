@@ -32,6 +32,7 @@ export type CandidateData = {
   family: FamilyRow[];
   bankName: string; bankAccount: string; bankHolder: string;
   npwp: string; ptkpStatus: string; bpjsTkNumber: string; bpjsKesNumber: string;
+  declaredAt: string; // waktu calon menyetujui pernyataan kebenaran data (diisi server setiap Kirim ke HRD)
 };
 export type CandidateJob = {
   employeeId: string; branch: string; departmentName: string; position: string;
@@ -44,7 +45,7 @@ export function emptyData(name = "", phone = ""): CandidateData {
     name, phone, birthPlace: "", birthDate: "", idType: "KTP", ktpNumber: "", gender: "", maritalStatus: "", religion: "",
     address: "", addressSameAsId: true, currentAddress: "", family: [],
     addressRegion: "", addressRegionName: "", currentRegion: "", currentRegionName: "", addressPostal: "", currentPostal: "",
-    bankName: "", bankAccount: "", bankHolder: "", npwp: "", ptkpStatus: "", bpjsTkNumber: "", bpjsKesNumber: "",
+    bankName: "", bankAccount: "", bankHolder: "", npwp: "", ptkpStatus: "", bpjsTkNumber: "", bpjsKesNumber: "", declaredAt: "",
   };
 }
 export const emptyJob = (): CandidateJob => ({

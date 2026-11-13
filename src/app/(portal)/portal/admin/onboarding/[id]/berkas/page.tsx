@@ -5,7 +5,8 @@ import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { CANDIDATE_STATUS, readJob } from "@/lib/onboarding";
+import { CANDIDATE_STATUS, readData, readJob } from "@/lib/onboarding";
+import { DeclarationText, fmtDeclared } from "@/components/portal/DeclarationText";
 import { readInterview } from "@/lib/onboarding-interview";
 import { InterviewSummary } from "@/components/portal/InterviewPanel";
 import { T } from "@/components/i18n";
@@ -21,7 +22,8 @@ export default async function BerkasPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const c = await prisma.candidate.findUnique({ where: { id } });
   const i = readInterview(c?.interview);
-  if (!c || !i) notFound();
+  if (!c || (!i && !c.submittedAt)) notFound();
+  const d = readData(c.data, c.name, c.phone);
   const printed = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
   return (
@@ -36,9 +38,19 @@ export default async function BerkasPage({ params }: { params: Promise<{ id: str
           </div>
           <PrintButton />
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 print:border-0 print:p-0">
-          <InterviewSummary interview={i} job={readJob(c.job)} />
-        </div>
+        {i && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 print:border-0 print:p-0">
+            <InterviewSummary interview={i} job={readJob(c.job)} />
+          </div>
+        )}
+        {d.declaredAt && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 print:break-before-page print:border-0 print:p-0">
+            <DeclarationText name={d.name} idType={d.idType} idNumber={d.ktpNumber} />
+            <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              ☑ <T>Disetujui secara elektronik oleh calon pada</T> <b>{fmtDeclared(d.declaredAt)}</b> <T>dari email</T> <b>{c.email}</b>.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

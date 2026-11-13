@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { CheckCircle2, Loader2, LogOut, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DeclarationText } from "@/components/portal/DeclarationText";
 import { LanguageSwitcher, T } from "@/components/i18n";
 import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import { candidateCanEdit, missingData, type CandidateData } from "@/lib/onboarding";
@@ -27,17 +29,22 @@ export default function CandidateFormClient({ name, status, note, initial }: {
   });
   const [msg, setMsg] = useState<{ ok: boolean; text: string; list?: string[] } | null>(null);
   const [pending, start] = useTransition();
+  // Pernyataan kebenaran data: muncul setiap kali Kirim ke HRD (termasuk kirim ulang setelah perbaikan).
+  const [declare, setDeclare] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const editable = candidateCanEdit(status);
   const missing = missingData(data);
 
-  const save = (submit: boolean) => {
+  const save = (submit: boolean, agree = false) => {
     setMsg(null);
-    if (submit && !window.confirm("Kirim data ke HRD? Setelah dikirim, data tidak bisa diubah kecuali dikembalikan HRD.")) return;
+    // Isian sudah lengkap: tampilkan pernyataan dulu; yang belum lengkap langsung diberi tahu server.
+    if (submit && !agree && missing.length === 0) { setAgreed(false); setDeclare(true); return; }
+    setDeclare(false);
     start(async () => {
       // Bila portal baru diperbarui saat halaman ini masih terbuka, panggilan ke server bisa gagal:
       // tampilkan pesan (isian tidak hilang) alih-alih halaman error.
       let r: Awaited<ReturnType<typeof saveCandidateData>>;
-      try { r = await saveCandidateData(data, submit); }
+      try { r = await saveCandidateData(data, submit, agree); }
       catch {
         try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch { /* abaikan */ }
         setMsg({ ok: false, text: "Portal baru saja diperbarui. Muat ulang halaman ini (tekan F5 / tarik ke bawah), isian Anda tetap ada, lalu tekan tombol kirim lagi." });
@@ -90,6 +97,25 @@ export default function CandidateFormClient({ name, status, note, initial }: {
           </Button>
         </div>
       )}
+
+      <Dialog open={declare} onOpenChange={(o: boolean) => { if (!o) setDeclare(false); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader><DialogTitle><T>Pernyataan Calon Karyawan</T></DialogTitle></DialogHeader>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <DeclarationText name={data.name} idType={data.idType} idNumber={data.ktpNumber} />
+          </div>
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-3">
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#BE353F]" />
+            <span className="text-sm font-semibold text-gray-900"><T>Saya telah membaca, memahami, dan menyetujui pernyataan di atas.</T></span>
+          </label>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeclare(false)}><T>Batal</T></Button>
+            <Button disabled={!agreed || pending} className="gap-1.5" onClick={() => save(true, true)}>
+              {pending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} <T>Setuju & Kirim</T>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

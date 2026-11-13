@@ -52,16 +52,21 @@ export async function verifyOtp(email: string, phone: string, code: string): Pro
 }
 
 // Simpan isian (draf) atau kirim ke HRD untuk diperiksa.
-export async function saveCandidateData(input: CandidateData, submit: boolean): Promise<Result & { missing?: string[] }> {
+export async function saveCandidateData(input: CandidateData, submit: boolean, agreed = false): Promise<Result & { missing?: string[] }> {
   const id = await getCandidateSession();
   if (!id) return { error: "Sesi berakhir. Silakan masuk lagi." };
   const c = await prisma.candidate.findUnique({ where: { id } });
   if (!c) return { error: "Data calon tidak ditemukan." };
   if (!candidateCanEdit(c.status)) return { error: "Data sudah dikirim ke HRD dan tidak bisa diubah." };
   const data = readData(input, c.name, c.phone);
+  // Waktu persetujuan pernyataan hanya diisi server (bukan dari isian browser).
+  data.declaredAt = readData(c.data, c.name, c.phone).declaredAt;
   if (submit) {
     const missing = missingData(data);
     if (missing.length) return { error: "Lengkapi isian berikut sebelum dikirim.", missing };
+    // Setiap pengiriman (termasuk kirim ulang setelah perbaikan) wajib menyetujui pernyataan lagi.
+    if (!agreed) return { error: "Centang pernyataan kebenaran data sebelum mengirim." };
+    data.declaredAt = new Date().toISOString();
   }
   await prisma.candidate.update({
     where: { id },
