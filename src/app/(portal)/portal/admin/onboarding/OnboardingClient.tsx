@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, ClipboardCheck, Copy, KeyRound, Loader2, MessagesSquare, Plus, Printer, Search, Send, Trash2, Undo2, UserCheck, UserPlus, Users, XCircle } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ClipboardCheck, Copy, KeyRound, Loader2, MessagesSquare, Printer, Search, Send, Trash2, Undo2, UserCheck, UserPlus, Users, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -320,11 +320,6 @@ export default function OnboardingClient({ rows, master, canApprove, people }: {
   ];
   return (
     <div className="bg-gray-50 min-h-full">
-      {/* Judul & keterangan alur hanya untuk Admin yang bisa mengubah; hak lihat langsung ke daftar calon. */}
-      {canEdit && <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h2 className="font-bold text-gray-800"><T>Pra-Karyawan</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5"><T>Calon mengisi data sendiri lewat /onboarding (masuk dengan OTP). HRD mencocokkan dengan berkas asli lalu memilih reviewer (wawancara dan/atau approval). Setelah selesai, berkas kembali ke HRD untuk didaftarkan sebagai karyawan.</T></p>
-      </div>}
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
         <div className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
           {stats.map((s) => (
@@ -372,7 +367,6 @@ export default function OnboardingClient({ rows, master, canApprove, people }: {
             </ul>
           )}
         </div>
-        {canEdit && <p className="flex items-center gap-1.5 text-[11px] text-white/70"><Plus size={11} /> <T>Modul dinyalakan Super Admin di Pengaturan → Fitur; wawancara dan approver dipilih per calon saat HRD memeriksa data.</T></p>}
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} people={people} onClose={() => setOpenId(null)} />}
