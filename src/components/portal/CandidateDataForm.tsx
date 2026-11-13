@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
 import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES } from "@/lib/personal-info";
@@ -106,8 +107,9 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
       {section("Rekening Bank", (
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5"><Label className="text-xs"><T>Nama bank</T></Label>
-            <Input value={value.bankName} disabled={disabled} list="onb-banks" onChange={(e) => set("bankName", e.target.value)} />
-            <datalist id="onb-banks">{BANK_OPTIONS.map((b) => <option key={b.value} value={b.value} />)}</datalist></div>
+            {/* Daftar bank membuka ke bawah isian (seragam dengan pilihan lain), tetap boleh diketik bebas. */}
+            {disabled ? <Input value={value.bankName} disabled />
+              : <EmployeeCombobox id="onb-bank" value={value.bankName} options={BANK_OPTIONS.map((b) => ({ value: b.value, label: "" }))} onChange={(v) => set("bankName", v)} />}</div>
           {text("bankAccount", "No. rekening", { inputMode: "numeric" })}
           {text("bankHolder", "Nama pemilik rekening", {}, true)}
         </div>
