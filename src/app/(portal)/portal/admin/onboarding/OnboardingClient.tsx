@@ -11,7 +11,7 @@ import { T, useT } from "@/components/i18n";
 import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions as BaseMaster } from "@/lib/master-data";
 type MasterOptions = BaseMaster & { managers: { value: string; label: string }[] };
-import { CANDIDATE_GROUPS, CANDIDATE_STATUS, missingData, missingJob, type CandidateData, type CandidateJob } from "@/lib/onboarding";
+import { CANDIDATE_GROUPS, CANDIDATE_STATUS, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { emptyInterview, flowProblems, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview } from "@/lib/onboarding-interview";
 import { InterviewDecision, InterviewSummary, OfferForm } from "@/components/portal/InterviewPanel";
 import ReviewerBox, { emptyReviewers, type PersonOption } from "./ReviewerBox";
@@ -123,7 +123,6 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
       {[...(job[k] && !list.includes(job[k]) ? [job[k]] : []), ...list].map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
   );
-  const missing = [...missingData(data), ...missingJob(job)];
 
   return (
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
@@ -207,7 +206,6 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
                 )}
               </div>
             )}
-            {!closed && missing.length > 0 && <p className="text-xs text-amber-700"><T>Belum lengkap</T>: {missing.map((m) => t(m)).join(", ")}</p>}
             {/* Setelah data cocok dengan berkas asli: pilih reviewer (wawancara dan/atau approval). */}
             {canEdit && !viaInterview && (row.status === "DIKIRIM" || row.status === "DIKEMBALIKAN") && (
               <ReviewerBox value={reviewers} onChange={setReviewers} people={people} />
