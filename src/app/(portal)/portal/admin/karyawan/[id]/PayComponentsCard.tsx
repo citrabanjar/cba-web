@@ -33,7 +33,7 @@ function status(a: PayComponentRow["assigned"]) {
   return { label: a.endDate ? `Berlaku s/d ${fmt(a.endDate)}` : "Berlaku", tone: "bg-emerald-50 text-emerald-700", active: true };
 }
 
-function AssignDialog({ userId, row, onClose }: { userId: string; row: PayComponentRow; onClose: () => void }) {
+function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row: PayComponentRow; joinDate: string | null; onClose: () => void }) {
   const t = useT();
   const [start, setStart] = useState(row.assigned?.startDate ?? "");
   const [end, setEnd] = useState(row.assigned?.endDate ?? "");
@@ -56,10 +56,11 @@ function AssignDialog({ userId, row, onClose }: { userId: string; row: PayCompon
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label className="text-xs"><T>Mulai</T></Label>
-              <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-              <p className="text-[11px] text-gray-400"><T>Kosong = sejak awal</T></p></div>
+              {/* Tidak boleh sebelum tanggal masuk karyawan. */}
+              <Input type="date" value={start} min={joinDate ?? undefined} onChange={(e) => setStart(e.target.value)} />
+              <p className="text-[11px] text-gray-400">{joinDate ? <><T>Kosong = sejak tanggal masuk</T> ({fmt(joinDate)})</> : <T>Kosong = sejak awal</T>}</p></div>
             <div className="space-y-1.5"><Label className="text-xs"><T>Sampai</T></Label>
-              <Input type="date" value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} />
+              <Input type="date" value={end} min={start || joinDate || undefined} onChange={(e) => setEnd(e.target.value)} />
               <p className="text-[11px] text-gray-400"><T>Kosong = masih berlaku</T></p></div>
           </div>
           <div className="space-y-1.5"><Label className="text-xs"><T>Keterangan</T></Label>
@@ -89,7 +90,7 @@ function AssignDialog({ userId, row, onClose }: { userId: string; row: PayCompon
 }
 
 // Komponen gaji yang tertempel ke karyawan ini beserta masa berlakunya.
-export default function PayComponentsCard({ userId, rows }: { userId: string; rows: PayComponentRow[] }) {
+export default function PayComponentsCard({ userId, rows, joinDate = null }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null }) {
   const t = useT();
   const canEdit = useCanEdit("gaji"); // hak lihat saja: komponen tidak bisa dibuka untuk diubah
   const [open, setOpen] = useState(false);
@@ -141,7 +142,7 @@ export default function PayComponentsCard({ userId, rows }: { userId: string; ro
           );
         })}
       </div>}
-      {editing && <AssignDialog key={editing.componentId} userId={userId} row={editing} onClose={() => setEditing(null)} />}
+      {editing && <AssignDialog key={editing.componentId} userId={userId} row={editing} joinDate={joinDate} onClose={() => setEditing(null)} />}
     </section>
   );
 }

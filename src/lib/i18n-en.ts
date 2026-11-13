@@ -52,6 +52,7 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Kosong = sejak tanggal masuk": "Empty = from the join date",
   "Tempat, tanggal lahir": "Place, date of birth",
   "Belum giliran Anda: tunggu pewawancara sebelumnya selesai.": "Not your turn yet: wait for the previous interviewer.",
   "Usulan final belum lengkap:": "Final proposal is incomplete:",

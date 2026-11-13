@@ -509,6 +509,12 @@ export async function savePayAssignment(userId: string, componentId: string, dat
   const actor = await requireMenu("gaji");
   const startDate = isoDate(data.startDate), endDate = isoDate(data.endDate);
   if (startDate && endDate && endDate < startDate) return { error: "Tanggal Sampai tidak boleh sebelum tanggal Mulai." };
+  // Komponen tidak boleh berlaku sebelum karyawan mulai bekerja (tanggal masuk / awal kontrak).
+  const emp = await prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true } });
+  const join = emp?.joinDate ? emp.joinDate.toISOString().slice(0, 10) : null;
+  const tgl = (s: string) => new Date(`${s}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  if (join && startDate && startDate.toISOString().slice(0, 10) < join) return { error: `Tanggal Mulai tidak boleh sebelum tanggal masuk karyawan (${tgl(join)}).` };
+  if (join && endDate && endDate.toISOString().slice(0, 10) < join) return { error: `Tanggal Sampai tidak boleh sebelum tanggal masuk karyawan (${tgl(join)}).` };
   const fields = { startDate, endDate, note: data.note.trim().slice(0, 200) || null };
   await prisma.employeePayComponent.upsert({
     where: { userId_componentId: { userId, componentId } },

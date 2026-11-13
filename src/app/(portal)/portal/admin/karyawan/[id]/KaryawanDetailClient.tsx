@@ -1072,7 +1072,7 @@ export default function KaryawanDetailClient({
                 : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
             </SectionCard>
 
-            <PayComponentsCard userId={emp.id} rows={payComponents} />
+            <PayComponentsCard userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} />
 
             {emp.salaries.length > 0 && <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} />}
             </>)}
