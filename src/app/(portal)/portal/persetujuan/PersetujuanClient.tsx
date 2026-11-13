@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
-import { InterviewDecision, InterviewSummary, ReviewForm } from "@/components/portal/InterviewPanel";
-import { offerChoices, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
+import { InterviewDecision, InterviewSummary, ReviewForm, type CandidateBrief } from "@/components/portal/InterviewPanel";
+import { latestOffer, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -43,7 +43,8 @@ export type SwapItem = {
 
 export type InterviewItem = {
   id: string; name: string; email: string; phone: string; status: string; statusLabel: string; interview: Interview; job: CandidateJob; mine: boolean;
-  review: Review | null; // penilaian saya yang belum dikirim (pewawancara)
+  review: Review | null; // penilaian saya yang belum dikirim (pewawancara, saat gilirannya)
+  candidate: CandidateBrief; // ringkasan data calon untuk pewawancara & approver
 };
 type OfferMaster = { branches: string[]; departments: string[]; positions: string[]; managers: { value: string; label: string }[] } | null;
 
@@ -322,11 +323,14 @@ function InterviewCard({ item, master }: { item: InterviewItem; master: OfferMas
         </div>
         <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600"><T>{item.statusLabel}</T></span>
       </div>
-      <InterviewSummary interview={item.interview} job={item.job} />
+      <InterviewSummary interview={item.interview} job={item.job} candidate={item.candidate} />
       {item.review && master && (
-        <ReviewForm candidateId={item.id} review={item.review} offer={item.review.offer ?? item.interview.offer} master={master} onDone={() => router.refresh()} />
+        <ReviewForm candidateId={item.id} review={item.review} offer={item.review.offer ?? latestOffer(item.interview)} master={master} onDone={() => router.refresh()} />
       )}
-      {item.mine && !item.review && <InterviewDecision candidateId={item.id} choices={offerChoices(item.interview)} onDone={() => router.refresh()} />}
+      {item.mine && !item.review && (
+        <InterviewDecision candidateId={item.id} master={master} onDone={() => router.refresh()}
+          finalOffer={!item.interview.skipped && item.interview.reviews.length > 0 ? latestOffer(item.interview) : null} />
+      )}
     </div>
   );
 }

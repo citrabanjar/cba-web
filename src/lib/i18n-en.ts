@@ -52,6 +52,16 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Tempat, tanggal lahir": "Place, date of birth",
+  "Belum giliran Anda: tunggu pewawancara sebelumnya selesai.": "Not your turn yet: wait for the previous interviewer.",
+  "Usulan final belum lengkap:": "Final proposal is incomplete:",
+  "Keputusan approver": "Approver decision",
+  "Usulan final (keputusan akhir)": "Final proposal (final decision)",
+  "Usulan final": "Final proposal",
+  "Usulan penempatan saya": "My placement proposal",
+  "Usulan penempatan (HRD)": "Placement proposal (HR)",
+  "Data calon karyawan": "Candidate data",
+  "Data calon & usulan penempatan": "Candidate data & placement proposal",
   "Pilih tawaran kerja final dari salah satu pewawancara.": "Choose the final job offer from one of the interviewers.",
   "Memilih tawaran dari": "Chose the offer from",
   "Tawaran Pewawancara": "Offer from Interviewer",

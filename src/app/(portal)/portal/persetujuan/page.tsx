@@ -8,9 +8,9 @@ import { getAccess } from "@/lib/access";
 import { isApprover, noWorkflow, requesterFilter, reviewsProfiles } from "@/lib/approval";
 import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { T } from "@/components/i18n";
-import { actionableApprovers, APPROVAL_STATUSES, readApproval, readInterview, stepCandidates } from "@/lib/onboarding-interview";
+import { actionableApprovers, APPROVAL_STATUSES, currentReviewer, readApproval, readInterview, stepCandidates } from "@/lib/onboarding-interview";
 import { getMasterOptions } from "@/lib/master-data";
-import { CANDIDATE_STATUS, readJob } from "@/lib/onboarding";
+import { CANDIDATE_STATUS, readData, readJob } from "@/lib/onboarding";
 import { Prisma } from "@prisma/client";
 import PersetujuanClient, { type ApprovalItem, type InterviewItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
 
@@ -55,7 +55,7 @@ export default async function PersetujuanPage() {
     // Approval Pra-Karyawan: hasil wawancara atau data calon (workflow di Pengaturan → Pra-Karyawan).
     prisma.candidate.findMany({
       where: { interview: { not: Prisma.DbNull }, OR: [{ status: { in: [...APPROVAL_STATUSES, "WAWANCARA"] } }, { updatedAt: { gte: since } }] },
-      select: { id: true, name: true, email: true, phone: true, status: true, interview: true, job: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 100,
+      select: { id: true, name: true, email: true, phone: true, status: true, interview: true, job: true, data: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 100,
     }),
   ]);
 
@@ -102,16 +102,21 @@ export default async function PersetujuanPage() {
     // Pewawancara (penilaian) atau approver calon ini.
     const myReview = iv?.reviews.find((x) => x.id === a.id) ?? null;
     if (!iv || (!myReview && !iv.approval?.steps.some((x) => stepCandidates(x).includes(a.id)))) return [];
-    const reviewing = c.status === "WAWANCARA" && !!myReview && !myReview.at;
+    // Wawancara berurutan: hanya pewawancara yang mendapat giliran yang bisa mengisi.
+    const reviewing = c.status === "WAWANCARA" && !!myReview && currentReviewer(iv)?.id === a.id;
+    const d = readData(c.data, c.name, c.phone);
     return [{
       id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status, statusLabel: CANDIDATE_STATUS[c.status]?.label ?? c.status,
       interview: iv, job: readJob(c.job), review: reviewing ? myReview : null,
+      candidate: ({ name: d.name, email: c.email, phone: d.phone, birthPlace: d.birthPlace, birthDate: d.birthDate, gender: d.gender, religion: d.religion,
+      maritalStatus: d.maritalStatus, idType: d.idType, ktpNumber: d.ktpNumber, address: d.address, addressRegionName: d.addressRegionName }),
       mine: reviewing || (APPROVAL_STATUSES.includes(c.status) && actionableApprovers(iv.approval).includes(a.id)),
     }];
   });
 
   // Pilihan tawaran kerja untuk pewawancara (departemen, jabatan, cabang, calon atasan).
-  const master = interviews.some((i) => i.review)
+  // Pewawancara (usulan penempatan) dan approver jalur wawancara (usulan final) butuh pilihan organisasi.
+  const master = interviews.some((i) => i.review || (i.mine && !i.interview.skipped && i.interview.reviews.length > 0))
     ? { ...(await getMasterOptions()), managers: (await prisma.user.findMany({ where: { isActive: true, employeeId: { not: null } }, orderBy: { employeeId: "asc" }, select: { id: true, name: true, employeeId: true } })).map((u) => ({ value: u.id, label: `${u.employeeId} - ${u.name}` })) }
     : null;
 

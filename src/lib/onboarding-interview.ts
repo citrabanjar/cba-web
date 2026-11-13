@@ -83,8 +83,8 @@ export function missingReview(r: Review): string[] {
   if (!r.recommendation) m.push("Rekomendasi");
   return m;
 }
-// pick = nama pewawancara yang tawarannya dipilih approver ini sebagai keputusan akhir.
-export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string; pick?: string };
+// offer = usulan final dari approver ini (jalur wawancara). pick = data lama (memilih tawaran pewawancara).
+export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string; pick?: string; offer?: Offer };
 export const stepCandidates = (s: ApprovalStep) => (s.ids?.length ? s.ids : [s.id]);
 export type InterviewApproval = { mode: ApprovalMode; order: ApprovalOrder; steps: ApprovalStep[] };
 export type Interview = {
@@ -95,6 +95,7 @@ export type Interview = {
   skipped: boolean; // true = tanpa wawancara; hanya jejak workflow approval data calon
   reviews: Review[]; // penilaian per pewawancara (alur baru); kosong = data lama (satu isian HRD)
   approvers: ApproverRef[]; // approver yang dipilih HRD untuk setelah wawancara (kosong = tanpa approval)
+  placement: Offer | null; // usulan penempatan dari HRD (Data Pekerjaan saat dikirim ke reviewer)
 };
 
 export const SCORES = [
@@ -110,7 +111,7 @@ export const RECOMMENDATIONS = [
 export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "", managerId: "", managerName: "" });
 export const emptyInterview = (): Interview => ({
   date: "", interviewer: "", score: "", notes: "", recommendation: "", offer: emptyOffer(),
-  approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false, reviews: [], approvers: [],
+  approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false, reviews: [], approvers: [], placement: null,
 });
 
 export function readOffer(raw: unknown): Offer | null {
@@ -140,6 +141,7 @@ export function readInterview(raw: unknown): Interview | null {
       })).filter((x) => x.id)
     : [];
   base.approvers = refs(v.approvers);
+  base.placement = readOffer(v.placement);
   return base;
 }
 
@@ -155,6 +157,7 @@ export function readApproval(raw: unknown): InterviewApproval | null {
       ...(Array.isArray(s?.ids) ? { ids: (s.ids as unknown[]).filter((x): x is string => typeof x === "string") } : {}),
       ...(typeof s?.by === "string" ? { by: s.by } : {}),
       ...(typeof s?.pick === "string" ? { pick: s.pick } : {}),
+      ...(readOffer(s?.offer) ? { offer: readOffer(s?.offer)! } : {}),
     })),
   };
 }
@@ -172,6 +175,14 @@ export function missingOffer(i: Interview): string[] {
 }
 // Pewawancara yang belum mengirim penilaian.
 export const pendingReviews = (i: Interview | null) => (i?.reviews ?? []).filter((r) => !r.at);
+// Wawancara berurutan: giliran = pewawancara pertama yang belum menilai (pewawancara berikutnya melihat hasil sebelumnya).
+export const currentReviewer = (i: Interview | null) => pendingReviews(i)[0] ?? null;
+// Usulan terakhir (approver → pewawancara → HRD): isian awal usulan berikutnya.
+export function latestOffer(i: Interview): Offer {
+  const steps = (i.approval?.steps ?? []).filter((x) => x.decision === "SETUJU" && x.offer);
+  const reviewed = i.reviews.filter((r) => r.at && r.offer);
+  return steps.at(-1)?.offer ?? reviewed.at(-1)?.offer ?? i.placement ?? i.offer;
+}
 // Semua syarat sebelum hasil wawancara diajukan: semua pewawancara sudah menilai + tawaran lengkap.
 export function missingInterview(i: Interview): string[] {
   const waiting = pendingReviews(i).map((r) => `Penilaian ${r.name}`);

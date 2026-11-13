@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
-  actionableApprovers, APPROVAL_STATUSES, normalizeOnboardingSettings, ONBOARDING_SETTING_KEY, pendingReviews, readInterview,
+  actionableApprovers, APPROVAL_STATUSES, normalizeOnboardingSettings, ONBOARDING_SETTING_KEY, currentReviewer, readInterview,
   type OnboardingSettings,
 } from "@/lib/onboarding-interview";
 
@@ -15,7 +15,7 @@ export async function pendingInterviewApprovals(userId: string) {
   const list = await prisma.candidate.findMany({ where: { status: { in: [...APPROVAL_STATUSES, "WAWANCARA"] } }, select: { status: true, interview: true } });
   return list.filter((c) => {
     const i = readInterview(c.interview);
-    if (c.status === "WAWANCARA") return pendingReviews(i).some((r) => r.id === userId);
+    if (c.status === "WAWANCARA") return currentReviewer(i)?.id === userId;
     return actionableApprovers(i?.approval ?? null).includes(userId);
   }).length;
 }

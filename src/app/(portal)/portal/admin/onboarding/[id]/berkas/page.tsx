@@ -40,7 +40,8 @@ export default async function BerkasPage({ params }: { params: Promise<{ id: str
         </div>
         {i && (
           <div className="rounded-2xl border border-gray-200 bg-white p-5 print:border-0 print:p-0">
-            <InterviewSummary interview={i} job={readJob(c.job)} />
+            <InterviewSummary interview={i} job={readJob(c.job)} candidate={({ name: d.name, email: c.email, phone: d.phone, birthPlace: d.birthPlace, birthDate: d.birthDate, gender: d.gender, religion: d.religion,
+      maritalStatus: d.maritalStatus, idType: d.idType, ktpNumber: d.ktpNumber, address: d.address, addressRegionName: d.addressRegionName })} />
           </div>
         )}
         {d.declaredAt && (

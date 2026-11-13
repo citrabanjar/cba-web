@@ -14,7 +14,7 @@ import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { decideStep } from "@/lib/workflow-settings";
 import {
   actionableApprovers, approvalComplete, approvalFrom, emptyInterview, emptyReview, flowProblems, interviewApproved, missingInterview, missingReview,
-  missingOffer, normalizeOnboardingFlow, offerChoices, pendingReviews, readInterview, type Interview, type OnboardingFlow, type Review,
+  currentReviewer, missingOffer, normalizeOnboardingFlow, pendingReviews, readInterview, readOffer, type Interview, type OnboardingFlow, type Review,
 } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
 
@@ -160,10 +160,16 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
   const now = new Date().toISOString();
   if (f.interview) {
     // Tawaran kerja diawali dari Data Pekerjaan; pewawancara boleh melengkapi (mis. gaji pokok).
+    const placement = {
+        ...emptyInterview().offer, departmentName: j.departmentName, position: j.position, branch: j.branch,
+        employmentStatus: j.employmentStatus || "KONTRAK", joinDate: j.joinDate, contractEndDate: j.contractEndDate,
+        managerId: j.managerId, managerName: j.managerName,
+      };
     const interview: Interview = {
       ...emptyInterview(),
       reviews: f.interviewers.map((x) => emptyReview(x.id, x.name)),
       approvers: f.approvers,
+      placement,
       offer: {
         ...emptyInterview().offer, departmentName: j.departmentName, position: j.position, branch: j.branch,
         employmentStatus: j.employmentStatus || "KONTRAK", joinDate: j.joinDate, contractEndDate: j.contractEndDate,
@@ -171,7 +177,8 @@ export async function submitForApproval(id: string, data: CandidateData, job: Ca
       },
     };
     await prisma.candidate.update({ where: { id }, data: { status: "WAWANCARA", note: null, interview } });
-    await notifyTask(f.interviewers.map((x) => x.id), "WAWANCARA", c.name);
+    // Wawancara berurutan: pewawancara berikutnya diberi tahu setelah yang sebelumnya selesai.
+    await notifyTask(f.interviewers.slice(0, 1).map((x) => x.id), "WAWANCARA", c.name);
     refresh();
     return {};
   }
@@ -275,8 +282,9 @@ export async function saveInterview(id: string, input: Interview): Promise<Resul
   if (!c || c.status !== "WAWANCARA") return { error: "Calon tidak sedang di tahap wawancara." };
   const prev = readInterview(c.interview);
   const i = cleanInterview(input, prev);
-  // Penilaian pewawancara tidak diubah HRD.
+  // Penilaian pewawancara tidak diubah HRD; isian HRD = usulan penempatan.
   if (prev?.reviews.length) i.reviews = prev.reviews;
+  i.placement = i.offer;
   await prisma.candidate.update({ where: { id }, data: { interview: i } });
   refresh();
   return {};
@@ -284,9 +292,9 @@ export async function saveInterview(id: string, input: Interview): Promise<Resul
 
 // Semua pewawancara sudah menilai + tawaran lengkap → ke approver (bila Approval dicentang) atau langsung lolos.
 async function finishInterview(c: CandidateRec, i: Interview, by: string): Promise<Result & { emailed?: boolean; sent?: boolean }> {
-  // Tawaran awal = usulan pewawancara pertama; approver bisa memilih usulan pewawancara lain sebagai keputusan akhir.
-  const firstOffer = i.reviews.find((r) => r.at && r.offer)?.offer;
-  if (firstOffer) i.offer = firstOffer;
+  // Tawaran sementara = usulan pewawancara terakhir; approver menetapkan usulan final.
+  const lastOffer = i.reviews.filter((r) => r.at && r.offer).at(-1)?.offer;
+  if (lastOffer) i.offer = lastOffer;
   const missing = missingInterview(i);
   if (i.offer.departmentName && i.offer.position) {
     const org = await orgCheck({ ...readJob(null), branch: i.offer.branch, departmentName: i.offer.departmentName, position: i.offer.position });
@@ -348,6 +356,7 @@ export async function saveReview(id: string, input: Pick<Review, "date" | "score
   const mine = i.reviews.find((x) => x.id === me);
   if (!mine) return { error: "Anda bukan pewawancara calon ini." };
   if (mine.at) return { error: "Penilaian Anda sudah dikirim." };
+  if (currentReviewer(i)?.id !== me) return { error: "Belum giliran Anda: tunggu pewawancara sebelumnya selesai." };
   Object.assign(mine, { date: input.date, score: input.score, recommendation: input.recommendation, notes: input.notes.trim() });
   // Tiap pewawancara mengusulkan tawaran kerjanya sendiri; approver memilih salah satu sebagai keputusan akhir.
   mine.offer = cleanInterview({ ...i, offer }, i).offer;
@@ -358,6 +367,8 @@ export async function saveReview(id: string, input: Pick<Review, "date" | "score
     mine.name = session.user?.name ?? mine.name;
   }
   await prisma.candidate.update({ where: { id }, data: { interview: i } });
+  // Masih ada pewawancara berikutnya: beri tahu gilirannya.
+  if (submit && pendingReviews(i).length > 0) await notifyTask([currentReviewer(i)!.id], "WAWANCARA", c.name);
   if (submit && pendingReviews(i).length === 0) {
     const r = await finishInterview(c, i, session.user?.name ?? "");
     if (r.error) {
@@ -373,7 +384,7 @@ export async function saveReview(id: string, input: Pick<Review, "date" | "score
 }
 
 // Approver memutus hasil wawancara. Semua setuju → undangan isi data otomatis ke email calon.
-export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", note: string, pickId = ""): Promise<Result & { emailed?: boolean; done?: boolean; ready?: boolean }> {
+export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", note: string, finalOffer: Interview["offer"] | null = null): Promise<Result & { emailed?: boolean; done?: boolean; ready?: boolean; missing?: string[] }> {
   const session = await auth();
   const me = session?.user?.id;
   if (!me) return { error: "Unauthorized" };
@@ -381,14 +392,22 @@ export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", 
   const i = readInterview(c?.interview);
   if (!c || !i?.approval || c.status !== (i.skipped ? "MENUNGGU_APPROVAL" : "APPROVAL_WAWANCARA")) return { error: "Calon tidak sedang menunggu approval." };
   if (decision === "TOLAK" && !note.trim()) return { error: "Tulis alasan penolakan." };
-  // Lebih dari satu usulan tawaran: approver wajib memilih tawaran final.
-  const choices = i.skipped ? [] : offerChoices(i);
-  const picked = choices.length > 1 && decision === "SETUJU" ? i.reviews.find((r) => r.id === pickId && r.at && r.offer) : null;
-  if (choices.length > 1 && decision === "SETUJU" && !picked) return { error: "Pilih tawaran kerja final dari salah satu pewawancara." };
+  // Jalur wawancara: approver menetapkan usulan final (isian awal = usulan terakhir).
+  const final = !i.skipped && i.reviews.length && decision === "SETUJU" ? readOffer(finalOffer) : null;
+  if (final) {
+    const clean = cleanInterview({ ...i, offer: final }, i).offer;
+    const miss = missingOffer({ ...i, offer: clean });
+    if (clean.departmentName && clean.position) {
+      const org = await orgCheck({ ...readJob(null), branch: clean.branch, departmentName: clean.departmentName, position: clean.position });
+      miss.push(...org.problems);
+    }
+    if (miss.length) return { error: "Usulan final belum lengkap:", missing: miss };
+    Object.assign(final, clean);
+  }
   const d = decideStep(i.approval, me, decision === "SETUJU", note, session.user?.name ?? null);
   if ("error" in d) return { error: "Belum giliran Anda memutus, atau Anda bukan approver calon ini." };
   const step = d.step;
-  if (picked?.offer) { i.offer = picked.offer; step.pick = picked.name; }
+  if (final) { i.offer = final; step.offer = final; }
   if (decision === "TOLAK") {
     await prisma.candidate.update({ where: { id }, data: { status: "DITOLAK", interview: i, note: `Ditolak saat approval ${i.skipped ? "data calon" : "wawancara"} (${step.name}): ${note.trim()}`, approvedBy: step.name, approvedAt: new Date() } });
     refresh();

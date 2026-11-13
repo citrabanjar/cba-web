@@ -12,7 +12,7 @@ import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions as BaseMaster } from "@/lib/master-data";
 type MasterOptions = BaseMaster & { managers: { value: string; label: string }[] };
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, type CandidateData, type CandidateJob } from "@/lib/onboarding";
-import { emptyInterview, flowProblems, offerChoices, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview } from "@/lib/onboarding-interview";
+import { emptyInterview, flowProblems, latestOffer, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview } from "@/lib/onboarding-interview";
 import { InterviewDecision, InterviewSummary, OfferForm } from "@/components/portal/InterviewPanel";
 import ReviewerBox, { emptyReviewers, type PersonOption } from "./ReviewerBox";
 import { useCanEdit } from "@/components/portal/edit-access";
@@ -153,19 +153,26 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
         {row.status === "WAWANCARA" && (
           <>
             {/* Penilaian diisi pewawancara sendiri di menu Persetujuan; HRD memantau dan boleh melengkapi tawaran kerja. */}
-            {row.interview && <InterviewSummary interview={row.interview} />}
+            {row.interview && <InterviewSummary interview={row.interview} candidate={({ name: row.data.name, email: row.email, phone: row.data.phone, birthPlace: row.data.birthPlace, birthDate: row.data.birthDate, gender: row.data.gender, religion: row.data.religion,
+      maritalStatus: row.data.maritalStatus, idType: row.data.idType, ktpNumber: row.data.ktpNumber, address: row.data.address, addressRegionName: row.data.addressRegionName })} />}
             <fieldset disabled={!canEdit} className="min-w-0"><OfferForm value={iv.offer} onChange={(o) => setIv((x) => ({ ...x, offer: o }))} master={master} /></fieldset>
             {missingInterview(iv).length > 0 && <p className="text-xs text-amber-700"><T>Belum lengkap</T>: {missingInterview(iv).map((m) => t(m)).join(", ")}</p>}
           </>
         )}
-        {row.status === "APPROVAL_WAWANCARA" && row.interview && <InterviewSummary interview={row.interview} />}
-        {row.status === "APPROVAL_WAWANCARA" && row.canDecide && <InterviewDecision candidateId={row.id} choices={offerChoices(row.interview)} onDone={onClose} />}
-        {pendingWorkflow && row.interview && <InterviewSummary interview={row.interview} />}
+        {row.status === "APPROVAL_WAWANCARA" && row.interview && <InterviewSummary interview={row.interview} candidate={({ name: row.data.name, email: row.email, phone: row.data.phone, birthPlace: row.data.birthPlace, birthDate: row.data.birthDate, gender: row.data.gender, religion: row.data.religion,
+      maritalStatus: row.data.maritalStatus, idType: row.data.idType, ktpNumber: row.data.ktpNumber, address: row.data.address, addressRegionName: row.data.addressRegionName })} />}
+        {row.status === "APPROVAL_WAWANCARA" && row.canDecide && row.interview && (
+          <InterviewDecision candidateId={row.id} master={master} onDone={onClose}
+            finalOffer={row.interview.reviews.length > 0 ? latestOffer(row.interview) : null} />
+        )}
+        {pendingWorkflow && row.interview && <InterviewSummary interview={row.interview} candidate={({ name: row.data.name, email: row.email, phone: row.data.phone, birthPlace: row.data.birthPlace, birthDate: row.data.birthDate, gender: row.data.gender, religion: row.data.religion,
+      maritalStatus: row.data.maritalStatus, idType: row.data.idType, ktpNumber: row.data.ktpNumber, address: row.data.address, addressRegionName: row.data.addressRegionName })} />}
         {pendingWorkflow && row.canDecide && <InterviewDecision candidateId={row.id} onDone={onClose} />}
         {!inInterview && !pendingWorkflow && (row.interview?.approval || !!row.interview?.reviews.length) && (
           <details className="rounded-2xl border border-sky-100 bg-sky-50/50 px-4 py-2 text-sm">
             <summary className="cursor-pointer font-semibold text-sky-800"><MessagesSquare size={14} className="mr-1 inline" /> <T>{row.interview.skipped ? "Jejak approval" : "Hasil wawancara & tawaran kerja"}</T></summary>
-            <div className="mt-3"><InterviewSummary interview={row.interview} /></div>
+            <div className="mt-3"><InterviewSummary interview={row.interview} candidate={({ name: row.data.name, email: row.email, phone: row.data.phone, birthPlace: row.data.birthPlace, birthDate: row.data.birthDate, gender: row.data.gender, religion: row.data.religion,
+      maritalStatus: row.data.maritalStatus, idType: row.data.idType, ktpNumber: row.data.ktpNumber, address: row.data.address, addressRegionName: row.data.addressRegionName })} /></div>
           </details>
         )}
 
