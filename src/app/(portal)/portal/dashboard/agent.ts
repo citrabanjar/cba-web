@@ -155,7 +155,7 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
     onbOn ? prisma.candidate.count({ where: { status: { in: ["DIKIRIM", "SIAP_DAFTAR"] } } }) : 0,
     onbOn ? prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }) : 0,
     prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
-    prisma.user.findMany({ where: { ...activeEmp, schedules: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
+    noScheduleThisMonth(),
     // Tanpa atasan langsung aktif = pengajuan cuti/dinasnya tidak punya penyetuju (jatuh ke HRD).
     prisma.user.findMany({ where: { ...activeEmp, OR: [{ managerId: null }, { manager: { isActive: false } }] }, orderBy: { name: "asc" }, select: { id: true } }),
     prisma.profileChangeRequest.count({ where: { status: "PENDING" } }),
@@ -166,9 +166,9 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
     { key: "onb-approval", title: "Setujui calon karyawan", hint: "Calon yang sudah diperiksa HRD menunggu keputusan approver sesuai workflow Pra-Karyawan.", count: onbApproval, unit: "calon", href: "/portal/persetujuan" },
   ];
   const setupTasks: Task[] = [
-    { key: "emp-no-pay", title: "Tempel komponen payroll", hint: "Karyawan aktif yang belum ditempel komponen gaji tidak ikut terhitung di Proses Gaji.", count: noPay.length, unit: "karyawan", href: noPay[0] ? `/portal/admin/karyawan/${noPay[0].id}` : "/portal/admin/payroll" },
+    { key: "emp-no-pay", title: "Karyawan belum memiliki komponen gaji", hint: "Tempel komponen gaji di profil karyawan (tab Payroll) supaya ikut terhitung di Proses Gaji.", count: noPay.length, unit: "karyawan", href: noPay[0] ? `/portal/admin/karyawan/${noPay[0].id}?tab=gaji` : "/portal/admin/payroll" },
     { key: "emp-no-manager", title: "Isi atasan langsung", hint: "Atasan langsung adalah penyetuju cuti dan dinas luar. Tanpa atasan aktif, karyawan tidak bisa mengajukan cuti atau dinas.", count: noManager.length, unit: "karyawan", href: noManager[0] ? `/portal/admin/karyawan/${noManager[0].id}?tab=pekerjaan` : "/portal/admin/karyawan" },
-    { key: "emp-no-shift", title: "Atur jadwal kerja / shift", hint: "Karyawan tanpa pola kerja atau jadwal manual tidak bisa dinilai kehadirannya.", count: noShift.length, unit: "karyawan", href: noShift[0] ? `/portal/admin/karyawan/${noShift[0].id}` : "/portal/admin/schedule" },
+    { key: "emp-no-shift", title: "Karyawan belum memiliki jadwal kerja bulan ini", hint: "Tempel pola kerja atau isi Jadwal Bulanan untuk bulan berjalan supaya kehadirannya bisa dinilai.", count: noShift.length, unit: "karyawan", href: "/portal/admin/schedule" },
   ];
   const on = new Set(settings.enabled);
   const keep = (list: Task[]) => list.filter((t) => on.has(t.key));
@@ -182,13 +182,31 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
         { key: "daily", label: "Harian", list: keep([...insights.daily, appointedTask, ...onboardingTasks]) },
         { key: "monthly", label: "Bulanan", list: keep(monthly) },
         { key: "payroll", label: "Payroll & Pajak", list: keep(payroll) },
-        { key: "data", label: "Data Karyawan", list: [...(on.has("data") ? insights.data : []), ...keep(setupTasks)] },
+        { key: "data", label: "Data Karyawan", list: keep(setupTasks) },
       ],
       setup,
       reminders: dueReminders(settings, todayKey()),
       ai: (await aiFeatureOn()) ? await loadAiFindings() : [],
     },
   };
+}
+
+// Karyawan aktif tanpa jadwal kerja di bulan berjalan: tidak punya pola kerja yang berlaku (jadwal POLA terakhir
+// yang mulai berlaku sampai akhir bulan ini) dan tidak punya isian Jadwal Bulanan (per hari) di bulan ini.
+async function noScheduleThisMonth() {
+  const [y, m] = todayKey().split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, 1));
+  const end = new Date(Date.UTC(y, m, 0));
+  const users = await prisma.user.findMany({
+    where: { isActive: true, role: { not: "SUPER_ADMIN" } },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      schedules: { where: { effectiveDate: { lte: end } }, orderBy: { effectiveDate: "desc" }, take: 1, select: { type: true, patternId: true } },
+      shiftDays: { where: { date: { gte: start, lte: end } }, take: 1, select: { id: true } },
+    },
+  });
+  return users.filter((u) => !(u.schedules[0]?.type === "POLA" && u.schedules[0].patternId) && u.shiftDays.length === 0).map((u) => ({ id: u.id }));
 }
 
 // Temuan Agent HRD (AI) yang belum ditindaklanjuti (Task Admin, label AI).

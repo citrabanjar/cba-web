@@ -22,8 +22,8 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: isian terkunci, tombol simpan/tambah/ubah/hapus disembunyikan
   const [enabled, setEnabled] = useState<string[]>(settings.enabled);
-  const [contractDays, setContractDays] = useState(String(settings.contractDays));
-  const [remindDays, setRemindDays] = useState(String(settings.payrollRemindDays));
+  // Batas hari kontrak / Proses Gaji tidak lagi diatur di sini (pengecekannya sudah dihapus); nilai lama dipertahankan.
+  const contractDays = settings.contractDays, remindDays = settings.payrollRemindDays;
   const [editing, setEditing] = useState<SopReminder | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -42,7 +42,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
     <Card className="border-gray-100">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600"><ClipboardList size={15} /> <T>Task Admin</T></CardTitle>
-        <p className="text-xs text-gray-400"><T>Atur pengecekan yang dipantau Task Admin di Beranda, batas angkanya, dan pengingat SOP perusahaan.</T></p>
+        <p className="text-xs text-gray-400"><T>Atur pengecekan yang dipantau Task Admin di Beranda dan pengingat SOP perusahaan.</T></p>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-3">
@@ -60,12 +60,6 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
                 ))}
               </div>
             ))}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label className="text-xs"><T>Kontrak berakhir diingatkan (hari sebelumnya)</T></Label>
-              <Input type="number" min={1} max={365} value={contractDays} disabled={!canEdit} onChange={(e) => setContractDays(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label className="text-xs"><T>Proses Gaji diingatkan (hari sebelum gajian)</T></Label>
-              <Input type="number" min={0} max={31} value={remindDays} disabled={!canEdit} onChange={(e) => setRemindDays(e.target.value)} /></div>
           </div>
           {canEdit && (
             <div className="flex justify-end">

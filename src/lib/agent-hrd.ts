@@ -4,31 +4,10 @@
 export const AGENT_SETTING_KEY = "agent.settings";
 
 // Pengecekan monitoring yang bisa dinyalakan/dimatikan Super Admin.
+// Pengecekan Task Admin (diatur Super Admin). Daftar dibangun ulang satu per satu sesuai hasil testing pemilik (2026-11-13).
 export const MONITOR_CHECKS = [
-  { key: "shift-soon", group: "Harian", title: "Shift hari ini & besok belum diisi" },
-  { key: "attendance", group: "Harian", title: "Karyawan terjadwal belum check-in" },
-  { key: "incomplete", group: "Harian", title: "Absen tidak lengkap (30 hari)" },
-  { key: "leave", group: "Harian", title: "Pengajuan cuti menunggu" },
-  { key: "trip", group: "Harian", title: "Pengajuan dinas menunggu" },
-  { key: "loan", group: "Harian", title: "Pengajuan pinjaman menunggu" },
-  { key: "loan-disburse", group: "Harian", title: "Pinjaman menunggu pencairan" },
-  { key: "leave-appointed", group: "Harian", title: "Cuti karyawan yang baru diangkat tetap" },
-  { key: "shift-month", group: "Bulanan", title: "Shift bulan ini belum lengkap" },
-  { key: "shift-next", group: "Bulanan", title: "Shift bulan depan belum disiapkan" },
-  { key: "contract", group: "Bulanan", title: "Kontrak akan berakhir" },
-  { key: "holiday", group: "Bulanan", title: "Kalender libur tahun depan" },
-  { key: "pay-basic", group: "Payroll & Pajak", title: "Karyawan aktif tanpa gaji pokok" },
-  { key: "pay-pph", group: "Payroll & Pajak", title: "Karyawan belum ditempel komponen PPh 21" },
-  { key: "pay-run", group: "Payroll & Pajak", title: "Proses Gaji menjelang tanggal gajian" },
-  { key: "pay-tax-year", group: "Payroll & Pajak", title: "PTKP / tarif PPh 21 tahun depan belum disimpan" },
-  { key: "pay-loan-contract", group: "Payroll & Pajak", title: "Angsuran pinjaman melewati akhir kontrak" },
-  { key: "data", group: "Data Karyawan", title: "Kelengkapan data karyawan" },
-  { key: "emp-no-pay", group: "Data Karyawan", title: "Karyawan belum ditempel komponen payroll" },
-  { key: "emp-no-shift", group: "Data Karyawan", title: "Karyawan belum punya jadwal kerja / shift" },
-  { key: "emp-no-manager", group: "Data Karyawan", title: "Karyawan tanpa atasan langsung (penyetuju cuti/dinas)" },
-  { key: "onb-review", group: "Harian", title: "Calon karyawan menunggu pemeriksaan HRD" },
-  { key: "onb-approval", group: "Harian", title: "Calon karyawan menunggu approval" },
-  { key: "profile-change", group: "Harian", title: "Perubahan data karyawan menunggu persetujuan" },
+  { key: "emp-no-pay", group: "Data Karyawan", title: "Karyawan belum memiliki komponen gaji" },
+  { key: "emp-no-shift", group: "Data Karyawan", title: "Karyawan belum memiliki jadwal kerja (bulan berjalan)" },
 ] as const;
 
 // Pengingat SOP buatan Super Admin. MONTHLY: setiap tanggal `day`; YEARLY: setiap `day` bulan `month`;
@@ -96,7 +75,7 @@ export function normalizeAgentSettings(raw: unknown): AgentSettings {
   // Isian lama "disabled" (semua menyala kecuali yang dimatikan) tidak dipakai lagi: bawaannya semua mati.
   const num = (x: unknown, d: number) => (typeof x === "number" && Number.isFinite(x) ? x : d);
   return {
-    enabled: Array.isArray(v.enabled) ? v.enabled.filter((x) => typeof x === "string") : [],
+    enabled: Array.isArray(v.enabled) ? v.enabled.filter((x): x is string => typeof x === "string" && MONITOR_CHECKS.some((c) => c.key === x)) : [],
     contractDays: num(v.contractDays, DEFAULT_AGENT_SETTINGS.contractDays),
     payrollRemindDays: num(v.payrollRemindDays, DEFAULT_AGENT_SETTINGS.payrollRemindDays),
     reminders: Array.isArray(v.reminders) ? v.reminders : [],
