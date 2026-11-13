@@ -77,7 +77,6 @@ export function ReviewForm({ candidateId, review, offer: initialOffer, master, o
   const miss = missingReview(r);
   return (
     <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
-      <p className="text-sm font-semibold text-amber-900"><T>Giliran Anda mewawancarai calon ini. Isi penilaian Anda lalu kirim.</T></p>
       <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 sm:col-span-2"><T>Penilaian saya</T></p>
         <F label="Tanggal wawancara"><Input type="date" value={r.date} onChange={(e) => set({ date: e.target.value })} /></F>
