@@ -67,7 +67,7 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
           <ShieldCheck size={16} /> <T>Peran Admin</T>
         </CardTitle>
         <p className="text-xs text-gray-500">
-          <T>Buat peran (mis. Admin Absen) dan pilih kewenangannya. Wewenang approve / reject pengajuan diatur di menu Workflow dengan memilih peran ini sebagai penyetuju.</T>
+          <T>Buat peran (mis. Admin Absen), atur approval perubahan datanya, lalu pilih kewenangannya per menu.</T>
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -101,7 +101,7 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
                   ))}
                 </div>
                 {r.approvalLevels > 0 && (
-                  <p className="text-[11px] text-gray-500"><T>Perubahan baru berlaku setelah disetujui satu approver sesuai level, dari bagan karyawan yang datanya diubah. Saat ini berlaku untuk Edit Data Karyawan.</T></p>
+                  <p className="text-[11px] text-gray-500"><T>Perubahan baru berlaku setelah disetujui satu approver sesuai level di bagan: atasan karyawan yang datanya diubah, atau atasan Admin sendiri untuk perubahan pengaturan. Saat ini berlaku untuk Data Karyawan serta Payroll & Benefit.</T></p>
                 )}
               </div>
               <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-full text-red-600 hover:text-red-700"
