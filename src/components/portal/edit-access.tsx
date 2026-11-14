@@ -7,7 +7,7 @@
 // Server tetap menolak aksi ubah dari pemegang hak lihat (requireMenu / canEditMenu), jadi ini hanya kenyamanan tampilan.
 import { createContext, useContext } from "react";
 import { usePathname } from "next/navigation";
-import { canEditMenu, type MenuKey } from "@/lib/roles";
+import { canEditMenu, canProposeMenu, type MenuKey } from "@/lib/roles";
 
 type Access = { role: string; menuAccess: string[] };
 const Ctx = createContext<Access | null>(null);
@@ -37,4 +37,10 @@ export function useCanEdit(menu?: MenuKey) {
   const key = menu ?? pageMenu(path);
   if (!key) return true; // bukan halaman menu admin
   return canEditMenu(access, key);
+}
+
+// Hak "Ajukan": boleh mengisi perubahan, tetapi baru berlaku setelah disetujui atasan langsung.
+export function useCanPropose(menu: MenuKey) {
+  const access = useContext(Ctx);
+  return canProposeMenu(access, menu);
 }

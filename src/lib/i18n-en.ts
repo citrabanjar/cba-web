@@ -52,6 +52,13 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Diubah menjadi": "Changed to",
+  "Diajukan oleh": "Submitted by",
+  "Ubah Data Karyawan": "Employee Data Changes",
+  "Perubahan data menunggu persetujuan": "Data change awaiting approval of",
+  "Perubahan akan diajukan ke atasan langsung Anda dan baru berlaku setelah disetujui.": "Changes will be submitted to your direct manager and apply only after approval.",
+  "Data baru berlaku setelah disetujui.": "The new data applies after approval.",
+  "Perubahan diajukan ke": "Changes submitted to",
   "Kosong = sejak tanggal masuk": "Empty = from the join date",
   "Tempat, tanggal lahir": "Place, date of birth",
   "Belum giliran Anda: tunggu pewawancara sebelumnya selesai.": "Not your turn yet: wait for the previous interviewer.",

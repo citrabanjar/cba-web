@@ -48,15 +48,16 @@ export async function canDecide(a: Approver, requesterId: string) {
 // Jumlah pengajuan yang menunggu keputusan penyetuju ini (untuk badge menu).
 export async function pendingApprovals(a: Approver) {
   const user = requesterFilter(a);
-  const [leaves, trips, profiles, swaps, interviews, workflow] = await Promise.all([
+  const [leaves, trips, profiles, swaps, interviews, workflow, edits] = await Promise.all([
     prisma.leaveRequest.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     prisma.businessTrip.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     reviewsProfiles(a) ? prisma.profileChangeRequest.count({ where: { status: "PENDING", userId: { not: a.id } } }) : 0,
     pendingSwapApprovals(a.id),
     pendingInterviewApprovals(a.id),
     pendingWorkflowRequests(a.id),
+    prisma.employeeEditRequest.count({ where: { approverId: a.id, status: "PENDING" } }),
   ]);
-  return leaves + trips + profiles + swaps + interviews + workflow;
+  return leaves + trips + profiles + swaps + interviews + workflow + edits;
 }
 
 // Menu Persetujuan tampil untuk atasan (punya bawahan langsung) dan Admin Data Karyawan (perubahan data).
@@ -64,5 +65,7 @@ export async function isApprover(a: Approver) {
   if (reviewsProfiles(a)) return true;
   if (await isInterviewApprover(a.id)) return true;
   if (await isWorkflowApprover(a.id)) return true;
+  // Atasan dari Admin berhak "Ajukan" yang punya pengajuan ubah data karyawan.
+  if (await prisma.employeeEditRequest.count({ where: { approverId: a.id } })) return true;
   return (await prisma.user.count({ where: { managerId: a.id } })) > 0;
 }

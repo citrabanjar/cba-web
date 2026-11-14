@@ -169,6 +169,7 @@ model User {
   businessTrips    BusinessTrip[]
   payslips         Payslip[]
   profileChanges   ProfileChangeRequest[]
+  editRequests     EmployeeEditRequest[]
   swapsRequested   ShiftSwapRequest[]     @relation("SwapRequester")
   swapsPartnered   ShiftSwapRequest[]     @relation("SwapPartner")
 
@@ -881,30 +882,52 @@ model ProfileChangeRequest {
   @@index([status])
 }
 
+// Perubahan data karyawan oleh Admin berhak "Ajukan" (Data Karyawan): baru berlaku setelah disetujui
+// atasan langsung si Admin (keputusan pemilik 2026-11-13).
+model EmployeeEditRequest {
+  id            String    @id @default(cuid())
+  userId        String // karyawan yang datanya diubah
+  requesterId   String
+  requesterName String
+  approverId    String // atasan langsung Admin yang mengajukan
+  approverName  String
+  data          Json // isian perubahan (seperti form Edit di profil karyawan)
+  summary       Json // [{ field, oldValue, newValue }] untuk ditampilkan ke approver
+  status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  note          String?   @db.Text
+  decidedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([approverId])
+}
+
 // Pengajuan tukar shift dengan rekan untuk satu tanggal (keputusan pemilik 2026-11-11):
 // rekan menyetujui dulu, lalu atasan langsung pemohon dan atasan langsung rekan (cukup sekali bila sama).
 // Hanya bisa selama kedua karyawan belum check-in/check-out di tanggal itu. Setelah disetujui, shift
 // keduanya di Jadwal Bulanan (EmployeeShiftDay) ditukar.
 model ShiftSwapRequest {
-  id              String    @id @default(cuid())
-  requesterId     String
-  partnerId       String
-  date            DateTime  @db.Date
-  requesterShift  String // kode shift pemohon saat diajukan (yang akan dipakai rekan)
-  partnerShift    String // kode shift rekan saat diajukan (yang akan dipakai pemohon)
-  reason          String?   @db.Text
-  status          String    @default("MENUNGGU_REKAN") // MENUNGGU_REKAN | MENUNGGU_ATASAN | DISETUJUI | DITOLAK | DIBATALKAN
-  partnerAt       DateTime?
-  managerAId      String? // atasan pemohon
-  managerAAt      DateTime?
-  managerAName    String?
-  managerBId      String? // atasan rekan (kosong bila sama dengan atasan pemohon)
-  managerBAt      DateTime?
-  managerBName    String?
-  note            String?   @db.Text // alasan ditolak / catatan
-  decidedBy       String?
-  decidedAt       DateTime?
-  createdAt       DateTime  @default(now())
+  id             String    @id @default(cuid())
+  requesterId    String
+  partnerId      String
+  date           DateTime  @db.Date
+  requesterShift String // kode shift pemohon saat diajukan (yang akan dipakai rekan)
+  partnerShift   String // kode shift rekan saat diajukan (yang akan dipakai pemohon)
+  reason         String?   @db.Text
+  status         String    @default("MENUNGGU_REKAN") // MENUNGGU_REKAN | MENUNGGU_ATASAN | DISETUJUI | DITOLAK | DIBATALKAN
+  partnerAt      DateTime?
+  managerAId     String? // atasan pemohon
+  managerAAt     DateTime?
+  managerAName   String?
+  managerBId     String? // atasan rekan (kosong bila sama dengan atasan pemohon)
+  managerBAt     DateTime?
+  managerBName   String?
+  note           String?   @db.Text // alasan ditolak / catatan
+  decidedBy      String?
+  decidedAt      DateTime?
+  createdAt      DateTime  @default(now())
 
   requester User @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Cascade)
   partner   User @relation("SwapPartner", fields: [partnerId], references: [id], onDelete: Cascade)

@@ -12,6 +12,8 @@ import { halfDayLabel } from "@/lib/leave";
 import { decideLeave, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
 import { decideSwap } from "../tukar-shift/actions";
+import { decideEmployeeEdit } from "../admin/karyawan/actions";
+import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
 import { SWAP_STATUS } from "@/lib/shift-swap-status";
 import { fieldLabel, isRegionCode, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 
@@ -48,11 +50,17 @@ export type InterviewItem = {
 };
 type OfferMaster = { branches: string[]; departments: string[]; positions: string[]; managers: { value: string; label: string }[] } | null;
 
-type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara";
+type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara" | "ubah";
 
-export default function PersetujuanClient({ items, profiles, swaps, interviews, master = null }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[]; master?: OfferMaster }) {
+// Pengajuan ubah data karyawan oleh Admin berhak "Ajukan" (diputus atasan langsung si Admin).
+export type EditItem = {
+  id: string; status: string; person: ApprovalItem["person"]; requester: string; note: string | null;
+  summary: { field: string; oldValue: string | null; newValue: string | null }[]; createdAt: string; decidedAt: string | null;
+};
+
+export default function PersetujuanClient({ items, profiles, swaps, interviews, master = null, edits = [] }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[]; master?: OfferMaster; edits?: EditItem[] }) {
   const [tab, setTab] = useState<TabKey>(() =>
-    interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
+    edits.some((e) => e.status === "PENDING") ? "ubah" : interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
       : profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
   const pending = items.filter((i) => i.status === "PENDING" && i.mine).sort((a, b) => a.start.localeCompare(b.start));
   const done = items.filter((i) => i.status !== "PENDING" || !i.mine).sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
@@ -62,6 +70,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
     ["swap", "Tukar Shift", swaps.filter((s) => s.mine).length],
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
     ...(interviews.length ? [["wawancara", "Pra-Karyawan", interviews.filter((i) => i.mine).length] as [TabKey, string, number]] : []),
+    ...(edits.length ? [["ubah", "Ubah Data Karyawan", edits.filter((e) => e.status === "PENDING").length] as [TabKey, string, number]] : []),
   ];
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
@@ -73,7 +82,10 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
           </button>
         ))}
       </div>
-      {tab === "wawancara" ? (
+      {tab === "ubah" ? (
+        [...edits].sort((a, b) => Number(b.status === "PENDING") - Number(a.status === "PENDING") || b.createdAt.localeCompare(a.createdAt))
+          .map((e) => <EditCard key={e.id} item={e} />)
+      ) : tab === "wawancara" ? (
         [...interviews].sort((a, b) => Number(b.mine) - Number(a.mine)).map((i) => <InterviewCard master={master} key={i.id} item={i} />)
       ) : tab === "swap" ? (
         swaps.length === 0 ? <Empty text="Tidak ada pengajuan tukar shift." /> : [...swaps]
@@ -330,6 +342,69 @@ function InterviewCard({ item, master }: { item: InterviewItem; master: OfferMas
       {item.mine && !item.review && (
         <InterviewDecision candidateId={item.id} master={master} onDone={() => router.refresh()}
           finalOffer={!item.interview.skipped && item.interview.reviews.length > 0 ? latestOffer(item.interview) : null} />
+      )}
+    </div>
+  );
+}
+
+const EDIT_LABELS: Record<string, string> = { ...PERSONAL_LOG_LABELS, ...WORK_LOG_LABELS };
+const EDIT_STATUS: Record<string, { label: string; tone: string }> = {
+  PENDING: { label: "Menunggu", tone: "bg-amber-50 text-amber-700" },
+  APPROVED: { label: "Disetujui", tone: "bg-emerald-50 text-emerald-700" },
+  REJECTED: { label: "Ditolak", tone: "bg-rose-50 text-rose-700" },
+};
+
+// Kartu pengajuan ubah data karyawan: siapa mengajukan, karyawan yang diubah, isian lama → baru, keputusan.
+function EditCard({ item }: { item: EditItem }) {
+  const t = useT();
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const decide = (approve: boolean) => {
+    setErr(null);
+    start(async () => {
+      const r = await decideEmployeeEdit(item.id, approve, note);
+      if (r.error) setErr(r.error); else router.refresh();
+    });
+  };
+  const st = EDIT_STATUS[item.status] ?? EDIT_STATUS.PENDING;
+  return (
+    <div className={`space-y-3 rounded-2xl border bg-white p-4 ${item.status === "PENDING" ? "border-amber-300" : "border-gray-200"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900">{item.person.name} <span className="text-xs font-normal text-gray-500">{item.person.employeeId}</span></p>
+          <p className="text-xs text-gray-500"><T>Diajukan oleh</T> <b>{item.requester}</b> · {formatDate(new Date(item.createdAt), "Asia/Jakarta")}</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.tone}`}><T>{st.label}</T></span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-gray-100">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 text-gray-500"><tr><th className="px-3 py-1.5 text-left"><T>Data</T></th><th className="px-3 py-1.5 text-left"><T>Sebelumnya</T></th><th className="px-3 py-1.5 text-left"><T>Diubah menjadi</T></th></tr></thead>
+          <tbody>
+            {item.summary.map((c) => (
+              <tr key={c.field} className="border-t border-gray-100">
+                <td className="px-3 py-1.5 font-medium text-gray-700">{t(EDIT_LABELS[c.field] ?? c.field)}</td>
+                <td className="px-3 py-1.5 text-gray-400 line-through">{c.oldValue || "—"}</td>
+                <td className="px-3 py-1.5 font-semibold text-gray-900">{c.newValue || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {item.note && <p className="text-xs text-gray-600">“{item.note}”</p>}
+      {item.status === "PENDING" && (
+        <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t("Catatan (wajib bila menolak)")}
+            className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm" />
+          {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{err}</T></p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" disabled={pending} onClick={() => decide(false)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-rose-600 hover:bg-rose-50"><X size={14} /> <T>Tolak</T></button>
+            <button type="button" disabled={pending} onClick={() => decide(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand/90">{pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} <T>Setujui</T></button>
+          </div>
+        </div>
       )}
     </div>
   );

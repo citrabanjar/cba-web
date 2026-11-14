@@ -32,7 +32,7 @@ export default async function PersetujuanPage() {
   const since = daysAgo(60);
   const who = { select: { id: true, name: true, employeeId: true, position: true, department: { select: { name: true } } } };
   const reviewer = reviewsProfiles(a);
-  const [leaves, trips, profileReqs, swapReqs, candidates] = await Promise.all([
+  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs] = await Promise.all([
     // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
       where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
@@ -56,6 +56,11 @@ export default async function PersetujuanPage() {
     prisma.candidate.findMany({
       where: { interview: { not: Prisma.DbNull }, OR: [{ status: { in: [...APPROVAL_STATUSES, "WAWANCARA"] } }, { updatedAt: { gte: since } }] },
       select: { id: true, name: true, email: true, phone: true, status: true, interview: true, job: true, data: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 100,
+    }),
+    // Ubah data karyawan oleh Admin berhak "Ajukan": diputus atasan langsung si Admin.
+    prisma.employeeEditRequest.findMany({
+      where: { approverId: a.id, OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }] },
+      include: { user: who }, orderBy: { createdAt: "desc" }, take: 100,
     }),
   ]);
 
@@ -126,7 +131,12 @@ export default async function PersetujuanPage() {
         <h2 className="font-bold text-gray-800"><T>Persetujuan</T></h2>
         <p className="text-xs text-gray-400"><T>Pengajuan yang menunggu keputusan Anda: cuti, dinas luar, tukar shift, perubahan data, dan wawancara calon karyawan.</T></p>
       </div>
-      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} master={master} />
+      <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} master={master}
+        edits={editReqs.map((r) => ({
+          id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, note: r.note,
+          summary: (r.summary as { field: string; oldValue: string | null; newValue: string | null }[]) ?? [],
+          createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
+        }))} />
     </div>
   );
 }

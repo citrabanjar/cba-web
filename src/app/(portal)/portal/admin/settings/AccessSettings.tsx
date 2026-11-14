@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
-import { MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
+import { LEVEL_LABEL, MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
 import type { AdminRole } from "@/lib/admin-roles";
 import { saveRoles } from "./role-actions";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
@@ -101,10 +101,10 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
                 const level = menuLevelOf(r.menus, m.key);
                 const choices: { v: MenuLevel | null; label: string }[] = [
                   { v: null, label: "Tidak" },
-                  ...(m.levels as readonly MenuLevel[]).map((l) => ({ v: l, label: l === "view" ? "Lihat" : "Edit" })),
+                  ...(m.levels as readonly MenuLevel[]).map((l) => ({ v: l, label: LEVEL_LABEL[l] })),
                 ];
                 const pick = (v: MenuLevel | null) => s.patch(r.id, {
-                  menus: [...r.menus.filter((k) => k !== m.key && k !== menuEntry(m.key, "view")), ...(v ? [menuEntry(m.key, v)] : [])],
+                  menus: [...r.menus.filter((k) => k !== m.key && k !== menuEntry(m.key, "view") && k !== menuEntry(m.key, "propose")), ...(v ? [menuEntry(m.key, v)] : [])],
                 });
                 return (
                   <div key={m.key} title={t(m.desc)} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-1.5">
@@ -113,7 +113,7 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
                       {choices.map((c) => (
                         <button key={c.label} type="button" onClick={() => pick(c.v)}
                           className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${level === c.v
-                            ? c.v === "edit" ? "bg-brand text-white" : c.v === "view" ? "bg-sky-600 text-white" : "bg-gray-200 text-gray-700"
+                            ? c.v === "edit" ? "bg-brand text-white" : c.v === "propose" ? "bg-amber-500 text-white" : c.v === "view" ? "bg-sky-600 text-white" : "bg-gray-200 text-gray-700"
                             : "text-gray-400 hover:text-gray-700"}`}>
                           <T>{c.label}</T>
                         </button>
@@ -166,7 +166,7 @@ export function MembersSettings({ roles: initial, people }: { roles: AdminRole[]
           <div key={r.id} className="rounded-2xl border border-gray-200 p-4">
             <p className="font-semibold text-gray-900">{r.name}</p>
             <p className="text-xs text-gray-500">
-              {r.menus.length ? MENUS.flatMap((m) => { const l = menuLevelOf(r.menus, m.key); return l ? [`${m.label} (${l === "view" ? "Lihat" : "Edit"})`] : []; }).join(" · ") : <T>Belum ada kewenangan.</T>}
+              {r.menus.length ? MENUS.flatMap((m) => { const l = menuLevelOf(r.menus, m.key); return l ? [`${m.label} (${LEVEL_LABEL[l]})`] : []; }).join(" · ") : <T>Belum ada kewenangan.</T>}
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {r.members.length === 0 && <span className="text-xs text-gray-400"><T>Belum ada anggota.</T></span>}

@@ -169,6 +169,10 @@ export default async function KaryawanDetailPage({
       canSeePay={canSeePay}
       isSuper={isSuperAdmin(access.role)}
       canEdit={isSuperAdmin(access.role) || employee.role === "KARYAWAN"}
+      pendingEdits={(await prisma.employeeEditRequest.findMany({
+        where: { userId: id, status: "PENDING" }, orderBy: { createdAt: "desc" },
+        select: { id: true, requesterName: true, approverName: true, createdAt: true },
+      })).map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))}
       schedules={schedules}
       patterns={patterns}
       shiftDays={shiftDays}

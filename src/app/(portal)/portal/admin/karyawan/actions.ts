@@ -1,7 +1,10 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { requireMenu } from "@/lib/access";
-import { isSuperAdmin } from "@/lib/roles";
+import { getAccess, requireMenu } from "@/lib/access";
+import { canEditMenu, canProposeMenu, isSuperAdmin } from "@/lib/roles";
+import { auth } from "@/auth";
+import { headers } from "next/headers";
+import { sendEditRequestEmail } from "@/lib/mailer";
 import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow } from "@/lib/employee-import";
 import bcrypt from "bcryptjs";
@@ -135,10 +138,65 @@ async function wouldLoop(id: string, managerId: string | null): Promise<boolean>
   return false;
 }
 
-export async function updateEmployee(id: string, data: EmployeeUpdate) {
-  const actor = await requireMenu("karyawan");
+// Edit data karyawan dari profil. Hak Edit: langsung berlaku. Hak Ajukan: disimpan sebagai pengajuan ke atasan langsung
+// si Admin dan baru berlaku setelah disetujui (menu Persetujuan → Ubah Data Karyawan).
+export async function updateEmployee(id: string, data: EmployeeUpdate): Promise<{ success?: boolean; proposed?: string; error?: string }> {
+  const access = await getAccess();
+  const edit = canEditMenu(access, "karyawan"), propose = canProposeMenu(access, "karyawan");
+  if (!access || (!edit && !propose)) throw new Error("Anda hanya punya hak lihat di menu ini.");
+  if (edit) return applyEmployeeUpdate(id, data, { role: access.role, changedBy: access.name ?? "" });
+
+  // Hak Ajukan: password tidak bisa diubah lewat pengajuan.
+  const { password: _pw, ...rest } = data;
+  void _pw;
+  const me = await prisma.user.findUnique({ where: { id: access.id }, select: { manager: { select: { id: true, name: true, email: true, isActive: true } } } });
+  const boss = me?.manager?.isActive ? me.manager : null;
+  if (!boss) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi perubahan belum bisa diajukan. Hubungi Super Admin." };
+  const { logs } = await applyEmployeeUpdate(id, rest, { role: access.role, changedBy: "", dryRun: true });
+  if (!logs.length) return { error: "Tidak ada perubahan yang diajukan." };
+  const target = await prisma.user.findUnique({ where: { id }, select: { name: true, employeeId: true } });
+  await prisma.employeeEditRequest.create({
+    data: {
+      userId: id, requesterId: access.id, requesterName: access.name ?? "", approverId: boss.id, approverName: boss.name,
+      data: rest as Prisma.InputJsonValue, summary: logs as Prisma.InputJsonValue,
+    },
+  });
+  if (boss.email) {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const base = host ? `${h.get("x-forwarded-proto") ?? "https"}://${host}` : (process.env.NEXTAUTH_URL ?? "https://www.citrabanjar.com");
+    await sendEditRequestEmail(boss.email, boss.name, access.name ?? "Admin", `${target?.employeeId ?? ""} - ${target?.name ?? ""}`, `${base.replace(/\/$/, "")}/portal/persetujuan`);
+  }
+  revalidatePath(`${LIST_PATH}/${id}`);
+  revalidatePath("/portal/persetujuan");
+  return { proposed: boss.name };
+}
+
+// Atasan memutus pengajuan perubahan data karyawan (hak Ajukan). Setuju = data diterapkan dan tercatat di History Perubahan.
+export async function decideEmployeeEdit(requestId: string, approve: boolean, note: string): Promise<{ error?: string }> {
+  const session = await auth();
+  const me = session?.user?.id;
+  if (!me) return { error: "Unauthorized" };
+  const r = await prisma.employeeEditRequest.findUnique({ where: { id: requestId } });
+  if (!r || r.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
+  if (r.approverId !== me) return { error: "Anda bukan penyetuju pengajuan ini." };
+  if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  if (approve) {
+    try {
+      await applyEmployeeUpdate(r.userId, r.data as EmployeeUpdate, { role: "ADMIN", changedBy: `${r.requesterName} (disetujui ${r.approverName})` });
+    } catch (e) {
+      return { error: `Perubahan tidak bisa diterapkan: ${e instanceof Error ? e.message : "data bentrok"}. Tolak lalu minta diajukan ulang.` };
+    }
+  }
+  await prisma.employeeEditRequest.update({ where: { id: requestId }, data: { status: approve ? "APPROVED" : "REJECTED", note: note.trim() || null, decidedAt: new Date() } });
+  revalidatePath(`${LIST_PATH}/${r.userId}`);
+  revalidatePath("/portal/persetujuan");
+  return {};
+}
+
+async function applyEmployeeUpdate(id: string, data: EmployeeUpdate, opts: { role: string; changedBy: string; dryRun?: boolean }) {
   const current = await prisma.user.findFirst({
-    where: { id, ...editableTarget(actor.role) },
+    where: { id, ...editableTarget(opts.role) },
     include: { department: { select: { name: true } } },
   });
   if (!current) throw new Error("Not found");
@@ -207,16 +265,17 @@ export async function updateEmployee(id: string, data: EmployeeUpdate) {
     logs.push({ field: "password", oldValue: null, newValue: null });
   }
 
+  if (opts.dryRun) return { success: true, logs };
   await prisma.user.update({
     where: { id },
     data: {
       ...changes,
-      changeLogs: { create: logs.map((log) => ({ ...log, changedBy: actor.name })) },
+      changeLogs: { create: logs.map((log) => ({ ...log, changedBy: opts.changedBy })) },
     },
   });
   revalidatePath(LIST_PATH);
   revalidatePath(`${LIST_PATH}/${id}`);
-  return { success: true };
+  return { success: true, logs };
 }
 
 export type EmploymentEventInput = {

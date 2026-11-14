@@ -16,7 +16,9 @@ const tidy = (list: string[]) => MENUS.flatMap((m) => {
   const level = menuLevelOf(list, m.key);
   if (!level) return [];
   if (known.has(menuEntry(m.key, level))) return [menuEntry(m.key, level)];
-  return level === "edit" && known.has(menuEntry(m.key, "view")) ? [menuEntry(m.key, "view")] : [];
+  // Tingkat tidak tersedia untuk menu itu: turun ke tingkat yang lebih rendah yang tersedia.
+  if (level !== "view" && known.has(menuEntry(m.key, "view"))) return [menuEntry(m.key, "view")];
+  return [];
 });
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 

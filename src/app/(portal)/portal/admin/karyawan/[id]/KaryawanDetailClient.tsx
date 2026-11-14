@@ -26,7 +26,7 @@ import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit } from "@/components/portal/edit-access";
+import { useCanEdit, useCanPropose } from "@/components/portal/edit-access";
 import AttendanceCalendar from "./AttendanceCalendar";
 import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
 import type { DayShift } from "@/lib/schedule";
@@ -679,7 +679,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, initialTab, canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
-  schedules, patterns, shiftDays, leaveBalances, payOptions, payComponents,
+  schedules, patterns, shiftDays, leaveBalances, payOptions, payComponents, pendingEdits = [],
 }: {
   employee: Employee;
   tenure: string | null;
@@ -698,6 +698,7 @@ export default function KaryawanDetailClient({
   leaveBalances: BalanceRow[];
   payOptions: PayOption[];
   payComponents: PayComponentRow[];
+  pendingEdits?: { id: string; requesterName: string; approverName: string; createdAt: string }[];
 }) {
   const t = useT();
   // canEditTarget: aturan siapa yang boleh diubah (dari server); ditambah hak Edit menu admin (hak lihat saja = tombol ubah disembunyikan).
@@ -705,6 +706,10 @@ export default function KaryawanDetailClient({
   const canEditPay = useCanEdit("gaji");
   const canEditSchedule = useCanEdit("absensi");
   const canEdit = canEditTarget && canEditMenu;
+  // Hak "Ajukan": boleh membuka Edit data (Ubah Data saja); simpanan menjadi pengajuan ke atasan langsung si Admin.
+  const canPropose = useCanPropose("karyawan");
+  const proposeOnly = canEditTarget && canPropose && !canEditMenu;
+  const [notice, setNotice] = useState<string | null>(null);
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
   const [tab, setTab] = useState(() => (quick ? "pekerjaan" : initialTab && TAB_LIST.some((x) => x.key === initialTab) ? initialTab : "pribadi"));
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
@@ -806,7 +811,7 @@ export default function KaryawanDetailClient({
   const initials = emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const today = new Date().toISOString().split("T")[0];
   const currentSalary = emp.salaries.find((s) => toInputDate(s.effectiveDate) <= today) ?? emp.salaries[0];
-  const edit = (section: Section) => (canEdit ? () => openEdit(section) : undefined);
+  const edit = (section: Section) => (canEdit || proposeOnly ? () => openEdit(section) : undefined);
 
   function sectionValues(section: Section) {
     const record = emp as unknown as Record<string, unknown>;
@@ -845,7 +850,11 @@ export default function KaryawanDetailClient({
     startTransition(async () => {
       try {
         const { effectiveDate = "", note } = eventForm;
-        if (mode === "ubah") await updateEmployee(emp.id, form);
+        if (mode === "ubah") {
+          const r = await updateEmployee(emp.id, form);
+          if (r?.error) { setError(r.error); return; }
+          if (r?.proposed) setNotice(`${t("Perubahan diajukan ke")} ${r.proposed}. ${t("Data baru berlaku setelah disetujui.")}`);
+        }
         else if (mode === "TRANSFER") {
           const type = JOB_CHANGE_TYPE[eventForm.transferType ?? TRANSFER_TYPES[0]];
           await addJobChange(emp.id, { type, effectiveDate, note }, form);
@@ -943,6 +952,20 @@ export default function KaryawanDetailClient({
             />
           </div>
         </div>
+
+        {notice && (
+          <div className="flex items-start gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <span className="min-w-0 flex-1">{notice}</span>
+            <button type="button" onClick={() => setNotice(null)} className="text-xs text-emerald-700 hover:underline"><T>Tutup</T></button>
+          </div>
+        )}
+        {pendingEdits.length > 0 && (
+          <div className="space-y-1 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {pendingEdits.map((r) => (
+              <p key={r.id}>⏳ <T>Perubahan data menunggu persetujuan</T> <b>{r.approverName}</b> · <T>diajukan</T> {r.requesterName}, {fmtDate(new Date(r.createdAt))}</p>
+            ))}
+          </div>
+        )}
 
         {/* Tab berbentuk pil; tab aktif berwarna gelap supaya jelas terlihat. */}
         <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-2">
@@ -1286,6 +1309,11 @@ export default function KaryawanDetailClient({
 
           <div className="space-y-3 py-1">
             {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
+            {proposeOnly && (
+              <div className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                <T>Perubahan akan diajukan ke atasan langsung Anda dan baru berlaku setelah disetujui.</T>
+              </div>
+            )}
             {editing && canEdit && EDIT_MODES[editing] && (
               <div className="flex flex-wrap gap-2">
                 {EDIT_MODES[editing].map((key) => (

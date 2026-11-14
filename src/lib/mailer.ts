@@ -143,3 +143,27 @@ HRD PT. Citra Banjar Abadi`,
     return false;
   }
 }
+
+// Pengajuan perubahan data karyawan oleh Admin (hak Ajukan) → atasan langsung Admin. Keputusan tetap di portal.
+export async function sendEditRequestEmail(to: string, name: string, requester: string, employee: string, link: string): Promise<boolean> {
+  if (!mailerReady()) return false;
+  try {
+    await mailer().sendMail({
+      from: { name: "HRD PT. Citra Banjar Abadi", address: process.env.SMTP_FROM || process.env.SMTP_USER! },
+      to,
+      subject: `Persetujuan perubahan data karyawan: ${employee}`,
+      text: `Halo ${title(name)},\n\n${requester} mengajukan perubahan data karyawan ${employee} dan menunggu persetujuan Anda.\nBuka portal karyawan, menu Persetujuan → Ubah Data Karyawan:\n${link}\n\nHRD PT. Citra Banjar Abadi`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#1f2937">
+        <h2 style="color:#BE353F;margin-bottom:4px">PT. Citra Banjar Abadi</h2>
+        <p>Halo <b>${esc(title(name))}</b>,</p>
+        <p><b>${esc(requester)}</b> mengajukan perubahan data karyawan <b>${esc(employee)}</b> dan menunggu persetujuan Anda.</p>
+        <p style="text-align:center;margin:24px 0"><a href="${esc(link)}" style="background:#BE353F;color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:bold;display:inline-block">Buka Halaman Persetujuan</a></p>
+        <p style="font-size:13px;color:#6b7280">Keputusan diberikan di portal (menu <b>Persetujuan → Ubah Data Karyawan</b>), bukan membalas email ini.</p>
+      </div>`,
+    });
+    return true;
+  } catch (e) {
+    console.error("[mailer] gagal kirim pemberitahuan ubah data:", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
