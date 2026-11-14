@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Banknote, Briefcase, CalendarDays, Check, Clock, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, X } from "lucide-react";
+import { Banknote, Briefcase, Check, Clock, KeyRound, Loader2, Pencil, Plus, Trash2, User, Users, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import ProfileTabs from "@/components/portal/ProfileTabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,14 +63,8 @@ export default function ProfilClient({ me, salary, values, family, calendar, req
   const [editing, setEditing] = useState(false);
   const pending = requests.find((r) => r.status === "PENDING");
   const groups = [...new Set(PROFILE_FIELDS.map((f) => f.group))];
-  // Profil dibagi per tab supaya tidak memanjang ke bawah.
-  const tabs = [
-    { key: "data", label: "Data Diri", icon: User },
-    { key: "kerja", label: "Pekerjaan", icon: Briefcase },
-    { key: "hadir", label: "Kehadiran", icon: CalendarDays },
-    { key: "akun", label: "Akun", icon: UserCog },
-  ];
-  const [tab, setTab] = useState("data");
+  // Profil dibagi per tab (dari alamat ?tab=) supaya tidak memanjang; menu harian ikut di bar tab yang sama.
+  const tab = useSearchParams().get("tab") ?? "data";
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
@@ -89,14 +85,7 @@ export default function ProfilClient({ me, salary, values, family, calendar, req
 
       {pending && <RequestCard r={pending} />}
 
-      <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-1.5">
-        {tabs.map(({ key, label, icon: Icon }) => (
-          <button key={key} type="button" onClick={() => setTab(key)}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm ${tab === key ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
-            <Icon size={15} /> <T>{label}</T>
-          </button>
-        ))}
-      </div>
+      <ProfileTabs />
 
       {tab === "data" && (
         <>

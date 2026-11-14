@@ -6,16 +6,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, ArrowLeftRight, GitBranch, ShieldCheck, Bell,
+  Home, CalendarClock, CalendarHeart, Landmark, FileText, ChevronLeft, ChevronRight,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Bell,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 import { EditAccessProvider } from "@/components/portal/edit-access";
+import { PROFILE_PATHS } from "@/components/portal/ProfileTabs";
 
-type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
+type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number; match?: string[] };
 type NavSection = { section: string; items: NavItem[]; admin?: boolean };
 
 // Menu dibagi dua blok: menu pribadi karyawan (MENU SAYA) di atas, lalu blok PANEL ADMIN
@@ -28,7 +29,8 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
       items: [
         { href: "/portal/dashboard", label: "Beranda", icon: Home },
         // Profil Saya: data diri karyawan (Super Admin bukan karyawan).
-        ...(!isSuperAdmin(role) ? [{ href: "/portal/profil", label: "Profil Saya", icon: CircleUserRound }] : []),
+        // Profil Saya juga memuat menu harian (Absensi, Cuti, Dinas Luar, Tukar Shift) sebagai tab.
+        ...(!isSuperAdmin(role) ? [{ href: "/portal/profil", label: "Profil Saya", icon: CircleUserRound, match: PROFILE_PATHS }] : []),
         // Struktur organisasi: semua karyawan dan admin bisa melihat.
         { href: "/portal/struktur", label: "Struktur Organisasi", icon: Network },
       ],
@@ -37,15 +39,6 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
 
   // Menu pribadi hanya untuk karyawan; SUPER_ADMIN bukan karyawan.
   if (!isSuperAdmin(role)) sections.push(
-    {
-      section: "TIME",
-      items: [
-        { href: "/portal/absensi", label: "Absensi", icon: Clock },
-        { href: "/portal/cuti", label: "Cuti", icon: Calendar },
-        { href: "/portal/dinas", label: "Dinas Luar", icon: Briefcase },
-        { href: "/portal/tukar-shift", label: "Tukar Shift", icon: ArrowLeftRight },
-      ],
-    },
     {
       section: "FINANCE",
       items: [
@@ -179,7 +172,7 @@ function NavLinks({
           )}
           {sec.items.map((item, ii) => {
             const i = starts[si] + ii;
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = (item.match ?? [item.href]).some((h) => pathname === h || pathname.startsWith(h + "/"));
             return (
               <button
                 type="button"
