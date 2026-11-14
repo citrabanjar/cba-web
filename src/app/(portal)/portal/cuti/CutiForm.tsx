@@ -1,13 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CalendarDays, Loader2, CheckCircle2, AlertTriangle, X, Paperclip, Info } from "lucide-react";
+import { CalendarDays, Loader2, CheckCircle2, AlertTriangle, X } from "lucide-react";
 import { submitLeave, cancelLeave } from "./actions";
 import type { LeaveRequest } from "@prisma/client";
 import { T, useT } from "@/components/i18n";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
-import { HALF_DAY_PARTS, LEAVE_CATEGORIES, halfDayLabel, periodLabel, unitLabel } from "@/lib/leave";
+import { HALF_DAY_PARTS, LEAVE_CATEGORIES, halfDayLabel } from "@/lib/leave";
 import type { BalanceRow } from "@/lib/leave-balance";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 
@@ -40,7 +40,6 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
   const [dayPart, setDayPart] = useState("PENUH");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const chosen = options.find((o) => o.id === policyId);
-  const chosenBalance = chosen?.balance ? balances.find((b) => b.policyId === chosen.id) : undefined;
 
   const handleCancel = async (id: string) => {
     setCancellingId(id);
@@ -99,28 +98,6 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
                 {sorted.map((o) => <option key={o.id} value={o.id}>{t(o.name)}</option>)}
               </select>
             </div>
-
-            {chosen && (
-              <div className="rounded-xl bg-gray-50 px-3 py-2.5 text-xs text-gray-600 space-y-1">
-                <p className="flex items-start gap-1.5"><Info size={13} className="mt-0.5 shrink-0 text-gray-400" />
-                  <span>
-                    {chosenBalance
-                      ? <><T>Sisa saldo yang bisa diajukan</T>: <b>{Math.max(0, Math.round((chosenBalance.balance - chosenBalance.pending) * 100) / 100)}</b> <T>hari</T></>
-                      : chosen.quota === null ? <T>Lama cuti sesuai kebutuhan / surat dokter.</T>
-                      : <><T>Paling banyak</T> <b>{chosen.quota}</b> <T>{unitLabel(chosen.unit)}</T> <T>{periodLabel(chosen.period)}</T>.</>}
-                    {!chosen.paid && <> · <b className="text-rose-600"><T>Tanpa upah</T></b></>}
-                    {chosen.noticeDays > 0 && <> · <T>Ajukan paling lambat</T> H-{chosen.noticeDays}</>}
-                  </span>
-                </p>
-                {chosen.needsAttachment && (
-                  <p className="flex items-start gap-1.5 text-amber-700"><Paperclip size={13} className="mt-0.5 shrink-0" />
-                    <span><T>Siapkan lampiran</T>: {chosen.attachmentNote ? t(chosen.attachmentNote) : t("dokumen pendukung")} — <T>serahkan ke HRD.</T></span>
-                  </p>
-                )}
-                {chosen.unit === "HARI_KERJA" && <p className="text-gray-400"><T>Jumlah hari dihitung dari hari kerja sesuai jadwal Anda (hari libur tidak dihitung).</T></p>}
-                {chosenBalance && <p className="text-gray-400"><T>Kalau saldo tidak cukup, kelebihannya masuk cuti di luar tanggungan.</T></p>}
-              </div>
-            )}
 
             {chosen?.allowHalfDay && (
               <div>
