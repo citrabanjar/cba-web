@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { notify } from "@/lib/notify";
+import { formatRupiah } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
@@ -90,6 +92,7 @@ export async function approveLoan(id: string, input: {
     }),
     prisma.loanInstallment.createMany({ data: rows.map((r) => ({ ...r, loanId: id })) }),
   ]);
+  await notify(loan.userId, "Pengajuan pinjaman disetujui", `${formatRupiah(total)} · ${rows.length} kali angsuran mulai ${input.startPeriod} · Disetujui oleh ${access.name ?? "Admin"}. Menunggu pencairan.`, "/portal/pinjaman");
   refresh(loan.userId);
   return {};
 }
@@ -99,6 +102,7 @@ export async function rejectLoan(id: string, note: string): Promise<Result> {
   const loan = await prisma.employeeLoan.findUnique({ where: { id } });
   if (!loan || loan.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
   await prisma.employeeLoan.update({ where: { id }, data: { status: "DITOLAK", note: note.trim() || null, approvedBy: access.name ?? null, approvedAt: new Date() } });
+  await notify(loan.userId, "Pengajuan pinjaman ditolak", `${formatRupiah(loan.principal)} · Ditolak oleh ${access.name ?? "Admin"}${note.trim() ? `: ${note.trim()}` : ""}.`, "/portal/pinjaman");
   refresh(loan.userId);
   return {};
 }
@@ -112,6 +116,7 @@ export async function markDisbursed(id: string, date: string): Promise<Result> {
   await prisma.employeeLoan.update({
     where: { id }, data: { status: "BERJALAN", disbursedAt: new Date(`${date}T00:00:00Z`), disbursedBy: access.name ?? null },
   });
+  await notify(loan.userId, "Pinjaman sudah dicairkan", `${formatRupiah(loan.principal)} · dicairkan ${date.split("-").reverse().join("-")}. Angsuran mulai dipotong dari gaji.`, "/portal/pinjaman");
   refresh(loan.userId);
   return {};
 }

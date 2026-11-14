@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { dateRange, decisionText, notify } from "@/lib/notify";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { OPEN_SWAP, activeManager, applySwap, hasAttendance, periodFinal, swapShifts } from "@/lib/shift-swap";
@@ -65,6 +66,7 @@ export async function respondSwap(id: string, accept: boolean, note: string): Pr
   if (!r || r.partnerId !== u.id || r.status !== "MENUNGGU_REKAN") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
   if (!accept) {
     await prisma.shiftSwapRequest.update({ where: { id }, data: { status: "DITOLAK", note: note.trim() || "Ditolak rekan", decidedBy: u.name, decidedAt: new Date() } });
+    await notify(r.requesterId, "Tukar shift ditolak rekan", `${dateRange(r.date, r.date)} · ${decisionText(false, u.name, note)}`, "/portal/tukar-shift");
     refresh();
     return {};
   }
@@ -99,6 +101,7 @@ export async function decideSwap(id: string, approve: boolean, note: string): Pr
   if (!approve) {
     if (!note.trim()) return { error: "Tulis alasan penolakan." };
     await prisma.shiftSwapRequest.update({ where: { id }, data: { status: "DITOLAK", note: note.trim(), decidedBy: u.name, decidedAt: new Date() } });
+    await notify([r.requesterId, r.partnerId], "Tukar shift ditolak", `${dateRange(r.date, r.date)} · ${decisionText(false, u.name, note)}`, "/portal/tukar-shift");
     refresh();
     return {};
   }
@@ -112,6 +115,7 @@ export async function decideSwap(id: string, approve: boolean, note: string): Pr
     const res = await applySwap(r, u.name);
     if (res.error) return { error: res.error };
     await prisma.shiftSwapRequest.update({ where: { id }, data: { ...data, status: "DISETUJUI", note: note.trim() || null, decidedBy: u.name, decidedAt: now } });
+    await notify([r.requesterId, r.partnerId], "Tukar shift disetujui", `${dateRange(r.date, r.date)} · ${decisionText(true, u.name)} Shift sudah ditukar.`, "/portal/tukar-shift");
   } else {
     await prisma.shiftSwapRequest.update({ where: { id }, data });
   }

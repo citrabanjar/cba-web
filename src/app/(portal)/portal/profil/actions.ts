@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { decisionText, notify } from "@/lib/notify";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -94,6 +95,7 @@ export async function decideProfileChange(id: string, approve: boolean, note: st
     where: { id },
     data: { status: approve ? "APPROVED" : "REJECTED", note: note.trim() || null, decidedBy: access.name, decidedAt: new Date() },
   });
+  await notify(req.userId, `Pengajuan perubahan data ${approve ? "disetujui" : "ditolak"}`, decisionText(approve, access.name, note), "/portal/profil?tab=akun");
   refresh(req.userId);
   return {};
 }

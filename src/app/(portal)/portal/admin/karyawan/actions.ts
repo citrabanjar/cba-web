@@ -5,6 +5,7 @@ import { canEditMenu, canProposeMenu, isSuperAdmin } from "@/lib/roles";
 import { auth } from "@/auth";
 import { approvalLevelsFor } from "@/lib/admin-roles";
 import { bossChain, holdForApproval, notifyApprover, runApproved } from "@/lib/approval-hold";
+import { decisionText, notify } from "@/lib/notify";
 import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow } from "@/lib/employee-import";
 import bcrypt from "bcryptjs";
@@ -226,6 +227,10 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
     where: { id: requestId },
     data: { status: approve ? "APPROVED" : "REJECTED", note: note.trim() || null, decidedAt: new Date(), data: { ...(r.data as object), __approval: steps } as Prisma.InputJsonValue },
   });
+  if (steps.every((x) => x.decision) || !approve) {
+    const title = typeof (r.data as { __title?: unknown })?.__title === "string" ? (r.data as { __title: string }).__title : "Perubahan data karyawan";
+    await notify(r.requesterId, `Pengajuan ${approve ? "disetujui" : "ditolak"}: ${title}`, decisionText(approve, steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName, note), "/portal/persetujuan");
+  }
   revalidatePath(`${LIST_PATH}/${r.userId}`);
   revalidatePath("/portal/persetujuan");
   return {};

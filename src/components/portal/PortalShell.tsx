@@ -3,17 +3,17 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, CalendarClock, CalendarHeart, Landmark, ChevronLeft, ChevronRight,
-  Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Bell, Smartphone,
+  Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Smartphone,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 import { EditAccessProvider } from "@/components/portal/edit-access";
+import NotificationBell, { type NotificationItem } from "@/components/portal/NotificationBell";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number; match?: string[] };
 type NavSection = { section: string; items: NavItem[]; admin?: boolean };
@@ -66,7 +66,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; onboardingOn?: boolean; workflowOn?: boolean; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; notifications?: NotificationItem[]; onboardingOn?: boolean; workflowOn?: boolean; children: React.ReactNode };
 
 // Pemakaian penyimpanan database Neon, hanya untuk super admin.
 function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
@@ -272,7 +272,7 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, storage, approvals = null, onboardingOn = true, workflowOn = true, children }: Props) {
+export default function PortalShell({ user, storage, approvals = null, notifications = [], onboardingOn = true, workflowOn = true, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
@@ -345,16 +345,8 @@ export default function PortalShell({ user, storage, approvals = null, onboardin
         </button>
         <div className="lg:hidden"><LogoBadge width={150} /></div>
         <div className="ml-auto flex items-center gap-3">
-          {/* Persetujuan (atasan langsung, approver, Admin): lonceng dengan jumlah pengajuan yang menunggu. */}
-          {approvals !== null && (
-            <Link href="/portal/persetujuan" aria-label={t("Persetujuan")} title={t("Persetujuan")}
-              className={`relative flex h-9 w-9 items-center justify-center rounded-full border text-white transition-colors ${pathname.startsWith("/portal/persetujuan") ? "border-white bg-white/25" : "border-white/20 bg-white/10 hover:bg-white/20"}`}>
-              <Bell size={18} />
-              {approvals > 0 && (
-                <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[10px] font-bold leading-5 text-ink">{approvals > 99 ? "99+" : approvals}</span>
-              )}
-            </Link>
-          )}
+          {/* Lonceng: kabar untuk karyawan + pengajuan yang menunggu keputusan (atasan, approver, Admin). */}
+          <NotificationBell items={notifications} approvals={approvals} active={pathname.startsWith("/portal/persetujuan")} />
           <LanguageSwitcher />
         </div>
       </header>

@@ -8,6 +8,7 @@ import { getDatabaseStorage } from "@/lib/storage";
 import { isApprover, pendingApprovals } from "@/lib/approval";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { workflowFeatureOn } from "@/lib/workflow-settings";
+import { prisma } from "@/lib/prisma";
 
 export default async function PortalLayout({
   children,
@@ -25,7 +26,11 @@ export default async function PortalLayout({
   // Menu Persetujuan (atasan langsung, Admin/HRD) dengan jumlah pengajuan yang menunggu.
   const approver = access ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
-  const [onboardingOn, workflowOn] = await Promise.all([getOnboardingSettings().then((s) => s.enabled), workflowFeatureOn()]);
+  const [onboardingOn, workflowOn, notifications] = await Promise.all([
+    getOnboardingSettings().then((s) => s.enabled), workflowFeatureOn(),
+    // Kabar terbaru di lonceng: semua yang belum dibaca + beberapa yang sudah dibaca.
+    access ? prisma.notification.findMany({ where: { userId: access.id }, orderBy: [{ readAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }], take: 20 }) : [],
+  ]);
 
   return (
     <PortalShell
@@ -37,6 +42,7 @@ export default async function PortalLayout({
       }}
       storage={storage}
       approvals={approvals}
+      notifications={notifications.map((n) => ({ id: n.id, title: n.title, body: n.body, href: n.href, read: !!n.readAt, at: n.createdAt.toISOString() }))}
       onboardingOn={onboardingOn}
       workflowOn={workflowOn}
     >
