@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Komponen Input/Rumus, periode gaji, tanggal gajian.": "Input/Formula components, pay period, payday.",
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
+  "Kehadiran": "Attendance",
   "Running Indikator": "Running Indicators",
   "Import diblokir: parameter organisasi berikut belum terdaftar.": "Import blocked: the following organization parameters aren't registered yet.",
   "Tambahkan dulu di": "Add them first in",

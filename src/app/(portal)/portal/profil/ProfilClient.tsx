@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, Check, Clock, KeyRound, Loader2, Pencil, Plus, Trash2, User, Users, X } from "lucide-react";
+import { Briefcase, CalendarDays, Check, Clock, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,6 +60,14 @@ export default function ProfilClient({ me, values, family, calendar, requests }:
   const [editing, setEditing] = useState(false);
   const pending = requests.find((r) => r.status === "PENDING");
   const groups = [...new Set(PROFILE_FIELDS.map((f) => f.group))];
+  // Profil dibagi per tab supaya tidak memanjang ke bawah.
+  const tabs = [
+    { key: "data", label: "Data Diri", icon: User },
+    { key: "kerja", label: "Pekerjaan", icon: Briefcase },
+    { key: "hadir", label: "Kehadiran", icon: CalendarDays },
+    { key: "akun", label: "Akun", icon: UserCog },
+  ];
+  const [tab, setTab] = useState("data");
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
@@ -80,63 +88,81 @@ export default function ProfilClient({ me, values, family, calendar, requests }:
 
       {pending && <RequestCard r={pending} />}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {groups.map((g) => (
-          <Section key={g} icon={g === "Data Diri" ? User : g === "Tempat Tinggal" ? User : KeyRound} title={g}>
-            {g === "Data Diri" && <Row label="Nama Lengkap" value={me.name} />}
-            {PROFILE_FIELDS.filter((f) => f.group === g && f.type !== "region"
-              && !((f.key === "currentAddress" || f.key === "currentRegionName" || f.key === "currentPostal") && values.addressSameAsId === "true")).map((f) => (
-              <Row key={f.key} label={f.label} value={f.type === "date" ? d(values[f.key] || null) : t(showValue(f.key, values[f.key]))} />
-            ))}
-            {g === "Rekening & Pajak" && (
-              <>
-                <Row label="Status PTKP" value={me.ptkp} />
-                <Row label="No. BPJS Ketenagakerjaan" value={me.bpjsTk} />
-                <Row label="No. BPJS Kesehatan" value={me.bpjsKes} />
-              </>
-            )}
-          </Section>
+      <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-1.5">
+        {tabs.map(({ key, label, icon: Icon }) => (
+          <button key={key} type="button" onClick={() => setTab(key)}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm ${tab === key ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+            <Icon size={15} /> <T>{label}</T>
+          </button>
         ))}
-        <Section icon={Briefcase} title="Pekerjaan">
-          <Row label="Jabatan" value={me.position} />
-          <Row label="Departemen" value={me.department} />
-          <Row label="Cabang" value={me.branch} />
-          <Row label="Atasan Langsung" value={me.manager ?? <span className="text-rose-600"><T>Belum diatur (hubungi HRD)</T></span>} />
-          <Row label="Status" value={t(EMP_STATUS[me.status] ?? me.status)} />
-          <Row label="Tanggal Masuk" value={d(me.joinDate)} />
-          <Row label="Masa Kerja" value={me.tenure} />
-          {me.status === "KONTRAK" && <Row label="Akhir Kontrak" value={d(me.contractEnd)} />}
-          <p className="mt-2 text-[11px] text-gray-400"><T>Data pekerjaan diatur HRD.</T></p>
-        </Section>
       </div>
 
-      <Section icon={Users} title="Keluarga">
-        {family.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada data keluarga.</T></p> : (
-          <div className="divide-y divide-gray-100">
-            {family.map((f, i) => (
-              <div key={i} className="flex flex-wrap gap-x-4 py-2 text-sm">
-                <span className="font-medium text-gray-900">{f.name}</span>
-                <span className="text-gray-500"><T>{f.relation}</T></span>
-                {f.idNumber && <span className="text-gray-400">{f.idNumber}</span>}
-              </div>
+      {tab === "data" && (
+        <>
+          <div className="grid gap-5 lg:grid-cols-2">
+            {groups.map((g) => (
+              <Section key={g} icon={g === "Rekening & Pajak" ? KeyRound : User} title={g}>
+                {g === "Data Diri" && <Row label="Nama Lengkap" value={me.name} />}
+                {PROFILE_FIELDS.filter((f) => f.group === g && f.type !== "region"
+                  && !((f.key === "currentAddress" || f.key === "currentRegionName" || f.key === "currentPostal") && values.addressSameAsId === "true")).map((f) => (
+                  <Row key={f.key} label={f.label} value={f.type === "date" ? d(values[f.key] || null) : t(showValue(f.key, values[f.key]))} />
+                ))}
+                {g === "Rekening & Pajak" && (
+                  <>
+                    <Row label="Status PTKP" value={me.ptkp} />
+                    <Row label="No. BPJS Ketenagakerjaan" value={me.bpjsTk} />
+                    <Row label="No. BPJS Kesehatan" value={me.bpjsKes} />
+                  </>
+                )}
+              </Section>
             ))}
+            <Section icon={Users} title="Keluarga">
+              {family.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada data keluarga.</T></p> : (
+                <div className="divide-y divide-gray-100">
+                  {family.map((f, i) => (
+                    <div key={i} className="flex flex-wrap gap-x-4 py-2 text-sm">
+                      <span className="font-medium text-gray-900">{f.name}</span>
+                      <span className="text-gray-500"><T>{f.relation}</T></span>
+                      {f.idNumber && <span className="text-gray-400">{f.idNumber}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
           </div>
-        )}
-      </Section>
+        </>
+      )}
 
-      <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/70"><T>Jadwal Kerja & Kehadiran</T></p>
+      {tab === "kerja" && (
+        <div className="max-w-2xl">
+          <Section icon={Briefcase} title="Pekerjaan">
+            <Row label="Jabatan" value={me.position} />
+            <Row label="Departemen" value={me.department} />
+            <Row label="Cabang" value={me.branch} />
+            <Row label="Atasan Langsung" value={me.manager ?? <span className="text-rose-600"><T>Belum diatur (hubungi HRD)</T></span>} />
+            <Row label="Status" value={t(EMP_STATUS[me.status] ?? me.status)} />
+            <Row label="Tanggal Masuk" value={d(me.joinDate)} />
+            <Row label="Masa Kerja" value={me.tenure} />
+            {me.status === "KONTRAK" && <Row label="Akhir Kontrak" value={d(me.contractEnd)} />}
+            <p className="mt-2 text-[11px] text-gray-400"><T>Data pekerjaan diatur HRD.</T></p>
+          </Section>
+        </div>
+      )}
+
+      {tab === "hadir" && (
         <AttendanceCalendar attendances={calendar.attendances} leaves={calendar.leaves} trips={calendar.trips} shiftDays={calendar.shiftDays} />
-      </div>
+      )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <PasswordCard />
-        <Section icon={Clock} title="Riwayat Pengajuan Perubahan">
-          {requests.filter((r) => r.status !== "PENDING").length === 0
-            ? <p className="text-sm text-gray-400"><T>Belum ada.</T></p>
-            : <div className="space-y-3">{requests.filter((r) => r.status !== "PENDING").map((r) => <RequestCard key={r.id} r={r} compact />)}</div>}
-        </Section>
-      </div>
+      {tab === "akun" && (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <PasswordCard />
+          <Section icon={Clock} title="Riwayat Pengajuan Perubahan">
+            {requests.filter((r) => r.status !== "PENDING").length === 0
+              ? <p className="text-sm text-gray-400"><T>Belum ada.</T></p>
+              : <div className="space-y-3">{requests.filter((r) => r.status !== "PENDING").map((r) => <RequestCard key={r.id} r={r} compact />)}</div>}
+          </Section>
+        </div>
+      )}
 
       {editing && <ChangeDialog values={values} family={family} onClose={() => setEditing(false)} />}
     </div>
