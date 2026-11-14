@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runScheduled } from "@/lib/ai-checker";
 import { assessRecent } from "@/lib/attendance-assess";
 import { simulateScheduled } from "@/lib/attendance-sim";
+import { syncRevisions } from "@/lib/overtime";
 
 // Dipanggil Vercel Cron (vercel.json) dua kali semalam: kirim pemeriksaan bila jadwalnya tiba, lalu ambil hasilnya.
 // Vercel mengirim header Authorization: Bearer <CRON_SECRET> bila env CRON_SECRET diisi.
@@ -17,6 +18,7 @@ export async function GET(req: Request) {
   // (Alpha otomatis) 7 hari terakhir, lalu AI Pemeriksa.
   const sim = await simulateScheduled().catch((e) => ({ error: String(e) }));
   const attendance = await assessRecent(true);
+  const otRevisions = await syncRevisions().catch(() => 0);
   const result = await runScheduled();
-  return NextResponse.json({ sim, attendance, ...result });
+  return NextResponse.json({ sim, attendance, otRevisions, ...result });
 }

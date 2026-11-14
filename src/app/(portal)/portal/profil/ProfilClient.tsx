@@ -59,7 +59,7 @@ const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
 export default function ProfilClient({ me, salary, balances, loans, lastSlip, values, family, calendar, requests }: {
   me: Me; salary: Salary | null; balances: BalanceRow[]; loans: Loan[]; lastSlip: { periodLabel: string; netPay: number } | null;
   values: Record<string, string>; family: FamilyRow[];
-  calendar: { attendances: CalendarProps["attendances"]; leaves: CalendarProps["leaves"]; trips: CalendarProps["trips"]; shiftDays: Record<string, DayShift> };
+  calendar: { attendances: CalendarProps["attendances"]; leaves: CalendarProps["leaves"]; trips: CalendarProps["trips"]; shiftDays: Record<string, DayShift>; overtimes?: CalendarProps["overtimes"] };
   requests: Req[];
 }) {
   const t = useT();
@@ -207,7 +207,7 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
       )}
 
       {tab === "hadir" && (
-        <AttendanceCalendar attendances={calendar.attendances} leaves={calendar.leaves} trips={calendar.trips} shiftDays={calendar.shiftDays} />
+        <AttendanceCalendar attendances={calendar.attendances} leaves={calendar.leaves} trips={calendar.trips} shiftDays={calendar.shiftDays} overtimes={calendar.overtimes} />
       )}
 
       {tab === "akun" && (

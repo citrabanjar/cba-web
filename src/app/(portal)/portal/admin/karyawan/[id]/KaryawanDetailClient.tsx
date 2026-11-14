@@ -682,7 +682,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, initialTab, canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
-  schedules, patterns, shiftDays, leaveBalances, payOptions, payComponents, pendingEdits = [],
+  schedules, patterns, shiftDays, overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
 }: {
   employee: Employee;
   tenure: string | null;
@@ -698,6 +698,7 @@ export default function KaryawanDetailClient({
   schedules: ScheduleRow[];
   patterns: { id: string; name: string; cycleDays: number }[];
   shiftDays: Record<string, DayShift>;
+  overtimes?: { date: string; start: string; end: string; status: string }[];
   leaveBalances: BalanceRow[];
   payOptions: PayOption[];
   payComponents: PayComponentRow[];
@@ -1162,7 +1163,7 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "absensi" && (
-          <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} editUserId={isSuper ? emp.id : undefined}
+          <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} />} />
         )}
 

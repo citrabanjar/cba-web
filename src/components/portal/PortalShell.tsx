@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Home, CalendarClock, CalendarHeart, Landmark, ChevronLeft, ChevronRight,
+  Home, CalendarClock, CalendarHeart, Timer, Landmark, ChevronLeft, ChevronRight,
   Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Smartphone,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
@@ -45,6 +45,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   add("TIME", can("absensi") ? [
     { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock },
     { href: "/portal/admin/leave", label: "Leave", icon: CalendarHeart },
+    { href: "/portal/admin/lembur", label: "Lembur", icon: Timer },
   ] : []);
   add("FINANCE", [
     ...(can("gaji") ? [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }] : []),
@@ -102,7 +103,7 @@ const WIDE = 256;
 const NARROW = 78;
 const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const;
 // Halaman yang dibuka dari menu Tombol HP (menu sidebar ikut tersorot).
-const HP_PATHS = ["/portal/tombol-hp", "/portal/absensi", "/portal/cuti", "/portal/dinas", "/portal/tukar-shift", "/portal/payslip", "/portal/pph21", "/portal/pinjaman"];
+const HP_PATHS = ["/portal/tombol-hp", "/portal/absensi", "/portal/cuti", "/portal/dinas", "/portal/tukar-shift", "/portal/lembur", "/portal/payslip", "/portal/pph21", "/portal/pinjaman"];
 const COLLAPSE_KEY = "cba-sidebar-collapsed";
 
 const initials = (name: string) => name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();

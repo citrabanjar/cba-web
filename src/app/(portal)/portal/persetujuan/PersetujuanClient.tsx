@@ -2,14 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, Briefcase, Calendar, Check, Inbox, Loader2, UserPen, X } from "lucide-react";
+import { ArrowLeftRight, Briefcase, Calendar, Check, Clock, Inbox, Loader2, UserPen, X } from "lucide-react";
 import { InterviewDecision, InterviewSummary, ReviewForm, type CandidateBrief } from "@/components/portal/InterviewPanel";
 import { latestOffer, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { halfDayLabel } from "@/lib/leave";
-import { decideLeave, decideTrip } from "./actions";
+import { decideLeave, decideOvertime, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
 import { decideSwap } from "../tukar-shift/actions";
 import { decideEmployeeEdit } from "../admin/karyawan/actions";
@@ -18,7 +18,7 @@ import { SWAP_STATUS } from "@/lib/shift-swap-status";
 import { fieldLabel, isRegionCode, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 
 export type ApprovalItem = {
-  id: string; kind: "CUTI" | "DINAS"; status: string;
+  id: string; kind: "CUTI" | "DINAS" | "LEMBUR"; status: string; time?: string;
   person: { name: string; employeeId: string | null; position: string | null; department: string | null };
   title: string; start: string; end: string; days: number; halfDay: string | null; unpaidDays: number;
   reason: string; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string;
@@ -69,7 +69,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
   const pending = items.filter((i) => i.status === "PENDING" && i.mine).sort((a, b) => a.start.localeCompare(b.start));
   const done = items.filter((i) => i.status !== "PENDING" || !i.mine).sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
   const tabs: [TabKey, string, number][] = [
-    ["menunggu", "Cuti & Dinas", pending.length],
+    ["menunggu", "Cuti, Dinas & Lembur", pending.length],
     ["riwayat", "Riwayat 60 hari", done.length],
     ["swap", "Tukar Shift", swaps.filter((s) => s.mine).length],
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
@@ -122,22 +122,22 @@ function Card({ item: i }: { item: ApprovalItem }) {
   const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState("");
   const st = STATUS[i.status] ?? { label: i.status, cls: "bg-gray-100 text-gray-600" };
-  const Icon = i.kind === "CUTI" ? Calendar : Briefcase;
+  const Icon = i.kind === "CUTI" ? Calendar : i.kind === "LEMBUR" ? Clock : Briefcase;
   const decide = (approve: boolean) => start(async () => {
     setError("");
-    const fn = i.kind === "CUTI" ? decideLeave : decideTrip;
+    const fn = i.kind === "CUTI" ? decideLeave : i.kind === "LEMBUR" ? decideOvertime : decideTrip;
     const r = await fn(i.id, approve, note);
     if (r.error) setError(r.error);
   });
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-start gap-3">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${i.kind === "CUTI" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}><Icon size={17} /></span>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${i.kind === "CUTI" ? "bg-violet-100 text-violet-700" : i.kind === "LEMBUR" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"}`}><Icon size={17} /></span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-900">{i.person.name} <span className="text-xs font-normal text-gray-400">{[i.person.employeeId, i.person.position, i.person.department].filter(Boolean).join(" · ")}</span></p>
           <p className="mt-0.5 text-sm text-gray-800">{t(i.title)}</p>
           <p className="text-xs text-gray-500">
-            {formatDate(new Date(i.start))}{i.end !== i.start && <> – {formatDate(new Date(i.end))}</>} · {dec(i.days)} <T>hari</T>
+            {formatDate(new Date(i.start))}{i.end !== i.start && <> – {formatDate(new Date(i.end))}</>} · {i.time ?? <>{dec(i.days)} <T>hari</T></>}
             {halfDayLabel(i.halfDay) && <> · {t(halfDayLabel(i.halfDay)!)}</>}
           </p>
           {i.unpaidDays > 0 && <p className="mt-1 text-xs text-amber-700">{dec(i.unpaidDays)} <T>hari melebihi saldo dan masuk cuti di luar tanggungan.</T></p>}

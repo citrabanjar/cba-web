@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, AlertCircle, ArrowLeftRight,
+  Receipt, AlertCircle, ArrowLeftRight, Timer,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,6 +48,12 @@ export default async function DashboardPage() {
       icon: Briefcase,
       label: "Dinas Luar",
       desc: "Pengajuan dinas",
+    },
+    {
+      href: "/portal/lembur",
+      icon: Timer,
+      label: "Lembur",
+      desc: "SPL & pengajuan lembur",
     },
     {
       href: "/portal/payslip",

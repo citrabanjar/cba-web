@@ -221,6 +221,7 @@ export async function updatePayrollLine(lineId: string, inputs: Partial<LineInpu
     if (inputs[k] !== undefined) clean[k] = Math.max(0, Math.min(366, Number(inputs[k]) || 0));
   }
   const hours = (v: unknown) => (Array.isArray(v) ? v.map(Number).filter((x) => x > 0 && x <= 24).slice(0, 62) : undefined);
+  if (inputs.otWork || inputs.otRest) clean.otManual = true; // diisi manual: tidak diambil ulang dari modul Lembur
   if (inputs.otWork) clean.otWork = hours(inputs.otWork);
   if (inputs.otRest) clean.otRest = hours(inputs.otRest);
   try {

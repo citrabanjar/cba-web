@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bot, CheckCircle2, GitBranch, Loader2, Save, UserPlus } from "lucide-react";
+import { Bot, CheckCircle2, GitBranch, Loader2, Save, Timer, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { T } from "@/components/i18n";
@@ -29,10 +29,11 @@ function Feature({ icon: Icon, title, desc, checked, onChange, children }: {
 }
 
 // Pengaturan → Fitur (Super Admin): pilih fitur yang dipakai perusahaan.
-export default function OnboardingSettings({ settings, workflow: wf, agent: ag, setupDone }: { settings: Settings; workflow: boolean; agent: boolean; setupDone: boolean }) {
+export default function OnboardingSettings({ settings, workflow: wf, agent: ag, spl: sp, setupDone }: { settings: Settings; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean }) {
   const [s, setS] = useState<Settings>(settings);
   const [workflow, setWorkflow] = useState(wf);
   const [agent, setAgent] = useState(ag);
+  const [spl, setSpl] = useState(sp);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const set = (patch: Partial<Settings>) => { setMsg(null); setS((x) => ({ ...x, ...patch })); };
@@ -54,6 +55,9 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag, 
           <p className="text-[11px] text-gray-500"><T>Wawancara, pewawancara, dan approver diatur Admin di menu Pra-Karyawan → Alur.</T></p>
         </Feature>
 
+        <Feature icon={Timer} title="Surat Perintah Lembur (SPL)" checked={spl} onChange={(v) => { setMsg(null); setSpl(v); }}
+          desc="Aktif: lembur diperintahkan Admin lewat SPL dan karyawan menjawab Bersedia / Tidak bersedia. Tidak aktif: karyawan mengajukan lembur sendiri, diputus atasan langsung / Workflow." />
+
         <Feature icon={Bot} title="Agent HRD" checked={agent} onChange={(v) => { setMsg(null); setAgent(v); }}
           desc="AI (Claude) membantu admin memeriksa data seluruh karyawan berdasarkan SOP perusahaan. Admin bisa menambahkan SOP lainnya jika dibutuhkan." />
 
@@ -66,7 +70,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag, 
 
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
         <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
-          const r = await saveFeatures({ workflow, agent, onboarding: s });
+          const r = await saveFeatures({ workflow, agent, spl, onboarding: s });
           if (!r.error && agent !== ag) window.location.reload();
           setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Fitur tersimpan." });
         })}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan</T></Button>

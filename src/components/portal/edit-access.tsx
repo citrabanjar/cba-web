@@ -18,6 +18,7 @@ const PAGE_MENU: [string, MenuKey][] = [
   ["/portal/admin/schedule", "absensi"],
   ["/portal/admin/jadwal", "absensi"],
   ["/portal/admin/leave", "absensi"],
+  ["/portal/admin/lembur", "absensi"],
   ["/portal/admin/payroll", "gaji"],
   ["/portal/admin/pinjaman", "pinjaman"],
   ["/portal/admin/onboarding", "prakaryawan"],

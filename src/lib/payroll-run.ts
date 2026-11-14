@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { evaluate, type PayContext, type PayParams, type PayrollSettings } from "@/lib/payroll";
 import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { countLeaveDays } from "@/lib/leave-balance";
+import { overtimeForPayroll, pendingRevisions, syncRevisions } from "@/lib/overtime";
 import { getShiftCalendar } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
@@ -19,6 +20,7 @@ export type LineInputs = {
   tripDays: number; trips: number; leaveDays: number; monthsOfService: number;
   unpaidLeaveDays?: number; // cuti jenis tanpa upah + bagian cuti yang melebihi saldo
   otWork: number[]; otRest: number[]; // jam lembur per pengajuan (hari kerja / hari libur)
+  otManual?: boolean; // jam lembur diisi manual admin di draft (tidak diambil ulang dari modul Lembur)
   values: Record<string, number>; // nilai komponen input tiap periode, per kode (mis. BNS, KSB)
 };
 export type LineItem = { code: string; name: string; kind: string; amount: number; detail: string; taxable: boolean; refs?: string[] };
@@ -32,6 +34,7 @@ export function normalizeInputs(raw: unknown): Partial<LineInputs> {
   for (const k of ["workDays", "daysPresent", "absentDays", "tripDays", "trips", "leaveDays", "monthsOfService", "unpaidLeaveDays"] as const) if (r[k] !== undefined) out[k] = n(r[k]);
   out.otWork = arr(r.otWork) ?? (n(r.overtimeHours) ? [n(r.overtimeHours)] : []);
   out.otRest = arr(r.otRest) ?? (n(r.restOvertimeHours) ? [n(r.restOvertimeHours)] : []);
+  if (r.otManual === true) out.otManual = true;
   const values: Record<string, number> = {};
   if (r.values && typeof r.values === "object") for (const [k, v] of Object.entries(r.values as Record<string, unknown>)) if (n(v)) values[k] = n(v);
   if (n(r.bonus) && values.BNS === undefined) values.BNS = n(r.bonus);
@@ -158,12 +161,15 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     leaveQty(start, end).then((q) => q.all),
   ]);
   const unpaidLeaveDays = (await leaveQty(start, end)).unpaid;
+  // Jam lembur dari modul Lembur (SPL bersedia / pengajuan disetujui), kecuali diisi manual admin di draft.
+  const ot = override?.otManual ? null : await overtimeForPayroll(userId, start, end);
   const count = (st: string[]) => att.filter((a) => st.includes(a.status)).reduce((n, a) => n + a._count._all, 0);
   const inputs: LineInputs = {
     workDays: workDaysFull, daysPresent: count(["HADIR", "DINAS"]), absentDays: count(["ALPHA"]),
     tripDays: tripDates.size, trips: trips.filter((t) => utc(t.startDate) >= start).length, leaveDays, unpaidLeaveDays,
     monthsOfService: join ? Math.max(0, monthsBetween(join, end)) : 0,
     otWork: [], otRest: [], values: {}, ...override,
+    ...(ot ? { otWork: ot.work, otRest: ot.rest } : {}),
   };
 
   const round = (n: number) => Math.round(n / s.rounding) * s.rounding;
@@ -391,12 +397,13 @@ const toJson = (v: unknown) => v as Prisma.InputJsonValue;
 // Hanya masukan manual admin yang dibawa saat dihitung ulang; angka otomatis diambil lagi dari data.
 const manualOf = (raw: unknown): Partial<LineInputs> => {
   const n = normalizeInputs(raw);
-  return { otWork: n.otWork, otRest: n.otRest };
+  return n.otManual ? { otWork: n.otWork, otRest: n.otRest, otManual: true } : {};
 };
 
 // Buat atau hitung ulang draft satu periode untuk semua karyawan aktif. Jam lembur yang sudah diisi di draft
 // dipertahankan. extraCodes = komponen tidak rutin (THR, bonus) yang disertakan periode ini.
 export async function generateRun(period: string, extraCodes: string[], by: string | null) {
+  await syncRevisions().catch(() => 0); // tandai lembur SPL yang check-out-nya melewati jam SPL
   const existing = await prisma.payrollRun.findUnique({ where: { period }, include: { lines: true } });
   if (existing?.status === "FINAL") throw new Error("Periode ini sudah final.");
   const run = existing
@@ -442,6 +449,11 @@ export async function finalizeRun(runId: string, by: string | null) {
   const run = await prisma.payrollRun.findUnique({ where: { id: runId }, include: { lines: true } });
   if (!run) throw new Error("Data tidak ditemukan.");
   if (run.status === "FINAL") throw new Error("Periode ini sudah final.");
+  {
+    const c = await loadContext(run.period);
+    const pend = await pendingRevisions(c.start, c.end);
+    if (pend) throw new Error(`Masih ada ${pend} revisi jam lembur yang belum diputus di periode ini. Selesaikan dulu di menu Lembur (Task Admin).`);
+  }
   const label = periodLabel(run.period);
   const ops = run.lines.filter((l) => l.earnings > 0).map((l) => {
     const items = l.items as LineItem[];

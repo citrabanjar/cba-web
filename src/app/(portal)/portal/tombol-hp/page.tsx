@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeftRight, Briefcase, CalendarDays, Clock, FileText, HandCoins, Receipt } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarDays, Clock, FileText, HandCoins, Receipt, Timer } from "lucide-react";
 import { auth } from "@/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { T } from "@/components/i18n";
@@ -16,6 +16,7 @@ const HP_BUTTONS = [
   { href: "/portal/cuti", icon: CalendarDays, label: "Cuti", desc: "Pengajuan cuti" },
   { href: "/portal/dinas", icon: Briefcase, label: "Dinas Luar", desc: "Pengajuan dinas" },
   { href: "/portal/tukar-shift", icon: ArrowLeftRight, label: "Tukar Shift", desc: "Tukar shift dengan rekan" },
+  { href: "/portal/lembur", icon: Timer, label: "Lembur", desc: "SPL & pengajuan lembur" },
   { href: "/portal/payslip", icon: FileText, label: "Slip Gaji", desc: "Riwayat pembayaran" },
   { href: "/portal/pph21", icon: Receipt, label: "PPh 21", desc: "Bukti potong pajak" },
   { href: "/portal/pinjaman", icon: HandCoins, label: "Pinjaman", desc: "Pengajuan & angsuran" },

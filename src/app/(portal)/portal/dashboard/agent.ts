@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { pendingRevisions, syncRevisions } from "@/lib/overtime";
 import { AGENT_SETTING_KEY, dueReminders, normalizeAgentSettings, type AgentSettings, type DueReminder } from "@/lib/agent-hrd";
 import { PAYROLL_SETTING_KEY, DEFAULT_PAYROLL_SETTINGS, type PayrollSettings } from "@/lib/payroll";
 import { TAX_SETTING_KEY } from "@/lib/pph21";
@@ -151,7 +152,8 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
   // Onboarding & karyawan yang belum di-setup payroll / jadwal.
   const activeEmp = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
   const onbOn = (await getOnboardingSettings()).enabled;
-  const [onbReview, onbApproval, noPay, noShift, noManager, profileChanges] = await Promise.all([
+  await syncRevisions().catch(() => 0);
+  const [onbReview, onbApproval, noPay, noShift, noManager, profileChanges, otRevisions] = await Promise.all([
     onbOn ? prisma.candidate.count({ where: { status: { in: ["DIKIRIM", "SIAP_DAFTAR"] } } }) : 0,
     onbOn ? prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }) : 0,
     prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
@@ -159,7 +161,14 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
     // Tanpa atasan langsung aktif = pengajuan cuti/dinasnya tidak punya penyetuju (jatuh ke HRD).
     prisma.user.findMany({ where: { ...activeEmp, OR: [{ managerId: null }, { manager: { isActive: false } }] }, orderBy: { name: "asc" }, select: { id: true } }),
     prisma.profileChangeRequest.count({ where: { status: "PENDING" } }),
+    pendingRevisions(),
   ]);
+  // Revisi jam lembur wajib diselesaikan (gaji periode itu tidak bisa difinalkan sebelum diputus).
+  const otTask: Task = {
+    key: "ot-revision", title: "Putuskan revisi jam lembur",
+    hint: "Karyawan absen pulang melewati jam akhir Surat Perintah Lembur. Setujui atau tolak di menu Lembur; gaji periode itu baru bisa difinalkan setelahnya.",
+    count: otRevisions, unit: "revisi", href: "/portal/admin/lembur",
+  };
   const onboardingTasks: Task[] = [
     { key: "profile-change", title: "Periksa perubahan data karyawan", hint: "Karyawan mengajukan perubahan data pribadi dari Profil Saya. Data baru berlaku setelah disetujui.", count: profileChanges, unit: "pengajuan", href: "/portal/persetujuan" },
     { key: "onb-review", title: "Periksa data calon karyawan", hint: "Cocokkan isian calon dengan dokumen fisik dan lengkapi data pekerjaan lalu ajukan approval, atau daftarkan calon yang sudah disetujui.", count: onbReview, unit: "calon", href: "/portal/admin/onboarding" },
@@ -179,7 +188,7 @@ export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<R
     insights,
     agent: {
       groups: [
-        { key: "daily", label: "Harian", list: keep([...insights.daily, appointedTask, ...onboardingTasks]) },
+        { key: "daily", label: "Harian", list: [otTask, ...keep([...insights.daily, appointedTask, ...onboardingTasks])] },
         { key: "monthly", label: "Bulanan", list: keep(monthly) },
         { key: "payroll", label: "Payroll & Pajak", list: keep(payroll) },
         { key: "data", label: "Data Karyawan", list: keep(setupTasks) },

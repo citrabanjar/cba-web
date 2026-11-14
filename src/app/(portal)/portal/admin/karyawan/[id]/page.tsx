@@ -131,7 +131,7 @@ export default async function KaryawanDetailPage({
 
   // Jadwal kerja: riwayat, pilihan pola, dan shift per tanggal (setahun ke belakang, 3 bulan ke depan).
   const now = new Date();
-  const [schedules, patterns, shiftDays] = await Promise.all([
+  const [schedules, patterns, shiftDays, overtimes] = await Promise.all([
     prisma.employeeSchedule.findMany({
       where: { userId: id },
       orderBy: { effectiveDate: "desc" },
@@ -143,6 +143,11 @@ export default async function KaryawanDetailPage({
       new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1)),
       new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 4, 0)),
     ),
+    // Lembur (SPL bersedia / pengajuan) yang tertempel di jadwal.
+    prisma.overtime.findMany({
+      where: { userId: id, date: { gte: new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1)) }, status: { in: ["DISETUJUI", "APPROVED", "MENUNGGU_KARYAWAN", "PENDING"] } },
+      select: { date: true, startTime: true, endTime: true, status: true },
+    }),
   ]);
 
   const managers = await prisma.user.findMany({
@@ -176,6 +181,7 @@ export default async function KaryawanDetailPage({
       schedules={schedules}
       patterns={patterns}
       shiftDays={shiftDays}
+      overtimes={overtimes.map((o) => ({ date: o.date.toISOString().slice(0, 10), start: o.startTime, end: o.endTime, status: o.status }))}
       leaveBalances={await visibleBalances([id])}
       payComponents={canSeePay ? (await prisma.payComponent.findMany({
         where: { OR: [{ isActive: true }, { employees: { some: { userId: id } } }] }, orderBy: { sortOrder: "asc" },

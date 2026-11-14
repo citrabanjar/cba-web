@@ -171,6 +171,7 @@ model User {
   profileChanges   ProfileChangeRequest[]
   editRequests     EmployeeEditRequest[]
   notifications    Notification[]
+  overtimes        Overtime[]
   swapsRequested   ShiftSwapRequest[]     @relation("SwapRequester")
   swapsPartnered   ShiftSwapRequest[]     @relation("SwapPartner")
 
@@ -951,4 +952,57 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt])
+}
+
+// Surat Perintah Lembur (SPL) dari Admin untuk beberapa karyawan pada satu tanggal.
+model OvertimeOrder {
+  id         String   @id @default(cuid())
+  number     String   @unique // SPL/2026/11/001
+  date       DateTime @db.Date
+  startTime  String // "17:00" (WIB)
+  endTime    String // "20:00"; lebih kecil dari startTime = lewat tengah malam
+  breakStart String?
+  breakEnd   String?
+  note       String?  @db.Text
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  items Overtime[]
+}
+
+// Lembur satu karyawan pada satu tanggal: dari SPL (dijawab karyawan) atau diajukan karyawan (disetujui atasan).
+// Jam yang dibayar = rentang lembur yang benar-benar dijalani (sampai jam check-out), dikurangi istirahat,
+// minimal 1 jam penuh, dibulatkan ke bawah per 1 jam. Check-out melewati jam akhir SPL → revisi ke Admin.
+model Overtime {
+  id             String    @id @default(cuid())
+  userId         String
+  orderId        String?
+  date           DateTime  @db.Date
+  startTime      String
+  endTime        String
+  breakStart     String?
+  breakEnd       String?
+  reason         String?   @db.Text
+  // SPL: MENUNGGU_KARYAWAN | DISETUJUI (bersedia) | TIDAK_BERSEDIA | DIBATALKAN
+  // Pengajuan karyawan: PENDING | APPROVED | REJECTED | CANCELLED
+  status         String
+  approval       Json? // jejak Workflow modul Lembur (pengajuan karyawan)
+  decidedBy      String?
+  decidedAt      DateTime?
+  note           String?   @db.Text
+  // Revisi jam akhir bila check-out melewati jam akhir SPL: MENUNGGU | DISETUJUI | DITOLAK
+  revisionStatus String?
+  revisionEnd    String? // jam akhir yang diminta (jam check-out)
+  revisionBy     String?
+  revisionAt     DateTime?
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order OvertimeOrder? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([status])
+  @@index([orderId])
 }

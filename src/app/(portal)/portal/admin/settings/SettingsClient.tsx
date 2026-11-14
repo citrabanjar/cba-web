@@ -64,7 +64,7 @@ export default function SettingsClient({
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; setupDone: boolean; sim: { enabled: boolean; count: number } } | null;
+  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean; sim: { enabled: boolean; count: number } } | null;
   access?: { roles: AdminRole[]; people: Person[] } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);

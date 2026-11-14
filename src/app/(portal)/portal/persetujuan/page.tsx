@@ -12,6 +12,7 @@ import { actionableApprovers, APPROVAL_STATUSES, currentReviewer, readApproval, 
 import { getMasterOptions } from "@/lib/master-data";
 import { CANDIDATE_STATUS, readData, readJob } from "@/lib/onboarding";
 import { Prisma } from "@prisma/client";
+import { plannedHours } from "@/lib/overtime";
 import PersetujuanClient, { type ApprovalItem, type InterviewItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
 
 export const metadata: Metadata = { title: "Persetujuan" };
@@ -32,7 +33,7 @@ export default async function PersetujuanPage() {
   const since = daysAgo(60);
   const who = { select: { id: true, name: true, employeeId: true, position: true, department: { select: { name: true } } } };
   const reviewer = reviewsProfiles(a);
-  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs] = await Promise.all([
+  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots] = await Promise.all([
     // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
       where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
@@ -65,6 +66,11 @@ export default async function PersetujuanPage() {
       },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 100,
     }),
+    // Pengajuan lembur karyawan (bila SPL tidak dipakai).
+    prisma.overtime.findMany({
+      where: { orderId: null, OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
+      include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
+    }),
   ]);
 
   const person = (u: (typeof leaves)[number]["user"]) => ({
@@ -90,6 +96,14 @@ export default async function PersetujuanPage() {
       title: `Dinas Luar · ${t.destination}`, start: ymd(t.startDate), end: ymd(t.endDate), days: t.totalDays,
       halfDay: null, unpaidDays: 0, reason: t.purpose, note: t.note, decidedBy: t.approvedBy,
       decidedAt: t.approvedAt?.toISOString() ?? null, createdAt: t.createdAt.toISOString(),
+    })),
+    ...ots.filter((o) => flowOf(o.approval).show).map((o) => ({
+      flow: flowOf(o.approval).steps, mine: flowOf(o.approval).mine,
+      id: o.id, kind: "LEMBUR" as const, status: o.status, person: person(o.user),
+      title: "Lembur", start: ymd(o.date), end: ymd(o.date), days: 0,
+      time: `${o.startTime}–${o.endTime}${o.breakStart ? ` · istirahat ${o.breakStart}–${o.breakEnd}` : ""} · ${String(plannedHours(o)).replace(".", ",")} jam`,
+      halfDay: null, unpaidDays: 0, reason: o.reason ?? "", note: o.note, decidedBy: o.decidedBy,
+      decidedAt: o.decidedAt?.toISOString() ?? null, createdAt: o.createdAt.toISOString(),
     })),
   ];
 
@@ -132,7 +146,7 @@ export default async function PersetujuanPage() {
     <div className="min-h-full bg-gray-50">
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Persetujuan</T></h2>
-        <p className="text-xs text-gray-400"><T>Pengajuan yang menunggu keputusan Anda: cuti, dinas luar, tukar shift, perubahan data, dan wawancara calon karyawan.</T></p>
+        <p className="text-xs text-gray-400"><T>Pengajuan yang menunggu keputusan Anda: cuti, dinas luar, lembur, tukar shift, perubahan data, dan wawancara calon karyawan.</T></p>
       </div>
       <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} master={master}
         edits={editReqs.map((r) => ({

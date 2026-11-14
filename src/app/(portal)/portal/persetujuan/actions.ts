@@ -81,3 +81,29 @@ export async function decideTrip(id: string, approve: boolean, note: string): Pr
   refresh();
   return {};
 }
+
+// Pengajuan lembur karyawan (bila SPL tidak dipakai): atasan langsung / Workflow modul Lembur.
+export async function decideOvertime(id: string, approve: boolean, note: string): Promise<Result> {
+  const a = await approver();
+  const o = await prisma.overtime.findUnique({ where: { id } });
+  if (!o || o.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
+  if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const wf = workflowDecision(o.approval, a.id, approve, note, a.name);
+  if (wf && "error" in wf) return { error: wf.error };
+  if (wf && !wf.rejected && !wf.done) {
+    await prisma.overtime.update({ where: { id }, data: { approval: wf.approval } });
+    refresh();
+    revalidatePath("/portal/lembur");
+    return {};
+  }
+  if (!wf && !(await canDecide(a, o.userId))) return { error: "Anda bukan penyetuju pengajuan ini." };
+  await prisma.overtime.update({
+    where: { id },
+    data: { status: approve ? "APPROVED" : "REJECTED", decidedBy: a.name, decidedAt: new Date(), note: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
+  });
+  await notify(o.userId, `Pengajuan lembur ${approve ? "disetujui" : "ditolak"}`,
+    `${dateRange(o.date, o.date)} · ${o.startTime}–${o.endTime} · ${decisionText(approve, a.name, note)}`, "/portal/lembur");
+  refresh();
+  revalidatePath("/portal/lembur");
+  return {};
+}

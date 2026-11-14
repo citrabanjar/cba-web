@@ -59,9 +59,10 @@ function coveredDays(ranges: Range[], status: string, map: Map<string, string>, 
 }
 
 export default function AttendanceCalendar({
-  attendances, leaves, trips, shiftDays = {}, side, editUserId,
+  attendances, leaves, trips, shiftDays = {}, side, editUserId, overtimes = [],
 }: {
   attendances: Attendance[]; leaves: Leave[]; trips: Trip[]; shiftDays?: Record<string, DayShift>;
+  overtimes?: { date: string; start: string; end: string; status: string }[]; // lembur (SPL bersedia / pengajuan); tertempel di jadwal
   editUserId?: string; // Super Admin (masa testing): boleh ubah/tambah absen sampai hari ini
   side?: React.ReactNode; // kartu tambahan di kolom kanan (mis. Jadwal Kerja)
 }) {
@@ -75,6 +76,7 @@ export default function AttendanceCalendar({
   const [selected, setSelected] = useState<string | null>(todayKey);
 
   const byDay = useMemo(() => new Map(attendances.map((a) => [dayKey(a.date), a])), [attendances]);
+  const otByDay = useMemo(() => new Map(overtimes.map((o) => [o.date, o])), [overtimes]);
   const planned = useMemo(() => {
     const map = new Map<string, string>();
     coveredDays(leaves, "CUTI", map, (k) => !!shiftDays[k]?.isOff);
@@ -208,6 +210,12 @@ export default function AttendanceCalendar({
                       {fmtTime(a.checkIn)}–{fmtTime(a.checkOut)}
                     </span>
                   )}
+                  {otByDay.get(k) && (
+                    <span title={`${t("Lembur")} ${otByDay.get(k)!.start}–${otByDay.get(k)!.end}`}
+                      className={`mt-0.5 w-full truncate rounded px-1 text-[9px] font-semibold leading-4 ${["DISETUJUI", "APPROVED"].includes(otByDay.get(k)!.status) ? "bg-amber-100 text-amber-800" : "border border-dashed border-amber-300 text-amber-700"}`}>
+                      <T>Lembur</T> {otByDay.get(k)!.start}–{otByDay.get(k)!.end}
+                    </span>
+                  )}
                   {(() => {
                     const p = penaltyOf(k);
                     const tags = [
@@ -337,6 +345,12 @@ export default function AttendanceCalendar({
                 </div>
               ) : (
                 <p className="mt-3 flex items-center gap-2 text-sm text-gray-400"><Clock size={15} /> <T>Belum ada catatan kehadiran.</T></p>
+              )}
+              {selected && otByDay.get(selected) && (
+                <p className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <Clock size={13} /> <T>Lembur</T> {otByDay.get(selected)!.start}–{otByDay.get(selected)!.end}
+                  {!["DISETUJUI", "APPROVED"].includes(otByDay.get(selected)!.status) && <> · <T>menunggu</T></>}
+                </p>
               )}
               {editUserId && selected <= monthEndKey && (
                 <AttendanceEditor key={`${selected}-${sel?.checkIn ?? ""}-${sel?.checkOut ?? ""}-${sel?.status ?? ""}`} userId={editUserId} date={selected}

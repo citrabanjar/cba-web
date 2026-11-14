@@ -27,7 +27,7 @@ export default async function ProfilPage() {
   const id = session.user.id;
 
   const [from, to, now] = monthRange();
-  const [user, shiftDays, requests, salary, balances, loans, lastSlip] = await Promise.all([
+  const [user, shiftDays, requests, salary, balances, loans, lastSlip, overtimes] = await Promise.all([
     prisma.user.findUnique({
       where: { id },
       select: {
@@ -56,6 +56,10 @@ export default async function ProfilPage() {
       select: { seqNo: true, principal: true, status: true, installments: { select: { amount: true, status: true, period: true }, orderBy: { seq: "asc" } } },
     }),
     prisma.payslip.findFirst({ where: { userId: id }, orderBy: { period: "desc" }, select: { periodLabel: true, netPay: true } }),
+    prisma.overtime.findMany({
+      where: { userId: id, date: { gte: from, lte: to }, status: { in: ["DISETUJUI", "APPROVED", "MENUNGGU_KARYAWAN", "PENDING"] } },
+      select: { date: true, startTime: true, endTime: true, status: true },
+    }),
   ]);
   if (!user) redirect("/portal");
   const record = user as unknown as Record<string, unknown>;
@@ -87,7 +91,10 @@ export default async function ProfilPage() {
       lastSlip={lastSlip}
       values={values}
       family={user.family.map((f) => ({ name: f.name, idNumber: f.idNumber ?? "", relation: f.relation }))}
-      calendar={{ attendances: user.attendances, leaves: user.leaves, trips: user.businessTrips, shiftDays }}
+      calendar={{
+        attendances: user.attendances, leaves: user.leaves, trips: user.businessTrips, shiftDays,
+        overtimes: overtimes.map((o) => ({ date: o.date.toISOString().slice(0, 10), start: o.startTime, end: o.endTime, status: o.status })),
+      }}
       requests={requests.map((r) => ({
         id: r.id, status: r.status, changes: r.changes as ProfileChanges, family: (r.family as FamilyRow[] | null) ?? null,
         reason: r.reason, note: r.note, decidedBy: r.decidedBy, decidedAt: r.decidedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),

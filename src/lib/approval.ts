@@ -12,11 +12,12 @@ const withWorkflow = { approval: { not: Prisma.DbNull } };
 
 // Cuti/dinas lewat menu Workflow yang menunggu keputusan user ini (giliran levelnya).
 async function pendingWorkflowRequests(userId: string) {
-  const [leaves, trips] = await Promise.all([
+  const [leaves, trips, ots] = await Promise.all([
     prisma.leaveRequest.findMany({ where: { status: "PENDING", ...withWorkflow }, select: { approval: true } }),
     prisma.businessTrip.findMany({ where: { status: "PENDING", ...withWorkflow }, select: { approval: true } }),
+    prisma.overtime.findMany({ where: { status: "PENDING", ...withWorkflow }, select: { approval: true } }),
   ]);
-  return [...leaves, ...trips].filter((r) => actionableApprovers(readApproval(r.approval)).includes(userId)).length;
+  return [...leaves, ...trips, ...ots].filter((r) => actionableApprovers(readApproval(r.approval)).includes(userId)).length;
 }
 
 // Jalur persetujuan cuti & dinas luar (keputusan pemilik 2026-11-10): penyetuju = ATASAN LANGSUNG
@@ -48,7 +49,7 @@ export async function canDecide(a: Approver, requesterId: string) {
 // Jumlah pengajuan yang menunggu keputusan penyetuju ini (untuk badge menu).
 export async function pendingApprovals(a: Approver) {
   const user = requesterFilter(a);
-  const [leaves, trips, profiles, swaps, interviews, workflow, edits] = await Promise.all([
+  const [leaves, trips, profiles, swaps, interviews, workflow, edits, ots] = await Promise.all([
     prisma.leaveRequest.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     prisma.businessTrip.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     reviewsProfiles(a) ? prisma.profileChangeRequest.count({ where: { status: "PENDING", userId: { not: a.id } } }) : 0,
@@ -56,8 +57,9 @@ export async function pendingApprovals(a: Approver) {
     pendingInterviewApprovals(a.id),
     pendingWorkflowRequests(a.id),
     prisma.employeeEditRequest.count({ where: { approverId: a.id, status: "PENDING" } }),
+    prisma.overtime.count({ where: { status: "PENDING", user, ...noWorkflow } }),
   ]);
-  return leaves + trips + profiles + swaps + interviews + workflow + edits;
+  return leaves + trips + profiles + swaps + interviews + workflow + edits + ots;
 }
 
 // Menu Persetujuan tampil untuk atasan (punya bawahan langsung) dan Admin Data Karyawan (perubahan data).
