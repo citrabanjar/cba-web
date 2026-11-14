@@ -12,6 +12,7 @@ import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { workflowFeatureOn } from "@/lib/workflow-settings";
 import { getAdminRoles } from "@/lib/admin-roles";
 import SettingsClient from "./SettingsClient";
+import { countSimulated, simEnabled } from "@/lib/attendance-sim";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -74,6 +75,6 @@ async function loadAi() {
 
 // Data tab Fitur (Super Admin).
 async function loadOnboarding() {
-  const [settings, workflow, agent, agentRules] = await Promise.all([getOnboardingSettings(), workflowFeatureOn(), aiFeatureOn(), getAgentSettings()]);
-  return { settings, workflow, agent, setupDone: agentRules.setupDone };
+  const [settings, workflow, agent, agentRules, simOn, simCount] = await Promise.all([getOnboardingSettings(), workflowFeatureOn(), aiFeatureOn(), getAgentSettings(), simEnabled(), countSimulated()]);
+  return { settings, workflow, agent, setupDone: agentRules.setupDone, sim: { enabled: simOn, count: simCount } };
 }

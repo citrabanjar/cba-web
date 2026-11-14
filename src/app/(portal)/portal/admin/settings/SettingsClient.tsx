@@ -13,6 +13,7 @@ import { MembersSettings, RolesSettings, type Person } from "./AccessSettings";
 import type { AdminRole } from "@/lib/admin-roles";
 import AgentSettings from "./AgentSettings";
 import OnboardingSettings from "./OnboardingSettings";
+import SimSettings from "./SimSettings";
 import type { OnboardingSettings as OnboardingSettingsValue } from "@/lib/onboarding-interview";
 import AiSettings, { type AiNoteView, type AiRunView } from "./AiSettings";
 import type { AiSettings as AiSettingsValue } from "@/lib/ai-checker-settings";
@@ -63,7 +64,7 @@ export default function SettingsClient({
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; setupDone: boolean } | null;
+  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; setupDone: boolean; sim: { enabled: boolean; count: number } } | null;
   access?: { roles: AdminRole[]; people: Person[] } | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
@@ -97,7 +98,12 @@ export default function SettingsClient({
       )}
 
       {tab === "agent" && agentSettings && <AgentSettings settings={agentSettings} />}
-      {tab === "onboarding" && onboarding && <OnboardingSettings {...onboarding} />}
+      {tab === "onboarding" && onboarding && (
+        <>
+          <OnboardingSettings {...onboarding} />
+          <SimSettings enabled={onboarding.sim.enabled} count={onboarding.sim.count} />
+        </>
+      )}
       {tab === "peran" && access && <RolesSettings roles={access.roles} />}
       {tab === "anggota" && access && <MembersSettings roles={access.roles} people={access.people} />}
       {tab === "ai" && ai && <AiSettings {...ai} />}
