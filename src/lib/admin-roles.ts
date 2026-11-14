@@ -6,9 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
 
 export const ADMIN_ROLES_KEY = "admin-roles";
-// approvalLevels: untuk hak "Ajukan" Data Karyawan — level atasan (dari bagan karyawan yang diubah) yang menyetujui: 1 = atasan langsung, 2 = atasan dari atasan langsung.
+// approvalLevels (per peran): 0 = tanpa approval; 1 = atasan langsung; 2 = atasan dari atasan langsung (dari bagan karyawan
+// yang datanya diubah). Saat ini berlaku untuk Edit Data Karyawan: peran dengan approval menyimpan "karyawan:ajukan".
 export type AdminRole = { id: string; name: string; desc: string; menus: string[]; members: string[]; approvalLevels: number };
 export const MAX_APPROVAL_LEVELS = 2;
+// Samakan isian Data Karyawan dengan aturan approval peran: Edit + approval = "karyawan:ajukan", tanpa approval = "karyawan".
+const withApproval = (menus: string[], levels: number) => menus.map((k) =>
+  levels > 0 && k === "karyawan" ? menuEntry("karyawan", "propose") : levels === 0 && k === menuEntry("karyawan", "propose") ? "karyawan" : k);
 
 // Isian menus: "karyawan" = edit, "karyawan:lihat" = lihat saja (hanya tingkat yang tersedia untuk menu itu).
 const known = new Set<string>(MENUS.flatMap((m) => (m.levels as readonly MenuLevel[]).map((l) => menuEntry(m.key, l))));
@@ -27,12 +31,18 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 function read(raw: unknown): AdminRole[] | null {
   const list = (raw as { roles?: unknown } | null)?.roles;
   if (!Array.isArray(list)) return null;
-  return list.map((r: Record<string, unknown>) => ({
-    id: str(r.id), name: str(r.name).trim(), desc: str(r.desc).trim(),
-    menus: Array.isArray(r.menus) ? tidy(r.menus.map(str)) : [],
-    members: Array.isArray(r.members) ? [...new Set(r.members.map(str).filter(Boolean))] : [],
-    approvalLevels: Math.min(MAX_APPROVAL_LEVELS, Math.max(1, Math.round(Number(r.approvalLevels) || 1))),
-  })).filter((r) => r.id && r.name);
+  return list.map((r: Record<string, unknown>) => {
+    const menus = Array.isArray(r.menus) ? tidy(r.menus.map(str)) : [];
+    // Data lama: approval hanya dari isian "karyawan:ajukan".
+    const raw = r.approvalLevels === undefined ? (menus.includes(menuEntry("karyawan", "propose")) ? 1 : 0) : Number(r.approvalLevels);
+    const approvalLevels = Math.min(MAX_APPROVAL_LEVELS, Math.max(0, Math.round(raw) || 0));
+    return {
+      id: str(r.id), name: str(r.name).trim(), desc: str(r.desc).trim(),
+      menus: withApproval(menus, approvalLevels),
+      members: Array.isArray(r.members) ? [...new Set(r.members.map(str).filter(Boolean))] : [],
+      approvalLevels,
+    };
+  }).filter((r) => r.id && r.name);
 }
 
 // Peran tersimpan. Pertama kali dibuka: Admin lama dikelompokkan menurut hak menunya supaya tidak ada yang kehilangan akses.
@@ -52,7 +62,7 @@ export async function getAdminRoles(): Promise<AdminRole[]> {
     desc: "Dibuat otomatis dari hak akses Admin sebelumnya.",
     menus: k ? k.split(",") : [],
     members,
-    approvalLevels: 1,
+    approvalLevels: k.split(",").includes(menuEntry("karyawan", "propose")) ? 1 : 0,
   }));
 }
 
@@ -101,5 +111,5 @@ export async function roleMembers(roleId: string) {
 // Jumlah level approval untuk Admin ini (hak Ajukan): terbesar dari peran yang memberi hak Ajukan Data Karyawan.
 export async function approvalLevelsFor(userId: string) {
   const roles = (await getAdminRoles()).filter((r) => r.members.includes(userId) && menuLevelOf(r.menus, "karyawan") === "propose");
-  return roles.length ? Math.max(...roles.map((r) => r.approvalLevels)) : 1;
+  return roles.length ? Math.max(1, ...roles.map((r) => r.approvalLevels)) : 1;
 }

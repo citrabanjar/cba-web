@@ -56,7 +56,7 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
     const n = name.trim();
     if (!n) return;
     s.setMsg(null);
-    s.setRoles((prev) => [...prev, { id: `peran-${Date.now().toString(36)}`, name: n, desc: "", menus: [], members: [], approvalLevels: 1 }]);
+    s.setRoles((prev) => [...prev, { id: `peran-${Date.now().toString(36)}`, name: n, desc: "", menus: [], members: [], approvalLevels: 0 }]);
     setName("");
   }
 
@@ -86,6 +86,23 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
               <div className="min-w-0 flex-1 space-y-1.5">
                 <Input value={r.name} onChange={(e) => s.patch(r.id, { name: e.target.value })} className="h-9 font-semibold" />
                 <Input value={r.desc} onChange={(e) => s.patch(r.id, { desc: e.target.value })} placeholder={t("Keterangan (opsional)")} className="h-8 text-xs" />
+                {/* Aturan approval untuk seluruh peran (bukan per kewenangan). */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-xs font-medium text-gray-500"><T>Approval perubahan data</T>:</span>
+                  {([[0, "Tanpa approval"], [1, "Level 1: atasan langsung"], [2, "Level 2: atasan dari atasan langsung"]] as const).map(([lv, label]) => (
+                    <button key={lv} type="button"
+                      onClick={() => s.patch(r.id, {
+                        approvalLevels: lv,
+                        menus: r.menus.map((k) => (lv > 0 && k === "karyawan" ? menuEntry("karyawan", "propose") : lv === 0 && k === menuEntry("karyawan", "propose") ? "karyawan" : k)),
+                      })}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${r.approvalLevels === lv ? "border-brand bg-brand text-white" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
+                      <T>{label}</T>
+                    </button>
+                  ))}
+                </div>
+                {r.approvalLevels > 0 && (
+                  <p className="text-[11px] text-gray-500"><T>Perubahan baru berlaku setelah disetujui satu approver sesuai level, dari bagan karyawan yang datanya diubah. Saat ini berlaku untuk Edit Data Karyawan.</T></p>
+                )}
               </div>
               <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-full text-red-600 hover:text-red-700"
                 onClick={() => {
@@ -105,8 +122,9 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
                   { v: null, label: "Tidak" },
                   ...(m.levels as readonly MenuLevel[]).filter((l) => l !== "propose").map((l) => ({ v: l, label: LEVEL_LABEL[l] })),
                 ];
+                const entry = (v: MenuLevel) => (m.key === "karyawan" && v === "edit" && r.approvalLevels > 0 ? menuEntry(m.key, "propose") : menuEntry(m.key, v));
                 const pick = (v: MenuLevel | null) => s.patch(r.id, {
-                  menus: [...r.menus.filter((k) => k !== m.key && k !== menuEntry(m.key, "view") && k !== menuEntry(m.key, "propose")), ...(v ? [menuEntry(m.key, v)] : [])],
+                  menus: [...r.menus.filter((k) => k !== m.key && k !== menuEntry(m.key, "view") && k !== menuEntry(m.key, "propose")), ...(v ? [entry(v)] : [])],
                 });
                 return (
                   <div key={m.key} title={t(m.desc)} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-1.5">
@@ -125,32 +143,6 @@ export function RolesSettings({ roles: initial }: { roles: AdminRole[] }) {
                 );
               })}
             </div>
-            {(menuLevelOf(r.menus, "karyawan") === "edit" || menuLevelOf(r.menus, "karyawan") === "propose") && (() => {
-              // Data Karyawan = Edit: pilih tanpa approval, atau wajib approval atasan (Level 1 / Level 2) dari bagan karyawan yang diubah.
-              const withApproval = menuLevelOf(r.menus, "karyawan") === "propose";
-              const set = (lv: 0 | 1 | 2) => s.patch(r.id, {
-                menus: [...r.menus.filter((k) => k !== "karyawan" && k !== menuEntry("karyawan", "propose")), lv ? menuEntry("karyawan", "propose") : "karyawan"],
-                ...(lv ? { approvalLevels: lv } : {}),
-              });
-              const opts: [0 | 1 | 2, string][] = [[0, "Tanpa approval"], [1, "Level 1: atasan langsung"], [2, "Level 2: atasan dari atasan langsung"]];
-              return (
-                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
-                  <p className="text-xs font-semibold text-gray-700"><T>Approval perubahan Data Karyawan</T></p>
-                  <div className="mt-1.5 flex flex-wrap gap-2">
-                    {opts.map(([lv, label]) => {
-                      const on = lv === 0 ? !withApproval : withApproval && r.approvalLevels === lv;
-                      return (
-                        <button key={lv} type="button" onClick={() => set(lv)}
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${on ? "border-brand bg-brand text-white" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
-                          <T>{label}</T>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {withApproval && <p className="mt-1.5 text-[11px] text-gray-500"><T>Perubahan baru berlaku setelah disetujui satu approver sesuai level, dari bagan karyawan yang datanya diubah.</T></p>}
-                </div>
-              );
-            })()}
             <p className="mt-2 text-xs text-gray-400">{r.members.length} <T>anggota</T></p>
           </div>
         ))}

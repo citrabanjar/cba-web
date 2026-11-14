@@ -52,6 +52,8 @@ export const en: Record<string, string> = {
 
   // Menu portal
   "MENU UTAMA": "MAIN MENU",
+  "Perubahan baru berlaku setelah disetujui satu approver sesuai level, dari bagan karyawan yang datanya diubah. Saat ini berlaku untuk Edit Data Karyawan.": "Changes apply only after one approver at the chosen level (from the changed employee's org chart) approves. Currently applies to Employee Data edits.",
+  "Approval perubahan data": "Data change approval",
   "Perubahan ini wajib approval: baru berlaku setelah disetujui atasan karyawan ini sesuai bagan.": "This change requires approval: it applies only after the employee's manager (per org chart) approves.",
   "Perubahan baru berlaku setelah disetujui satu approver sesuai level, dari bagan karyawan yang datanya diubah.": "Changes apply only after one approver at the chosen level (from the changed employee's org chart) approves.",
   "Tanpa approval": "No approval",
