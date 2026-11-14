@@ -141,7 +141,7 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
       )}
 
       {tab === "kerja" && (
-        <div className="max-w-2xl">
+        <div className="grid gap-5 lg:grid-cols-2">
           <Section icon={Briefcase} title="Pekerjaan">
             <Row label="Jabatan" value={me.position} />
             <Row label="Departemen" value={me.department} />
@@ -152,6 +152,20 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
             <Row label="Masa Kerja" value={me.tenure} />
             {me.status === "KONTRAK" && <Row label="Akhir Kontrak" value={d(me.contractEnd)} />}
             <p className="mt-2 text-[11px] text-gray-400"><T>Data pekerjaan diatur HRD.</T></p>
+          </Section>
+          <Section icon={Banknote} title="Gaji & Tunjangan">
+            {!salary ? <p className="text-sm text-gray-400"><T>Belum ada data gaji (hubungi HRD).</T></p> : (
+              <>
+                {salary.dailyWage ? <Row label="Gaji Harian" value={`${formatRupiah(salary.dailyWage)} × ${salary.monthlyFactor ?? 0}`} /> : null}
+                <Row label={salary.dailyWage ? "Gaji Pokok (setara bulanan)" : "Gaji Pokok"} value={formatRupiah(salary.basic)} />
+                {salary.allowances.map((a, i) => <Row key={i} label={a.name} value={formatRupiah(a.amount)} />)}
+                <div className="mt-1 grid grid-cols-[140px_1fr] gap-3 border-t border-gray-100 pt-2 text-sm font-semibold text-gray-900 sm:grid-cols-[180px_1fr]">
+                  <span><T>Total</T></span>
+                  <span>{formatRupiah(salary.basic + salary.allowances.reduce((n, a) => n + a.amount, 0))}</span>
+                </div>
+                <p className="mt-2 text-[11px] text-gray-400"><T>Berlaku sejak</T> {d(salary.effectiveDate)}. <T>Rincian potongan dan pajak ada di Slip Gaji.</T></p>
+              </>
+            )}
           </Section>
         </div>
       )}
@@ -177,20 +191,6 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
                     <span><T>Total sisa</T></span><span>{formatRupiah(loans.reduce((n, l) => n + l.remaining, 0))}</span>
                   </div>
                 )}
-              </>
-            )}
-          </Section>
-          <Section icon={Banknote} title="Gaji & Tunjangan">
-            {!salary ? <p className="text-sm text-gray-400"><T>Belum ada data gaji (hubungi HRD).</T></p> : (
-              <>
-                {salary.dailyWage ? <Row label="Gaji Harian" value={`${formatRupiah(salary.dailyWage)} × ${salary.monthlyFactor ?? 0}`} /> : null}
-                <Row label={salary.dailyWage ? "Gaji Pokok (setara bulanan)" : "Gaji Pokok"} value={formatRupiah(salary.basic)} />
-                {salary.allowances.map((a, i) => <Row key={i} label={a.name} value={formatRupiah(a.amount)} />)}
-                <div className="mt-1 grid grid-cols-[140px_1fr] gap-3 border-t border-gray-100 pt-2 text-sm font-semibold text-gray-900 sm:grid-cols-[180px_1fr]">
-                  <span><T>Total</T></span>
-                  <span>{formatRupiah(salary.basic + salary.allowances.reduce((n, a) => n + a.amount, 0))}</span>
-                </div>
-                <p className="mt-2 text-[11px] text-gray-400"><T>Berlaku sejak</T> {d(salary.effectiveDate)}. <T>Rincian potongan dan pajak ada di Slip Gaji.</T></p>
               </>
             )}
           </Section>
