@@ -35,20 +35,16 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     },
   ];
 
-  // Menu pribadi hanya untuk karyawan; SUPER_ADMIN bukan karyawan.
+  // TOMBOL HP: menu pribadi karyawan yang di HP tampil sebagai kartu di Beranda. Selama masa testing ikut
+  // di sidebar web; saat live bagian ini dihapus dari web (cukup di HP). SUPER_ADMIN bukan karyawan.
   if (!isSuperAdmin(role)) sections.push(
     {
-      section: "TIME",
+      section: "TOMBOL HP",
       items: [
         { href: "/portal/absensi", label: "Absensi", icon: Clock },
         { href: "/portal/cuti", label: "Cuti", icon: Calendar },
         { href: "/portal/dinas", label: "Dinas Luar", icon: Briefcase },
         { href: "/portal/tukar-shift", label: "Tukar Shift", icon: ArrowLeftRight },
-      ],
-    },
-    {
-      section: "FINANCE",
-      items: [
         { href: "/portal/payslip", label: "Slip Gaji", icon: FileText },
         { href: "/portal/pph21", label: "PPh 21", icon: Receipt },
         { href: "/portal/pinjaman", label: "Pinjaman", icon: HandCoins },

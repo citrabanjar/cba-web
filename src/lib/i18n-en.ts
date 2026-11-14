@@ -1079,6 +1079,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "TOMBOL HP": "PHONE BUTTONS",
   "Saldo & Keuangan": "Balances & Finance",
   "Saldo Pinjaman": "Loan Balance",
   "Ajukan Cuti →": "Request Leave →",
