@@ -6,8 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, ArrowLeftRight, GitBranch, ShieldCheck, Bell,
+  Home, CalendarClock, CalendarHeart, Landmark, ChevronLeft, ChevronRight,
+  Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Bell, Smartphone,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -15,7 +15,7 @@ import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 import { EditAccessProvider } from "@/components/portal/edit-access";
 
-type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number };
+type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number; match?: string[] };
 type NavSection = { section: string; items: NavItem[]; admin?: boolean };
 
 // Menu dibagi dua blok: menu pribadi karyawan (MENU SAYA) di atas, lalu blok PANEL ADMIN
@@ -31,26 +31,11 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
         ...(!isSuperAdmin(role) ? [{ href: "/portal/profil", label: "Profil Saya", icon: CircleUserRound }] : []),
         // Struktur organisasi: semua karyawan dan admin bisa melihat.
         { href: "/portal/struktur", label: "Struktur Organisasi", icon: Network },
+        // Tombol HP: satu menu ke kartu-kartu menu pribadi karyawan (versi HP). Masa testing; saat live dihapus dari web.
+        ...(!isSuperAdmin(role) ? [{ href: "/portal/tombol-hp", label: "Tombol HP", icon: Smartphone, match: HP_PATHS }] : []),
       ],
     },
   ];
-
-  // TOMBOL HP: menu pribadi karyawan yang di HP tampil sebagai kartu di Beranda. Selama masa testing ikut
-  // di sidebar web; saat live bagian ini dihapus dari web (cukup di HP). SUPER_ADMIN bukan karyawan.
-  if (!isSuperAdmin(role)) sections.push(
-    {
-      section: "TOMBOL HP",
-      items: [
-        { href: "/portal/absensi", label: "Absensi", icon: Clock },
-        { href: "/portal/cuti", label: "Cuti", icon: Calendar },
-        { href: "/portal/dinas", label: "Dinas Luar", icon: Briefcase },
-        { href: "/portal/tukar-shift", label: "Tukar Shift", icon: ArrowLeftRight },
-        { href: "/portal/payslip", label: "Slip Gaji", icon: FileText },
-        { href: "/portal/pph21", label: "PPh 21", icon: Receipt },
-        { href: "/portal/pinjaman", label: "Pinjaman", icon: HandCoins },
-      ],
-    },
-  );
 
   // ===== PANEL ADMIN =====
   const admin: NavSection[] = [];
@@ -116,6 +101,8 @@ function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; co
 const WIDE = 256;
 const NARROW = 78;
 const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const;
+// Halaman yang dibuka dari menu Tombol HP (menu sidebar ikut tersorot).
+const HP_PATHS = ["/portal/tombol-hp", "/portal/absensi", "/portal/cuti", "/portal/dinas", "/portal/tukar-shift", "/portal/payslip", "/portal/pph21", "/portal/pinjaman"];
 const COLLAPSE_KEY = "cba-sidebar-collapsed";
 
 const initials = (name: string) => name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -175,7 +162,7 @@ function NavLinks({
           )}
           {sec.items.map((item, ii) => {
             const i = starts[si] + ii;
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = (item.match ?? [item.href]).some((h) => pathname === h || pathname.startsWith(h + "/"));
             return (
               <button
                 type="button"
