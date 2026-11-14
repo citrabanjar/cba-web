@@ -6,15 +6,30 @@ import { getAccess } from "@/lib/access";
 import { canEditMenu } from "@/lib/roles";
 import { Prisma } from "@prisma/client";
 import {
-  NEEDS_BASE, NEEDS_PARAM, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, PAYROLL_SETTING_KEY, isOneOf, isTaxableCategory,
+  DEFAULT_PAYROLL_SETTINGS, NEEDS_BASE, NEEDS_PARAM, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, PAYROLL_SETTING_KEY, isOneOf, isTaxableCategory,
   type PayComponentInput, type PayParams, type PayrollSettings, type Tier,
 } from "@/lib/payroll";
 import { TAX_SETTING_KEY, TER_SETTING_KEY, type TaxYearConfig, type TerRow, type TerVersion } from "@/lib/pph21";
 import { getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { finalizeRun, generateRun, recomputeLine, type LineInputs } from "@/lib/payroll-run";
+import { holdForApproval, type HoldDetail } from "@/lib/approval-hold";
 
 const PATH = "/portal/admin/payroll";
-type Result = { error?: string };
+// proposed = perubahan ditahan untuk approval (aturan Peran Admin): berisi nama approver.
+type Result = { error?: string; proposed?: string };
+
+// Ringkasan perubahan untuk approver: isian yang berbeda saja.
+const fmt = (v: unknown) => (v === null || v === undefined || v === "" ? null : typeof v === "object" ? JSON.stringify(v) : String(v));
+function diff(labels: Record<string, string>, before: Record<string, unknown> | null, after: Record<string, unknown>): HoldDetail[] {
+  return Object.entries(labels).flatMap(([k, label]) => {
+    const o = fmt(before?.[k]), n = fmt(after[k]);
+    return o === n ? [] : [{ field: label, oldValue: o, newValue: n }];
+  });
+}
+const COMP_LABELS: Record<string, string> = {
+  code: "Kode", name: "Nama", kind: "Jenis", category: "Kategori", method: "Cara hitung", param: "Parameter", base: "Dasar nilai",
+  amount: "Nilai", rate: "Persen", capAmount: "Batas atas", floorAmount: "Batas bawah", isActive: "Aktif",
+};
 
 async function requirePayroll() {
   const access = await getAccess();
@@ -83,6 +98,12 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
     taxable: isTaxableCategory(input.category), isActive: !!input.isActive,
     updatedBy: access.name ?? null,
   };
+  const before = id ? await prisma.payComponent.findUnique({ where: { id } }) : null;
+  const held = await holdForApproval({
+    kind: "gaji.savePayComponent", args: [id, input], title: `Payroll: ${id ? "ubah" : "tambah"} komponen ${code} - ${name}`,
+    details: diff(COMP_LABELS, before as Record<string, unknown> | null, data as Record<string, unknown>),
+  });
+  if (held) return held;
   let savedId = id;
   if (id) await prisma.payComponent.update({ where: { id }, data: { ...data, params: data.params ?? Prisma.DbNull } });
   else {
@@ -101,6 +122,23 @@ export async function setComponentAssignments(componentId: string, userIds: stri
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
   const yesterday = new Date(today.getTime() - 86_400_000);
   const rows = await prisma.employeePayComponent.findMany({ where: { componentId } });
+  {
+    const isOn = (r: (typeof rows)[number]) => (!r.endDate || r.endDate >= today) && (!r.startDate || r.startDate <= today);
+    const was = new Set(rows.filter(isOn).map((r) => r.userId));
+    const added = ids.filter((u) => !was.has(u)), removed = [...was].filter((u) => !ids.includes(u));
+    const names = new Map((await prisma.user.findMany({ where: { id: { in: [...added, ...removed] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
+    const comp = await prisma.payComponent.findUnique({ where: { id: componentId }, select: { code: true, name: true } });
+    const list = (x: string[]) => x.slice(0, 15).map((u) => names.get(u) ?? u).join(", ") + (x.length > 15 ? ` (+${x.length - 15})` : "");
+    const held = await holdForApproval({
+      kind: "gaji.setComponentAssignments", args: [componentId, userIds], title: `Payroll: tempel komponen ${comp?.code ?? ""} - ${comp?.name ?? ""}`,
+      details: [
+        { field: "Jumlah karyawan", oldValue: String(was.size), newValue: String(ids.length) },
+        ...(added.length ? [{ field: "Ditambahkan", oldValue: null, newValue: list(added) }] : []),
+        ...(removed.length ? [{ field: "Dilepas", oldValue: list(removed), newValue: null }] : []),
+      ],
+    });
+    if (held) return held;
+  }
   const ops: Prisma.PrismaPromise<unknown>[] = [];
   for (const r of rows) {
     const activeNow = (!r.endDate || r.endDate >= today) && (!r.startDate || r.startDate <= today);
@@ -125,6 +163,12 @@ export async function setComponentAssignments(componentId: string, userIds: stri
 
 export async function deletePayComponent(id: string): Promise<Result> {
   await requirePayroll();
+  const comp = await prisma.payComponent.findUnique({ where: { id }, select: { code: true, name: true } });
+  const held = await holdForApproval({
+    kind: "gaji.deletePayComponent", args: [id], title: `Payroll: hapus komponen ${comp?.code ?? ""} - ${comp?.name ?? ""}`,
+    details: [{ field: "Komponen", oldValue: `${comp?.code ?? ""} - ${comp?.name ?? ""}`, newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   await prisma.payComponent.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -142,6 +186,16 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
     companyName: String(input.companyName ?? "").trim().slice(0, 120), companyNpwp: String(input.companyNpwp ?? "").trim().slice(0, 30),
     signerName: String(input.signerName ?? "").trim().slice(0, 120), signerId: String(input.signerId ?? "").trim().slice(0, 30),
   };
+  const old = (await prisma.appSetting.findUnique({ where: { key: PAYROLL_SETTING_KEY } }))?.value as Record<string, unknown> | undefined;
+  const held = await holdForApproval({
+    kind: "gaji.savePayrollSettings", args: [input], title: "Payroll: ubah Pengaturan Payroll",
+    details: diff({
+      periodStartDay: "Awal periode (tanggal)", payDay: "Tanggal gajian", overtimeDivisor: "Pembagi lembur", workDaysPerWeek: "Hari kerja per minggu",
+      prorate: "Prorata", rounding: "Pembulatan", weekStartDay: "Awal minggu", companyName: "Nama perusahaan", companyNpwp: "NPWP perusahaan",
+      signerName: "Penandatangan", signerId: "NIK penandatangan",
+    }, { ...DEFAULT_PAYROLL_SETTINGS, ...(old ?? {}) } as Record<string, unknown>, value as unknown as Record<string, unknown>),
+  });
+  if (held) return held;
   await prisma.appSetting.upsert({
     where: { key: PAYROLL_SETTING_KEY },
     update: { value, updatedBy: access.name ?? null },
@@ -186,6 +240,12 @@ export async function updatePayrollLine(lineId: string, inputs: Partial<LineInpu
 
 export async function finalizePayroll(runId: string): Promise<Result & { count?: number }> {
   const access = await requirePayroll();
+  const run = await prisma.payrollRun.findUnique({ where: { id: runId }, select: { period: true, status: true } });
+  const held = await holdForApproval({
+    kind: "gaji.finalizePayroll", args: [runId], title: `Payroll: finalkan gaji periode ${run?.period ?? ""}`,
+    details: [{ field: "Status periode", oldValue: run?.status === "FINAL" ? "Final" : "Draft", newValue: "Final (slip gaji terbit)" }],
+  });
+  if (held) return held;
   try {
     const count = await finalizeRun(runId, access.name ?? null);
     revalidatePath(PATH);
@@ -219,6 +279,13 @@ export async function saveTaxYear(year: number, cfg: TaxYearConfig): Promise<Res
     maxDependents: Math.round(n(cfg.maxDependents, 10)), brackets, jobCostRate: n(cfg.jobCostRate, 100), jobCostMaxMonthly: n(cfg.jobCostMaxMonthly, 1e9),
   };
   if (!value.ptkpSelf) return { error: "PTKP wajib pajak sendiri wajib diisi." };
+  const prev = (await getTaxSettings())[String(year)] as unknown as Record<string, unknown> | undefined;
+  const held = await holdForApproval({
+    kind: "gaji.saveTaxYear", args: [year, cfg], title: `Payroll: Pengaturan PPh 21 tahun ${year}`,
+    details: diff({ ptkpSelf: "PTKP sendiri", ptkpMarried: "PTKP kawin", ptkpDependent: "PTKP per tanggungan", maxDependents: "Maks. tanggungan", brackets: "Lapisan tarif", jobCostRate: "Biaya jabatan (%)", jobCostMaxMonthly: "Maks. biaya jabatan / bulan" },
+      prev ?? null, value as unknown as Record<string, unknown>),
+  });
+  if (held) return held;
   const all = { ...(await getTaxSettings()), [String(year)]: value };
   await prisma.appSetting.upsert({
     where: { key: TAX_SETTING_KEY },
@@ -242,6 +309,11 @@ export async function saveTerVersion(originalDate: string | null, v: TerVersion)
   };
   const A = clean(v.A), B = clean(v.B), C = clean(v.C), daily = clean(v.daily);
   if (!A || !B || !C || !daily) return { error: "Batas penghasilan tiap tabel TER harus naik dari baris ke baris." };
+  const held = await holdForApproval({
+    kind: "gaji.saveTerVersion", args: [originalDate, v], title: `Payroll: tarif TER berlaku ${v.effectiveDate}`,
+    details: [{ field: "Tarif TER (tanggal berlaku)", oldValue: originalDate, newValue: `${v.effectiveDate} (${A.length}/${B.length}/${C.length} baris)` }],
+  });
+  if (held) return held;
   const list = (await getTerSettings()).filter((x) => x.effectiveDate !== originalDate && x.effectiveDate !== v.effectiveDate);
   const all = [...list, { effectiveDate: v.effectiveDate, A, B, C, daily }].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
   await prisma.appSetting.upsert({
@@ -255,6 +327,11 @@ export async function saveTerVersion(originalDate: string | null, v: TerVersion)
 
 export async function deleteTerVersion(effectiveDate: string): Promise<Result> {
   const access = await requirePayroll();
+  const held = await holdForApproval({
+    kind: "gaji.deleteTerVersion", args: [effectiveDate], title: `Payroll: hapus tarif TER berlaku ${effectiveDate}`,
+    details: [{ field: "Tarif TER (tanggal berlaku)", oldValue: effectiveDate, newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   const all = (await getTerSettings()).filter((x) => x.effectiveDate !== effectiveDate);
   await prisma.appSetting.upsert({
     where: { key: TER_SETTING_KEY },

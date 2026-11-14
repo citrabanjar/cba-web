@@ -27,6 +27,7 @@ import {
 } from "../actions";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit, useCanPropose } from "@/components/portal/edit-access";
+import { proposedText } from "@/lib/approval-text";
 import AttendanceCalendar from "./AttendanceCalendar";
 import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
 import type { DayShift } from "@/lib/schedule";
@@ -566,7 +567,7 @@ function SalaryDialog({
   function save() {
     startTransition(async () => {
       try {
-        await addSalaryAdjustment(employee.id, {
+        const r = await addSalaryAdjustment(employee.id, {
           effectiveDate,
           basicSalary: harian ? monthlyEq : Number(basicSalary),
           dailyWage: harian ? Number(dailyWage) : null,
@@ -576,6 +577,8 @@ function SalaryDialog({
           note,
           components: components.filter((c) => c.name.trim() && c.amount > 0),
         });
+        if (r && "error" in r && r.error) { setError(r.error); return; }
+        if (r && "proposed" in r && r.proposed) window.alert(proposedText(r.proposed));
         onClose();
       } catch {
         setError("Gagal menyimpan. Periksa isian; tanggal berlaku tidak boleh sama dengan riwayat yang ada.");

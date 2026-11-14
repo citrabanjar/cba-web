@@ -138,6 +138,8 @@ export default async function PersetujuanPage() {
         edits={editReqs.map((r) => ({
           id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, note: r.note,
           mine: r.status === "PENDING" && r.approverId === a.id,
+          title: ((r.data as { __title?: unknown } | null)?.__title as string | undefined) ?? null,
+          hasTarget: !(r.data as { __kind?: unknown } | null)?.__kind || !!(r.data as { __target?: unknown } | null)?.__target,
           steps: (((r.data as { __approval?: unknown } | null)?.__approval as { name: string; level: number; decision: string; at: string; note: string }[] | undefined) ?? []),
           summary: (r.summary as { field: string; oldValue: string | null; newValue: string | null }[]) ?? [],
           createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,

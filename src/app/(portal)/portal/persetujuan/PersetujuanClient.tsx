@@ -57,6 +57,8 @@ export type EditItem = {
   id: string; status: string; person: ApprovalItem["person"]; requester: string; note: string | null;
   summary: { field: string; oldValue: string | null; newValue: string | null }[]; createdAt: string; decidedAt: string | null;
   mine: boolean; // giliran saya memutus
+  title: string | null; // judul pengajuan menu lain (mis. "Payroll: tambah komponen …"); kosong = ubah data karyawan
+  hasTarget: boolean; // pengajuan menyangkut seorang karyawan
   steps: { name: string; level: number; decision: string; at: string; note: string }[]; // approval berurutan (Level 1, 2)
 };
 
@@ -72,7 +74,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
     ["swap", "Tukar Shift", swaps.filter((s) => s.mine).length],
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
     ...(interviews.length ? [["wawancara", "Pra-Karyawan", interviews.filter((i) => i.mine).length] as [TabKey, string, number]] : []),
-    ...(edits.length ? [["ubah", "Ubah Data Karyawan", edits.filter((e) => e.mine).length] as [TabKey, string, number]] : []),
+    ...(edits.length ? [["ubah", "Pengajuan Admin", edits.filter((e) => e.mine).length] as [TabKey, string, number]] : []),
   ];
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
@@ -375,7 +377,8 @@ function EditCard({ item }: { item: EditItem }) {
     <div className={`space-y-3 rounded-2xl border bg-white p-4 ${item.status === "PENDING" ? "border-amber-300" : "border-gray-200"}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold text-gray-900">{item.person.name} <span className="text-xs font-normal text-gray-500">{item.person.employeeId}</span></p>
+          {item.title && <p className="font-semibold text-gray-900">{item.title}</p>}
+          {item.hasTarget && <p className={item.title ? "text-sm text-gray-700" : "font-semibold text-gray-900"}>{item.person.name} <span className="text-xs font-normal text-gray-500">{item.person.employeeId}</span></p>}
           <p className="text-xs text-gray-500"><T>Diajukan oleh</T> <b>{item.requester}</b> · {formatDate(new Date(item.createdAt), "Asia/Jakarta")}</p>
         </div>
         <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.tone}`}><T>{st.label}</T></span>

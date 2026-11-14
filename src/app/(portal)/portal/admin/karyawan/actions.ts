@@ -3,9 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getAccess, requireMenu } from "@/lib/access";
 import { canEditMenu, canProposeMenu, isSuperAdmin } from "@/lib/roles";
 import { auth } from "@/auth";
-import { headers } from "next/headers";
-import { sendEditRequestEmail } from "@/lib/mailer";
 import { approvalLevelsFor } from "@/lib/admin-roles";
+import { bossChain, holdForApproval, notifyApprover, runApproved } from "@/lib/approval-hold";
 import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow } from "@/lib/employee-import";
 import bcrypt from "bcryptjs";
@@ -179,32 +178,10 @@ const readSteps = (data: unknown): EditStep[] => {
   return Array.isArray(raw) ? (raw as EditStep[]) : [];
 };
 
-// Atasan-atasan karyawan di bagan, naik satu per satu (yang tidak aktif / dikecualikan dilewati), maksimal `levels`.
-async function bossChain(userId: string, levels: number, skip: Set<string>) {
-  const out: { id: string; name: string }[] = [];
-  const seen = new Set<string>([userId]);
-  let cur = await prisma.user.findUnique({ where: { id: userId }, select: { managerId: true } });
-  for (let i = 0; i < 20 && out.length < levels && cur?.managerId && !seen.has(cur.managerId); i++) {
-    seen.add(cur.managerId);
-    const boss = await prisma.user.findUnique({ where: { id: cur.managerId }, select: { id: true, name: true, isActive: true, managerId: true } });
-    if (!boss) break;
-    if (boss.isActive && !skip.has(boss.id)) out.push({ id: boss.id, name: boss.name });
-    cur = boss;
-  }
-  return out;
-}
-
-// Email ke approver yang sedang mendapat giliran.
+// Email ke approver yang sedang mendapat giliran (pengajuan ubah data karyawan).
 async function notifyEditApprover(approverId: string, requester: string, employeeId: string) {
-  const [boss, target] = await Promise.all([
-    prisma.user.findUnique({ where: { id: approverId }, select: { name: true, email: true } }),
-    prisma.user.findUnique({ where: { id: employeeId }, select: { name: true, employeeId: true } }),
-  ]);
-  if (!boss?.email) return;
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const base = host ? `${h.get("x-forwarded-proto") ?? "https"}://${host}` : (process.env.NEXTAUTH_URL ?? "https://www.citrabanjar.com");
-  await sendEditRequestEmail(boss.email, boss.name, requester, `${target?.employeeId ?? ""} - ${target?.name ?? ""}`, `${base.replace(/\/$/, "")}/portal/persetujuan`);
+  const target = await prisma.user.findUnique({ where: { id: employeeId }, select: { name: true, employeeId: true } });
+  await notifyApprover(approverId, requester, `${target?.employeeId ?? ""} - ${target?.name ?? ""}`);
 }
 
 // Approver memutus pengajuan ubah data (berurutan Level 1 → Level 2). Semua setuju = data diterapkan dan tercatat di History Perubahan.
@@ -217,7 +194,7 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
   if (r.approverId !== me) return { error: "Belum giliran Anda, atau Anda bukan penyetuju pengajuan ini." };
   if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
   const steps = readSteps(r.data);
-  const { __approval: _a, ...fields } = (r.data ?? {}) as Record<string, unknown>;
+  const { __approval: _a, __kind: kind, __args: args, ...fields } = (r.data ?? {}) as Record<string, unknown>;
   void _a;
   const step = steps.find((x) => !x.decision && x.id === me);
   if (step) Object.assign(step, { decision: approve ? "SETUJU" : "TOLAK", at: new Date().toISOString(), note: note.trim() });
@@ -226,14 +203,18 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
     // Lanjut ke approver level berikutnya.
     await prisma.employeeEditRequest.update({
       where: { id: requestId },
-      data: { approverId: next.id, approverName: next.name, data: { ...fields, __approval: steps } as Prisma.InputJsonValue },
+      data: { approverId: next.id, approverName: next.name, data: { ...(r.data as object), __approval: steps } as Prisma.InputJsonValue },
     });
     await notifyEditApprover(next.id, r.requesterName, r.userId);
     revalidatePath(`${LIST_PATH}/${r.userId}`);
     revalidatePath("/portal/persetujuan");
     return {};
   }
-  if (approve) {
+  if (approve && typeof kind === "string") {
+    // Pengajuan perubahan menu lain (Payroll, dll.): jalankan aksinya atas nama Admin pengaju.
+    const res = await runApproved(r.requesterId, kind, Array.isArray(args) ? args : []);
+    if (res.error) return { error: `Perubahan tidak bisa diterapkan: ${res.error}. Tolak lalu minta diajukan ulang.` };
+  } else if (approve) {
     const by = steps.filter((x) => x.decision === "SETUJU").map((x) => x.name).join(", ") || r.approverName;
     try {
       await applyEmployeeUpdate(r.userId, fields as EmployeeUpdate, { role: "ADMIN", changedBy: `${r.requesterName} (disetujui ${by})` });
@@ -243,7 +224,7 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
   }
   await prisma.employeeEditRequest.update({
     where: { id: requestId },
-    data: { status: approve ? "APPROVED" : "REJECTED", note: note.trim() || null, decidedAt: new Date(), data: { ...fields, __approval: steps } as Prisma.InputJsonValue },
+    data: { status: approve ? "APPROVED" : "REJECTED", note: note.trim() || null, decidedAt: new Date(), data: { ...(r.data as object), __approval: steps } as Prisma.InputJsonValue },
   });
   revalidatePath(`${LIST_PATH}/${r.userId}`);
   revalidatePath("/portal/persetujuan");
@@ -569,6 +550,17 @@ export async function addSalaryAdjustment(
   if (!data.effectiveDate || !(basic > 0)) {
     throw new Error("Tanggal berlaku dan gaji pokok wajib diisi");
   }
+  const last = await prisma.employeeSalary.findFirst({ where: { userId }, orderBy: { effectiveDate: "desc" }, select: { basicSalary: true } });
+  const held = await holdForApproval({
+    kind: "gaji.addSalaryAdjustment", args: [userId, data], targetUserId: userId, title: "Penyesuaian gaji",
+    details: [
+      { field: "Gaji pokok", oldValue: last ? String(last.basicSalary) : null, newValue: String(basic) },
+      { field: "Berlaku mulai", oldValue: null, newValue: data.effectiveDate },
+      ...(data.components.length ? [{ field: "Tunjangan / potongan", oldValue: null, newValue: data.components.map((c) => `${c.name} ${c.amount}`).join(", ") }] : []),
+      ...(data.note?.trim() ? [{ field: "Catatan", oldValue: null, newValue: data.note.trim() }] : []),
+    ],
+  });
+  if (held) return held;
   await prisma.employeeSalary.create({
     data: {
       userId,
@@ -631,6 +623,20 @@ export async function savePayAssignment(userId: string, componentId: string, dat
   if (join && startDate && startDate.toISOString().slice(0, 10) < join) return { error: `Tanggal Mulai tidak boleh sebelum tanggal masuk karyawan (${tgl(join)}).` };
   if (join && endDate && endDate.toISOString().slice(0, 10) < join) return { error: `Tanggal Sampai tidak boleh sebelum tanggal masuk karyawan (${tgl(join)}).` };
   const fields = { startDate, endDate, note: data.note.trim().slice(0, 200) || null };
+  const [comp, prev] = await Promise.all([
+    prisma.payComponent.findUnique({ where: { id: componentId }, select: { code: true, name: true } }),
+    prisma.employeePayComponent.findUnique({ where: { userId_componentId: { userId, componentId } }, select: { startDate: true, endDate: true } }),
+  ]);
+  const d = (x: Date | null | undefined) => (x ? x.toISOString().slice(0, 10) : null);
+  const held = await holdForApproval({
+    kind: "gaji.savePayAssignment", args: [userId, componentId, data], targetUserId: userId, title: `Komponen gaji ${comp?.code ?? ""} - ${comp?.name ?? ""}`,
+    details: [
+      { field: "Komponen", oldValue: prev ? "Ditempel" : null, newValue: "Ditempel" },
+      { field: "Mulai", oldValue: d(prev?.startDate), newValue: d(startDate) },
+      { field: "Sampai", oldValue: d(prev?.endDate), newValue: d(endDate) },
+    ].filter((x) => x.oldValue !== x.newValue),
+  });
+  if (held) return held;
   await prisma.employeePayComponent.upsert({
     where: { userId_componentId: { userId, componentId } },
     update: fields, create: { userId, componentId, ...fields, createdBy: actor.name ?? null },
@@ -642,6 +648,12 @@ export async function savePayAssignment(userId: string, componentId: string, dat
 
 export async function removePayAssignment(userId: string, componentId: string) {
   await requireMenu("gaji");
+  const comp = await prisma.payComponent.findUnique({ where: { id: componentId }, select: { code: true, name: true } });
+  const held = await holdForApproval({
+    kind: "gaji.removePayAssignment", args: [userId, componentId], targetUserId: userId, title: `Lepas komponen gaji ${comp?.code ?? ""} - ${comp?.name ?? ""}`,
+    details: [{ field: "Komponen", oldValue: `${comp?.code ?? ""} - ${comp?.name ?? ""}`, newValue: "(dilepas)" }],
+  });
+  if (held) return held;
   await prisma.employeePayComponent.deleteMany({ where: { userId, componentId } });
   revalidatePath(`${LIST_PATH}/${userId}`);
   revalidatePath("/portal/admin/payroll");

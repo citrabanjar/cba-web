@@ -10,6 +10,7 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { rupiah } from "@/lib/payroll";
 import { ptkpOf, taxYearConfig, type TaxYearConfig } from "@/lib/pph21";
 import { saveTaxYear } from "./actions";
+import { proposedText } from "@/lib/approval-text";
 
 const thisYear = () => Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric" }).format(new Date()));
 
@@ -33,7 +34,7 @@ export default function TaxSettings({ all }: { all: Record<string, TaxYearConfig
   function save() {
     start(async () => {
       const r = await saveTaxYear(year, form);
-      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Pengaturan PPh 21 tersimpan." });
+      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : "Pengaturan PPh 21 tersimpan." });
     });
   }
   const money = (k: "ptkpSelf" | "ptkpMarried" | "ptkpDependent" | "jobCostMaxMonthly", label: string) => (

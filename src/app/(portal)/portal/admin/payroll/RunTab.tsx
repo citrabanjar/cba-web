@@ -8,6 +8,7 @@ import { parseHours, rupiah } from "@/lib/payroll";
 import { isWeekly, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
 import { deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
+import { proposedText } from "@/lib/approval-text";
 
 export type RunLine = {
   id: string; userId: string; name: string; employeeId: string; department: string | null;
@@ -72,11 +73,11 @@ export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]
   const lines = run?.lines ?? [];
   const total = (k: keyof Pick<RunLine, "earnings" | "deductions" | "pph21" | "netPay" | "benefits">) => lines.reduce((a, l) => a + l[k], 0);
 
-  const act = (fn: () => Promise<{ error?: string; count?: number }>, ok: string) => {
+  const act = (fn: () => Promise<{ error?: string; count?: number; proposed?: string }>, ok: string) => {
     setMsg(null);
     start(async () => {
       const r = await fn();
-      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: ok.replace("{n}", String(r.count ?? "")) });
+      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : ok.replace("{n}", String(r.count ?? "")) });
     });
   };
   const save = (lineId: string, patch: Partial<LineInputs>) => act(() => updatePayrollLine(lineId, patch), "Dihitung ulang.");

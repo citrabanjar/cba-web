@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { removePayAssignment, savePayAssignment } from "../actions";
+import { proposedText } from "@/lib/approval-text";
 
 export type PayComponentRow = {
   componentId: string; code: string; name: string; kind: string; method: string; formula: string;
@@ -40,12 +41,12 @@ function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row:
   const [note, setNote] = useState(row.assigned?.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, run] = useTransition();
-  const act = (fn: () => Promise<{ error?: string }>) => {
+  const act = (fn: () => Promise<{ error?: string; proposed?: string }>) => {
     setError(null);
     run(async () => {
       const r = await fn();
       if (r.error) setError(r.error);
-      else onClose();
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
     });
   };
   return (

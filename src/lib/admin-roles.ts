@@ -113,3 +113,9 @@ export async function approvalLevelsFor(userId: string) {
   const roles = (await getAdminRoles()).filter((r) => r.members.includes(userId) && menuLevelOf(r.menus, "karyawan") === "propose");
   return roles.length ? Math.max(1, ...roles.map((r) => r.approvalLevels)) : 1;
 }
+
+// Level approval perubahan data untuk Admin ini (aturan per peran; terbesar dari peran yang ia ikuti). 0 = tanpa approval.
+export async function roleApprovalLevels(userId: string) {
+  const roles = (await getAdminRoles()).filter((r) => r.members.includes(userId));
+  return roles.length ? Math.max(...roles.map((r) => r.approvalLevels)) : 0;
+}

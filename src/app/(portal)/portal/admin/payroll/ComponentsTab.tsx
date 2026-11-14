@@ -9,6 +9,7 @@ import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { PAY_KINDS, categoryLabel, describe, type PayComponentInput } from "@/lib/payroll";
 import { deletePayComponent, setComponentAssignments } from "./actions";
+import { proposedText } from "@/lib/approval-text";
 import ComponentDialog from "./ComponentDialog";
 
 export type Component = Omit<PayComponentInput, "legalBasis" | "note"> & {
@@ -38,7 +39,7 @@ function AssignDialog({ comp, employees, onClose }: { comp: Component; employees
     start(async () => {
       const r = await setComponentAssignments(comp.id, [...picked]);
       if (r.error) setError(r.error);
-      else onClose();
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
     });
   }
   return (
@@ -94,7 +95,10 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
   const assignComp = components.find((c) => c.id === assigning);
   function remove(c: Component) {
     if (!window.confirm(t("Hapus komponen ini?"))) return;
-    start(async () => { await deletePayComponent(c.id); });
+    start(async () => {
+      const r = await deletePayComponent(c.id);
+      if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed));
+    });
   }
   return (
     <section className="rounded-2xl border border-gray-200 bg-white">

@@ -10,6 +10,7 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { rupiah } from "@/lib/payroll";
 import { DEFAULT_TER, type TerRow, type TerVersion } from "@/lib/pph21";
 import { deleteTerVersion, saveTerVersion } from "./actions";
+import { proposedText } from "@/lib/approval-text";
 
 const TABLES = [
   { key: "A", label: "Kategori A", hint: "TK/0, TK/1, K/0" },
@@ -52,13 +53,15 @@ export default function TerSettings({ versions }: { versions: TerVersion[] }) {
     start(async () => {
       const r = await saveTerVersion(selected, form);
       if (r.error) setMsg({ ok: false, text: r.error });
+      else if (r.proposed) setMsg({ ok: true, text: proposedText(r.proposed) });
       else { setSelected(form.effectiveDate); setMsg({ ok: true, text: "Tarif TER tersimpan." }); }
     });
   }
   function remove() {
     if (!selected || !window.confirm(t("Hapus versi tarif TER ini?"))) return;
     start(async () => {
-      await deleteTerVersion(selected);
+      const r = await deleteTerVersion(selected);
+      if (r.proposed) { setMsg({ ok: true, text: proposedText(r.proposed) }); return; }
       pick("__default");
     });
   }

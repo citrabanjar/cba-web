@@ -12,6 +12,7 @@ import {
   overtimeTiers, paramUnit, type PayComponentInput, type PayParams, type Tier,
 } from "@/lib/payroll";
 import { savePayComponent } from "./actions";
+import { proposedText } from "@/lib/approval-text";
 import type { Component } from "./ComponentsTab";
 
 const EMPTY: PayComponentInput = {
@@ -107,6 +108,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
     start(async () => {
       const r = await savePayComponent(comp === "new" ? null : comp.id, form);
       if (r.error) setError(r.error);
+      else if (r.proposed) { window.alert(proposedText(r.proposed)); onClose(); }
       else {
         onClose();
         if (comp === "new" && r.id) onCreated(r.id);

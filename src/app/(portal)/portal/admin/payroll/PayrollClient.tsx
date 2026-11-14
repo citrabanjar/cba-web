@@ -9,6 +9,7 @@ import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import type { PayrollSettings } from "@/lib/payroll";
 import { savePayrollSettings } from "./actions";
+import { proposedText } from "@/lib/approval-text";
 import RunTab, { type NonRoutine, type Run } from "./RunTab";
 import TaxSettings from "./TaxSettings";
 import TerSettings from "./TerSettings";
@@ -29,7 +30,7 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
   function save() {
     start(async () => {
       const r = await savePayrollSettings(form);
-      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Pengaturan tersimpan." });
+      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : "Pengaturan tersimpan." });
     });
   }
   const field = (label: string, hint: string, node: React.ReactNode) => (
