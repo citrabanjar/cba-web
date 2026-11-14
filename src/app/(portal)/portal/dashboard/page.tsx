@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, TrendingUp, AlertCircle, CheckCircle2, ClipboardCheck, LogOut, ArrowLeftRight,
+  Receipt, TrendingUp, AlertCircle, CheckCircle2, LogOut, ArrowLeftRight,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +16,6 @@ import IndicatorCards from "./IndicatorCards";
 import { loadIndicators } from "./insights";
 import { prisma } from "@/lib/prisma";
 import { openAttendance } from "@/lib/attendance-assess";
-import { isApprover, pendingApprovals } from "@/lib/approval";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -30,9 +29,6 @@ export default async function DashboardPage() {
   // Status absen hari ini (shift malam kemarin yang belum pulang ikut terhitung).
   const att = !superAdmin && user.id ? await openAttendance(user.id) : null;
   const fmtTime = (d: Date) => d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
-  // Atasan langsung (bukan admin): kartu pengajuan bawahan yang menunggu persetujuan.
-  const approver = access && !isAdmin ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
-  const toApprove = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : 0;
   // Running indikator: Super Admin dan semua Admin. Admin tanpa menu Data Karyawan tidak membuka panel admin, jadi kartunya dimuat di sini.
   const indicatorOnly = !isAdmin && (user.role === "ADMIN" || superAdmin) ? await loadIndicators() : null;
   const swapAsks = !superAdmin && user.id ? await prisma.shiftSwapRequest.count({ where: { partnerId: user.id, status: "MENUNGGU_REKAN" } }) : 0;
@@ -126,17 +122,6 @@ export default async function DashboardPage() {
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-gray-900">{swapAsks} <T>permintaan tukar shift dari rekan</T></span>
             <span className="block text-xs text-gray-500"><T>Terima atau tolak sebelum diteruskan ke atasan.</T></span>
-          </span>
-          <span className="text-xs font-semibold text-brand"><T>Buka →</T></span>
-        </Link>
-      )}
-
-      {toApprove > 0 && (
-        <Link href="/portal/persetujuan" className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-ink"><ClipboardCheck size={18} /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-gray-900">{toApprove} <T>pengajuan menunggu persetujuan Anda</T></span>
-            <span className="block text-xs text-gray-500"><T>Cuti dan dinas luar dari karyawan yang Anda pimpin langsung.</T></span>
           </span>
           <span className="text-xs font-semibold text-brand"><T>Buka →</T></span>
         </Link>
