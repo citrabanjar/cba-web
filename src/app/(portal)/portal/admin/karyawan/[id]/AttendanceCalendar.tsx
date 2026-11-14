@@ -44,14 +44,15 @@ function fmtTime(d: Date | null) {
 }
 
 // Hari yang tercakup cuti/dinas yang sudah disetujui.
-function coveredDays(ranges: Range[], status: string, map: Map<string, string>) {
+// skip: tanggal yang tidak ditandai (mis. hari libur di jadwal tetap libur walau di dalam rentang cuti).
+function coveredDays(ranges: Range[], status: string, map: Map<string, string>, skip: (k: string) => boolean = () => false) {
   for (const r of ranges) {
     if (r.status !== "APPROVED") continue;
     const day = new Date(dayKey(r.startDate));
     const end = new Date(dayKey(r.endDate));
     while (day <= end) {
       const k = day.toISOString().slice(0, 10);
-      if (!map.has(k)) map.set(k, status);
+      if (!map.has(k) && !skip(k)) map.set(k, status);
       day.setUTCDate(day.getUTCDate() + 1);
     }
   }
@@ -76,10 +77,10 @@ export default function AttendanceCalendar({
   const byDay = useMemo(() => new Map(attendances.map((a) => [dayKey(a.date), a])), [attendances]);
   const planned = useMemo(() => {
     const map = new Map<string, string>();
-    coveredDays(leaves, "CUTI", map);
+    coveredDays(leaves, "CUTI", map, (k) => !!shiftDays[k]?.isOff);
     coveredDays(trips, "DINAS", map);
     return map;
-  }, [leaves, trips]);
+  }, [leaves, trips, shiftDays]);
 
   const statusOf = (k: string) => byDay.get(k)?.status ?? planned.get(k) ?? null;
   // Terlambat / pulang cepat dari jam absen vs shift; "tidak absen pulang" untuk hari yang sudah lewat.
