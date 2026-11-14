@@ -11,12 +11,19 @@ import { clearSim, runSimNow, setSimEnabled } from "./sim-actions";
 export default function SimSettings({ enabled: initial, count }: { enabled: boolean; count: number }) {
   const [enabled, setEnabled] = useState(initial);
   const [days, setDays] = useState(7);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [, start] = useTransition();
   const act = (key: string, fn: () => Promise<string>) => {
     setMsg(null); setBusy(key);
-    start(async () => { try { setMsg(await fn()); } catch (e) { setMsg(e instanceof Error ? e.message : "Gagal."); } finally { setBusy(null); } });
+    start(async () => {
+      try { setMsg({ ok: true, text: await fn() }); }
+      catch (e) {
+        const text = e instanceof Error ? e.message : "";
+        // Halaman dibuka sebelum versi baru portal dipasang: tombolnya sudah tidak dikenali server.
+        setMsg({ ok: false, text: /server action|failed to find|failed to fetch|network/i.test(text) ? "Portal baru diperbarui. Muat ulang halaman (Ctrl+F5), lalu coba lagi." : text || "Gagal." });
+      } finally { setBusy(null); }
+    });
   };
 
   return (
@@ -59,7 +66,7 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
           </Button>
         </div>
 
-        {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{msg}</p>}
+        {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}><T>{msg.text}</T></p>}
       </CardContent>
     </Card>
   );

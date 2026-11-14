@@ -1086,6 +1086,7 @@ export const en: Record<string, string> = {
   "Isi sekarang untuk": "Fill now for",
   "hari terakhir (sampai kemarin)": "last days (up to yesterday)",
   "Isi Sekarang": "Fill Now",
+  "Portal baru diperbarui. Muat ulang halaman (Ctrl+F5), lalu coba lagi.": "The portal was just updated. Reload the page (Ctrl+F5), then try again.",
   "Absen uji tersimpan": "Stored test attendance",
   "Hapus Semua Absen Uji": "Delete All Test Attendance",
   "TOMBOL HP": "PHONE BUTTONS",
