@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
+import { formatDate } from "@/lib/utils";
 
 export async function getBusinessTrips() {
   const session = await auth();
@@ -41,6 +42,26 @@ export async function submitBusinessTrip(_prevState: unknown, formData: FormData
   }
   if (end < start) {
     return { error: "Tanggal akhir tidak boleh sebelum tanggal mulai." };
+  }
+
+  // Tanggal dinas tidak boleh beririsan dengan dinas atau cuti yang sedang diajukan / sudah disetujui,
+  // maupun dengan catatan kehadiran Dinas / Cuti yang sudah ada.
+  const userId = session.user.id;
+  const range = (a: Date, b: Date) => `${formatDate(a)}${a.getTime() === b.getTime() ? "" : ` – ${formatDate(b)}`}`;
+  const overlap = { startDate: { lte: end }, endDate: { gte: start } };
+  const [trip, leave, att] = await Promise.all([
+    prisma.businessTrip.findFirst({ where: { userId, status: { in: ["PENDING", "APPROVED"] }, ...overlap }, orderBy: { startDate: "asc" } }),
+    prisma.leaveRequest.findFirst({ where: { userId, status: { in: ["PENDING", "APPROVED"] }, ...overlap }, orderBy: { startDate: "asc" } }),
+    prisma.attendance.findFirst({ where: { userId, status: { in: ["DINAS", "CUTI"] }, date: { gte: start, lte: end } }, orderBy: { date: "asc" } }),
+  ]);
+  if (trip) {
+    return { error: `Tanggal beririsan dengan dinas luar ${trip.destination} (${range(trip.startDate, trip.endDate)}) yang ${trip.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}. Pilih tanggal lain atau batalkan pengajuan itu dulu.` };
+  }
+  if (leave) {
+    return { error: `Tanggal beririsan dengan cuti (${range(leave.startDate, leave.endDate)}) yang ${leave.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}.` };
+  }
+  if (att) {
+    return { error: `Tanggal ${formatDate(att.date)} sudah tercatat ${att.status === "DINAS" ? "Dinas" : "Cuti"} di kehadiran Anda.` };
   }
 
   const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
