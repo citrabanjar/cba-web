@@ -8,6 +8,7 @@ import {
 } from "@/lib/leave-balance";
 import { hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
+import { formatDate } from "@/lib/utils";
 
 export async function getLeaveRequests() {
   const session = await auth();
@@ -45,6 +46,29 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   const end = new Date(`${endDate}T00:00:00Z`);
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return { error: "Tanggal tidak valid." };
   if (end < start) return { error: "Tanggal akhir tidak boleh sebelum tanggal mulai." };
+
+  // Tanggal cuti tidak boleh beririsan dengan cuti / dinas luar yang sedang diajukan atau sudah disetujui,
+  // maupun dengan kehadiran Cuti / Dinas yang sudah tercatat. Pengecualian: dua cuti setengah hari yang
+  // berbeda bagian (pagi & siang) pada tanggal yang sama.
+  {
+    const range = (a: Date, b: Date) => `${formatDate(a)}${a.getTime() === b.getTime() ? "" : ` – ${formatDate(b)}`}`;
+    const overlap = { startDate: { lte: end }, endDate: { gte: start } };
+    const newHalf = dayPart === "AWAL" || dayPart === "AKHIR" ? dayPart : null;
+    const [leaves, trip, att] = await Promise.all([
+      prisma.leaveRequest.findMany({ where: { userId, status: { in: ["PENDING", "APPROVED"] }, ...overlap }, orderBy: { startDate: "asc" }, include: { policy: { select: { name: true } } } }),
+      prisma.businessTrip.findFirst({ where: { userId, status: { in: ["PENDING", "APPROVED"] }, ...overlap }, orderBy: { startDate: "asc" } }),
+      prisma.attendance.findFirst({ where: { userId, status: { in: ["CUTI", "DINAS"] }, date: { gte: start, lte: end } }, orderBy: { date: "asc" } }),
+    ]);
+    const leave = leaves.find((l) => !(newHalf && l.halfDay && l.halfDay !== newHalf && start.getTime() === end.getTime()
+      && l.startDate.getTime() === start.getTime() && l.endDate.getTime() === end.getTime()));
+    if (leave) {
+      return { error: `Tanggal beririsan dengan ${leave.policy?.name ?? "cuti"} (${range(leave.startDate, leave.endDate)}) yang ${leave.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}. Pilih tanggal lain atau batalkan pengajuan itu dulu.` };
+    }
+    if (trip) {
+      return { error: `Tanggal beririsan dengan dinas luar ${trip.destination} (${range(trip.startDate, trip.endDate)}) yang ${trip.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}.` };
+    }
+    if (att) return { error: `Tanggal ${formatDate(att.date)} sudah tercatat ${att.status === "CUTI" ? "Cuti" : "Dinas"} di kehadiran Anda.` };
+  }
 
   const [policy, me] = await Promise.all([
     prisma.leavePolicy.findUnique({ where: { id: policyId } }),
