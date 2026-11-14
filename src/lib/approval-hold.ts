@@ -71,6 +71,7 @@ export async function holdForApproval(o: { kind: string; args: unknown[]; title:
 type Fn = (...a: never[]) => Promise<unknown>;
 const REGISTRY: Record<string, () => Promise<Fn>> = {
   "gaji.savePayComponent": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).savePayComponent as Fn,
+  // Untuk pengajuan lama (tempel komponen kini tidak perlu approval).
   "gaji.setComponentAssignments": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).setComponentAssignments as Fn,
   "gaji.deletePayComponent": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).deletePayComponent as Fn,
   "gaji.savePayrollSettings": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).savePayrollSettings as Fn,

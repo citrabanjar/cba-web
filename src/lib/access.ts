@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { canEditMenu, type MenuKey } from "@/lib/roles";
+import { canEditMenu, hasMenu, type MenuKey } from "@/lib/roles";
 import { approvedRun } from "@/lib/approval-hold";
 
 // Hak akses selalu dibaca dari database, bukan dari sesi login. Dengan begitu,
@@ -22,6 +22,14 @@ export async function getAccess() {
 export async function requireMenu(menu: MenuKey) {
   const user = await getAccess();
   if (!user || !canEditMenu(user, menu)) throw new Error("Anda hanya punya hak lihat di menu ini.");
+  return user;
+}
+
+// Untuk aksi "tempel" (menempelkan parameter yang sudah ada ke karyawan: pola kerja, jadwal bulanan,
+// komponen gaji): cukup hak lihat. Hak edit hanya untuk menambah / mengubah / menghapus parameternya.
+export async function requireMenuApply(menu: MenuKey) {
+  const user = await getAccess();
+  if (!user || !hasMenu(user, menu)) throw new Error("Anda tidak punya akses ke menu ini.");
   return user;
 }
 

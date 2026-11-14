@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit } from "@/components/portal/edit-access";
+import { useCanApply, useCanEdit } from "@/components/portal/edit-access";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import LocationTab, { type Location } from "./LocationTab";
 import RosterTab from "./RosterTab";
@@ -471,7 +471,8 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
   const t = useT();
   const [editing, setEditing] = useState<Pattern | "new" | null>(null);
   const [assigning, setAssigning] = useState<Pattern | null>(null);
-  const canEdit = useCanEdit(); // hak lihat saja: tanpa tambah/ubah/hapus/tempel pola
+  const canEdit = useCanEdit(); // hak lihat saja: tanpa tambah/ubah/hapus pola
+  const canApply = useCanApply(); // tempel pola ke karyawan cukup hak lihat
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const byId = new Map(shifts.map((s) => [s.id, s]));
@@ -499,11 +500,13 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
                     <span className="mr-1 rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-gray-500 ring-1 ring-gray-200">
                       {p.assigned} <T>karyawan</T>
                     </span>
-                    {canEdit && (<>
+                    {canApply && (
                     <button type="button" onClick={() => setAssigning(p)}
                       className="mr-1 inline-flex h-7 items-center rounded-full bg-ink px-3 text-[11px] font-semibold text-white hover:bg-ink/85">
                       <T>Tempel ke Karyawan</T>
                     </button>
+                    )}
+                    {canEdit && (<>
                     <button type="button" onClick={() => setEditing(p)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand">
                       <Pencil size={14} />
                     </button>

@@ -26,7 +26,7 @@ import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, updateEmployee,
 } from "../actions";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit, useCanPropose } from "@/components/portal/edit-access";
+import { useCanApply, useCanEdit, useCanPropose } from "@/components/portal/edit-access";
 import { proposedText } from "@/lib/approval-text";
 import AttendanceCalendar from "./AttendanceCalendar";
 import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
@@ -707,7 +707,7 @@ export default function KaryawanDetailClient({
   // canEditTarget: aturan siapa yang boleh diubah (dari server); ditambah hak Edit menu admin (hak lihat saja = tombol ubah disembunyikan).
   const canEditMenu = useCanEdit("karyawan");
   const canEditPay = useCanEdit("gaji");
-  const canEditSchedule = useCanEdit("absensi");
+  const canEditSchedule = useCanApply("absensi"); // tempel jadwal cukup hak lihat Absensi
   const canEdit = canEditTarget && canEditMenu;
   // Hak "Ajukan": boleh membuka Edit data (Ubah Data saja); simpanan menjadi pengajuan ke atasan langsung si Admin.
   const canPropose = useCanPropose("karyawan");

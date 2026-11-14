@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import type { HolidayType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireMenu } from "@/lib/access";
+import { requireMenu, requireMenuApply } from "@/lib/access";
 
 // Hasil dikembalikan sebagai pesan karena pesan error server action disamarkan di production.
 type Result = { error?: string };
@@ -254,7 +254,7 @@ export type ScheduleInput = { type: "POLA" | "MANUAL"; patternId: string; effect
 
 // Tempel jadwal ke satu atau banyak karyawan. Jadwal di tanggal berlaku yang sama diganti.
 export async function assignSchedule(userIds: string[], input: ScheduleInput): Promise<Result & { count?: number }> {
-  const user = await requireMenu("absensi");
+  const user = await requireMenuApply("absensi");
   const ids = [...new Set(userIds)].filter(Boolean);
   if (ids.length === 0) return { error: "Pilih minimal satu karyawan." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveDate)) return { error: "Tanggal mulai berlaku wajib diisi." };
@@ -281,7 +281,7 @@ export async function assignSchedule(userIds: string[], input: ScheduleInput): P
 }
 
 export async function deleteEmployeeSchedule(id: string): Promise<Result> {
-  await requireMenu("absensi");
+  await requireMenuApply("absensi");
   await prisma.employeeSchedule.delete({ where: { id } });
   revalidatePath(PATH);
   revalidatePath("/portal/admin/karyawan", "layout");
@@ -295,7 +295,7 @@ export type ShiftDayChange = { userId: string; date: string; shiftId: string | n
 // Simpan isian Jadwal Bulanan. shiftId null berarti isian tanggal itu dihapus
 // (kembali mengikuti pola kerja, atau "?" untuk jadwal manual).
 export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result & { count?: number; marked?: number }> {
-  const user = await requireMenu("absensi");
+  const user = await requireMenuApply("absensi");
   const valid = changes.filter((c) => c.userId && /^\d{4}-\d{2}-\d{2}$/.test(c.date));
   if (valid.length === 0) return { error: "Tidak ada perubahan untuk disimpan." };
   if (valid.length > 5000) return { error: "Perubahan terlalu banyak sekaligus. Simpan per bulan." };

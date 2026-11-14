@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Copy, Eraser, Loader2, RotateCcw, Save, TriangleAlert } from "lucide-react";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit } from "@/components/portal/edit-access";
+import { useCanApply } from "@/components/portal/edit-access";
 import type { DayShift } from "@/lib/schedule";
 import { saveShiftDays } from "./actions";
 
@@ -37,7 +37,7 @@ export default function RosterTab({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
-  const canEdit = useCanEdit(); // hak lihat saja: tabel hanya ditampilkan, tanpa kartu shift dan tombol simpan
+  const canEdit = useCanApply(); // mengisi jadwal bulanan = menempel shift ke karyawan: cukup hak lihat
 
   const byId = useMemo(() => new Map(shifts.map((s) => [s.id, s])), [shifts]);
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();

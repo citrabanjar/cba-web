@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit } from "@/components/portal/edit-access";
+import { useCanApply, useCanEdit } from "@/components/portal/edit-access";
 import { PAY_KINDS, categoryLabel, describe, type PayComponentInput } from "@/lib/payroll";
 import { deletePayComponent, setComponentAssignments } from "./actions";
 import { proposedText } from "@/lib/approval-text";
@@ -88,7 +88,8 @@ function AssignDialog({ comp, employees, onClose }: { comp: Component; employees
 
 export default function ComponentsTab({ components, employees, workDaysPerWeek }: { components: Component[]; employees: PayEmployee[]; workDaysPerWeek: 5 | 6 }) {
   const t = useT();
-  const canEdit = useCanEdit(); // hak lihat saja: tombol tambah/ubah/hapus/tempel disembunyikan
+  const canEdit = useCanEdit(); // hak lihat saja: tombol tambah/ubah/hapus disembunyikan
+  const canApply = useCanApply(); // tempel komponen ke karyawan cukup hak lihat
   const [editing, setEditing] = useState<Component | "new" | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -140,14 +141,13 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                     </div>
                     <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {canEdit ? (
+                      {canApply ? (
                         <button type="button" onClick={() => setAssigning(c.id)}
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.employeeIds.length ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-600 text-white hover:bg-red-700"}`}>
                           {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
                           {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")} · <T>Tempel</T>
                         </button>
                       ) : (
-                        // hak lihat saja: jumlah karyawan tetap tampil, tanpa tombol Tempel
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white ${c.employeeIds.length ? "bg-emerald-600" : "bg-red-600"}`}>
                           {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
                           {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")}
@@ -168,7 +168,7 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
         );
       })}
       {canEdit && editing && <ComponentDialog comp={editing} all={components} workDaysPerWeek={workDaysPerWeek} onClose={() => setEditing(null)} onCreated={setAssigning} />}
-      {canEdit && assignComp && <AssignDialog key={assignComp.id} comp={assignComp} employees={employees} onClose={() => setAssigning(null)} />}
+      {canApply && assignComp && <AssignDialog key={assignComp.id} comp={assignComp} employees={employees} onClose={() => setAssigning(null)} />}
     </section>
   );
 }

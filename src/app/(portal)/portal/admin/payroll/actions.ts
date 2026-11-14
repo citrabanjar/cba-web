@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getAccess } from "@/lib/access";
+import { getAccess, requireMenuApply } from "@/lib/access";
 import { canEditMenu } from "@/lib/roles";
 import { Prisma } from "@prisma/client";
 import {
@@ -115,32 +115,15 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
 }
 
 // Tempel komponen ke karyawan: daftar karyawan yang dicentang menggantikan daftar sebelumnya.
+// Tempel komponen ke karyawan: cukup hak lihat dan tidak perlu approval (bukan mengubah parameter).
 export async function setComponentAssignments(componentId: string, userIds: string[]): Promise<Result> {
-  const access = await requirePayroll();
+  const access = await requireMenuApply("gaji");
   const valid = await prisma.user.findMany({ where: { id: { in: userIds }, role: { not: "SUPER_ADMIN" } }, select: { id: true, joinDate: true } });
   const ids = valid.map((u) => u.id);
   const joinOf = new Map(valid.map((u) => [u.id, u.joinDate]));
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
   const yesterday = new Date(today.getTime() - 86_400_000);
   const rows = await prisma.employeePayComponent.findMany({ where: { componentId } });
-  {
-    // Termasuk tempelan yang baru mulai nanti (karyawan baru): belum berakhir = masih ditempel.
-    const isOn = (r: (typeof rows)[number]) => !r.endDate || r.endDate >= today;
-    const was = new Set(rows.filter(isOn).map((r) => r.userId));
-    const added = ids.filter((u) => !was.has(u)), removed = [...was].filter((u) => !ids.includes(u));
-    const names = new Map((await prisma.user.findMany({ where: { id: { in: [...added, ...removed] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
-    const comp = await prisma.payComponent.findUnique({ where: { id: componentId }, select: { code: true, name: true } });
-    const list = (x: string[]) => x.slice(0, 15).map((u) => names.get(u) ?? u).join(", ") + (x.length > 15 ? ` (+${x.length - 15})` : "");
-    const held = await holdForApproval({
-      kind: "gaji.setComponentAssignments", args: [componentId, userIds], title: `Payroll: tempel komponen ${comp?.code ?? ""} - ${comp?.name ?? ""}`,
-      details: [
-        { field: "Jumlah karyawan", oldValue: String(was.size), newValue: String(ids.length) },
-        ...(added.length ? [{ field: "Ditambahkan", oldValue: null, newValue: list(added) }] : []),
-        ...(removed.length ? [{ field: "Dilepas", oldValue: list(removed), newValue: null }] : []),
-      ],
-    });
-    if (held) return held;
-  }
   const ops: Prisma.PrismaPromise<unknown>[] = [];
   // Komponen tidak berlaku sebelum karyawan mulai bekerja: karyawan yang masuknya nanti mulai di tanggal masuknya.
   const startFor = (userId: string, from: Date | null) => {
