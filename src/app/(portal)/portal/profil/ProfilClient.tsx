@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, CalendarDays, Check, Clock, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, X } from "lucide-react";
+import { Banknote, Briefcase, CalendarDays, Check, Clock, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatRupiah } from "@/lib/utils";
 import { FAMILY_RELATIONS } from "@/lib/personal-info";
 import { PROFILE_FIELDS, fieldLabel, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 import type { DayShift } from "@/lib/schedule";
@@ -20,6 +20,7 @@ type Me = {
   department: string | null; manager: string | null; joinDate: string | null; contractEnd: string | null; tenure: string | null;
   ptkp: string | null; bpjsTk: string | null; bpjsKes: string | null;
 };
+type Salary = { effectiveDate: string; basic: number; dailyWage: number | null; monthlyFactor: number | null; allowances: { name: string; amount: number }[] };
 type Req = { id: string; status: string; changes: ProfileChanges; family: FamilyRow[] | null; reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string };
 type CalendarProps = React.ComponentProps<typeof AttendanceCalendar>;
 
@@ -51,8 +52,8 @@ const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
   </div>
 );
 
-export default function ProfilClient({ me, values, family, calendar, requests }: {
-  me: Me; values: Record<string, string>; family: FamilyRow[];
+export default function ProfilClient({ me, salary, values, family, calendar, requests }: {
+  me: Me; salary: Salary | null; values: Record<string, string>; family: FamilyRow[];
   calendar: { attendances: CalendarProps["attendances"]; leaves: CalendarProps["leaves"]; trips: CalendarProps["trips"]; shiftDays: Record<string, DayShift> };
   requests: Req[];
 }) {
@@ -134,7 +135,7 @@ export default function ProfilClient({ me, values, family, calendar, requests }:
       )}
 
       {tab === "kerja" && (
-        <div className="max-w-2xl">
+        <div className="grid gap-5 lg:grid-cols-2">
           <Section icon={Briefcase} title="Pekerjaan">
             <Row label="Jabatan" value={me.position} />
             <Row label="Departemen" value={me.department} />
@@ -145,6 +146,20 @@ export default function ProfilClient({ me, values, family, calendar, requests }:
             <Row label="Masa Kerja" value={me.tenure} />
             {me.status === "KONTRAK" && <Row label="Akhir Kontrak" value={d(me.contractEnd)} />}
             <p className="mt-2 text-[11px] text-gray-400"><T>Data pekerjaan diatur HRD.</T></p>
+          </Section>
+          <Section icon={Banknote} title="Gaji & Tunjangan">
+            {!salary ? <p className="text-sm text-gray-400"><T>Belum ada data gaji (hubungi HRD).</T></p> : (
+              <>
+                {salary.dailyWage ? <Row label="Gaji Harian" value={`${formatRupiah(salary.dailyWage)} × ${salary.monthlyFactor ?? 0}`} /> : null}
+                <Row label={salary.dailyWage ? "Gaji Pokok (setara bulanan)" : "Gaji Pokok"} value={formatRupiah(salary.basic)} />
+                {salary.allowances.map((a, i) => <Row key={i} label={a.name} value={formatRupiah(a.amount)} />)}
+                <div className="mt-1 grid grid-cols-[140px_1fr] gap-3 border-t border-gray-100 pt-2 text-sm font-semibold text-gray-900 sm:grid-cols-[180px_1fr]">
+                  <span><T>Total</T></span>
+                  <span>{formatRupiah(salary.basic + salary.allowances.reduce((n, a) => n + a.amount, 0))}</span>
+                </div>
+                <p className="mt-2 text-[11px] text-gray-400"><T>Berlaku sejak</T> {d(salary.effectiveDate)}. <T>Rincian potongan dan pajak ada di Slip Gaji.</T></p>
+              </>
+            )}
           </Section>
         </div>
       )}

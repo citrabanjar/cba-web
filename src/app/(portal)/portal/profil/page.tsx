@@ -18,7 +18,7 @@ const monthRange = () => {
 };
 
 // Profil Saya: data diri karyawan (hanya baca) + pengajuan perubahan yang disetujui Admin.
-// Gaji tidak ditampilkan di sini (cukup lewat Slip Gaji).
+// Gaji & tunjangan yang berlaku saat ini tampil di tab Pekerjaan (hanya baca).
 export default async function ProfilPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/portal");
@@ -26,7 +26,7 @@ export default async function ProfilPage() {
   const id = session.user.id;
 
   const [from, to, now] = monthRange();
-  const [user, shiftDays, requests] = await Promise.all([
+  const [user, shiftDays, requests, salary] = await Promise.all([
     prisma.user.findUnique({
       where: { id },
       select: {
@@ -42,6 +42,12 @@ export default async function ProfilPage() {
     }),
     getShiftCalendar(id, from, to),
     prisma.profileChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10 }),
+    // Gaji yang berlaku hari ini (WIB).
+    prisma.employeeSalary.findFirst({
+      where: { userId: id, effectiveDate: { lte: new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(now)}T00:00:00Z`) } },
+      orderBy: { effectiveDate: "desc" },
+      select: { effectiveDate: true, basicSalary: true, dailyWage: true, monthlyFactor: true, components: { where: { type: "TUNJANGAN" }, select: { name: true, amount: true } } },
+    }),
   ]);
   if (!user) redirect("/portal");
   const record = user as unknown as Record<string, unknown>;
@@ -58,6 +64,10 @@ export default async function ProfilPage() {
         tenure: months === null ? null : `${Math.floor(months / 12)} th ${months % 12} bln`,
         ptkp: user.ptkpStatus, bpjsTk: user.bpjsTkNumber, bpjsKes: user.bpjsKesNumber,
       }}
+      salary={salary ? {
+        effectiveDate: salary.effectiveDate.toISOString(), basic: salary.basicSalary, dailyWage: salary.dailyWage, monthlyFactor: salary.monthlyFactor,
+        allowances: salary.components.map((c) => ({ name: c.name, amount: c.amount })),
+      } : null}
       values={values}
       family={user.family.map((f) => ({ name: f.name, idNumber: f.idNumber ?? "", relation: f.relation }))}
       calendar={{ attendances: user.attendances, leaves: user.leaves, trips: user.businessTrips, shiftDays }}
