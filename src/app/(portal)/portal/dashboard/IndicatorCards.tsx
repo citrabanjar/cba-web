@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import {
-  Building2, Cake, CalendarOff, CalendarRange, FileClock, FileWarning, HandCoins, Plane, UserCheck, UserX, Users,
+  AlarmClock, Building2, Cake, CalendarOff, CalendarRange, FileClock, FileWarning, HandCoins, Plane, UserCheck, UserX, Users,
 } from "lucide-react";
 import { T } from "@/components/i18n";
 import type { Indicator, IndicatorIcon, Tone } from "./insights";
 
 const ICONS: Record<IndicatorIcon, React.ElementType> = {
   schedule: CalendarRange, users: Users, building: Building2, present: UserCheck, absent: UserX,
-  contract: FileWarning, leave: FileClock, trip: Plane, loan: HandCoins, birthday: Cake, holiday: CalendarOff,
+  contract: FileWarning, leave: FileClock, trip: Plane, loan: HandCoins, birthday: Cake, holiday: CalendarOff, late: AlarmClock,
 };
 const TONES: Record<Tone, { icon: string; glow: string; bar: string }> = {
   blue: { icon: "bg-gradient-to-br from-brand to-rose-400 text-white shadow-md shadow-brand/30", glow: "from-rose-100", bar: "from-brand to-rose-400" },

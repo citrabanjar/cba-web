@@ -2,6 +2,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadRoster, unfilledIn } from "../admin/schedule/roster";
 import { getHiddenIndicators } from "@/lib/app-settings";
+import { getShiftCalendars } from "@/lib/schedule";
+import { dayPenalty } from "@/lib/attendance-penalty";
 
 const DAY = 86_400_000;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
@@ -13,7 +15,7 @@ const monthParam = (y: number, m: number) => {
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 export type IndicatorIcon =
-  | "schedule" | "users" | "building" | "present" | "absent" | "contract" | "leave" | "trip" | "loan" | "birthday" | "holiday";
+  | "schedule" | "users" | "building" | "present" | "absent" | "contract" | "leave" | "trip" | "loan" | "birthday" | "holiday" | "late";
 export type Tone = "blue" | "emerald" | "amber" | "violet" | "rose";
 
 // Satu kartu kecil di Beranda. noteValue + note membentuk baris keterangan di bawah angka.
@@ -115,12 +117,47 @@ export async function loadInsights() {
 // Kartu running indikator Beranda (Super Admin dan Admin). Yang dimatikan Super Admin di Pengaturan,
 // dan indikator pekerjaan yang sudah beres (nilai 0), tidak ikut berjalan.
 export async function loadIndicators(): Promise<Indicator[]> {
-  const [hidden, leaveRunning] = await Promise.all([
+  const today = todayDate();
+  const todayKey = keyOf(today);
+  const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
+  const [hidden, leaveRunning, onLeave, checkIns] = await Promise.all([
     getHiddenIndicators(),
     // Pengajuan cuti yang sedang berjalan: sejak diajukan karyawan sampai diputus (disetujui / ditolak / dibatalkan).
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
+    // Cuti disetujui yang mencakup hari ini.
+    prisma.leaveRequest.findMany({
+      where: { status: "APPROVED", startDate: { lte: today }, endDate: { gte: today }, user: active },
+      orderBy: { startDate: "asc" }, select: { userId: true, user: { select: { name: true } } },
+    }),
+    // Absen masuk hari ini.
+    prisma.attendance.findMany({
+      where: { date: today, checkIn: { not: null }, user: active },
+      orderBy: { checkIn: "asc" }, select: { userId: true, checkIn: true, checkOut: true, user: { select: { name: true } } },
+    }),
   ]);
+  // Terlambat / tepat waktu dinilai dari jam masuk shift hari itu + toleransi terlambat shift.
+  const cal = checkIns.length ? await getShiftCalendars(checkIns.map((a) => a.userId), today, today) : {};
+  const late: string[] = [], onTime: string[] = [];
+  for (const a of checkIns) {
+    const p = dayPenalty(cal[a.userId]?.[todayKey], todayKey, a.checkIn, a.checkOut);
+    if (!p) continue; // tanpa shift / libur: tidak dinilai
+    (p.late ? late : onTime).push(a.user.name);
+  }
+  const leaveNames = [...new Map(onLeave.map((l) => [l.userId, l.user.name])).values()];
+  const names = (list: string[]) => (list.length ? `${list.slice(0, 2).map((n) => n.split(" ")[0]).join(", ")}${list.length > 2 ? ` +${list.length - 2}` : ""}` : undefined);
   const indicators: Indicator[] = [
+    {
+      key: "cuti-hari-ini", title: "Cuti Hari Ini", value: leaveNames.length, noteValue: names(leaveNames),
+      note: leaveNames.length ? "sedang cuti" : "Tidak ada yang cuti", icon: "holiday", tone: "violet", href: "/portal/admin/leave",
+    },
+    {
+      key: "terlambat-hari-ini", title: "Terlambat Hari Ini", value: late.length, noteValue: names(late),
+      note: late.length ? "terlambat masuk" : "Belum ada yang terlambat", icon: "late", tone: "rose", href: "/portal/admin/schedule",
+    },
+    {
+      key: "tepat-waktu-hari-ini", title: "Tepat Waktu Hari Ini", value: onTime.length, noteValue: late.length + onTime.length,
+      note: "sudah check-in", icon: "present", tone: "emerald", href: "/portal/admin/schedule",
+    },
     {
       key: "cuti-berjalan", title: "Pengajuan Cuti Berjalan", value: leaveRunning.length,
       noteValue: new Set(leaveRunning.map((l) => l.userId)).size, note: "karyawan · menunggu persetujuan",
