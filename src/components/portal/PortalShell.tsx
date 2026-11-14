@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, Clock, Calendar, CalendarClock, CalendarHeart, Landmark, Briefcase, FileText, ChevronLeft, ChevronRight,
-  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, ClipboardCheck, CircleUserRound, ArrowLeftRight, GitBranch, ShieldCheck,
+  Receipt, Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, ArrowLeftRight, GitBranch, ShieldCheck, Bell,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -30,8 +31,6 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
         ...(!isSuperAdmin(role) ? [{ href: "/portal/profil", label: "Profil Saya", icon: CircleUserRound }] : []),
         // Struktur organisasi: semua karyawan dan admin bisa melihat.
         { href: "/portal/struktur", label: "Struktur Organisasi", icon: Network },
-        // Atasan langsung & Admin/HRD: persetujuan cuti dan dinas luar.
-        ...(approvals !== null ? [{ href: "/portal/persetujuan", label: "Persetujuan", icon: ClipboardCheck, badge: approvals }] : []),
       ],
     },
   ];
@@ -363,6 +362,16 @@ export default function PortalShell({ user, storage, approvals = null, onboardin
         </button>
         <div className="lg:hidden"><LogoBadge width={150} /></div>
         <div className="ml-auto flex items-center gap-3">
+          {/* Persetujuan (atasan langsung, approver, Admin): lonceng dengan jumlah pengajuan yang menunggu. */}
+          {approvals !== null && (
+            <Link href="/portal/persetujuan" aria-label={t("Persetujuan")} title={t("Persetujuan")}
+              className={`relative flex h-9 w-9 items-center justify-center rounded-full border text-white transition-colors ${pathname.startsWith("/portal/persetujuan") ? "border-white bg-white/25" : "border-white/20 bg-white/10 hover:bg-white/20"}`}>
+              <Bell size={18} />
+              {approvals > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[10px] font-bold leading-5 text-ink">{approvals > 99 ? "99+" : approvals}</span>
+              )}
+            </Link>
+          )}
           <LanguageSwitcher />
         </div>
       </header>
