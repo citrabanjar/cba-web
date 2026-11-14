@@ -1079,6 +1079,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Dasar nilai / hari sebulan x parameter": "Base / days in month x parameter",
+  "Contoh: potongan mangkir = gaji pokok / jumlah hari bulan berjalan (28-31) x hari mangkir.": "Example: absence deduction = base salary / days in the current month (28-31) x absent days.",
   "Dinas Hari Ini": "On Trip Today",
   "Karyawan yang sedang dinas luar (disetujui) hari ini.": "Employees on an approved business trip today.",
   "sedang dinas luar": "on a business trip",
