@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/roles";
 import { getShiftCalendar } from "@/lib/schedule";
+import { visibleBalances } from "@/lib/leave-balance";
 import { PROFILE_KEYS, profileValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 import ProfilClient from "./ProfilClient";
 
@@ -26,7 +27,7 @@ export default async function ProfilPage() {
   const id = session.user.id;
 
   const [from, to, now] = monthRange();
-  const [user, shiftDays, requests, salary] = await Promise.all([
+  const [user, shiftDays, requests, salary, balances, loans, lastSlip] = await Promise.all([
     prisma.user.findUnique({
       where: { id },
       select: {
@@ -48,6 +49,13 @@ export default async function ProfilPage() {
       orderBy: { effectiveDate: "desc" },
       select: { effectiveDate: true, basicSalary: true, dailyWage: true, monthlyFactor: true, components: { where: { type: "TUNJANGAN" }, select: { name: true, amount: true } } },
     }),
+    visibleBalances([id]),
+    // Pinjaman yang masih berjalan / disetujui (belum lunas).
+    prisma.employeeLoan.findMany({
+      where: { userId: id, status: { in: ["DISETUJUI", "BERJALAN"] } }, orderBy: { createdAt: "asc" },
+      select: { seqNo: true, principal: true, status: true, installments: { select: { amount: true, status: true, period: true }, orderBy: { seq: "asc" } } },
+    }),
+    prisma.payslip.findFirst({ where: { userId: id }, orderBy: { period: "desc" }, select: { periodLabel: true, netPay: true } }),
   ]);
   if (!user) redirect("/portal");
   const record = user as unknown as Record<string, unknown>;
@@ -68,6 +76,15 @@ export default async function ProfilPage() {
         effectiveDate: salary.effectiveDate.toISOString(), basic: salary.basicSalary, dailyWage: salary.dailyWage, monthlyFactor: salary.monthlyFactor,
         allowances: salary.components.map((c) => ({ name: c.name, amount: c.amount })),
       } : null}
+      balances={balances}
+      loans={loans.map((l) => {
+        const left = l.installments.filter((i) => i.status !== "LUNAS");
+        return {
+          no: l.seqNo ?? 0, principal: l.principal, status: l.status, remaining: left.reduce((n, i) => n + i.amount, 0),
+          left: left.length, tenor: l.installments.length, monthly: left[0]?.amount ?? l.installments[0]?.amount ?? 0, next: left[0]?.period ?? null,
+        };
+      })}
+      lastSlip={lastSlip}
       values={values}
       family={user.family.map((f) => ({ name: f.name, idNumber: f.idNumber ?? "", relation: f.relation }))}
       calendar={{ attendances: user.attendances, leaves: user.leaves, trips: user.businessTrips, shiftDays }}

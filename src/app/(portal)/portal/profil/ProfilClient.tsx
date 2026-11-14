@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Banknote, Briefcase, CalendarDays, Check, Clock, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, X } from "lucide-react";
+import Link from "next/link";
+import { Banknote, Briefcase, CalendarDays, CalendarHeart, Check, Clock, FileText, HandCoins, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, Wallet, X } from "lucide-react";
+import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
+import type { BalanceRow } from "@/lib/leave-balance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +24,7 @@ type Me = {
   ptkp: string | null; bpjsTk: string | null; bpjsKes: string | null;
 };
 type Salary = { effectiveDate: string; basic: number; dailyWage: number | null; monthlyFactor: number | null; allowances: { name: string; amount: number }[] };
+type Loan = { no: number; principal: number; status: string; remaining: number; left: number; tenor: number; monthly: number; next: string | null };
 type Req = { id: string; status: string; changes: ProfileChanges; family: FamilyRow[] | null; reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string };
 type CalendarProps = React.ComponentProps<typeof AttendanceCalendar>;
 
@@ -52,8 +56,9 @@ const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
   </div>
 );
 
-export default function ProfilClient({ me, salary, values, family, calendar, requests }: {
-  me: Me; salary: Salary | null; values: Record<string, string>; family: FamilyRow[];
+export default function ProfilClient({ me, salary, balances, loans, lastSlip, values, family, calendar, requests }: {
+  me: Me; salary: Salary | null; balances: BalanceRow[]; loans: Loan[]; lastSlip: { periodLabel: string; netPay: number } | null;
+  values: Record<string, string>; family: FamilyRow[];
   calendar: { attendances: CalendarProps["attendances"]; leaves: CalendarProps["leaves"]; trips: CalendarProps["trips"]; shiftDays: Record<string, DayShift> };
   requests: Req[];
 }) {
@@ -66,6 +71,7 @@ export default function ProfilClient({ me, salary, values, family, calendar, req
     { key: "data", label: "Data Diri", icon: User },
     { key: "kerja", label: "Pekerjaan", icon: Briefcase },
     { key: "hadir", label: "Kehadiran", icon: CalendarDays },
+    { key: "saldo", label: "Saldo & Keuangan", icon: Wallet },
     { key: "akun", label: "Akun", icon: UserCog },
   ];
   const [tab, setTab] = useState("data");
@@ -135,7 +141,7 @@ export default function ProfilClient({ me, salary, values, family, calendar, req
       )}
 
       {tab === "kerja" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="max-w-2xl">
           <Section icon={Briefcase} title="Pekerjaan">
             <Row label="Jabatan" value={me.position} />
             <Row label="Departemen" value={me.department} />
@@ -146,6 +152,33 @@ export default function ProfilClient({ me, salary, values, family, calendar, req
             <Row label="Masa Kerja" value={me.tenure} />
             {me.status === "KONTRAK" && <Row label="Akhir Kontrak" value={d(me.contractEnd)} />}
             <p className="mt-2 text-[11px] text-gray-400"><T>Data pekerjaan diatur HRD.</T></p>
+          </Section>
+        </div>
+      )}
+
+      {tab === "saldo" && (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Section icon={CalendarHeart} title="Saldo Cuti" action={<Link href="/portal/cuti" className="text-xs font-semibold text-brand"><T>Ajukan Cuti →</T></Link>}>
+            {balances.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada saldo cuti.</T></p> : <LeaveBalanceCard rows={balances} compact />}
+          </Section>
+          <Section icon={HandCoins} title="Saldo Pinjaman" action={<Link href="/portal/pinjaman" className="text-xs font-semibold text-brand"><T>Lihat Pinjaman →</T></Link>}>
+            {loans.length === 0 ? <p className="text-sm text-gray-400"><T>Tidak ada pinjaman berjalan.</T></p> : (
+              <>
+                {loans.map((l, i) => (
+                  <div key={i} className="border-b border-gray-100 py-2 last:border-b-0">
+                    <p className="text-sm font-semibold text-gray-900"><T>Pinjaman ke-</T>{l.no} · {formatRupiah(l.principal)}{l.status === "DISETUJUI" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"><T>Belum dicairkan</T></span>}</p>
+                    <Row label="Sisa pinjaman" value={formatRupiah(l.remaining)} />
+                    <Row label="Angsuran per bulan" value={formatRupiah(l.monthly)} />
+                    <Row label="Sisa angsuran" value={`${l.left} / ${l.tenor}${l.next ? ` · ${t("mulai")} ${l.next}` : ""}`} />
+                  </div>
+                ))}
+                {loans.length > 1 && (
+                  <div className="mt-1 grid grid-cols-[140px_1fr] gap-3 pt-2 text-sm font-semibold text-gray-900 sm:grid-cols-[180px_1fr]">
+                    <span><T>Total sisa</T></span><span>{formatRupiah(loans.reduce((n, l) => n + l.remaining, 0))}</span>
+                  </div>
+                )}
+              </>
+            )}
           </Section>
           <Section icon={Banknote} title="Gaji & Tunjangan">
             {!salary ? <p className="text-sm text-gray-400"><T>Belum ada data gaji (hubungi HRD).</T></p> : (
@@ -158,6 +191,15 @@ export default function ProfilClient({ me, salary, values, family, calendar, req
                   <span>{formatRupiah(salary.basic + salary.allowances.reduce((n, a) => n + a.amount, 0))}</span>
                 </div>
                 <p className="mt-2 text-[11px] text-gray-400"><T>Berlaku sejak</T> {d(salary.effectiveDate)}. <T>Rincian potongan dan pajak ada di Slip Gaji.</T></p>
+              </>
+            )}
+          </Section>
+          <Section icon={FileText} title="Slip Gaji Terakhir" action={<Link href="/portal/payslip" className="text-xs font-semibold text-brand"><T>Semua Slip →</T></Link>}>
+            {!lastSlip ? <p className="text-sm text-gray-400"><T>Belum ada slip gaji.</T></p> : (
+              <>
+                <Row label="Periode" value={lastSlip.periodLabel} />
+                <Row label="Gaji diterima (THP)" value={formatRupiah(lastSlip.netPay)} />
+                <p className="mt-2 text-[11px] text-gray-400"><T>Rincian dan bukti potong PPh 21 ada di menu Slip Gaji dan PPh 21.</T></p>
               </>
             )}
           </Section>
