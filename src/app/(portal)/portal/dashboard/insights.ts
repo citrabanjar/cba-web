@@ -120,7 +120,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const today = todayDate();
   const todayKey = keyOf(today);
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
-  const [hidden, leaveRunning, onLeave, checkIns] = await Promise.all([
+  const [hidden, leaveRunning, onLeave, checkIns, onTrip] = await Promise.all([
     getHiddenIndicators(),
     // Pengajuan cuti yang sedang berjalan: sejak diajukan karyawan sampai diputus (disetujui / ditolak / dibatalkan).
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
@@ -134,6 +134,11 @@ export async function loadIndicators(): Promise<Indicator[]> {
       where: { date: today, checkIn: { not: null }, user: active },
       orderBy: { checkIn: "asc" }, select: { userId: true, checkIn: true, checkOut: true, user: { select: { name: true } } },
     }),
+    // Dinas luar disetujui yang mencakup hari ini.
+    prisma.businessTrip.findMany({
+      where: { status: "APPROVED", startDate: { lte: today }, endDate: { gte: today }, user: active },
+      orderBy: { startDate: "asc" }, select: { userId: true, destination: true, user: { select: { name: true } } },
+    }),
   ]);
   // Terlambat / tepat waktu dinilai dari jam masuk shift hari itu + toleransi terlambat shift.
   const cal = checkIns.length ? await getShiftCalendars(checkIns.map((a) => a.userId), today, today) : {};
@@ -144,11 +149,16 @@ export async function loadIndicators(): Promise<Indicator[]> {
     (p.late ? late : onTime).push(a.user.name);
   }
   const leaveNames = [...new Map(onLeave.map((l) => [l.userId, l.user.name])).values()];
+  const tripNames = [...new Map(onTrip.map((t) => [t.userId, t.user.name])).values()];
   const names = (list: string[]) => (list.length ? `${list.slice(0, 2).map((n) => n.split(" ")[0]).join(", ")}${list.length > 2 ? ` +${list.length - 2}` : ""}` : undefined);
   const indicators: Indicator[] = [
     {
       key: "cuti-hari-ini", title: "Cuti Hari Ini", value: leaveNames.length, noteValue: names(leaveNames),
       note: leaveNames.length ? "sedang cuti" : "Tidak ada yang cuti", icon: "holiday", tone: "violet", href: "/portal/admin/leave",
+    },
+    {
+      key: "dinas-hari-ini", title: "Dinas Hari Ini", value: tripNames.length, noteValue: names(tripNames),
+      note: tripNames.length ? "sedang dinas luar" : "Tidak ada yang dinas", icon: "trip", tone: "blue", href: "/portal/persetujuan",
     },
     {
       key: "terlambat-hari-ini", title: "Terlambat Hari Ini", value: late.length, noteValue: names(late),
