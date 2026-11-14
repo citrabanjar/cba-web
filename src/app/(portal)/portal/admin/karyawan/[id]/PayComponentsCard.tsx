@@ -26,9 +26,11 @@ const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" 
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 // Status tempelan pada hari ini.
-function status(a: PayComponentRow["assigned"]) {
+// Tanpa tanggal Mulai = sejak tanggal masuk; karyawan yang belum masuk belum mendapat komponen.
+function status(a: PayComponentRow["assigned"], joinDate: string | null = null) {
   if (!a) return { label: "Tidak dapat", tone: "bg-gray-100 text-gray-500", active: false };
   const t = today();
+  if (!a.startDate && joinDate && joinDate > t) return { label: `Mulai ${fmt(joinDate)}`, tone: "bg-sky-50 text-sky-700", active: false };
   if (a.endDate && a.endDate < t) return { label: `Berakhir ${fmt(a.endDate)}`, tone: "bg-gray-100 text-gray-500", active: false };
   if (a.startDate && a.startDate > t) return { label: `Mulai ${fmt(a.startDate)}`, tone: "bg-sky-50 text-sky-700", active: false };
   return { label: a.endDate ? `Berlaku s/d ${fmt(a.endDate)}` : "Berlaku", tone: "bg-emerald-50 text-emerald-700", active: true };
@@ -99,7 +101,7 @@ export default function PayComponentsCard({ userId, rows, joinDate = null }: { u
   // Tertempel lebih dulu, yang belum tertempel di bawah tiap kelompok.
   const visible = [...rows.filter((r) => r.assigned), ...rows.filter((r) => !r.assigned)];
   const notAssigned = rows.filter((r) => !r.assigned).length;
-  const activeCount = rows.filter((r) => status(r.assigned).active).length;
+  const activeCount = rows.filter((r) => status(r.assigned, joinDate).active).length;
   return (
     <section className="rounded-2xl border border-gray-200 bg-white">
       <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-3">
@@ -121,7 +123,7 @@ export default function PayComponentsCard({ userId, rows, joinDate = null }: { u
               {list.length === 0 && <p className="text-xs text-gray-400">—</p>}
               <ul className="space-y-1.5">
                 {list.map((r) => {
-                  const st = status(r.assigned);
+                  const st = status(r.assigned, joinDate);
                   return (
                     <li key={r.componentId}>
                       <button type="button" onClick={() => setEditing(r)} disabled={!canEdit}

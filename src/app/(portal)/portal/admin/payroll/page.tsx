@@ -37,7 +37,7 @@ export default async function PayrollPage() {
   return (
     <PayrollClient
       components={components.map(({ employees: assigned, createdAt, updatedAt, ...c }) => ({
-        ...c, params: (c.params as PayParams | null) ?? null, employeeIds: assigned.filter((e) => (!e.endDate || e.endDate >= today) && (!e.startDate || e.startDate <= today)).map((e) => e.userId),
+        ...c, params: (c.params as PayParams | null) ?? null, employeeIds: assigned.filter((e) => !e.endDate || e.endDate >= today).map((e) => e.userId), // termasuk yang mulai nanti (karyawan baru)
         createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString(),
       }))}
       employees={employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId ?? "", department: e.department?.name ?? null }))}

@@ -117,13 +117,15 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
 // Tempel komponen ke karyawan: daftar karyawan yang dicentang menggantikan daftar sebelumnya.
 export async function setComponentAssignments(componentId: string, userIds: string[]): Promise<Result> {
   const access = await requirePayroll();
-  const valid = await prisma.user.findMany({ where: { id: { in: userIds }, role: { not: "SUPER_ADMIN" } }, select: { id: true } });
+  const valid = await prisma.user.findMany({ where: { id: { in: userIds }, role: { not: "SUPER_ADMIN" } }, select: { id: true, joinDate: true } });
   const ids = valid.map((u) => u.id);
+  const joinOf = new Map(valid.map((u) => [u.id, u.joinDate]));
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
   const yesterday = new Date(today.getTime() - 86_400_000);
   const rows = await prisma.employeePayComponent.findMany({ where: { componentId } });
   {
-    const isOn = (r: (typeof rows)[number]) => (!r.endDate || r.endDate >= today) && (!r.startDate || r.startDate <= today);
+    // Termasuk tempelan yang baru mulai nanti (karyawan baru): belum berakhir = masih ditempel.
+    const isOn = (r: (typeof rows)[number]) => !r.endDate || r.endDate >= today;
     const was = new Set(rows.filter(isOn).map((r) => r.userId));
     const added = ids.filter((u) => !was.has(u)), removed = [...was].filter((u) => !ids.includes(u));
     const names = new Map((await prisma.user.findMany({ where: { id: { in: [...added, ...removed] } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
@@ -140,12 +142,21 @@ export async function setComponentAssignments(componentId: string, userIds: stri
     if (held) return held;
   }
   const ops: Prisma.PrismaPromise<unknown>[] = [];
+  // Komponen tidak berlaku sebelum karyawan mulai bekerja: karyawan yang masuknya nanti mulai di tanggal masuknya.
+  const startFor = (userId: string, from: Date | null) => {
+    const join = joinOf.get(userId) ?? null;
+    if (join && join > today) return join;
+    return from;
+  };
   for (const r of rows) {
-    const activeNow = (!r.endDate || r.endDate >= today) && (!r.startDate || r.startDate <= today);
+    const notEnded = !r.endDate || r.endDate >= today;
     if (ids.includes(r.userId)) {
-      // Dicentang lagi padahal sudah berakhir: berlaku kembali mulai hari ini.
-      if (r.endDate && r.endDate < today) ops.push(prisma.employeePayComponent.update({ where: { id: r.id }, data: { startDate: today, endDate: null } }));
-    } else if (activeNow) {
+      // Dicentang lagi padahal sudah berakhir: berlaku kembali mulai hari ini (atau tanggal masuk bila belum masuk).
+      if (r.endDate && r.endDate < today) ops.push(prisma.employeePayComponent.update({ where: { id: r.id }, data: { startDate: startFor(r.userId, today), endDate: null } }));
+    } else if (notEnded && r.startDate && r.startDate > today) {
+      // Dilepas sebelum sempat berlaku (karyawan baru): hapus saja.
+      ops.push(prisma.employeePayComponent.delete({ where: { id: r.id } }));
+    } else if (notEnded) {
       // Dilepas: tempelan polos dihapus; yang punya riwayat tanggal/keterangan diakhiri kemarin.
       ops.push(r.startDate || r.endDate || r.note
         ? prisma.employeePayComponent.update({ where: { id: r.id }, data: { endDate: yesterday } })
@@ -154,7 +165,7 @@ export async function setComponentAssignments(componentId: string, userIds: stri
   }
   const existing = new Set(rows.map((r) => r.userId));
   ops.push(prisma.employeePayComponent.createMany({
-    data: ids.filter((u) => !existing.has(u)).map((userId) => ({ userId, componentId, createdBy: access.name ?? null })),
+    data: ids.filter((u) => !existing.has(u)).map((userId) => ({ userId, componentId, startDate: startFor(userId, null), createdBy: access.name ?? null })),
   }));
   await prisma.$transaction(ops);
   revalidatePath(PATH);
