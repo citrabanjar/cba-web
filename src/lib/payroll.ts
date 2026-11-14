@@ -79,7 +79,7 @@ export type PayParams = {
   divisor?: number; work?: Tier[]; rest?: Tier[] | null; // upah lembur; rest null = tarif hari libur sama dengan hari kerja
   months?: number; minMonths?: number; proportional?: boolean; // THR / bonus
   hoursPerDay?: number; // dasar nilai / hari sebulan / jam: jam kerja per hari tetap (bila tidak ikut shift)
-  shiftHours?: boolean; // jam kerja per hari ikut lama kerja shift hari itu (tanpa istirahat)
+  shiftHours?: boolean; // jam kerja per hari ikut lama shift hari itu (jam masuk s/d pulang, termasuk istirahat)
   reducesGross?: boolean; // potongan mengurangi penghasilan bruto PPh 21
   workday?: number[]; rest6?: number[]; rest5?: number[]; // format lama lembur
 };

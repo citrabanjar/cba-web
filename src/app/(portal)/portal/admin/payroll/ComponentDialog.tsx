@@ -267,7 +267,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                         {!p.shiftHours && <Input type="number" min={1} max={24} step="0.5" value={p.hoursPerDay ?? 8} onChange={(e) => setParam({ hoursPerDay: Number(e.target.value) })} />}
                       </div>
                       <p className="text-[11px] text-gray-400"><T>{p.shiftHours
-                        ? "Tarif per jam = dasar nilai / jumlah hari bulan berjalan (28-31) / jam kerja shift hari itu tanpa istirahat (mis. hari biasa 8 jam, Sabtu 5 jam)."
+                        ? "Tarif per jam = dasar nilai / jumlah hari bulan berjalan (28-31) / lama shift hari itu termasuk istirahat (mis. 08.00-16.00 = 8 jam, Sabtu 07.00-12.00 = 5 jam)."
                         : "Tarif per jam = dasar nilai / jumlah hari bulan berjalan (28-31) / jam yang diisi."}</T></p>
                     </div>
                   )}

@@ -39,16 +39,15 @@ export default function DeductionCalculator() {
   const [base, setBase] = useState("4000000");
   const [month, setMonth] = useState(thisMonth);
   // Mangkir
-  const [workDays, setWorkDays] = useState("21");
   const [absent, setAbsent] = useState("1");
   // Terlambat / pulang cepat
   const [shift, setShift] = useState({ start: "08:00", end: "16:00", breakStart: "12:00", breakEnd: "13:00", tolerance: "5" });
-  const [hoursPerDay, setHoursPerDay] = useState("8");
   const [rows, setRows] = useState<Row[]>([{ checkIn: "08:40", checkOut: "16:00" }, { checkIn: "08:00", checkOut: "13:25" }]);
 
   const b = Number(base) || 0;
   const monthDays = daysIn(month || thisMonth());
-  const wd = Number(workDays) || 0;
+  // Pembagi mangkir = jumlah hari bulan berjalan (libur adalah hak karyawan).
+  const wd = monthDays;
   const absentDays = Number(absent) || 0;
   const absentCut = wd ? (b / wd) * absentDays : 0;
 
@@ -66,7 +65,8 @@ export default function DeductionCalculator() {
     const outNext = crosses ? (r.checkOut ? r.checkOut <= shift.end || r.checkOut < shift.start : false) : false;
     return dayPenalty(day, dateKey, at(r.checkIn, inNext), r.checkOut ? at(r.checkOut, outNext) : null);
   });
-  const hours = Number(hoursPerDay) || 8;
+  // Pembagi tarif per jam = lama shift (jam masuk s/d pulang) termasuk istirahat.
+  const hours = dayPenalty(day, dateKey, null, null)?.workHours || 8;
   const lateHours = results.reduce((a, p) => a + (p?.lateHours ?? 0), 0);
   const earlyHours = results.reduce((a, p) => a + (p?.earlyHours ?? 0), 0);
   const hourly = monthDays && hours ? b / monthDays / hours : 0;
@@ -96,15 +96,15 @@ export default function DeductionCalculator() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Box title="Potongan Mangkir">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Hari kerja dalam periode" hint="Jumlah hari kerja terjadwal karyawan bulan itu.">
-              <Input type="number" value={workDays} onChange={(e) => setWorkDays(e.target.value)} />
+            <Field label="Hari dalam bulan" hint="Pembagi = jumlah hari bulan berjalan (28-31), termasuk hari libur.">
+              <Input type="number" value={wd} readOnly className="bg-gray-50" />
             </Field>
             <Field label="Hari mangkir">
               <Input type="number" step="0.5" value={absent} onChange={(e) => setAbsent(e.target.value)} />
             </Field>
           </div>
           <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm">
-            <p className="text-xs text-gray-500">{rp(b)} / {wd} <T>hari kerja</T> × {num(absentDays)} <T>hari</T></p>
+            <p className="text-xs text-gray-500">{rp(b)} / {wd} <T>hari</T> × {num(absentDays)} <T>hari</T></p>
             <p className="mt-1 text-lg font-bold text-gray-900">{rp(absentCut)}</p>
             <p className="text-[11px] text-gray-400"><T>Per hari</T>: {rp(wd ? b / wd : 0)}</p>
           </div>
@@ -119,8 +119,8 @@ export default function DeductionCalculator() {
             </Field>
             <Field label="Istirahat mulai"><Input type="time" value={shift.breakStart} onChange={(e) => setShift({ ...shift, breakStart: e.target.value })} /></Field>
             <Field label="Istirahat selesai"><Input type="time" value={shift.breakEnd} onChange={(e) => setShift({ ...shift, breakEnd: e.target.value })} /></Field>
-            <Field label="Jam kerja per hari" hint="Pembagi tarif per jam (aturan CBA: 8).">
-              <Input type="number" value={hoursPerDay} onChange={(e) => setHoursPerDay(e.target.value)} />
+            <Field label="Jam kerja per hari" hint="Lama shift dari jam masuk s/d pulang, termasuk istirahat (pembagi tarif per jam).">
+              <Input type="number" value={hours} readOnly className="bg-gray-50" />
             </Field>
           </div>
 
