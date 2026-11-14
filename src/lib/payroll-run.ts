@@ -120,7 +120,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     for (const l of leaves) {
       const a = utc(l.startDate) < a0 ? a0 : utc(l.startDate), b = utc(l.endDate) > b0 ? b0 : utc(l.endDate);
       if (a > b) continue;
-      const days = l.halfDay ? 0.5 : await countLeaveDays(userId, a, b, "HARI_KERJA");
+      const days = l.halfDay ? 0.5 : await countLeaveDays(userId, a, b, "HARI_KERJA", { halfShifts: true });
       all += days;
       if (l.policy && !l.policy.paid) unpaid += days;
       else if (l.unpaidDays > 0 && utc(l.endDate) <= b0) unpaid += Math.min(l.unpaidDays, days);

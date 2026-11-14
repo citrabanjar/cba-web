@@ -58,7 +58,8 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
     return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai.` };
   }
 
-  let totalDays = await countLeaveDays(userId, start, end, policy.unit);
+  // Shift setengah hari (mis. Sabtu) dihitung 0,5 hari.
+  let totalDays = await countLeaveDays(userId, start, end, policy.unit, { halfShifts: true });
   if (totalDays <= 0) return { error: "Tidak ada hari kerja di rentang tanggal itu." };
   // Setengah hari: satu tanggal kerja, dihitung 0,5 hari.
   const halfDay = dayPart === "AWAL" || dayPart === "AKHIR" ? dayPart : null;

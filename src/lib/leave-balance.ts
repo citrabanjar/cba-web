@@ -70,9 +70,21 @@ export function legacyType(category: string): LeaveType {
   return "LAINNYA";
 }
 
+// Jam kerja efektif sebuah shift (menit): lama shift dikurangi istirahat.
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const span = (a: string, b: string) => { const d = toMin(b) - toMin(a); return d <= 0 ? d + 1440 : d; };
+function effectiveMinutes(s: { isOff: boolean; startTime: string | null; endTime: string | null; breaks?: unknown }) {
+  if (s.isOff || !s.startTime || !s.endTime) return 0;
+  const breaks = Array.isArray(s.breaks) ? (s.breaks as { start?: string; end?: string }[]) : [];
+  return span(s.startTime, s.endTime) - breaks.reduce((n, b) => n + (b?.start && b?.end ? span(b.start, b.end) : 0), 0);
+}
+// Shift setengah hari (mis. Sabtu 08:00–13:00) = jam efektifnya kurang dari 3/4 shift aktif terpanjang.
+export const HALF_SHIFT_RATIO = 0.75;
+
 // Jumlah hari cuti dalam rentang tanggal. Hari kerja mengikuti jadwal karyawan (shift bukan OFF);
 // kalau karyawan belum punya jadwal, dihitung Senin–Sabtu di luar hari libur.
-export async function countLeaveDays(userId: string, start: Date, end: Date, unit: string) {
+// halfShifts: hari dengan shift setengah hari dihitung 0,5 (untuk pengajuan cuti; hitungan hari kerja payroll tidak).
+export async function countLeaveDays(userId: string, start: Date, end: Date, unit: string, opts: { halfShifts?: boolean } = {}) {
   const calendarDays = Math.round((utc(end).getTime() - utc(start).getTime()) / DAY) + 1;
   if (unit !== "HARI_KERJA") return calendarDays;
   const [cal, holidays] = await Promise.all([
@@ -80,12 +92,22 @@ export async function countLeaveDays(userId: string, start: Date, end: Date, uni
     prisma.holiday.findMany({ where: { date: { gte: utc(start), lte: utc(end) } }, select: { date: true } }),
   ]);
   const off = new Set(holidays.map((h) => keyOf(h.date)));
+  let longest = 0;
+  if (opts.halfShifts) {
+    const shifts = await prisma.workShift.findMany({ where: { isActive: true, isOff: false }, select: { isOff: true, startTime: true, endTime: true, breaks: true } });
+    longest = Math.max(0, ...shifts.map(effectiveMinutes));
+  }
+  const dayValue = (s: { isOff: boolean; startTime: string | null; endTime: string | null; breaks?: unknown }) => {
+    if (!longest) return 1;
+    const m = effectiveMinutes(s);
+    return m > 0 && m < longest * HALF_SHIFT_RATIO ? 0.5 : 1;
+  };
   let n = 0;
   for (let t = utc(start).getTime(); t <= utc(end).getTime(); t += DAY) {
     const k = keyOf(new Date(t));
     const s = cal[k];
     // Jadwal manual yang belum diisi dianggap hari kerja.
-    if (s) { if (!s.isOff) n += 1; continue; }
+    if (s) { if (!s.isOff) n += dayValue(s); continue; }
     if (new Date(t).getUTCDay() !== 0 && !off.has(k)) n += 1;
   }
   return n;
