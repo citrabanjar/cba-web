@@ -11,7 +11,6 @@ export const MENUS = [
   { key: "karyawan", label: "Data Karyawan", desc: "Lihat dan ubah data karyawan", levels: ["view", "propose", "edit"] },
   { key: "gaji", label: "Gaji & Payroll", desc: "Lihat gaji, riwayat gaji, dan slip gaji", levels: ["view", "edit"] },
   { key: "import", label: "Import Data", desc: "Upload data karyawan dari Excel", levels: ["edit"] },
-  { key: "perusahaan", label: "Company", desc: "Lihat struktur organisasi perusahaan", levels: ["view"] },
   { key: "absensi", label: "Absensi & Cuti", desc: "Schedule, jadwal kerja, aturan absensi, jenis & saldo cuti", levels: ["view", "edit"] },
   { key: "prakaryawan", label: "Pra-Karyawan", desc: "Rekrutmen dan onboarding calon karyawan", levels: ["view", "edit"] },
   { key: "pinjaman", label: "Pinjaman Karyawan", desc: "Kelola pinjaman dan cicilan karyawan", levels: ["view", "edit"] },

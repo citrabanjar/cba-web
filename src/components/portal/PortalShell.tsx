@@ -28,6 +28,8 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
         { href: "/portal/dashboard", label: "Beranda", icon: Home },
         // Profil Saya: data diri karyawan (Super Admin bukan karyawan).
         ...(!isSuperAdmin(role) ? [{ href: "/portal/profil", label: "Profil Saya", icon: CircleUserRound }] : []),
+        // Struktur organisasi: semua karyawan dan admin bisa melihat.
+        { href: "/portal/struktur", label: "Struktur Organisasi", icon: Network },
         // Atasan langsung & Admin/HRD: persetujuan cuti dan dinas luar.
         ...(approvals !== null ? [{ href: "/portal/persetujuan", label: "Persetujuan", icon: ClipboardCheck, badge: approvals }] : []),
       ],
@@ -73,9 +75,8 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     ...(can("karyawan") ? [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }] : []),
     ...(can("prakaryawan") && onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
   ]);
-  // COMPANY: struktur organisasi, Organisasi (Super Admin), dan Workflow (Admin, bila fitur Workflow aktif).
+  // COMPANY: Organisasi dan Workflow (Super Admin; Workflow bila fiturnya aktif).
   add("COMPANY", [
-    ...(can("perusahaan") ? [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }] : []),
     ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
     ...(isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
   ]);
