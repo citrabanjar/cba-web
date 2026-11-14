@@ -1311,7 +1311,7 @@ export default function KaryawanDetailClient({
             {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
             {proposeOnly && (
               <div className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                <T>Perubahan akan diajukan ke atasan langsung Anda dan baru berlaku setelah disetujui.</T>
+                <T>Perubahan ini wajib approval: baru berlaku setelah disetujui atasan karyawan ini sesuai bagan.</T>
               </div>
             )}
             {editing && canEdit && EDIT_MODES[editing] && (

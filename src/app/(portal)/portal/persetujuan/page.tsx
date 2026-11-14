@@ -59,7 +59,10 @@ export default async function PersetujuanPage() {
     }),
     // Ubah data karyawan oleh Admin berhak "Ajukan": diputus atasan langsung si Admin.
     prisma.employeeEditRequest.findMany({
-      where: { approverId: a.id, OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }] },
+      where: {
+        OR: [{ approverId: a.id }, { data: { path: ["__approval"], array_contains: [{ id: a.id }] } }],
+        AND: [{ OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }, { createdAt: { gte: since } }] }],
+      },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 100,
     }),
   ]);
@@ -134,6 +137,8 @@ export default async function PersetujuanPage() {
       <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} master={master}
         edits={editReqs.map((r) => ({
           id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, note: r.note,
+          mine: r.status === "PENDING" && r.approverId === a.id,
+          steps: (((r.data as { __approval?: unknown } | null)?.__approval as { name: string; level: number; decision: string; at: string; note: string }[] | undefined) ?? []),
           summary: (r.summary as { field: string; oldValue: string | null; newValue: string | null }[]) ?? [],
           createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
         }))} />

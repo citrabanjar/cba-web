@@ -6,7 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
 
 export const ADMIN_ROLES_KEY = "admin-roles";
-export type AdminRole = { id: string; name: string; desc: string; menus: string[]; members: string[] };
+// approvalLevels: untuk hak "Ajukan" Data Karyawan — level atasan (dari bagan karyawan yang diubah) yang menyetujui: 1 = atasan langsung, 2 = atasan dari atasan langsung.
+export type AdminRole = { id: string; name: string; desc: string; menus: string[]; members: string[]; approvalLevels: number };
+export const MAX_APPROVAL_LEVELS = 2;
 
 // Isian menus: "karyawan" = edit, "karyawan:lihat" = lihat saja (hanya tingkat yang tersedia untuk menu itu).
 const known = new Set<string>(MENUS.flatMap((m) => (m.levels as readonly MenuLevel[]).map((l) => menuEntry(m.key, l))));
@@ -29,6 +31,7 @@ function read(raw: unknown): AdminRole[] | null {
     id: str(r.id), name: str(r.name).trim(), desc: str(r.desc).trim(),
     menus: Array.isArray(r.menus) ? tidy(r.menus.map(str)) : [],
     members: Array.isArray(r.members) ? [...new Set(r.members.map(str).filter(Boolean))] : [],
+    approvalLevels: Math.min(MAX_APPROVAL_LEVELS, Math.max(1, Math.round(Number(r.approvalLevels) || 1))),
   })).filter((r) => r.id && r.name);
 }
 
@@ -49,6 +52,7 @@ export async function getAdminRoles(): Promise<AdminRole[]> {
     desc: "Dibuat otomatis dari hak akses Admin sebelumnya.",
     menus: k ? k.split(",") : [],
     members,
+    approvalLevels: 1,
   }));
 }
 
@@ -92,4 +96,10 @@ export async function roleMembers(roleId: string) {
   const role = (await getAdminRoles()).find((r) => r.id === roleId);
   if (!role?.members.length) return [];
   return prisma.user.findMany({ where: { id: { in: role.members }, isActive: true }, select: { id: true, name: true } });
+}
+
+// Jumlah level approval untuk Admin ini (hak Ajukan): terbesar dari peran yang memberi hak Ajukan Data Karyawan.
+export async function approvalLevelsFor(userId: string) {
+  const roles = (await getAdminRoles()).filter((r) => r.members.includes(userId) && menuLevelOf(r.menus, "karyawan") === "propose");
+  return roles.length ? Math.max(...roles.map((r) => r.approvalLevels)) : 1;
 }

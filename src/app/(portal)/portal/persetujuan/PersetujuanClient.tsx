@@ -56,11 +56,13 @@ type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara" | "ubah";
 export type EditItem = {
   id: string; status: string; person: ApprovalItem["person"]; requester: string; note: string | null;
   summary: { field: string; oldValue: string | null; newValue: string | null }[]; createdAt: string; decidedAt: string | null;
+  mine: boolean; // giliran saya memutus
+  steps: { name: string; level: number; decision: string; at: string; note: string }[]; // approval berurutan (Level 1, 2)
 };
 
 export default function PersetujuanClient({ items, profiles, swaps, interviews, master = null, edits = [] }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[]; master?: OfferMaster; edits?: EditItem[] }) {
   const [tab, setTab] = useState<TabKey>(() =>
-    edits.some((e) => e.status === "PENDING") ? "ubah" : interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
+    edits.some((e) => e.mine) ? "ubah" : interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
       : profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
   const pending = items.filter((i) => i.status === "PENDING" && i.mine).sort((a, b) => a.start.localeCompare(b.start));
   const done = items.filter((i) => i.status !== "PENDING" || !i.mine).sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
@@ -70,7 +72,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
     ["swap", "Tukar Shift", swaps.filter((s) => s.mine).length],
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
     ...(interviews.length ? [["wawancara", "Pra-Karyawan", interviews.filter((i) => i.mine).length] as [TabKey, string, number]] : []),
-    ...(edits.length ? [["ubah", "Ubah Data Karyawan", edits.filter((e) => e.status === "PENDING").length] as [TabKey, string, number]] : []),
+    ...(edits.length ? [["ubah", "Ubah Data Karyawan", edits.filter((e) => e.mine).length] as [TabKey, string, number]] : []),
   ];
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
@@ -83,7 +85,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
         ))}
       </div>
       {tab === "ubah" ? (
-        [...edits].sort((a, b) => Number(b.status === "PENDING") - Number(a.status === "PENDING") || b.createdAt.localeCompare(a.createdAt))
+        [...edits].sort((a, b) => Number(b.mine) - Number(a.mine) || b.createdAt.localeCompare(a.createdAt))
           .map((e) => <EditCard key={e.id} item={e} />)
       ) : tab === "wawancara" ? (
         [...interviews].sort((a, b) => Number(b.mine) - Number(a.mine)).map((i) => <InterviewCard master={master} key={i.id} item={i} />)
@@ -392,8 +394,20 @@ function EditCard({ item }: { item: EditItem }) {
           </tbody>
         </table>
       </div>
-      {item.note && <p className="text-xs text-gray-600">“{item.note}”</p>}
-      {item.status === "PENDING" && (
+      {item.steps.length > 0 && (
+        <ol className="space-y-1 rounded-xl bg-gray-50 px-3 py-2 text-xs">
+          {item.steps.map((x) => (
+            <li key={x.level} className="flex flex-wrap items-center gap-x-2">
+              <span>{x.decision === "SETUJU" ? "✅" : x.decision === "TOLAK" ? "❌" : "⏳"}</span>
+              <b className="text-gray-700"><T>Level</T> {x.level}</b> {x.name}
+              <span className="text-gray-500">{x.decision === "SETUJU" ? t("setuju") : x.decision === "TOLAK" ? t("menolak") : t("menunggu")}</span>
+              {x.note && <span className="w-full pl-6 text-gray-600">“{x.note}”</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {item.note && !item.steps.length && <p className="text-xs text-gray-600">“{item.note}”</p>}
+      {item.mine && (
         <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t("Catatan (wajib bila menolak)")}
             className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm" />

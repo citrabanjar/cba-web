@@ -5,6 +5,7 @@ import { canEditMenu, canProposeMenu, isSuperAdmin } from "@/lib/roles";
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { sendEditRequestEmail } from "@/lib/mailer";
+import { approvalLevelsFor } from "@/lib/admin-roles";
 import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow } from "@/lib/employee-import";
 import bcrypt from "bcryptjs";
@@ -149,46 +150,101 @@ export async function updateEmployee(id: string, data: EmployeeUpdate): Promise<
   // Hak Ajukan: password tidak bisa diubah lewat pengajuan.
   const { password: _pw, ...rest } = data;
   void _pw;
-  const me = await prisma.user.findUnique({ where: { id: access.id }, select: { manager: { select: { id: true, name: true, email: true, isActive: true } } } });
-  const boss = me?.manager?.isActive ? me.manager : null;
-  if (!boss) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi perubahan belum bisa diajukan. Hubungi Super Admin." };
+  // Approver = SATU atasan dari bagan karyawan yang datanya diubah, sesuai level di Peran Admin:
+  // Level 1 = atasan langsung; Level 2 = langsung ke atasan dari atasan langsung (Level 1 tidak ikut memutus).
+  // Bila bagan tidak setinggi itu, dipakai atasan tertinggi yang ada.
+  const levels = await approvalLevelsFor(access.id);
+  const ups = await bossChain(id, levels, new Set([access.id]));
+  const chain = ups.length ? [ups[ups.length - 1]] : [];
+  if (!chain.length) return { error: "Karyawan ini belum punya atasan aktif di bagan (selain Anda), jadi perubahan belum bisa diajukan. Isi Atasan Langsung-nya dulu." };
   const { logs } = await applyEmployeeUpdate(id, rest, { role: access.role, changedBy: "", dryRun: true });
   if (!logs.length) return { error: "Tidak ada perubahan yang diajukan." };
-  const target = await prisma.user.findUnique({ where: { id }, select: { name: true, employeeId: true } });
+  const steps: EditStep[] = chain.map((u) => ({ id: u.id, name: u.name, level: ups.length, decision: "", at: "", note: "" }));
   await prisma.employeeEditRequest.create({
     data: {
-      userId: id, requesterId: access.id, requesterName: access.name ?? "", approverId: boss.id, approverName: boss.name,
-      data: rest as Prisma.InputJsonValue, summary: logs as Prisma.InputJsonValue,
+      userId: id, requesterId: access.id, requesterName: access.name ?? "", approverId: steps[0].id, approverName: steps[0].name,
+      data: { ...rest, __approval: steps } as Prisma.InputJsonValue, summary: logs as Prisma.InputJsonValue,
     },
   });
-  if (boss.email) {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    const base = host ? `${h.get("x-forwarded-proto") ?? "https"}://${host}` : (process.env.NEXTAUTH_URL ?? "https://www.citrabanjar.com");
-    await sendEditRequestEmail(boss.email, boss.name, access.name ?? "Admin", `${target?.employeeId ?? ""} - ${target?.name ?? ""}`, `${base.replace(/\/$/, "")}/portal/persetujuan`);
-  }
+  await notifyEditApprover(steps[0].id, access.name ?? "Admin", id);
   revalidatePath(`${LIST_PATH}/${id}`);
   revalidatePath("/portal/persetujuan");
-  return { proposed: boss.name };
+  return { proposed: steps.map((x) => x.name).join(" → ") };
 }
 
-// Atasan memutus pengajuan perubahan data karyawan (hak Ajukan). Setuju = data diterapkan dan tercatat di History Perubahan.
+// Satu tingkat approval pengajuan ubah data (berurutan).
+export type EditStep = { id: string; name: string; level: number; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string };
+const readSteps = (data: unknown): EditStep[] => {
+  const raw = (data as { __approval?: unknown } | null)?.__approval;
+  return Array.isArray(raw) ? (raw as EditStep[]) : [];
+};
+
+// Atasan-atasan karyawan di bagan, naik satu per satu (yang tidak aktif / dikecualikan dilewati), maksimal `levels`.
+async function bossChain(userId: string, levels: number, skip: Set<string>) {
+  const out: { id: string; name: string }[] = [];
+  const seen = new Set<string>([userId]);
+  let cur = await prisma.user.findUnique({ where: { id: userId }, select: { managerId: true } });
+  for (let i = 0; i < 20 && out.length < levels && cur?.managerId && !seen.has(cur.managerId); i++) {
+    seen.add(cur.managerId);
+    const boss = await prisma.user.findUnique({ where: { id: cur.managerId }, select: { id: true, name: true, isActive: true, managerId: true } });
+    if (!boss) break;
+    if (boss.isActive && !skip.has(boss.id)) out.push({ id: boss.id, name: boss.name });
+    cur = boss;
+  }
+  return out;
+}
+
+// Email ke approver yang sedang mendapat giliran.
+async function notifyEditApprover(approverId: string, requester: string, employeeId: string) {
+  const [boss, target] = await Promise.all([
+    prisma.user.findUnique({ where: { id: approverId }, select: { name: true, email: true } }),
+    prisma.user.findUnique({ where: { id: employeeId }, select: { name: true, employeeId: true } }),
+  ]);
+  if (!boss?.email) return;
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const base = host ? `${h.get("x-forwarded-proto") ?? "https"}://${host}` : (process.env.NEXTAUTH_URL ?? "https://www.citrabanjar.com");
+  await sendEditRequestEmail(boss.email, boss.name, requester, `${target?.employeeId ?? ""} - ${target?.name ?? ""}`, `${base.replace(/\/$/, "")}/portal/persetujuan`);
+}
+
+// Approver memutus pengajuan ubah data (berurutan Level 1 → Level 2). Semua setuju = data diterapkan dan tercatat di History Perubahan.
 export async function decideEmployeeEdit(requestId: string, approve: boolean, note: string): Promise<{ error?: string }> {
   const session = await auth();
   const me = session?.user?.id;
   if (!me) return { error: "Unauthorized" };
   const r = await prisma.employeeEditRequest.findUnique({ where: { id: requestId } });
   if (!r || r.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
-  if (r.approverId !== me) return { error: "Anda bukan penyetuju pengajuan ini." };
+  if (r.approverId !== me) return { error: "Belum giliran Anda, atau Anda bukan penyetuju pengajuan ini." };
   if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const steps = readSteps(r.data);
+  const { __approval: _a, ...fields } = (r.data ?? {}) as Record<string, unknown>;
+  void _a;
+  const step = steps.find((x) => !x.decision && x.id === me);
+  if (step) Object.assign(step, { decision: approve ? "SETUJU" : "TOLAK", at: new Date().toISOString(), note: note.trim() });
+  const next = approve ? steps.find((x) => !x.decision) : undefined;
+  if (next) {
+    // Lanjut ke approver level berikutnya.
+    await prisma.employeeEditRequest.update({
+      where: { id: requestId },
+      data: { approverId: next.id, approverName: next.name, data: { ...fields, __approval: steps } as Prisma.InputJsonValue },
+    });
+    await notifyEditApprover(next.id, r.requesterName, r.userId);
+    revalidatePath(`${LIST_PATH}/${r.userId}`);
+    revalidatePath("/portal/persetujuan");
+    return {};
+  }
   if (approve) {
+    const by = steps.filter((x) => x.decision === "SETUJU").map((x) => x.name).join(", ") || r.approverName;
     try {
-      await applyEmployeeUpdate(r.userId, r.data as EmployeeUpdate, { role: "ADMIN", changedBy: `${r.requesterName} (disetujui ${r.approverName})` });
+      await applyEmployeeUpdate(r.userId, fields as EmployeeUpdate, { role: "ADMIN", changedBy: `${r.requesterName} (disetujui ${by})` });
     } catch (e) {
       return { error: `Perubahan tidak bisa diterapkan: ${e instanceof Error ? e.message : "data bentrok"}. Tolak lalu minta diajukan ulang.` };
     }
   }
-  await prisma.employeeEditRequest.update({ where: { id: requestId }, data: { status: approve ? "APPROVED" : "REJECTED", note: note.trim() || null, decidedAt: new Date() } });
+  await prisma.employeeEditRequest.update({
+    where: { id: requestId },
+    data: { status: approve ? "APPROVED" : "REJECTED", note: note.trim() || null, decidedAt: new Date(), data: { ...fields, __approval: steps } as Prisma.InputJsonValue },
+  });
   revalidatePath(`${LIST_PATH}/${r.userId}`);
   revalidatePath("/portal/persetujuan");
   return {};
