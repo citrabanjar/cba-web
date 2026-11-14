@@ -12,6 +12,8 @@ import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import { T } from "@/components/i18n";
 import AdminDashboard from "./AdminDashboard";
+import IndicatorCards from "./IndicatorCards";
+import { loadIndicators } from "./insights";
 import { prisma } from "@/lib/prisma";
 import { openAttendance } from "@/lib/attendance-assess";
 import { isApprover, pendingApprovals } from "@/lib/approval";
@@ -31,6 +33,8 @@ export default async function DashboardPage() {
   // Atasan langsung (bukan admin): kartu pengajuan bawahan yang menunggu persetujuan.
   const approver = access && !isAdmin ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const toApprove = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : 0;
+  // Running indikator: Super Admin dan semua Admin. Admin tanpa menu Data Karyawan tidak membuka panel admin, jadi kartunya dimuat di sini.
+  const indicatorOnly = !isAdmin && (user.role === "ADMIN" || superAdmin) ? await loadIndicators() : null;
   const swapAsks = !superAdmin && user.id ? await prisma.shiftSwapRequest.count({ where: { partnerId: user.id, status: "MENUNGGU_REKAN" } }) : 0;
 
   const menuItems = [
@@ -136,6 +140,12 @@ export default async function DashboardPage() {
           </span>
           <span className="text-xs font-semibold text-brand"><T>Buka →</T></span>
         </Link>
+      )}
+
+      {indicatorOnly && indicatorOnly.length > 0 && (
+        <div className="mb-6">
+          <IndicatorCards items={indicatorOnly} />
+        </div>
       )}
 
       {isAdmin && (

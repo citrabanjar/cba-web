@@ -1,6 +1,5 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/utils";
 import { loadRoster, unfilledIn } from "../admin/schedule/roster";
 import { getHiddenIndicators } from "@/lib/app-settings";
 
@@ -46,15 +45,11 @@ export async function loadInsights() {
   const employee = { role: { not: "SUPER_ADMIN" as const } };
 
   const [
-    thisMonth, nextMonth, active, presentToday, presentYesterday,
-    attendanceToday, incomplete, leaves, trips, loans, expiring60, expiring30, birthdays, nextHoliday, holidaysNextYear,
-    joinedThisYear, departments, hidden,
+    thisMonth, nextMonth,
+    attendanceToday, incomplete, leaves, trips, loans, expiring30, holidaysNextYear, indicators,
   ] = await Promise.all([
     loadRoster(monthParam(year, month), true),
     loadRoster(monthParam(year, month + 1), true),
-    prisma.user.count({ where: { ...employee, isActive: true } }),
-    prisma.attendance.count({ where: { date: today, status: { in: ["HADIR", "DINAS"] } } }),
-    prisma.attendance.count({ where: { date: addDays(today, -1), status: { in: ["HADIR", "DINAS"] } } }),
     prisma.attendance.findMany({ where: { date: today }, select: { userId: true } }),
     // Absen tidak lengkap 30 hari terakhir (lupa check-out atau lupa check-in).
     prisma.attendance.findMany({
@@ -67,19 +62,12 @@ export async function loadInsights() {
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
     prisma.businessTrip.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
     prisma.employeeLoan.findMany({ where: { status: { in: ["PENDING", "DISETUJUI"] } }, orderBy: { createdAt: "asc" }, select: { userId: true, status: true } }),
-    prisma.user.count({
-      where: { ...employee, isActive: true, employmentStatus: "KONTRAK", contractEndDate: { gte: today, lte: addDays(today, 60) } },
-    }),
     prisma.user.findMany({
       where: { ...employee, isActive: true, employmentStatus: "KONTRAK", contractEndDate: { lte: addDays(today, 30) } },
       orderBy: { contractEndDate: "asc" }, select: { id: true },
     }),
-    prisma.user.findMany({ where: { ...employee, isActive: true, birthDate: { not: null } }, select: { name: true, birthDate: true } }),
-    prisma.holiday.findFirst({ where: { date: { gte: today } }, orderBy: { date: "asc" } }),
     prisma.holiday.count({ where: { date: { gte: new Date(Date.UTC(year + 1, 0, 1)), lt: new Date(Date.UTC(year + 2, 0, 1)) } } }),
-    prisma.user.count({ where: { ...employee, joinDate: { gte: new Date(Date.UTC(year, 0, 1)) } } }),
-    prisma.department.count(),
-    getHiddenIndicators(),
+    loadIndicators(),
   ]);
 
   const now = unfilledIn(thisMonth);
@@ -94,41 +82,12 @@ export async function loadInsights() {
   });
   const notCheckedIn = scheduledToday.filter((r) => !checkedIn.has(r.id)).length;
 
-  const birthdayThisMonth = birthdays
-    .filter((b) => b.birthDate!.getUTCMonth() === month)
-    .sort((a, b) => a.birthDate!.getUTCDate() - b.birthDate!.getUTCDate());
-  const nextBirthday = birthdayThisMonth.find((b) => b.birthDate!.getUTCDate() >= today.getUTCDate());
-
   const profile = (userId?: string) => (userId ? `/portal/admin/karyawan/${userId}` : undefined);
   const rosterHref = (offset: number) => `/portal/admin/schedule?tab=jadwal&bulan=${monthParam(year, month + offset)}`;
-  const absentToday = Math.max(0, active - presentToday);
   // Pinjaman: pengajuan baru dan yang sudah disetujui tapi belum dicairkan; tautan ke tab Pinjaman profil.
   const loanRequests = loans.filter((l) => l.status === "PENDING");
   const loanToDisburse = loans.filter((l) => l.status === "DISETUJUI");
   const loanTab = (userId?: string) => (userId ? `/portal/admin/karyawan/${userId}?tab=pinjaman` : "/portal/admin/pinjaman");
-
-  const indicators: Indicator[] = [
-    { key: "schedule", title: "Shift Belum Diisi", value: now.total, noteValue: now.people, note: "karyawan · hari kerja bulan ini", icon: "schedule", tone: "amber", href: rosterHref(0), pinned: true, actionable: true },
-    { key: "present", title: "Hadir Hari Ini", value: presentToday, noteValue: presentYesterday, note: "hadir kemarin", icon: "present", tone: "emerald" },
-    { key: "absent", title: "Tidak Hadir Hari Ini", value: absentToday, noteValue: Math.max(0, active - presentYesterday), note: "tidak hadir kemarin", icon: "absent", tone: "rose" },
-    { key: "contract", title: "Kontrak Berakhir", value: expiring60, note: "dalam 60 hari ke depan", icon: "contract", tone: "amber", href: "/portal/admin/karyawan", actionable: true },
-    { key: "leave", title: "Cuti Menunggu", value: leaves.length, note: "pengajuan belum diputus", icon: "leave", tone: "violet", href: "/portal/persetujuan", actionable: true },
-    { key: "trip", title: "Dinas Menunggu", value: trips.length, note: "pengajuan belum diputus", icon: "trip", tone: "violet", href: "/portal/persetujuan", actionable: true },
-    { key: "loan", title: "Pinjaman Menunggu", value: loans.length, noteValue: loanToDisburse.length || undefined, note: loanToDisburse.length ? "menunggu pencairan" : "pengajuan pinjaman belum diproses", icon: "loan", tone: "amber", href: loanTab(loans[0]?.userId), actionable: true },
-    {
-      key: "birthday", title: "Ulang Tahun Bulan Ini", value: birthdayThisMonth.length,
-      noteValue: nextBirthday ? `${nextBirthday.name} (${nextBirthday.birthDate!.getUTCDate()})` : undefined,
-      note: nextBirthday ? "berikutnya" : "Tidak ada lagi bulan ini", icon: "birthday", tone: "rose",
-    },
-    nextHoliday
-      ? {
-          key: "holiday", title: "Libur Berikutnya", value: Math.round((nextHoliday.date.getTime() - today.getTime()) / DAY),
-          noteValue: `${formatDate(nextHoliday.date)} · ${nextHoliday.name}`, note: "hari lagi", icon: "holiday", tone: "blue", href: "/portal/admin/schedule",
-        }
-      : { key: "holiday", title: "Libur Berikutnya", value: "—", note: "Belum ada libur terjadwal", icon: "holiday", tone: "blue", href: "/portal/admin/schedule" },
-    { key: "total", title: "Total Karyawan", value: active, noteValue: joinedThisYear, note: "masuk tahun ini", icon: "users", tone: "blue", href: "/portal/admin/karyawan" },
-    { key: "departments", title: "Departemen", value: departments, note: "Termasuk grup di dalamnya", icon: "building", tone: "violet" },
-  ];
 
   const daily: Task[] = [
     { key: "shift-soon", title: "Isi shift hari ini & besok", hint: "Karyawan tanpa shift tidak bisa dinilai kehadirannya.", count: unfilledSoon, unit: "hari kerja belum ada shift", href: rosterHref(0) },
@@ -149,11 +108,26 @@ export async function loadInsights() {
       : []),
   ];
 
-  // Indikator pekerjaan yang sudah beres tidak ikut berjalan.
   const data = await loadDataTasks();
-  // Yang dimatikan Super Admin di Pengaturan, dan indikator pekerjaan yang sudah beres, tidak ikut berjalan.
-  const shown = indicators.filter((i) => !hidden.includes(i.key) && !(i.actionable && i.value === 0));
-  return { indicators: shown, daily, monthly, data };
+  return { indicators, daily, monthly, data };
+}
+
+// Kartu running indikator Beranda (Super Admin dan Admin). Yang dimatikan Super Admin di Pengaturan,
+// dan indikator pekerjaan yang sudah beres (nilai 0), tidak ikut berjalan.
+export async function loadIndicators(): Promise<Indicator[]> {
+  const [hidden, leaveRunning] = await Promise.all([
+    getHiddenIndicators(),
+    // Pengajuan cuti yang sedang berjalan: sejak diajukan karyawan sampai diputus (disetujui / ditolak / dibatalkan).
+    prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
+  ]);
+  const indicators: Indicator[] = [
+    {
+      key: "cuti-berjalan", title: "Pengajuan Cuti Berjalan", value: leaveRunning.length,
+      noteValue: new Set(leaveRunning.map((l) => l.userId)).size, note: "karyawan · menunggu persetujuan",
+      icon: "leave", tone: "violet", href: "/portal/persetujuan", actionable: true,
+    },
+  ];
+  return indicators.filter((i) => !hidden.includes(i.key) && !(i.actionable && i.value === 0));
 }
 
 // Tugas kelengkapan data karyawan aktif: siapa saja yang datanya belum diperbarui.

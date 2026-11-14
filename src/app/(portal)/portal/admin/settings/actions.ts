@@ -1,7 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEditMenu, isManagement, isSuperAdmin } from "@/lib/roles";
+import { isManagement, isSuperAdmin } from "@/lib/roles";
 import { getAccess } from "@/lib/access";
 import { revalidatePath } from "next/cache";
 import { INDICATOR_CATALOG, INDICATOR_SETTING_KEY } from "@/lib/dashboard-indicators";
@@ -38,11 +38,11 @@ export async function changeAdminPassword(
   return { success: true };
 }
 
-// Simpan kartu running indikator Beranda yang dimatikan. Khusus Admin (setup detail).
+// Simpan kartu running indikator Beranda yang dimatikan. Khusus Super Admin.
 export async function saveHiddenIndicators(hidden: string[]): Promise<{ error?: string }> {
   const session = await auth();
   const access = await getAccess();
-  if (!session?.user || !access || !canEditMenu(access, "pengaturan") || isSuperAdmin(access.role)) return { error: "Unauthorized" };
+  if (!session?.user || !access || !isSuperAdmin(access.role)) return { error: "Unauthorized" };
   const known = new Set<string>(INDICATOR_CATALOG.map((i) => i.key));
   const value = { hidden: [...new Set(hidden)].filter((k) => known.has(k)) };
   await prisma.appSetting.upsert({

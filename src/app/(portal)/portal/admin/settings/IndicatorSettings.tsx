@@ -8,7 +8,7 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { INDICATOR_CATALOG } from "@/lib/dashboard-indicators";
 import { saveHiddenIndicators } from "./actions";
 
-// Admin memilih kartu mana yang ikut di running indikator Beranda admin.
+// Super Admin memilih kartu mana yang ikut di running indikator Beranda (tampil untuk Super Admin dan Admin).
 export default function IndicatorSettings({ hidden: initial }: { hidden: string[] }) {
   const canEdit = useCanEdit(); // hak lihat saja: saklar terkunci, tombol Simpan disembunyikan
   const [hidden, setHidden] = useState<string[]>(initial);
@@ -39,7 +39,7 @@ export default function IndicatorSettings({ hidden: initial }: { hidden: string[
           <T>Running Indikator Beranda</T>
         </CardTitle>
         <p className="text-xs text-gray-400">
-          <T>Pilih kartu yang ikut berjalan di Beranda admin. Indikator pekerjaan tetap hilang sendiri saat sudah beres.</T>
+          <T>Pilih kartu yang ikut berjalan di Beranda Super Admin dan Admin. Indikator pekerjaan hilang sendiri saat sudah beres.</T>
         </p>
       </CardHeader>
       <CardContent className="space-y-1">
