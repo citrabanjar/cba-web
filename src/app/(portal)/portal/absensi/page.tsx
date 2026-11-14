@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { getMyLocations, getTodayAttendance, getWeekAttendance } from "./actions";
 import AbsensiWrapper from "./AbsensiWrapper";
 import { T } from "@/components/i18n";
-import ProfileTabs from "@/components/portal/ProfileTabs";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +21,6 @@ export default async function AbsensiPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-white px-4 pt-4 sm:px-6"><ProfileTabs /></div>
       {/* Page title */}
       <div className="px-6 py-4 border-b border-gray-100 bg-white">
         <h2 className="font-bold text-gray-800"><T>Absensi GPS</T></h2>

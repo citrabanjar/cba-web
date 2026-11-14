@@ -6,7 +6,6 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/roles";
 import { T } from "@/components/i18n";
-import ProfileTabs from "@/components/portal/ProfileTabs";
 import TukarShiftClient, { type SwapView } from "./TukarShiftClient";
 
 export const metadata: Metadata = { title: "Tukar Shift" };
@@ -39,7 +38,6 @@ export default async function TukarShiftPage() {
   }));
   return (
     <div className="min-h-full bg-gray-50">
-      <div className="bg-white px-4 pt-4 sm:px-6"><ProfileTabs /></div>
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Tukar Shift</T></h2>
         <p className="text-xs text-gray-400"><T>Tukar shift dengan rekan untuk satu tanggal. Disetujui rekan, lalu atasan langsung kalian.</T></p>

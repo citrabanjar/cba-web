@@ -8,7 +8,6 @@ import { eligible, hasBalance, todayDate, visibleBalances } from "@/lib/leave-ba
 import { getLeaveRequests } from "./actions";
 import CutiForm from "./CutiForm";
 import { T } from "@/components/i18n";
-import ProfileTabs from "@/components/portal/ProfileTabs";
 
 export const metadata: Metadata = { title: "Pengajuan Cuti" };
 
@@ -37,7 +36,6 @@ export default async function CutiPage() {
 
   return (
     <div className="bg-gray-50 min-h-full">
-      <div className="bg-white px-4 pt-4 sm:px-6"><ProfileTabs /></div>
       <div className="px-6 py-4 border-b border-gray-100 bg-white">
         <h2 className="font-bold text-gray-800"><T>Pengajuan Cuti</T></h2>
         <p className="text-xs text-gray-400 mt-0.5">{session.user.name}</p>

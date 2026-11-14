@@ -140,8 +140,7 @@ export default async function DashboardPage() {
       )}
 
       {/* Menu */}
-      {/* Jalan pintas untuk HP/tablet; di layar besar menu ada di sidebar. */}
-      {menuItems.length > 0 && <div className="lg:hidden">
+      {menuItems.length > 0 && <div>
         <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-3">
           <T>Menu</T>
         </p>
