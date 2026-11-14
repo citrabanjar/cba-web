@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { getAccess } from "@/lib/access";
-import { canEditMenu, isSuperAdmin } from "@/lib/roles";
+import { isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { normalizeWorkflow, WORKFLOW_KEY, WORKFLOW_MODULES, type WorkflowSettings } from "@/lib/workflow";
 
-// Admin menyimpan Level approval per modul.
+// Super Admin menyimpan Level approval per modul.
 export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: string }> {
   const access = await getAccess();
-  if (!access || !canEditMenu(access, "workflow") || isSuperAdmin(access.role)) return { error: "Hanya Admin yang bisa mengubah workflow." };
+  if (!access || !isSuperAdmin(access.role)) return { error: "Hanya Super Admin yang bisa mengubah workflow." };
   const v = normalizeWorkflow(input);
   const empIds = Object.values(v).flatMap((m) => m.levels.filter((l) => l.type === "EMPLOYEE").map((l) => l.value));
   const users = await prisma.user.findMany({ where: { id: { in: empIds }, isActive: true }, select: { id: true, name: true } });

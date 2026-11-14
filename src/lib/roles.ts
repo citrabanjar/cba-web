@@ -15,7 +15,7 @@ export const MENUS = [
   { key: "absensi", label: "Absensi & Cuti", desc: "Schedule, jadwal kerja, aturan absensi, jenis & saldo cuti", levels: ["view", "edit"] },
   { key: "prakaryawan", label: "Pra-Karyawan", desc: "Rekrutmen dan onboarding calon karyawan", levels: ["view", "edit"] },
   { key: "pinjaman", label: "Pinjaman Karyawan", desc: "Kelola pinjaman dan cicilan karyawan", levels: ["view", "edit"] },
-  { key: "workflow", label: "Workflow", desc: "Atur alur persetujuan pengajuan", levels: ["view", "edit"] },
+  // Workflow tidak lagi kewenangan Admin: diatur Super Admin (keputusan pemilik 2026-11-14).
   { key: "pengaturan", label: "Pengaturan", desc: "Task Admin, Agent HRD, dan running indikator Beranda", levels: ["view", "edit"] },
 ] as const;
 

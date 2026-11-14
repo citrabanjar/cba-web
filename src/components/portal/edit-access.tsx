@@ -21,7 +21,6 @@ const PAGE_MENU: [string, MenuKey][] = [
   ["/portal/admin/payroll", "gaji"],
   ["/portal/admin/pinjaman", "pinjaman"],
   ["/portal/admin/onboarding", "prakaryawan"],
-  ["/portal/admin/workflow", "workflow"],
   ["/portal/admin/perusahaan", "perusahaan"],
   ["/portal/admin/settings", "pengaturan"],
 ];

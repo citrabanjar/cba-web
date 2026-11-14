@@ -77,7 +77,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   add("COMPANY", [
     ...(can("perusahaan") ? [{ href: "/portal/admin/perusahaan", label: "Struktur Organisasi", icon: Network }] : []),
     ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
-    ...(can("workflow") && !isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+    ...(isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
   ]);
   add("PENGATURAN", can("pengaturan") ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
 
