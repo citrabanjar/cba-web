@@ -46,7 +46,7 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag, 
       <CardContent className="space-y-3">
         <Feature icon={GitBranch} title="Workflow" checked={workflow} onChange={(v) => { setMsg(null); setWorkflow(v); }}
           desc="Pengaturan approval per modul sesuai kebutuhan perusahaan.">
-          <p className="text-[11px] text-gray-500"><T>Level approval per modul diatur Super Admin di menu Workflow.</T></p>
+          <p className="text-[11px] text-gray-500"><T>Level approval per modul diatur Admin di menu Workflow.</T></p>
         </Feature>
 
         <Feature icon={UserPlus} title="Pra-Karyawan (onboarding)" checked={s.enabled} onChange={(v) => set({ enabled: v })}

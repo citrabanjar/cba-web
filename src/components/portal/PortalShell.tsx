@@ -75,10 +75,10 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     ...(can("karyawan") ? [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }] : []),
     ...(can("prakaryawan") && onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
   ]);
-  // COMPANY: Organisasi dan Workflow (Super Admin; Workflow bila fiturnya aktif).
+  // COMPANY: Organisasi (Super Admin) dan Workflow (semua Admin, bila fitur Workflow dinyalakan Super Admin).
   add("COMPANY", [
     ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
-    ...(isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+    ...(role === "ADMIN" && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
   ]);
   add("PENGATURAN", can("pengaturan") ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
 

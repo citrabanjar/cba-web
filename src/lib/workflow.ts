@@ -1,5 +1,5 @@
 // Menu Workflow (Admin): approval custom per modul yang menggantikan (bypass) atasan langsung di profil karyawan.
-// Super Admin hanya menyalakan fitur Workflow di Pengaturan → Fitur; Level 1..3 per modul juga diatur Super Admin di menu Workflow.
+// Super Admin hanya menyalakan fitur Workflow di Pengaturan → Fitur; Level 1..3 per modul diatur semua Admin di menu Workflow.
 // Setiap level bisa disetujui oleh: karyawan tertentu, pemegang jabatan tertentu, atau pemegang hak akses tertentu.
 // Modul tidak aktif → aturan default (atasan langsung). Aman dipakai di server dan browser.
 import { MENUS } from "@/lib/roles";

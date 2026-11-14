@@ -11,12 +11,13 @@ import WorkflowClient from "./WorkflowClient";
 
 export const metadata: Metadata = { title: "Workflow" };
 
-// Workflow approval per modul (Super Admin): Level 1..3 menggantikan atasan langsung. Fitur dinyalakan di Pengaturan → Fitur.
+// Workflow approval per modul (semua Admin): Level 1..3 menggantikan atasan langsung. Fitur dinyalakan Super Admin di Pengaturan → Fitur.
 export default async function WorkflowPage() {
   const access = await getAccess();
   if (!access) redirect("/portal");
-  // Workflow diatur Super Admin.
-  if (!isSuperAdmin(access.role)) redirect("/portal/dashboard");
+  // Super Admin hanya menyalakan fitur; Level diatur Admin (tanpa kewenangan khusus di Peran Admin).
+  if (isSuperAdmin(access.role)) redirect("/portal/admin/settings");
+  if (access.role !== "ADMIN") redirect("/portal/dashboard");
   if (!(await workflowFeatureOn())) redirect("/portal/dashboard");
   const [settings, users, roles] = await Promise.all([
     getWorkflowRaw(),
