@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Centang “Beri Akses” supaya import itu bisa dipakai Admin yang berkewenangan Import Data (Peran Admin).": "Tick “Grant Access” so that import can be used by Admins with the Import Data permission (Admin Roles).",
+  "Semua import yang diberi akses di Pengaturan → Import Data": "All imports granted access in Settings → Import Data",
   "Tambah satu karyawan baru lewat formulir.": "Add a single new employee using a form.",
   "Tambah banyak karyawan sekaligus dari file Excel (template berisi data yang sudah ada).": "Add many employees at once from an Excel file (the template contains existing data).",
   "Import Foto Karyawan": "Import Employee Photos",

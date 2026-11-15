@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
 import { LEVEL_LABEL, MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
-import { IMPORT_KINDS, LEGACY_IMPORT, importEntry } from "@/lib/import-kinds";
+import { hasImportRight } from "@/lib/import-kinds";
 import type { AdminRole } from "@/lib/admin-roles";
 import { saveRoles } from "./role-actions";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
@@ -144,36 +144,26 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
                 );
               })}
             </div>
-            {/* Import Data: hanya jenis yang diberi akses Super Admin di Pengaturan -> Import Data. */}
-            {IMPORT_KINDS.some((k) => importEnabled.includes(k.key)) && (
-              <>
-                <p className="mt-3 text-xs font-medium text-gray-500"><T>Import Data</T></p>
+            {/* Import Data: satu kewenangan = semua import yang diberi akses Super Admin (Pengaturan -> Import Data). */}
+            {importEnabled.length > 0 && (() => {
+              const on = hasImportRight(r.menus);
+              const set = (v: boolean) => s.patch(r.id, { menus: [...r.menus.filter((m) => m !== "import" && !m.startsWith("import:")), ...(v ? ["import"] : [])] });
+              return (
                 <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
-                  {IMPORT_KINDS.filter((k) => importEnabled.includes(k.key)).map((k) => {
-                    const on = r.menus.includes(importEntry(k.key)) || (r.menus.includes("import") && LEGACY_IMPORT.includes(k.key));
-                    const set = (v: boolean) => s.patch(r.id, {
-                      menus: [...r.menus.filter((m) => m !== importEntry(k.key) && m !== "import"),
-                        // isian lama "import" dipecah ke jenisnya supaya bisa dilepas satu per satu
-                        ...(r.menus.includes("import") ? LEGACY_IMPORT.filter((x) => x !== k.key && !r.menus.includes(importEntry(x))).map(importEntry) : []),
-                        ...(v ? [importEntry(k.key)] : [])],
-                    });
-                    return (
-                      <div key={k.key} title={t(k.desc)} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-1.5">
-                        <span className={`truncate text-xs font-medium ${on ? "text-gray-900" : "text-gray-400"}`}><T>{k.label}</T></span>
-                        <span className="flex shrink-0 rounded-full border border-gray-200 bg-white p-0.5">
-                          {([[false, "Tidak"], [true, "Boleh"]] as const).map(([v, l]) => (
-                            <button key={l} type="button" onClick={() => set(v)}
-                              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${on === v ? (v ? "bg-brand text-white" : "bg-gray-200 text-gray-700") : "text-gray-400 hover:text-gray-700"}`}>
-                              <T>{l}</T>
-                            </button>
-                          ))}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  <div title={t("Semua import yang diberi akses di Pengaturan → Import Data")} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-1.5">
+                    <span className={`truncate text-xs font-medium ${on ? "text-gray-900" : "text-gray-400"}`}><T>Import Data</T></span>
+                    <span className="flex shrink-0 rounded-full border border-gray-200 bg-white p-0.5">
+                      {([[false, "Tidak"], [true, "Boleh"]] as const).map(([v, l]) => (
+                        <button key={l} type="button" onClick={() => set(v)}
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition ${on === v ? (v ? "bg-brand text-white" : "bg-gray-200 text-gray-700") : "text-gray-400 hover:text-gray-700"}`}>
+                          <T>{l}</T>
+                        </button>
+                      ))}
+                    </span>
+                  </div>
                 </div>
-              </>
-            )}
+              );
+            })()}
             <p className="mt-2 text-xs text-gray-400">{r.members.length} <T>anggota</T></p>
           </div>
         ))}

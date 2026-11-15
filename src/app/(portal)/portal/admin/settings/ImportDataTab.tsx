@@ -1,8 +1,7 @@
 "use client";
 
 // Pengaturan -> Import Data: semua import di satu tempat. Karyawan baru masuk lewat Pra-Karyawan (onboarding).
-// Super Admin mencentang "Beri Akses" per jenis: hanya yang dicentang muncul di kewenangan Peran Admin.
-// Admin hanya melihat jenis import yang menjadi kewenangannya.
+// Super Admin mencentang "Beri Akses" per jenis: yang dicentang bisa dipakai Admin berkewenangan Import Data.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, CheckCircle2, HandCoins, ImageUp, Loader2, Users, Wallet, type LucideIcon } from "lucide-react";
@@ -52,7 +51,7 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
     <div className="space-y-3">
       <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
         <T>Semua import data ada di sini.</T>{" "}
-        {superAdmin && <T>Centang “Beri Akses” supaya jenis import itu bisa dipilih sebagai kewenangan di Peran Admin.</T>}
+        {superAdmin && <T>Centang “Beri Akses” supaya import itu bisa dipakai Admin yang berkewenangan Import Data (Peran Admin).</T>}
         {msg && <span className={`ml-2 inline-flex items-center gap-1 text-xs ${msg.ok ? "text-emerald-700" : "text-red-600"}`}>{msg.ok && <CheckCircle2 size={13} />}<T>{msg.text}</T></span>}
       </div>
       {list.length === 0 && <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-400"><T>Belum ada kewenangan import.</T></p>}
@@ -74,16 +73,12 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
                   </label>
                 )}
               </div>
-              {k.key === "organisasi" ? (
-                <OrgImport existing={data.org} />
-              ) : (
-                <div>
-                  <button type="button" onClick={() => setOpen(k.key)}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-                    {pending && open === k.key ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />} <T>Buka Import</T>
-                  </button>
-                </div>
-              )}
+              <div>
+                <button type="button" onClick={() => setOpen(k.key)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+                  {pending && open === k.key ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />} <T>Buka Import</T>
+                </button>
+              </div>
             </div>
           );
         })}
@@ -92,6 +87,7 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
       {open === "karyawan" && <EmployeeImportDialog master={data.master} employeeIds={data.employees.map((e) => e.employeeId)} onClose={done} />}
       {open === "foto" && <PhotoUpload employees={data.employees} onClose={done} />}
       {open === "saldo-cuti" && <LeaveBalanceImportDialog rows={data.leaveRows} onClose={() => done(true)} />}
+      {open === "organisasi" && <OrgImport existing={data.org} onClose={() => done(true)} />}
       {open === "saldo-pinjaman" && <OpeningLoanImportDialog employees={data.employees} onClose={() => done(true)} />}
     </div>
   );

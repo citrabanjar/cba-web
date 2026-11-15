@@ -16,9 +16,9 @@ const SHEETS: { kind: MasterKind; sheet: string; label: string; example: string[
 type Existing = Record<MasterKind, string[]>;
 
 // Template Parameter Organisasi: satu file Excel, sheet Cabang / Departemen / Jabatan (satu kolom Nama).
-export default function OrgImport({ existing }: { existing: Existing }) {
+// Dialog Import Parameter Organisasi (dibuka dari Pengaturan -> Import Data).
+export default function OrgImport({ existing, onClose }: { existing: Existing; onClose: () => void }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
   const [parsed, setParsed] = useState<Existing | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -69,13 +69,7 @@ export default function OrgImport({ existing }: { existing: Existing }) {
   }
 
   return (
-    <>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={template}><Download size={14} /> <T>Download Template</T></Button>
-        <Button size="sm" className="gap-1.5" onClick={() => { setOpen(true); setParsed(null); setMsg(null); }}><Upload size={14} /> <T>Upload Parameter</T></Button>
-      </div>
-      {open && (
-        <Dialog open onOpenChange={(o: boolean) => { if (!o) setOpen(false); }}>
+        <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader><DialogTitle><T>Upload Parameter Organisasi</T></DialogTitle></DialogHeader>
             <p className="-mt-2 text-xs text-gray-500"><T>Pakai template Excel (sheet Cabang, Departemen, Jabatan). Nama yang sudah ada dilewati; hanya nama baru yang ditambahkan.</T></p>
@@ -111,12 +105,10 @@ export default function OrgImport({ existing }: { existing: Existing }) {
             )}
             {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}><T>Tutup</T></Button>
+              <Button variant="outline" onClick={onClose}><T>Tutup</T></Button>
               <Button disabled={pending || !parsed} className="gap-1.5" onClick={save}>{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T></Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      )}
-    </>
   );
 }
