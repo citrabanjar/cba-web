@@ -7,7 +7,7 @@
 //   Isian "import:<jenis>" (sempat dipakai) dianggap sama dengan "import". Karyawan baru masuk lewat Pra-Karyawan.
 export const IMPORT_KINDS = [
   { key: "organisasi", label: "Import Parameter Organisasi", desc: "Penetapan struktur organisasi perusahaan (cabang, departemen, dan jabatan) secara massal melalui berkas Excel sebagai landasan penempatan karyawan." },
-  { key: "karyawan", label: "Import Data Karyawan", desc: "Pendaftaran dan pemutakhiran data induk karyawan secara massal melalui berkas Excel; templat memuat data karyawan yang telah terdaftar." },
+  { key: "karyawan", label: "Import Data Karyawan", desc: "Pendaftaran dan pemutakhiran data induk karyawan secara massal melalui berkas Excel." },
 ] as const;
 
 export type ImportKind = (typeof IMPORT_KINDS)[number]["key"];
