@@ -296,7 +296,7 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Cuti</T></h2>
         <p className="text-xs text-gray-400 mt-0.5">
-          <T>Kebijakan cuti, izin, dan dinas perusahaan. Isi awal mengikuti UU Ketenagakerjaan dan UU KIA; sesuaikan dengan Peraturan Perusahaan.</T>
+          <T>Tata kelola kebijakan cuti, izin, dan dinas luar perusahaan yang mengacu pada Undang-Undang Ketenagakerjaan dan Undang-Undang Kesejahteraan Ibu dan Anak, serta disesuaikan dengan Peraturan Perusahaan.</T>
         </p>
       </div>
 

@@ -1979,7 +1979,7 @@ export const en: Record<string, string> = {
   "Jumlah hari tidak valid.": "Invalid number of days.",
   "Alasan koreksi wajib diisi.": "A reason is required.",
   "Leave": "Leave",
-  "Kebijakan cuti, izin, dan dinas perusahaan. Isi awal mengikuti UU Ketenagakerjaan dan UU KIA; sesuaikan dengan Peraturan Perusahaan.": "Company leave, permission, and business trip policies. Defaults follow the Manpower Law and the Mother & Child Welfare Law; adjust to your Company Regulation.",
+  "Tata kelola kebijakan cuti, izin, dan dinas luar perusahaan yang mengacu pada Undang-Undang Ketenagakerjaan dan Undang-Undang Kesejahteraan Ibu dan Anak, serta disesuaikan dengan Peraturan Perusahaan.": "Governance of the company's leave, permission, and business trip policies, referring to the Manpower Law and the Mother and Child Welfare Law, and aligned with the Company Regulation.",
   "Jenis Aktif": "Active Types",
   "Cuti Khusus": "Special Leave",
   "Tanpa Upah": "Unpaid",
