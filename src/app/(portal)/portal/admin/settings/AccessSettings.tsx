@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, Plus, Save, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Plus, Save, ShieldCheck, Trash2, UserPlus, Users, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,12 +52,16 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
   const t = useT();
   const s = useSave(initial);
   const [name, setName] = useState("");
+  const [sel, setSel] = useState<string | null>(initial[0]?.id ?? null);
+  const current = s.roles.find((r) => r.id === sel) ?? s.roles[0] ?? null;
 
   function add() {
     const n = name.trim();
     if (!n) return;
     s.setMsg(null);
-    s.setRoles((prev) => [...prev, { id: `peran-${Date.now().toString(36)}`, name: n, desc: "", menus: [], members: [], approvalLevels: 0 }]);
+    const id = `peran-${Date.now().toString(36)}`;
+    s.setRoles((prev) => [...prev, { id, name: n, desc: "", menus: [], members: [], approvalLevels: 0 }]);
+    setSel(id);
     setName("");
   }
 
@@ -81,8 +85,27 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
         </div>
 
         {s.roles.length === 0 && <p className="rounded-xl bg-gray-50 py-6 text-center text-sm text-gray-400"><T>Belum ada peran.</T></p>}
-        {s.roles.map((r) => (
-          <div key={r.id} className="rounded-2xl border border-gray-200 p-4">
+        {/* Seperti halaman Notifikasi: daftar peran bersusun di kiri, kewenangan peran terpilih di kanan. */}
+        {s.roles.length > 0 && (
+          <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
+            <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              {s.roles.map((x) => {
+                const on = x.id === current?.id;
+                return (
+                  <button key={x.id} type="button" onClick={() => setSel(x.id)}
+                    className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 ${on ? "bg-brand/10" : "hover:bg-gray-50"}`}>
+                    <ShieldCheck size={16} className={on ? "text-brand" : "text-gray-400"} />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}>{x.name || t("(tanpa nama)")}</span>
+                      <span className="block text-[11px] text-gray-400">{x.members.length} <T>anggota</T></span>
+                    </span>
+                    <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+                  </button>
+                );
+              })}
+            </nav>
+            {current && (() => { const r = current; return (
+          <div key={r.id} className="min-w-0 rounded-2xl border border-gray-200 p-4">
             <div className="flex flex-wrap items-start gap-2">
               <div className="min-w-0 flex-1 space-y-1.5">
                 <Input value={r.name} onChange={(e) => s.patch(r.id, { name: e.target.value })} className="h-9 font-semibold" />
@@ -108,7 +131,7 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
               <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-full text-red-600 hover:text-red-700"
                 onClick={() => {
                   const warn = r.members.length ? t("Peran ini punya anggota. Hapus peran? Anggota kehilangan kewenangan dari peran ini.") : t("Hapus peran ini?");
-                  if (confirm(warn)) { s.setMsg(null); s.setRoles((prev) => prev.filter((x) => x.id !== r.id)); }
+                  if (confirm(warn)) { s.setMsg(null); s.setRoles((prev) => prev.filter((x) => x.id !== r.id)); setSel(null); }
                 }}>
                 <Trash2 size={14} /> <T>Hapus</T>
               </Button>
@@ -166,7 +189,9 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
             })()}
             <p className="mt-2 text-xs text-gray-400">{r.members.length} <T>anggota</T></p>
           </div>
-        ))}
+            ); })()}
+          </div>
+        )}
         <SaveBar s={s} />
       </CardContent>
     </Card>
