@@ -56,7 +56,7 @@ export const en: Record<string, string> = {
   "Fitur Workflow belum dinyalakan Super Admin.": "The Workflow feature has not been enabled by Super Admin.",
   "Setiap perubahan data oleh Admin dengan peran ini baru berlaku setelah memperoleh persetujuan dari satu approver sesuai level yang dipilih pada struktur organisasi, yaitu atasan dari karyawan yang datanya diubah, atau atasan Admin yang bersangkutan untuk perubahan pengaturan.": "Every data change made by an Admin with this role takes effect only after approval by one approver at the selected level of the organizational structure, namely the superior of the employee whose data is changed, or the Admin's own superior for settings changes.",
   "Approval perubahan data": "Data change approval",
-  "Perubahan ini wajib approval: baru berlaku setelah disetujui atasan karyawan ini sesuai bagan.": "This change requires approval: it applies only after the employee's manager (per org chart) approves.",
+  "Perubahan ini memerlukan persetujuan dan baru berlaku setelah disetujui oleh atasan karyawan yang bersangkutan sesuai struktur organisasi.": "This change requires approval and takes effect only after it is approved by the employee's superior according to the organizational structure.",
   "Perubahan baru berlaku setelah disetujui satu approver sesuai level, dari bagan karyawan yang datanya diubah.": "Changes apply only after one approver at the chosen level (from the changed employee's org chart) approves.",
   "Tanpa approval": "No approval",
   "Satu approver sesuai level, dihitung dari bagan karyawan yang datanya diubah.": "One approver at the chosen level, taken from the changed employee's org chart.",
