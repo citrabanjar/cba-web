@@ -72,7 +72,7 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
           <ShieldCheck size={16} /> <T>Peran Admin</T>
         </CardTitle>
         <p className="text-xs text-gray-500">
-          <T>Buat peran (mis. Admin Absen), atur approval perubahan datanya, lalu pilih kewenangannya per menu.</T>
+          <T>Peran Admin menetapkan cakupan kewenangan setiap Admin atas menu portal beserta mekanisme persetujuan atas perubahan data yang dilakukannya.</T>
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -125,7 +125,7 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
                   ))}
                 </div>
                 {r.approvalLevels > 0 && (
-                  <p className="text-[11px] text-gray-500"><T>Perubahan baru berlaku setelah disetujui satu approver sesuai level di bagan: atasan karyawan yang datanya diubah, atau atasan Admin sendiri untuk perubahan pengaturan. Saat ini berlaku untuk Data Karyawan serta Payroll & Benefit.</T></p>
+                  <p className="text-[11px] text-gray-500"><T>Setiap perubahan data oleh Admin dengan peran ini baru berlaku setelah memperoleh persetujuan dari satu approver sesuai level yang dipilih pada struktur organisasi, yaitu atasan dari karyawan yang datanya diubah, atau atasan Admin yang bersangkutan untuk perubahan pengaturan. Ketentuan ini saat ini berlaku pada menu Data Karyawan serta Payroll & Benefit.</T></p>
                 )}
               </div>
               <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-full text-red-600 hover:text-red-700"
