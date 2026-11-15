@@ -6,6 +6,9 @@ import { TAX_SETTING_KEY } from "@/lib/pph21";
 import { loadInsights, type Task } from "./insights";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { aiFeatureOn } from "@/lib/ai-checker";
+import { hasMenu } from "@/lib/roles";
+import { getImportEnabled } from "@/lib/import-access";
+import { importKindsFor } from "@/lib/import-kinds";
 
 const DAY = 86_400_000;
 const todayKey = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -18,11 +21,18 @@ export async function getAgentSettings(): Promise<AgentSettings> {
 // Satu langkah panduan Setup Awal (SOP migrasi). Selesai/belum dideteksi dari data portal.
 export type SetupStep = { key: string; phase: string; title: string; hint: string; done: boolean; note?: string; href: string; optional?: boolean };
 
-async function loadSetup(): Promise<SetupStep[]> {
+// Setup Awal dibagi peran (prinsip: Super Admin menyiapkan dasar, Admin mengurus detail):
+// - Super Admin: parameter organisasi (rumah karyawan), import data karyawan, lalu menentukan Admin.
+// - Admin: lokasi absen, shift, libur, jenis & saldo cuti, payroll & PPh 21, foto, saldo pinjaman, gaji pertama
+//   (hanya langkah yang menjadi kewenangannya).
+const IMPORT_TAB = "/portal/admin/settings?tab=import";
+type SetupAccess = { role: string; menuAccess: string[] };
+
+async function loadSetup(user: SetupAccess): Promise<SetupStep[]> {
   const year = Number(todayKey().slice(0, 4));
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
   const [branches, depts, positions, locations, shifts, holidays, policies, components, payrollSetting, taxSetting,
-    employees, noPhoto, noSalary, leaveOpening, loanOpening, finalRuns] = await Promise.all([
+    employees, noPhoto, admins, leaveOpening, loanOpening, finalRuns, importOn] = await Promise.all([
     prisma.branch.count(), prisma.department.count(), prisma.position.count(),
     prisma.workLocation.count({ where: { isActive: true } }),
     prisma.workShift.count(),
@@ -33,40 +43,48 @@ async function loadSetup(): Promise<SetupStep[]> {
     prisma.appSetting.findUnique({ where: { key: TAX_SETTING_KEY } }),
     prisma.user.count({ where: active }),
     prisma.user.count({ where: { ...active, photo: { is: null } } }),
-    prisma.user.count({ where: { ...active, salaries: { none: {} } } }),
+    prisma.user.count({ where: { role: "ADMIN", isActive: true } }),
     prisma.leaveBalanceEntry.count({ where: { kind: "SALDO_AWAL" } }),
     prisma.employeeLoan.count({ where: { isOpening: true } }),
     prisma.payrollRun.count({ where: { status: "FINAL" } }),
+    getImportEnabled(),
   ]);
   const taxYears = Object.keys((taxSetting?.value ?? {}) as Record<string, unknown>);
-  return [
-    { key: "org", phase: "1. Parameter organisasi", title: "Cabang, Departemen, Jabatan", hint: "Isi lewat Upload Parameter (template Excel) atau satu per satu di menu Organisasi.",
-      done: branches > 0 && depts > 0 && positions > 0, note: `${branches} cabang · ${depts} departemen · ${positions} jabatan`, href: "/portal/admin/setup" },
-    { key: "location", phase: "1. Parameter organisasi", title: "Lokasi absen (GPS)", hint: "Titik lokasi dan radius untuk absensi.",
+
+  if (user.role === "SUPER_ADMIN") return [
+    { key: "org", phase: "1. Rumah karyawan", title: "Parameter organisasi", hint: "Import Parameter Organisasi (cabang, departemen, jabatan) di Pengaturan → Import Data, atau isi di menu Organisasi.",
+      done: branches > 0 && depts > 0 && positions > 0, note: `${branches} cabang · ${depts} departemen · ${positions} jabatan`, href: IMPORT_TAB },
+    { key: "employees", phase: "2. Data karyawan", title: "Import data karyawan", hint: "Import Data Karyawan (termasuk gaji pokok) di Pengaturan → Import Data.",
+      done: employees > 0, note: `${employees} karyawan aktif`, href: IMPORT_TAB },
+    { key: "admins", phase: "3. Admin", title: "Tentukan Admin", hint: "Buat Peran Admin dan kewenangannya, lalu tambahkan anggotanya di Anggota Admin.",
+      done: admins > 0, note: `${admins} Admin`, href: "/portal/admin/settings?tab=peran" },
+  ];
+
+  const kinds = importKindsFor(user, importOn);
+  const can = (m: Parameters<typeof hasMenu>[1]) => hasMenu(user, m);
+  const steps: (SetupStep | false)[] = [
+    can("absensi") && { key: "location", phase: "1. Kehadiran", title: "Lokasi absen (GPS)", hint: "Titik lokasi dan radius untuk absensi.",
       done: locations > 0, note: `${locations} lokasi`, href: "/portal/admin/schedule" },
-    { key: "shift", phase: "2. Kebijakan", title: "Shift & pola kerja", hint: "Shift kerja dan pola jadwal karyawan.",
+    can("absensi") && { key: "shift", phase: "1. Kehadiran", title: "Shift & pola kerja", hint: "Shift kerja dan pola jadwal, lalu tempel ke karyawan.",
       done: shifts > 0, note: `${shifts} shift`, href: "/portal/admin/schedule" },
-    { key: "holiday", phase: "2. Kebijakan", title: `Kalender libur ${year}`, hint: "Libur nasional, cuti bersama, dan libur perusahaan.",
+    can("absensi") && { key: "holiday", phase: "1. Kehadiran", title: `Kalender libur ${year}`, hint: "Libur nasional, cuti bersama, dan libur perusahaan.",
       done: holidays > 0, note: `${holidays} hari libur`, href: "/portal/admin/schedule" },
-    { key: "leave", phase: "2. Kebijakan", title: "Setup Leave (jenis cuti)", hint: "Kebijakan cuti dan jatahnya.",
+    can("absensi") && { key: "leave", phase: "2. Cuti", title: "Setup Leave (jenis cuti)", hint: "Kebijakan cuti dan jatahnya.",
       done: policies > 0, note: `${policies} jenis cuti`, href: "/portal/admin/leave" },
-    { key: "pay", phase: "3. Payroll", title: "Komponen gaji & pengaturan payroll", hint: "Komponen Input/Rumus, periode gaji, tanggal gajian.",
+    kinds.includes("saldo-cuti") && { key: "leave-balance", phase: "2. Cuti", title: "Saldo awal cuti", hint: "Import Saldo Cuti dari aplikasi lama di Pengaturan → Import Data.",
+      done: leaveOpening > 0, note: `${leaveOpening} baris saldo awal`, href: IMPORT_TAB },
+    can("gaji") && { key: "pay", phase: "3. Payroll", title: "Komponen gaji & pengaturan payroll", hint: "Komponen gaji, periode gaji, tanggal gajian, jadwal THR / Bonus.",
       done: components > 0 && !!payrollSetting, note: payrollSetting ? `${components} komponen` : "Pengaturan Payroll belum disimpan", href: "/portal/admin/payroll" },
-    { key: "tax", phase: "3. Payroll", title: `PTKP & tarif PPh 21 tahun ${year}`, hint: "Simpan Pengaturan PPh 21 tahun berjalan (dan cek tarif TER).",
+    can("gaji") && { key: "tax", phase: "3. Payroll", title: `PTKP & tarif PPh 21 tahun ${year}`, hint: "Simpan Pengaturan PPh 21 tahun berjalan (dan cek tarif TER).",
       done: taxYears.includes(String(year)), href: "/portal/admin/payroll" },
-    { key: "employees", phase: "4. Upload data", title: "Data karyawan", hint: "Import Karyawan dari template Excel (Super Admin).",
-      done: employees > 0, note: `${employees} karyawan aktif`, href: "/portal/admin/karyawan" },
-    { key: "photo", phase: "4. Upload data", title: "Foto karyawan", hint: "Upload Foto bisa satu folder sekaligus; nama file = Employee ID.",
-      done: employees > 0 && noPhoto === 0, note: employees ? `${employees - noPhoto}/${employees} sudah ada foto` : undefined, href: "/portal/admin/karyawan" },
-    { key: "salary", phase: "4. Upload data", title: "Gaji pokok karyawan", hint: "Setiap karyawan aktif punya data gaji (Penyesuaian Gaji / import).",
-      done: employees > 0 && noSalary === 0, note: employees ? `${noSalary} karyawan belum ada gaji` : undefined, href: "/portal/admin/karyawan" },
-    { key: "leave-balance", phase: "4. Upload data", title: "Saldo awal cuti", hint: "Upload saldo cuti dari aplikasi lama di Leave → Saldo Cuti.",
-      done: leaveOpening > 0, note: `${leaveOpening} baris saldo awal`, href: "/portal/admin/leave" },
-    { key: "loan-balance", phase: "4. Upload data", title: "Saldo awal pinjaman", hint: "Upload pinjaman yang masih berjalan di aplikasi lama (bila ada).",
-      done: loanOpening > 0, note: `${loanOpening} pinjaman saldo awal`, href: "/portal/admin/pinjaman", optional: true },
-    { key: "first-run", phase: "5. Mulai jalan", title: "Proses Gaji pertama difinalkan", hint: "Hitung, cek, lalu finalkan gaji pertama di portal.",
+    kinds.includes("saldo-pinjaman") && { key: "loan-balance", phase: "3. Payroll", title: "Saldo awal pinjaman", hint: "Import Saldo Pinjaman yang masih berjalan di aplikasi lama (bila ada).",
+      done: loanOpening > 0, note: `${loanOpening} pinjaman saldo awal`, href: IMPORT_TAB, optional: true },
+    kinds.includes("foto") && { key: "photo", phase: "4. Data pelengkap", title: "Foto karyawan", hint: "Import Foto Karyawan; nama file = Employee ID.",
+      done: employees > 0 && noPhoto === 0, note: employees ? `${employees - noPhoto}/${employees} sudah ada foto` : undefined, href: IMPORT_TAB, optional: true },
+    can("gaji") && { key: "first-run", phase: "5. Mulai jalan", title: "Proses Gaji pertama difinalkan", hint: "Hitung, cek, lalu finalkan gaji pertama di portal.",
       done: finalRuns > 0, href: "/portal/admin/payroll" },
   ];
+  return steps.filter((x): x is SetupStep => !!x);
 }
 
 // Pengecekan Payroll & Pajak.
@@ -113,17 +131,17 @@ async function loadPayrollTasks(s: AgentSettings): Promise<Task[]> {
 export type AgentData = {
   groups: { key: string; label: string; list: Task[] }[];
   ai: AiFindingView[];
-  setup: SetupStep[] | null; // null = bukan Super Admin atau setup sudah ditandai selesai
+  setup: SetupStep[] | null; // null = tidak ada langkah untuk peran ini, atau setup sudah ditandai selesai
   reminders: DueReminder[];
 };
 
-// Semua isi panel Agent HRD: monitoring (Admin & Super Admin), Setup Awal (Super Admin), pengingat SOP.
-export async function loadAgent(isSuper: boolean): Promise<{ insights: Awaited<ReturnType<typeof loadInsights>>; agent: AgentData }> {
+// Semua isi panel Agent HRD: monitoring (Admin & Super Admin), Setup Awal (sesuai peran), pengingat SOP.
+export async function loadAgent(isSuper: boolean, user?: SetupAccess | null): Promise<{ insights: Awaited<ReturnType<typeof loadInsights>>; agent: AgentData }> {
   const settings = await getAgentSettings();
   const [insights, payroll, setup, contract] = await Promise.all([
     loadInsights(),
     loadPayrollTasks(settings),
-    isSuper && !settings.setupDone ? loadSetup() : Promise.resolve(null),
+    user && !settings.setupDone ? loadSetup(user).then((x) => (x.length ? x : null)) : Promise.resolve(null),
     // Kontrak berakhir mengikuti batas hari di pengaturan Agent HRD.
     prisma.user.findMany({
       where: {

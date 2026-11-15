@@ -20,7 +20,7 @@ import { getMasterOptions } from "@/lib/master-data";
 import { computeBalances } from "@/lib/leave-balance";
 import type { ImportData } from "./ImportDataTab";
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect("/portal");
   const access = await getAccess();
@@ -49,6 +49,7 @@ export default async function AdminSettingsPage() {
       onboarding={onboarding}
       access={access2}
       importData={importData}
+      initialTab={(await searchParams).tab ?? null}
       name={session.user.name ?? ""}
       employeeId={session.user.employeeId ?? session.user.email ?? ""}
       role={session.user.role}

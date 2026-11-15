@@ -15,7 +15,7 @@ import type { DueReminder } from "@/lib/agent-hrd";
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "UTC" });
 
 // Panduan Setup Awal (SOP migrasi): langkah selesai/belum terdeteksi dari data portal.
-function SetupList({ steps }: { steps: SetupStep[] }) {
+function SetupList({ steps, canHide }: { steps: SetupStep[]; canHide: boolean }) {
   const [pending, start] = useTransition();
   const required = steps.filter((s) => !s.optional);
   const done = required.filter((s) => s.done).length;
@@ -50,12 +50,13 @@ function SetupList({ steps }: { steps: SetupStep[] }) {
           );
         })}
       </div>
-      <div className="flex justify-end pt-1">
+      {/* Menyembunyikan panduan: hanya Super Admin. */}
+      {canHide && <div className="flex justify-end pt-1">
         <button type="button" disabled={pending} onClick={() => start(async () => { await setSetupDone(true); })}
           className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
           {pending && <Loader2 size={12} className="animate-spin" />} <T>Setup selesai, sembunyikan panduan</T>
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -129,7 +130,7 @@ const Tag = ({ label }: { label: string }) => (
 
 // Task Admin: satu running list semua pekerjaan yang belum beres; admin memilih sendiri mana yang dikerjakan dulu.
 // Berbasis aturan (tanpa AI). Super Admin juga melihat panduan Setup Awal sampai ditandai selesai.
-export default function AgentPanel({ groups, setup, reminders, ai = [] }: { groups: { key: string; label: string; list: Task[] }[]; setup: SetupStep[] | null; reminders: DueReminder[]; ai?: AiFindingView[] }) {
+export default function AgentPanel({ groups, setup, reminders, ai = [], canHideSetup = false }: { groups: { key: string; label: string; list: Task[] }[]; setup: SetupStep[] | null; reminders: DueReminder[]; ai?: AiFindingView[]; canHideSetup?: boolean }) {
   const setupLeft = setup ? setup.filter((s) => !s.optional && !s.done).length : 0;
   const [showSetup, setShowSetup] = useState(false);
   const items = [
@@ -162,7 +163,7 @@ export default function AgentPanel({ groups, setup, reminders, ai = [] }: { grou
         )}
       </div>
 
-      {showSetup && setup ? <SetupList steps={setup} /> : total === 0 && !anyCheck ? (
+      {showSetup && setup ? <SetupList steps={setup} canHide={canHideSetup} /> : total === 0 && !anyCheck ? (
         <div className="flex h-[18rem] flex-col items-center justify-center gap-2 px-6 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400"><ClipboardList size={22} /></span>
           <p className="text-sm font-semibold text-gray-800"><T>Belum ada pengecekan yang dinyalakan.</T></p>

@@ -1,5 +1,6 @@
 import { PieChart } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getAccess } from "@/lib/access";
 import { T } from "@/components/i18n";
 import IndicatorCards from "./IndicatorCards";
 import AgentPanel from "./AgentPanel";
@@ -158,7 +159,7 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
 
   const [{ insights, agent }, active, byStatus, expiring] =
     await Promise.all([
-      loadAgent(isSuper),
+      loadAgent(isSuper, await getAccess()),
       prisma.user.count({ where: { ...employee, isActive: true } }),
       prisma.user.groupBy({ by: ["employmentStatus"], where: { ...employee, isActive: true }, _count: { _all: true } }),
       prisma.user.count({
@@ -184,7 +185,7 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <AgentPanel groups={agent.groups} setup={agent.setup} reminders={agent.reminders} ai={agent.ai} />
+        <AgentPanel groups={agent.groups} setup={agent.setup} reminders={agent.reminders} ai={agent.ai} canHideSetup={isSuper} />
 
         <Panel icon={PieChart} tone="violet" title="Status Karyawan" subtitle="Komposisi karyawan aktif menurut status kerja">
           {active ? <Donut parts={statusParts} /> : <Empty text="Belum ada karyawan aktif." />}

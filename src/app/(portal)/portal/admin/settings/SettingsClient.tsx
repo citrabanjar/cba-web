@@ -61,13 +61,14 @@ function PasswordField({
 }
 
 export default function SettingsClient({
-  name, employeeId, role, indicatorHidden, agentSettings, ai, onboarding, access, importData,
+  name, employeeId, role, indicatorHidden, agentSettings, ai, onboarding, access, importData, initialTab = null,
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
   onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean; sim: { enabled: boolean; count: number } } | null;
   access?: { roles: AdminRole[]; people: Person[]; importEnabled: string[] } | null;
   importData?: ImportData | null;
+  initialTab?: string | null; // tab yang dibuka dari tautan (mis. Setup Awal -> Import Data)
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; Super Admin: Akun, Fitur, Task Admin, Running Indikator, Peran & Anggota Admin; Admin: Agent HRD.
@@ -80,7 +81,7 @@ export default function SettingsClient({
     ...(ai ? [{ key: "ai", label: "Agent HRD", icon: Bot }] : []),
     ...(importData ? [{ key: "import", label: "Import Data", icon: Upload }] : []),
   ];
-  const [tab, setTab] = useState("akun");
+  const [tab, setTab] = useState(() => (initialTab && tabs.some((x) => x.key === initialTab) ? initialTab : "akun"));
 
   return (
     <div className="p-6 max-w-4xl space-y-5">
