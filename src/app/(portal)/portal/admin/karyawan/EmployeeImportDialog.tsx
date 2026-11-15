@@ -79,7 +79,7 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
       <div className="space-y-4 py-1">
         <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
           <p><T>• Cabang, departemen, dan jabatan pada berkas wajib telah terdaftar di Parameter Organisasi; lakukan Import Parameter Organisasi terlebih dahulu.</T></p>
-          <p><T>• Gunakan templat portal atau berkas ekspor KantorKu; ketentuan pengisian tercantum pada sheet Petunjuk.</T></p>
+          <p><T>• Ketentuan pengisian tercantum pada sheet Petunjuk.</T></p>
           <p><T>• Karyawan dengan ID yang telah terdaftar dilewati; perubahan datanya dilakukan melalui menu Data Karyawan. Baris yang tidak valid tidak diimport.</T></p>
           <p><T>• Nomor urut ditetapkan otomatis berdasarkan Tanggal Masuk, dan gaji awal berlaku sejak Tanggal Masuk.</T></p>
         </div>

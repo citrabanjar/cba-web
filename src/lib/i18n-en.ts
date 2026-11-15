@@ -1079,7 +1079,7 @@ export const en: Record<string, string> = {
   "Akun": "Account",
   "Kehadiran": "Attendance",
   "• Cabang, departemen, dan jabatan pada berkas wajib telah terdaftar di Parameter Organisasi; lakukan Import Parameter Organisasi terlebih dahulu.": "• Branches, departments, and positions in the file must already be registered in Organization Parameters; run Import Organization Parameters first.",
-  "• Gunakan templat portal atau berkas ekspor KantorKu; ketentuan pengisian tercantum pada sheet Petunjuk.": "• Use the portal template or a KantorKu export file; filling rules are listed in the Instructions sheet.",
+  "• Ketentuan pengisian tercantum pada sheet Petunjuk.": "• Filling rules are listed in the Instructions sheet.",
   "• Karyawan dengan ID yang telah terdaftar dilewati; perubahan datanya dilakukan melalui menu Data Karyawan. Baris yang tidak valid tidak diimport.": "• Employees whose ID is already registered are skipped; their data is changed through the Employee Data menu. Invalid rows are not imported.",
   "• Nomor urut ditetapkan otomatis berdasarkan Tanggal Masuk, dan gaji awal berlaku sejak Tanggal Masuk.": "• Sequence numbers are assigned automatically by Join Date, and the starting salary applies from the Join Date.",
   "Templat memuat data karyawan yang telah terdaftar sebagai acuan; tambahkan karyawan baru pada baris di bawahnya.": "The template contains registered employee data for reference; add new employees in the rows below.",
