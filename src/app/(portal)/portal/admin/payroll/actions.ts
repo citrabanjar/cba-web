@@ -80,7 +80,7 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
     ...(earning && ip.fixedWage && method !== "THR" ? { fixedWage: true } : {}),
     ...(method === "PER_SATUAN" && Number(ip.min) > 0 ? { min: n(ip.min, 0, 1e6) } : {}),
     ...(method === "PER_SATUAN" && Number(ip.step) > 0 ? { step: n(ip.step, 0.5, 1e6) } : {}),
-    ...(method === "LEMBUR" ? { divisor: n(ip.divisor || 173, 1, 400), work: work as Tier[], rest: rest as Tier[] | null } : {}),
+    ...(method === "LEMBUR" ? { divisor: n(ip.divisor || 173, 1, 400), work: work as Tier[], rest: ip.restAuto ? null : (rest as Tier[] | null), ...(ip.restAuto ? { restAuto: true } : {}) } : {}),
     ...(method === "THR" ? { months: n(ip.months ?? 1, 0, 24), minMonths: n(ip.minMonths ?? 1, 0, 600), proportional: ip.proportional !== false } : {}),
     ...(method === "PER_JAM" ? (ip.shiftHours ? { shiftHours: true } : { hoursPerDay: n(ip.hoursPerDay || 8, 1, 24) }) : {}),
     ...(input.kind === "POTONGAN" && ip.reducesGross ? { reducesGross: true } : {}),
@@ -176,7 +176,7 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
   const n = (v: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)));
   const value: PayrollSettings = {
     periodStartDay: n(input.periodStartDay, 1, 28), payDay: n(input.payDay, 0, 31),
-    overtimeDivisor: n(input.overtimeDivisor, 1, 400), workDaysPerWeek: input.workDaysPerWeek === 5 ? 5 : 6,
+    overtimeDivisor: n(input.overtimeDivisor, 1, 400),
     prorate: input.prorate === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA",
     rounding: [1, 100, 1000].includes(Number(input.rounding)) ? Number(input.rounding) : 1,
     weekStartDay: n(input.weekStartDay, 0, 6),
@@ -187,7 +187,7 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
   const held = await holdForApproval({
     kind: "gaji.savePayrollSettings", args: [input], title: "Payroll: ubah Pengaturan Payroll",
     details: diff({
-      periodStartDay: "Awal periode (tanggal)", payDay: "Tanggal gajian", overtimeDivisor: "Pembagi lembur", workDaysPerWeek: "Hari kerja per minggu",
+      periodStartDay: "Awal periode (tanggal)", payDay: "Tanggal gajian", overtimeDivisor: "Pembagi lembur",
       prorate: "Prorata", rounding: "Pembulatan", weekStartDay: "Awal minggu", companyName: "Nama perusahaan", companyNpwp: "NPWP perusahaan",
       signerName: "Penandatangan", signerId: "NIK penandatangan",
     }, { ...DEFAULT_PAYROLL_SETTINGS, ...(old ?? {}) } as Record<string, unknown>, value as unknown as Record<string, unknown>),

@@ -82,6 +82,8 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
   const category = PAY_CATEGORIES.find((c) => c.key === form.category);
   const unit = paramUnit(form.param);
   const tiers = overtimeTiers(p, workDaysPerWeek);
+  // Mode tarif hari libur lembur: PP35 (otomatis ikut pola kerja), SENDIRI (tarif diatur), SAMA (= tarif hari kerja).
+  const restMode = p.restAuto || (!p.work?.length && !p.rest?.length) ? "PP35" : tiers.rest ? "SENDIRI" : "SAMA";
   // Komponen yang bisa dicentang sebagai dasar nilai: gaji pokok + pendapatan bernilai tetap.
   const baseOptions = [
     { code: "GP", name: "Gaji Pokok" },
@@ -97,7 +99,8 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
       ...f, method: m,
       param: NEEDS_PARAM.includes(m) ? (m === "PER_JAM" ? "JAM_TELAT_PULANG_CEPAT" : f.param ?? (m === "PRORATA" ? "HARI_MANGKIR" : "HARI_HADIR")) : m === "LEMBUR" ? "JAM_LEMBUR" : m === "THR" ? "MASA_KERJA" : null,
       base: NEEDS_BASE.includes(m) ? f.base ?? "UPAH_TETAP" : null,
-      params: m === "LEMBUR" ? { divisor: 173, work: tiers.work, rest: tiers.rest, ...(f.params ?? {}) }
+      // Lembur baru: tarif hari libur sesuai PP 35/2021, batas jamnya ikut pola kerja tiap karyawan (5/6 hari kerja).
+      params: m === "LEMBUR" ? { divisor: 173, work: tiers.work, rest: null, restAuto: true, ...(f.params ?? {}) }
         : m === "THR" ? { months: 1, minMonths: 1, proportional: true, ...(f.params ?? {}) }
         : m === "PER_JAM" ? { shiftHours: true, ...(f.params ?? {}) } : f.params,
     }));
@@ -239,15 +242,26 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                         <Input type="number" className="h-8 w-20" value={p.divisor ?? ""} onChange={(e) => setParam({ divisor: Number(e.target.value) || undefined })} />
                         <span className="text-gray-400"><T>x dasar nilai</T></span></div>
                       <div className="rounded-lg bg-gray-50 p-2.5">
-                        <p className="mb-1.5 font-semibold text-gray-600"><T>{tiers.rest ? "Tarif hari kerja" : "Tarif lembur"}</T></p>
-                        <TierEditor tiers={tiers.work} onChange={(work) => setParam({ work, rest: tiers.rest })} />
+                        <p className="mb-1.5 font-semibold text-gray-600"><T>{restMode === "SAMA" ? "Tarif lembur" : "Tarif hari kerja"}</T></p>
+                        <TierEditor tiers={tiers.work} onChange={(work) => setParam({ work, rest: restMode === "SENDIRI" ? tiers.rest : null, restAuto: restMode === "PP35" })} />
                       </div>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" checked={!!tiers.rest} className="h-4 w-4 accent-[var(--color-brand)]"
-                          onChange={(e) => setParam({ work: tiers.work, rest: e.target.checked ? defaultRestTiers(workDaysPerWeek) : null })} />
-                        <T>Bedakan tarif hari libur</T>
-                      </label>
-                      {tiers.rest && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs"><T>Tarif hari libur</T></Label>
+                        <select value={restMode} className={select} onChange={(e) => {
+                          const v = e.target.value;
+                          setParam(v === "PP35" ? { work: tiers.work, rest: null, restAuto: true }
+                            : v === "SENDIRI" ? { work: tiers.work, rest: tiers.rest ?? defaultRestTiers(6), restAuto: false }
+                            : { work: tiers.work, rest: null, restAuto: false });
+                        }}>
+                          <option value="PP35">{t("Sesuai PP 35/2021, otomatis ikut pola kerja karyawan")}</option>
+                          <option value="SENDIRI">{t("Atur sendiri")}</option>
+                          <option value="SAMA">{t("Sama dengan tarif hari kerja")}</option>
+                        </select>
+                        {restMode === "PP35" && (
+                          <p className="text-[11px] text-gray-500"><T>6 hari kerja per minggu: s/d jam 7 2x, jam 8 3x, berikutnya 4x. 5 hari kerja per minggu: s/d jam 8 2x, jam 9 3x, berikutnya 4x. Hari kerja per minggu dihitung dari pola kerja masing-masing karyawan.</T></p>
+                        )}
+                      </div>
+                      {restMode === "SENDIRI" && tiers.rest && (
                         <div className="rounded-lg bg-gray-50 p-2.5">
                           <p className="mb-1.5 font-semibold text-gray-600"><T>Tarif hari libur</T></p>
                           <TierEditor tiers={tiers.rest} onChange={(rest) => setParam({ work: tiers.work, rest })} />

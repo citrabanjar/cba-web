@@ -52,10 +52,6 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
           <Input type="number" min={1} max={28} value={form.periodStartDay} onChange={(e) => set("periodStartDay", Number(e.target.value))} />)}
         {field("Tanggal gajian", "0 = hari kerja terakhir bulan itu.", <Input type="number" min={0} max={31} value={form.payDay} onChange={(e) => set("payDay", Number(e.target.value))} />)}
         {field("Pembagi upah sejam lembur", "PP 35/2021: 1/173 x upah sebulan.", <Input type="number" value={form.overtimeDivisor} onChange={(e) => set("overtimeDivisor", Number(e.target.value))} />)}
-        {field("Hari kerja per minggu (untuk lembur hari libur)", "Menentukan pengali lembur di hari istirahat.",
-          <select value={form.workDaysPerWeek} onChange={(e) => set("workDaysPerWeek", Number(e.target.value) === 5 ? 5 : 6)} className={select}>
-            <option value={6}>{t("6 hari kerja")}</option><option value={5}>{t("5 hari kerja")}</option>
-          </select>)}
         {field("Gaji masuk/keluar di tengah periode", "Cara menghitung gaji prorata.",
           <select value={form.prorate} onChange={(e) => set("prorate", e.target.value === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA")} className={select}>
             <option value="HARI_KERJA">{t("Per hari kerja")}</option><option value="HARI_KALENDER">{t("Per hari kalender")}</option>
@@ -124,7 +120,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
           ))}
         </div>
         {tab === "proses" && <RunTab runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay} />}
-        {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={settings.workDaysPerWeek} />}
+        {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={6} />}
         {tab === "kalkulator" && <DeductionCalculator />}
         {tab === "pengaturan" && <><SettingsTab settings={settings} /><BonusSchedule entries={bonus} components={nonRoutine} /><TaxSettings all={taxSettings} /><TerSettings versions={terSettings} /></>}
       </main>

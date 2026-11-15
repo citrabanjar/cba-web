@@ -77,6 +77,7 @@ export type PayParams = {
   reducesGross?: boolean; // potongan mengurangi penghasilan bruto PPh 21
   weeklyForMonthly?: boolean; // karyawan bulanan: komponen ini dibayar di payroll mingguan (mis. lembur, uang makan lembur, uang saku dinas)
   workday?: number[]; rest6?: number[]; rest5?: number[]; // format lama lembur
+  restAuto?: boolean; // tarif hari libur sesuai PP 35/2021, batas jam mengikuti hari kerja per minggu pola kerja karyawan
 };
 export const DEFAULT_WORK_TIERS: Tier[] = [{ upTo: 1, x: 1.5 }, { upTo: null, x: 2 }];
 export const defaultRestTiers = (workDaysPerWeek: 5 | 6): Tier[] =>
@@ -85,7 +86,7 @@ export const defaultRestTiers = (workDaysPerWeek: 5 | 6): Tier[] =>
 // Tarif lembur komponen (membaca juga format lama workday/rest6/rest5).
 export function overtimeTiers(p: PayParams | null | undefined, workDaysPerWeek: 5 | 6): { work: Tier[]; rest: Tier[] | null } {
   const q = p ?? {};
-  if (q.work?.length) return { work: q.work, rest: q.rest?.length ? q.rest : null };
+  if (q.work?.length) return { work: q.work, rest: q.restAuto ? defaultRestTiers(workDaysPerWeek) : q.rest?.length ? q.rest : null };
   const work = q.workday?.length === 2 ? [{ upTo: 1, x: q.workday[0] }, { upTo: null, x: q.workday[1] }] : DEFAULT_WORK_TIERS;
   const old = workDaysPerWeek === 6 ? q.rest6 : q.rest5;
   const a = workDaysPerWeek === 6 ? 7 : 8;
@@ -149,7 +150,6 @@ export type PayrollSettings = {
   periodStartDay: number; // tanggal mulai periode gaji (1 = sebulan kalender)
   payDay: number; // tanggal gajian (0 = hari kerja terakhir bulan itu)
   overtimeDivisor: number; // pembagi upah sejam lembur
-  workDaysPerWeek: 5 | 6; // dipakai untuk tarif bawaan lembur hari istirahat
   prorate: "HARI_KERJA" | "HARI_KALENDER"; // gaji karyawan masuk/keluar di tengah periode
   rounding: number; // pembulatan rupiah (1, 100, 1000)
   weekStartDay: number; // payroll mingguan: hari mulai minggu (0 = Minggu, 1 = Senin, ... 6 = Sabtu)
@@ -159,7 +159,7 @@ export type PayrollSettings = {
 
 export const PAYROLL_SETTING_KEY = "payroll.settings";
 export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
-  periodStartDay: 1, payDay: 0, overtimeDivisor: 173, workDaysPerWeek: 6, prorate: "HARI_KERJA", rounding: 1, weekStartDay: 1,
+  periodStartDay: 1, payDay: 0, overtimeDivisor: 173, prorate: "HARI_KERJA", rounding: 1, weekStartDay: 1,
   companyName: "PT. Citra Banjar Abadi", companyNpwp: "", signerName: "", signerId: "",
 };
 
@@ -270,7 +270,8 @@ export function describe(c: EvalComponent & { params?: PayParams | null }, workD
     case "PER_JAM": return `${b} / hari bulan berjalan / ${p.shiftHours ? "jam kerja shift hari itu" : `${num(p.hoursPerDay || 8)} jam`} x ${paramLabel(c.param)}`;
     case "LEMBUR": {
       const t = overtimeTiers(p, workDaysPerWeek);
-      return `1/${p.divisor ?? 173} x ${b} · ${t.rest ? "hari kerja " : ""}${tiers(t.work)}${t.rest ? ` · hari libur ${tiers(t.rest)}` : ""}`;
+      const rest = p.work?.length && p.restAuto ? "sesuai PP 35/2021 (ikut pola kerja: 6 hari kerja s/d jam 7 2x, jam 8 3x, berikutnya 4x; 5 hari kerja s/d jam 8 2x, jam 9 3x, berikutnya 4x)" : t.rest ? tiers(t.rest) : "";
+      return `1/${p.divisor ?? 173} x ${b} · ${rest ? "hari kerja " : ""}${tiers(t.work)}${rest ? ` · hari libur ${rest}` : ""}`;
     }
     case "THR": return `${num(p.months ?? 1)} x ${b} · masa kerja min ${p.minMonths ?? 1} bulan${p.proportional !== false ? ", proporsional < 12 bulan" : ""} · tidak rutin`;
     case "PPH21": return "PPh 21 otomatis (TER bulanan, setahun di masa pajak terakhir)";
@@ -282,6 +283,7 @@ export function describe(c: EvalComponent & { params?: PayParams | null }, workD
 export type SimInput = {
   basic: number; fixedAllowance: number; bpjsBase: number | null; daysPresent: number; absentDays: number; workDaysInMonth: number;
   monthsOfService: number; overtimeWork: number[]; overtimeRest: number[]; tripDays: number; trips: number; leaveDays: number;
+  workDaysPerWeek?: 5 | 6; // hari kerja per minggu karyawan simulasi (bawaan 6)
 };
 export type SimLine = { code: string; name: string; kind: string; amount: number; detail: string };
 export function simulate(components: (EvalComponent & { isActive: boolean })[], s: PayrollSettings, input: SimInput) {
@@ -296,7 +298,7 @@ export function simulate(components: (EvalComponent & { isActive: boolean })[], 
   const ctx: PayContext = {
     values, fixedTotal, bpjsTk: input.bpjsBase ?? fixedTotal, bpjsKes: input.bpjsBase ?? fixedTotal,
     qty: { HARI_HADIR: input.daysPresent, HARI_MANGKIR: input.absentDays, MASA_KERJA: input.monthsOfService, HARI_DINAS: input.tripDays },
-    overtimeWork: input.overtimeWork, overtimeRest: input.overtimeRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor,
+    overtimeWork: input.overtimeWork, overtimeRest: input.overtimeRest, workDaysPerWeek: input.workDaysPerWeek ?? 6, overtimeDivisor: s.overtimeDivisor,
     nonRoutine: active.filter((c) => c.method === "THR").map((c) => c.code),
   };
   const lines: SimLine[] = [];

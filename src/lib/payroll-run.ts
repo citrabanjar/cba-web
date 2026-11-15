@@ -4,7 +4,7 @@ import { evaluate, type PayContext, type PayParams, type PayrollSettings } from 
 import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { countLeaveDays } from "@/lib/leave-balance";
 import { overtimeForPayroll, pendingRevisions, syncRevisions } from "@/lib/overtime";
-import { getShiftCalendar } from "@/lib/schedule";
+import { getShiftCalendar, workDaysPerWeekOf } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
 import { isSeparate, isWeekly, parseSeparate, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
@@ -276,7 +276,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
       ...penaltyQty(start, end),
     },
     periodDays: calDays,
-    overtimeWork: inputs.otWork, overtimeRest: inputs.otRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor, nonRoutine,
+    overtimeWork: inputs.otWork, overtimeRest: inputs.otRest, workDaysPerWeek: await workDaysPerWeekOf(userId, end), overtimeDivisor: s.overtimeDivisor, nonRoutine,
     prorataDays: weekly && monthlyFactor > 0 ? monthlyFactor : undefined,
   };
   const monthlyItem = (c: { method: string; code: string }) => c.method === "NOMINAL" || c.method === "PERSEN" || (c.method === "INPUT" && c.code !== "GP");

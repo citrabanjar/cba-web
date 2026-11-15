@@ -80,3 +80,23 @@ export async function getShiftCalendars(userIds: string[], from: Date, to: Date)
 export async function getShiftCalendar(userId: string, from: Date, to: Date) {
   return (await getShiftCalendars([userId], from, to))[userId] ?? {};
 }
+
+// Hari kerja per minggu seorang karyawan (5 atau 6) dari pola kerja yang berlaku pada tanggal `at`:
+// jumlah hari ber-shift kerja dalam satu siklus dibagi panjang siklus x 7. Jadwal manual dihitung dari
+// isian Jadwal Bulanan 4 minggu terakhir. Tanpa jadwal: 6 (sistem kerja umum CBA).
+// Dipakai untuk batas tarif lembur hari libur PP 35/2021 (6 hari: 7/8 jam, 5 hari: 8/9 jam).
+export async function workDaysPerWeekOf(userId: string, at: Date): Promise<5 | 6> {
+  const sched = await prisma.employeeSchedule.findFirst({
+    where: { userId, effectiveDate: { lte: at } }, orderBy: { effectiveDate: "desc" },
+    include: { pattern: { include: { days: { include: { shift: { select: { isOff: true } } } } } } },
+  });
+  let perWeek: number | null = null;
+  if (sched?.type === "POLA" && sched.pattern?.cycleDays) {
+    perWeek = (sched.pattern.days.filter((d) => !d.shift.isOff).length / sched.pattern.cycleDays) * 7;
+  } else if (sched) {
+    const from = new Date(at.getTime() - 27 * DAY);
+    const days = await prisma.employeeShiftDay.findMany({ where: { userId, date: { gte: from, lte: at } }, select: { shift: { select: { isOff: true } } } });
+    if (days.length) perWeek = (days.filter((d) => !d.shift.isOff).length / days.length) * 7;
+  }
+  return perWeek !== null && perWeek < 5.5 ? 5 : 6;
+}
