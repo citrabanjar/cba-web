@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { OT_ACTIVE } from "@/lib/overtime";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { hasApprover } from "@/lib/approval";
@@ -49,10 +50,11 @@ export async function submitBusinessTrip(_prevState: unknown, formData: FormData
   const userId = session.user.id;
   const range = (a: Date, b: Date) => `${formatDate(a)}${a.getTime() === b.getTime() ? "" : ` – ${formatDate(b)}`}`;
   const overlap = { startDate: { lte: end }, endDate: { gte: start } };
-  const [trip, leave, att] = await Promise.all([
+  const [trip, leave, att, ot] = await Promise.all([
     prisma.businessTrip.findFirst({ where: { userId, status: { in: ["PENDING", "APPROVED"] }, ...overlap }, orderBy: { startDate: "asc" } }),
     prisma.leaveRequest.findFirst({ where: { userId, status: { in: ["PENDING", "APPROVED"] }, ...overlap }, orderBy: { startDate: "asc" } }),
     prisma.attendance.findFirst({ where: { userId, status: { in: ["DINAS", "CUTI"] }, date: { gte: start, lte: end } }, orderBy: { date: "asc" } }),
+    prisma.overtime.findFirst({ where: { userId, status: { in: OT_ACTIVE }, date: { gte: start, lte: end } }, orderBy: { date: "asc" }, include: { order: { select: { number: true } } } }),
   ]);
   if (trip) {
     return { error: `Tanggal beririsan dengan dinas luar ${trip.destination} (${range(trip.startDate, trip.endDate)}) yang ${trip.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}. Pilih tanggal lain atau batalkan pengajuan itu dulu.` };
@@ -62,6 +64,10 @@ export async function submitBusinessTrip(_prevState: unknown, formData: FormData
   }
   if (att) {
     return { error: `Tanggal ${formatDate(att.date)} sudah tercatat ${att.status === "DINAS" ? "Dinas" : "Cuti"} di kehadiran Anda.` };
+  }
+
+  if (ot) {
+    return { error: `Tanggal beririsan dengan lembur ${ot.order ? `${ot.order.number} ` : ""}${formatDate(ot.date)} (${ot.startTime}–${ot.endTime}). Lembur dan dinas tidak boleh di tanggal yang sama; batalkan lemburnya dulu.` };
   }
 
   const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;

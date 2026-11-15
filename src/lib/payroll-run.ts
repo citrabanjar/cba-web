@@ -7,7 +7,7 @@ import { overtimeForPayroll, pendingRevisions, syncRevisions } from "@/lib/overt
 import { getShiftCalendar } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
-import { isWeekly, periodLabel } from "@/lib/payroll-run-period";
+import { isWeekly, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
 import { pph21Daily, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
 
 const DAY = 86_400_000;
@@ -487,4 +487,30 @@ export async function finalizeRun(runId: string, by: string | null) {
     if (done.length) await prisma.employeeLoan.updateMany({ where: { id: { in: done } }, data: { status: "LUNAS" } });
   }
   return ops.length;
+}
+
+// Estimasi upah lembur karyawan di periode gaji berjalan (menu Kehadiran). Memakai mesin Proses Gaji yang sama,
+// lalu mengambil komponen upah lembur (cara hitung LEMBUR) dan komponen berparameter jam lembur (mis. uang makan lembur).
+export async function estimateOvertime(userId: string, today: string) {
+  const [s, user] = await Promise.all([
+    getPayrollSettings(),
+    prisma.user.findUnique({ where: { id: userId }, select: { paymentSchedule: true } }),
+  ]);
+  let period: string;
+  if (user?.paymentSchedule === "Mingguan") period = weekStartOf(today, s.weekStartDay);
+  else {
+    const [y, m, d] = today.split("-").map(Number);
+    const next = s.periodStartDay > 1 && d >= s.periodStartDay;
+    const t = new Date(Date.UTC(y, m - 1 + (next ? 1 : 0), 1));
+    period = t.toISOString().slice(0, 7);
+  }
+  const ctx = await loadContext(period);
+  const r = await computeLine(ctx, userId, []);
+  const otCodes = new Set(ctx.components.filter((c) => c.method === "LEMBUR" || c.param === "JAM_LEMBUR").map((c) => c.code));
+  const items = r.items.filter((i) => otCodes.has(i.code)).map((i) => ({ name: i.name, amount: i.amount, detail: i.detail }));
+  return {
+    period, label: periodLabel(period), start: iso(ctx.start), end: iso(ctx.end),
+    hoursWork: r.inputs.otWork.reduce((a, b) => a + b, 0), hoursRest: r.inputs.otRest.reduce((a, b) => a + b, 0),
+    items, total: items.reduce((a, i) => a + i.amount, 0),
+  };
 }

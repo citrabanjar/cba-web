@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Clock, CalendarDays, Briefcase, FileText,
-  Receipt, AlertCircle, ArrowLeftRight, Timer,
+  Receipt, AlertCircle, ArrowLeftRight, Timer, CalendarCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +36,12 @@ export default async function DashboardPage() {
       icon: Clock,
       label: "Absensi",
       desc: "Check-in & Check-out",
+    },
+    {
+      href: "/portal/kehadiran",
+      icon: CalendarCheck,
+      label: "Kehadiran",
+      desc: "Kalender & estimasi lembur",
     },
     {
       href: "/portal/cuti",

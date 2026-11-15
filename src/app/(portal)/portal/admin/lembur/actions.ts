@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMenu } from "@/lib/access";
-import { isTime, nextSplNumber, plannedHours, splEnabled } from "@/lib/overtime";
+import { dinasOn, isTime, nextSplNumber, plannedHours, splEnabled } from "@/lib/overtime";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
 
@@ -35,6 +35,10 @@ export async function createSpl(input: SplInput): Promise<Result & { number?: st
   const busy = new Set((await prisma.overtime.findMany({
     where: { userId: { in: users.map((u) => u.id) }, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } }, select: { userId: true },
   })).map((o) => o.userId));
+  // Karyawan yang sedang dinas luar di tanggal itu tidak boleh diberi SPL.
+  const dinas = await dinasOn(users.map((u) => u.id), date);
+  const onTrip = users.filter((u) => dinas.has(u.id));
+  if (onTrip.length) return { error: `Tidak bisa membuat SPL: ${onTrip.map((u) => `${u.name} (${dinas.get(u.id)})`).join(", ")} di ${formatDate(date)}. Hapus dari daftar karyawan.` };
   const targets = users.filter((u) => !busy.has(u.id));
   if (!targets.length) return { error: "Semua karyawan yang dipilih sudah punya lembur di tanggal itu." };
 

@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
-import { isTime, plannedHours, splEnabled } from "@/lib/overtime";
+import { dinasOn, isTime, plannedHours, splEnabled } from "@/lib/overtime";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string };
@@ -26,6 +26,10 @@ export async function respondSpl(id: string, accept: boolean, note: string): Pro
   const o = await prisma.overtime.findUnique({ where: { id } });
   if (!o || o.userId !== u.id || o.status !== "MENUNGGU_KARYAWAN") return { error: "SPL tidak ditemukan atau sudah dijawab." };
   if (!accept && !note.trim()) return { error: "Tulis alasan tidak bersedia." };
+  if (accept) {
+    const dinas = (await dinasOn([u.id], o.date)).get(u.id);
+    if (dinas) return { error: `Tanggal ${formatDate(o.date)} beririsan dengan ${dinas}; lembur tidak bisa dijalankan saat dinas. Pilih Tidak bersedia.` };
+  }
   await prisma.overtime.update({
     where: { id },
     data: { status: accept ? "DISETUJUI" : "TIDAK_BERSEDIA", decidedBy: u.name, decidedAt: new Date(), note: note.trim() || null },
@@ -49,6 +53,8 @@ export async function submitOvertime(input: { date: string; startTime: string; e
   if (plannedHours(row) < 1) return { error: "Lembur minimal 1 jam (di luar istirahat)." };
   const clash = await prisma.overtime.findFirst({ where: { userId: u.id, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } } });
   if (clash) return { error: `Sudah ada lembur di ${formatDate(date)} (${clash.startTime}–${clash.endTime}).` };
+  const dinas = (await dinasOn([u.id], date)).get(u.id);
+  if (dinas) return { error: `Tanggal ${formatDate(date)} beririsan dengan ${dinas}; lembur tidak bisa diajukan saat dinas.` };
   const { flow, error } = await workflowSteps("LEMBUR", u.id);
   if (error) return { error };
   if (!flow && !(await hasApprover(u.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };

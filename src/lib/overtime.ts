@@ -18,6 +18,26 @@ export async function splEnabled() {
   return (row?.value as { enabled?: boolean } | null)?.enabled === true;
 }
 
+// Lembur tidak boleh di tanggal dinas luar (sedang diajukan / disetujui) atau yang sudah tercatat Dinas di kehadiran.
+// Hasil: userId → keterangan dinasnya.
+export async function dinasOn(userIds: string[], date: Date) {
+  const out = new Map<string, string>();
+  if (!userIds.length) return out;
+  const [trips, atts] = await Promise.all([
+    prisma.businessTrip.findMany({
+      where: { userId: { in: userIds }, status: { in: ["PENDING", "APPROVED"] }, startDate: { lte: date }, endDate: { gte: date } },
+      select: { userId: true, destination: true, status: true },
+    }),
+    prisma.attendance.findMany({ where: { userId: { in: userIds }, date, status: "DINAS" }, select: { userId: true } }),
+  ]);
+  for (const a of atts) out.set(a.userId, "tercatat Dinas di kehadiran");
+  for (const t of trips) out.set(t.userId, `dinas luar ${t.destination} ${t.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}`);
+  return out;
+}
+
+// Lembur aktif (belum ditolak/dibatalkan) yang jatuh di rentang tanggal, untuk mencegah dinas yang beririsan.
+export const OT_ACTIVE = ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"];
+
 import { OT_APPROVED } from "@/lib/overtime-status";
 export { OT_APPROVED, OT_STATUS } from "@/lib/overtime-status";
 
