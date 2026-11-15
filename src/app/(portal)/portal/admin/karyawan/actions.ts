@@ -218,7 +218,11 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
     // Tautan ke menu asal: karyawan yang diubah, atau Payroll & Benefit untuk pengaturan payroll.
     const target = (r.data as { __target?: unknown })?.__target;
     const kind = String((r.data as { __kind?: unknown })?.__kind ?? "");
-    const href = typeof target === "string" && target ? `${LIST_PATH}/${target}` : kind.startsWith("gaji.") ? "/portal/admin/payroll" : `${LIST_PATH}/${r.userId}`;
+    const href = typeof target === "string" && target ? `${LIST_PATH}/${target}`
+      : kind.startsWith("gaji.") ? "/portal/admin/payroll"
+      : kind.startsWith("absensi.") ? "/portal/admin/schedule"
+      : kind.startsWith("cuti.") ? "/portal/admin/leave"
+      : `${LIST_PATH}/${r.userId}`;
     await notify(r.requesterId, `Pengajuan ${approve ? "disetujui" : "ditolak"}: ${title}`, decisionText(approve, steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName, note), href);
     // Perubahan data karyawan yang sudah berlaku: karyawan yang datanya diubah ikut diberi tahu (kecuali password).
     if (approve && !kind && r.userId !== r.requesterId) {
