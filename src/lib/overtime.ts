@@ -3,11 +3,15 @@
 //   SPL aktif: Admin membuat SPL (tanggal, jam lembur, jam istirahat, banyak karyawan); karyawan menjawab
 //   Bersedia / Tidak bersedia. SPL tidak aktif: karyawan mengajukan lembur sendiri, diputus atasan / Workflow.
 // - Jam yang dibayar = bagian rentang lembur yang benar-benar dijalani (sampai jam check-out), dikurangi
-//   istirahat, dibulatkan ke bawah per 1 jam penuh (kurang dari 1 jam tidak dibayar).
+//   istirahat lembur, dibulatkan ke bawah per 1 jam penuh (kurang dari 1 jam tidak dibayar).
+// - Istirahat lembur tetap: 12:00-13:00 dan 18:00-19:00, wajib dipotong bila lembur melewatinya
+//   (mis. Sabtu shift selesai 12:00 -> lembur efektif mulai 13:00).
+// - Di hari kerja, lembur dibatasi shift: sebelum masuk paling lambat sampai jam masuk, sesudah pulang paling
+//   cepat mulai jam pulang; jam kerja shift tidak dihitung lembur. Hari OFF / libur tidak dibatasi.
 // - Check-out melewati jam akhir SPL (≥ 1 jam) → revisi jam lembur ke Admin (Task Admin). Selama revisi belum
 //   diputus, lembur dibayar sampai jam akhir SPL dan gaji periode itu belum bisa difinalkan.
 import { prisma } from "@/lib/prisma";
-import { getShiftCalendar } from "@/lib/schedule";
+import { getShiftCalendar, getShiftCalendars, type DayShift } from "@/lib/schedule";
 
 export const SPL_SETTING_KEY = "overtime-spl";
 const DAY = 86_400_000;
@@ -48,44 +52,82 @@ const toMin = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); re
 export const atWib = (date: Date, hhmm: string, nextDay = false) =>
   new Date(Date.parse(`${keyOf(date)}T${hhmm}:00+07:00`) + (nextDay ? DAY : 0));
 
-// Rentang lembur (dan istirahat) sebagai waktu nyata. Jam akhir ≤ jam mulai = lewat tengah malam.
-export function otWindow(o: { date: Date; startTime: string; endTime: string; breakStart?: string | null; breakEnd?: string | null }, endOverride?: string | null) {
+// Istirahat lembur tetap (WIB).
+export const OT_BREAKS = [["12:00", "13:00"], ["18:00", "19:00"]] as const;
+export const OT_BREAK_TEXT = "12:00–13:00 dan 18:00–19:00";
+
+// Rentang lembur sebagai waktu nyata, beserta istirahat tetap pada hari itu (dan esoknya bila lewat tengah malam).
+// Jam akhir ≤ jam mulai = lewat tengah malam.
+export function otWindow(o: { date: Date; startTime: string; endTime: string }, endOverride?: string | null) {
   const endT = endOverride ?? o.endTime;
   const start = atWib(o.date, o.startTime);
   const end = atWib(o.date, endT, toMin(endT) <= toMin(o.startTime));
-  let brk: [Date, Date] | null = null;
-  if (o.breakStart && o.breakEnd) {
-    const bs = atWib(o.date, o.breakStart, toMin(o.breakStart) < toMin(o.startTime));
-    const be = atWib(o.date, o.breakEnd, toMin(o.breakEnd) <= toMin(o.breakStart) || toMin(o.breakEnd) < toMin(o.startTime));
-    brk = [bs, be];
-  }
-  return { start, end, brk };
+  const brks: [Date, Date][] = [];
+  for (const next of [false, true]) for (const [a, b] of OT_BREAKS) brks.push([atWib(o.date, a, next), atWib(o.date, b, next)]);
+  return { start, end, brks };
 }
 
-// Menit lembur bersih (tanpa istirahat) di rentang [from, to].
-function netMinutes(from: Date, to: Date, brk: [Date, Date] | null) {
+const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+
+// Menit lembur bersih di rentang [from, to]: dikurangi istirahat tetap dan jam kerja shift (bila ada).
+function netMinutes(from: Date, to: Date, brks: [Date, Date][], work?: [Date, Date] | null) {
   if (to <= from) return 0;
-  let m = (to.getTime() - from.getTime()) / 60_000;
-  if (brk) m -= Math.max(0, (Math.min(to.getTime(), brk[1].getTime()) - Math.max(from.getTime(), brk[0].getTime())) / 60_000);
+  const f = from.getTime(), t = to.getTime();
+  let m = (t - f) / 60_000;
+  for (const [b0, b1] of brks) m -= overlap(f, t, b0.getTime(), b1.getTime()) / 60_000;
+  if (work) {
+    // jam kerja shift dikurangi, tanpa memotong dua kali bagian yang juga istirahat
+    const w0 = work[0].getTime(), w1 = work[1].getTime();
+    let w = overlap(f, t, w0, w1);
+    for (const [b0, b1] of brks) {
+      const s = Math.max(f, w0, b0.getTime()), e = Math.min(t, w1, b1.getTime());
+      if (e > s) w -= e - s;
+    }
+    m -= w / 60_000;
+  }
   return Math.max(0, m);
 }
 
+// Jam kerja shift sebagai waktu nyata (null untuk OFF / libur / tanpa jam).
+export function shiftWindow(date: Date, s: DayShift | null | undefined): [Date, Date] | null {
+  if (!s || s.isOff || s.holiday || !s.startTime || !s.endTime) return null;
+  return [atWib(date, s.startTime), atWib(date, s.endTime, toMin(s.endTime) <= toMin(s.startTime))];
+}
+
 // Lama lembur terjadwal (jam, tanpa istirahat) untuk ditampilkan.
-export function plannedHours(o: { date: Date; startTime: string; endTime: string; breakStart?: string | null; breakEnd?: string | null }) {
+export function plannedHours(o: { date: Date; startTime: string; endTime: string }) {
   const w = otWindow(o);
-  return Math.round((netMinutes(w.start, w.end, w.brk) / 60) * 100) / 100;
+  return Math.round((netMinutes(w.start, w.end, w.brks) / 60) * 100) / 100;
+}
+
+// Rentang lembur yang bentrok dengan jam kerja shift. Hasil: userId -> pesan (karyawan yang shiftnya OFF / libur bebas).
+export async function shiftConflicts(userIds: string[], date: Date, startTime: string, endTime: string) {
+  const out = new Map<string, string>();
+  if (!userIds.length) return out;
+  const cal = await getShiftCalendars(userIds, date, date);
+  const k = keyOf(date);
+  const w = otWindow({ date, startTime, endTime });
+  for (const id of userIds) {
+    const s = cal[id]?.[k];
+    const sw = shiftWindow(date, s);
+    if (!sw || !s) continue;
+    if (overlap(w.start.getTime(), w.end.getTime(), sw[0].getTime(), sw[1].getTime()) > 0)
+      out.set(id, `jam kerja ${s.startTime}–${s.endTime}: lembur sebelum masuk paling lambat sampai ${s.startTime}, sesudah pulang mulai ${s.endTime}`);
+  }
+  return out;
 }
 
 type Att = { checkIn: Date | null; checkOut: Date | null } | null | undefined;
 type OtRow = { date: Date; startTime: string; endTime: string; breakStart: string | null; breakEnd: string | null; orderId: string | null; revisionStatus: string | null; revisionEnd: string | null };
 
-// Jam lembur yang dibayar: rentang lembur ∩ jam absen (masuk s/d check-out), tanpa istirahat, per 1 jam penuh.
-export function paidHours(o: OtRow, att: Att) {
+// Jam lembur yang dibayar: rentang lembur ∩ jam absen (masuk s/d check-out), tanpa istirahat tetap dan tanpa
+// jam kerja shift (bila diberikan), per 1 jam penuh.
+export function paidHours(o: OtRow, att: Att, work?: [Date, Date] | null) {
   if (!att?.checkOut) return 0; // tanpa absen pulang tidak ada bukti lembur
   const w = otWindow(o, o.revisionStatus === "DISETUJUI" ? o.revisionEnd : null);
   const from = att.checkIn && att.checkIn > w.start ? att.checkIn : w.start;
   const to = att.checkOut < w.end ? att.checkOut : w.end;
-  return Math.floor(netMinutes(from, to, w.brk) / 60);
+  return Math.floor(netMinutes(from, to, w.brks, work) / 60);
 }
 
 // Check-out melewati jam akhir SPL sedikitnya 1 jam → perlu revisi jam lembur ke Admin.
@@ -133,9 +175,9 @@ export async function overtimeForPayroll(userId: string, start: Date, end: Date)
   const att = new Map(atts.map((a) => [keyOf(a.date), a]));
   const work: number[] = [], rest: number[] = [];
   for (const r of rows) {
-    const h = paidHours(r, att.get(keyOf(r.date)));
-    if (h <= 0) continue;
     const s = cal[keyOf(r.date)];
+    const h = paidHours(r, att.get(keyOf(r.date)), shiftWindow(r.date, s));
+    if (h <= 0) continue;
     (s && (s.isOff || s.holiday) ? rest : work).push(h);
   }
   return { work, rest };

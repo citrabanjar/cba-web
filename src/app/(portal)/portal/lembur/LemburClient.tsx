@@ -24,7 +24,7 @@ export default function LemburClient({ spl, items }: { spl: boolean; items: MyOv
     <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
       <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs text-gray-500">
         <p className="flex items-start gap-2"><Clock size={14} className="mt-0.5 shrink-0 text-brand" />
-          <span><T>Lembur dibayar per 1 jam penuh (kurang dari 1 jam tidak dibayar), dihitung sampai jam absen pulang, di luar jam istirahat.</T></span>
+          <span><T>Lembur dibayar per 1 jam penuh (kurang dari 1 jam tidak dibayar), dihitung sampai jam absen pulang, di luar istirahat 12:00–13:00 dan 18:00–19:00.</T></span>
         </p>
       </div>
 
@@ -132,7 +132,7 @@ function HistoryCard({ item: i }: { item: MyOvertime }) {
 function RequestForm() {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ date: "", startTime: "17:00", endTime: "19:00", breakStart: "", breakEnd: "", reason: "" });
+  const [f, setF] = useState({ date: "", startTime: "16:00", endTime: "18:00", reason: "" });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const submit = () => start(async () => {
@@ -158,9 +158,8 @@ function RequestForm() {
       <div className="grid grid-cols-2 gap-3">
         <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Lembur dari jam</T></label><input type="time" value={f.startTime} onChange={(e) => setF({ ...f, startTime: e.target.value })} className={field} /></div>
         <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Sampai jam</T></label><input type="time" value={f.endTime} onChange={(e) => setF({ ...f, endTime: e.target.value })} className={field} /></div>
-        <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Istirahat dari (opsional)</T></label><input type="time" value={f.breakStart} onChange={(e) => setF({ ...f, breakStart: e.target.value })} className={field} /></div>
-        <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Istirahat sampai</T></label><input type="time" value={f.breakEnd} onChange={(e) => setF({ ...f, breakEnd: e.target.value })} className={field} /></div>
       </div>
+      <p className="-mt-1 text-[11px] text-gray-400"><T>Di hari kerja lembur di luar jam shift: sebelum masuk paling lambat sampai jam masuk, sesudah pulang mulai jam pulang. Istirahat 12:00–13:00 dan 18:00–19:00 dipotong otomatis bila dilewati.</T></p>
       <div>
         <label className="mb-1 block text-xs font-medium text-gray-500"><T>Keperluan</T></label>
         <textarea rows={3} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder={t("Pekerjaan yang dikerjakan saat lembur...")} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMenu } from "@/lib/access";
-import { dinasOn, isTime, nextSplNumber, plannedHours, splEnabled } from "@/lib/overtime";
+import { dinasOn, isTime, nextSplNumber, OT_BREAK_TEXT, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ function refresh() {
   revalidatePath("/portal/admin/karyawan", "layout");
 }
 
-export type SplInput = { date: string; startTime: string; endTime: string; breakStart: string; breakEnd: string; note: string; userIds: string[] };
+export type SplInput = { date: string; startTime: string; endTime: string; note: string; userIds: string[] };
 
 // Admin membuat SPL untuk beberapa karyawan pada satu tanggal. Karyawan mendapat notifikasi untuk menjawab.
 export async function createSpl(input: SplInput): Promise<Result & { number?: string; skipped?: string[] }> {
@@ -22,13 +22,12 @@ export async function createSpl(input: SplInput): Promise<Result & { number?: st
   if (!(await splEnabled())) return { error: "Fitur Surat Perintah Lembur belum dinyalakan Super Admin." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Tanggal lembur wajib diisi." };
   if (!isTime(input.startTime) || !isTime(input.endTime) || input.startTime === input.endTime) return { error: "Isi jam mulai dan jam selesai lembur." };
-  const hasBreak = !!(input.breakStart || input.breakEnd);
-  if (hasBreak && (!isTime(input.breakStart) || !isTime(input.breakEnd))) return { error: "Isi jam istirahat lengkap (mulai dan selesai), atau kosongkan." };
   const ids = [...new Set(input.userIds)].filter(Boolean);
   if (!ids.length) return { error: "Pilih minimal satu karyawan." };
   const date = new Date(`${input.date}T00:00:00Z`);
-  const row = { date, startTime: input.startTime, endTime: input.endTime, breakStart: hasBreak ? input.breakStart : null, breakEnd: hasBreak ? input.breakEnd : null };
-  if (plannedHours(row) < 1) return { error: "Lembur minimal 1 jam (di luar istirahat)." };
+  // Istirahat lembur tetap (12:00-13:00, 18:00-19:00) dipotong otomatis.
+  const row = { date, startTime: input.startTime, endTime: input.endTime, breakStart: null, breakEnd: null };
+  if (plannedHours(row) < 1) return { error: `Lembur minimal 1 jam (di luar istirahat ${OT_BREAK_TEXT}).` };
 
   const users = await prisma.user.findMany({ where: { id: { in: ids }, isActive: true, role: { not: "SUPER_ADMIN" } }, select: { id: true, name: true } });
   // Karyawan yang sudah punya lembur aktif di tanggal itu dilewati.
@@ -39,6 +38,10 @@ export async function createSpl(input: SplInput): Promise<Result & { number?: st
   const dinas = await dinasOn(users.map((u) => u.id), date);
   const onTrip = users.filter((u) => dinas.has(u.id));
   if (onTrip.length) return { error: `Tidak bisa membuat SPL: ${onTrip.map((u) => `${u.name} (${dinas.get(u.id)})`).join(", ")} di ${formatDate(date)}. Hapus dari daftar karyawan.` };
+  // Jam lembur tidak boleh masuk jam kerja shift karyawan (hari OFF / libur bebas).
+  const clash = await shiftConflicts(users.map((u) => u.id), date, row.startTime, row.endTime);
+  const inShift = users.filter((u) => clash.has(u.id));
+  if (inShift.length) return { error: `Jam lembur bentrok dengan shift: ${inShift.map((u) => `${u.name} (${clash.get(u.id)})`).join("; ")}.` };
   const targets = users.filter((u) => !busy.has(u.id));
   if (!targets.length) return { error: "Semua karyawan yang dipilih sudah punya lembur di tanggal itu." };
 
@@ -49,9 +52,8 @@ export async function createSpl(input: SplInput): Promise<Result & { number?: st
       items: { create: targets.map((u) => ({ userId: u.id, ...row, reason: input.note.trim() || null, status: "MENUNGGU_KARYAWAN", createdBy: admin.name })) },
     },
   });
-  const brk = row.breakStart ? ` · istirahat ${row.breakStart}–${row.breakEnd}` : "";
   await notify(targets.map((u) => u.id), `Surat Perintah Lembur ${number}`,
-    `${formatDate(date)} · ${row.startTime}–${row.endTime}${brk}. Pilih Bersedia atau Tidak bersedia.`, "/portal/lembur");
+    `${formatDate(date)} · ${row.startTime}–${row.endTime}. Pilih Bersedia atau Tidak bersedia.`, "/portal/lembur");
   refresh();
   return { number, skipped: users.filter((u) => busy.has(u.id)).map((u) => u.name) };
 }

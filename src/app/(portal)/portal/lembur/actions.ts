@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
-import { dinasOn, isTime, plannedHours, splEnabled } from "@/lib/overtime";
+import { dinasOn, isTime, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string };
@@ -39,18 +39,19 @@ export async function respondSpl(id: string, accept: boolean, note: string): Pro
 }
 
 // Pengajuan lembur oleh karyawan (bila SPL tidak dipakai). Diputus atasan langsung / Workflow modul Lembur.
-export async function submitOvertime(input: { date: string; startTime: string; endTime: string; breakStart: string; breakEnd: string; reason: string }): Promise<Result> {
+export async function submitOvertime(input: { date: string; startTime: string; endTime: string; reason: string }): Promise<Result> {
   const u = await me();
   if (await splEnabled()) return { error: "Lembur memakai Surat Perintah Lembur dari Admin; pengajuan sendiri tidak dipakai." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Tanggal lembur wajib diisi." };
   if (!isTime(input.startTime) || !isTime(input.endTime)) return { error: "Jam mulai dan jam selesai lembur wajib diisi." };
   if (input.startTime === input.endTime) return { error: "Jam selesai harus berbeda dengan jam mulai." };
-  const hasBreak = !!(input.breakStart || input.breakEnd);
-  if (hasBreak && (!isTime(input.breakStart) || !isTime(input.breakEnd))) return { error: "Isi jam istirahat lengkap (mulai dan selesai), atau kosongkan." };
   if (!input.reason.trim()) return { error: "Tulis keperluan lembur." };
   const date = new Date(`${input.date}T00:00:00Z`);
-  const row = { date, startTime: input.startTime, endTime: input.endTime, breakStart: hasBreak ? input.breakStart : null, breakEnd: hasBreak ? input.breakEnd : null };
-  if (plannedHours(row) < 1) return { error: "Lembur minimal 1 jam (di luar istirahat)." };
+  // Istirahat lembur tetap (12:00-13:00, 18:00-19:00) dipotong otomatis; kolom istirahat tidak dipakai lagi.
+  const row = { date, startTime: input.startTime, endTime: input.endTime, breakStart: null, breakEnd: null };
+  if (plannedHours(row) < 1) return { error: "Lembur minimal 1 jam (di luar istirahat 12:00–13:00 dan 18:00–19:00)." };
+  const conflict = (await shiftConflicts([u.id], date, input.startTime, input.endTime)).get(u.id);
+  if (conflict) return { error: `Jam lembur bentrok dengan ${conflict}.` };
   const clash = await prisma.overtime.findFirst({ where: { userId: u.id, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } } });
   if (clash) return { error: `Sudah ada lembur di ${formatDate(date)} (${clash.startTime}–${clash.endTime}).` };
   const dinas = (await dinasOn([u.id], date)).get(u.id);

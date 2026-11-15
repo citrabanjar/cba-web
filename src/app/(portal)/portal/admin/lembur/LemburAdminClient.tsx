@@ -138,7 +138,7 @@ function RevisionCard({ item: r, canEdit }: { item: AdminOvertime; canEdit: bool
 
 function SplForm({ employees }: { employees: EmployeePick[] }) {
   const t = useT();
-  const [f, setF] = useState({ date: "", startTime: "17:00", endTime: "20:00", breakStart: "18:00", breakEnd: "18:30", note: "" });
+  const [f, setF] = useState({ date: "", startTime: "16:00", endTime: "20:00", note: "" });
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
   const [dept, setDept] = useState("");
@@ -163,10 +163,8 @@ function SplForm({ employees }: { employees: EmployeePick[] }) {
         <div className="sm:col-span-1"><label className="mb-1 block text-xs font-medium text-gray-500"><T>Tanggal</T></label><DateInput value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
         <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Lembur dari jam</T></label><input type="time" value={f.startTime} onChange={(e) => setF({ ...f, startTime: e.target.value })} className={field} /></div>
         <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Sampai jam</T></label><input type="time" value={f.endTime} onChange={(e) => setF({ ...f, endTime: e.target.value })} className={field} /></div>
-        <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Istirahat dari</T></label><input type="time" value={f.breakStart} onChange={(e) => setF({ ...f, breakStart: e.target.value })} className={field} /></div>
-        <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Istirahat sampai</T></label><input type="time" value={f.breakEnd} onChange={(e) => setF({ ...f, breakEnd: e.target.value })} className={field} /></div>
       </div>
-      <p className="-mt-2 text-[11px] text-gray-400"><T>Kosongkan jam istirahat bila tidak ada istirahat.</T></p>
+      <p className="-mt-2 text-[11px] text-gray-400"><T>Di hari kerja jam lembur harus di luar jam shift karyawan (sebelum jam masuk atau mulai jam pulang). Istirahat 12:00–13:00 dan 18:00–19:00 dipotong otomatis bila dilewati.</T></p>
       <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Pekerjaan / keterangan</T></label>
         <textarea rows={2} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder={t("Mis. menyelesaikan fabrikasi proyek X")} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
       </div>
