@@ -1,7 +1,5 @@
-import Link from "next/link";
-import { ArrowRight, PieChart, Users } from "lucide-react";
+import { PieChart } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/utils";
 import { T } from "@/components/i18n";
 import IndicatorCards from "./IndicatorCards";
 import AgentPanel from "./AgentPanel";
@@ -158,20 +156,11 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
   // Alpha otomatis 7 hari terakhir (paling sering sekali per jam; cadangan selama cron malam belum aktif).
   await assessRecent().catch(() => null);
 
-  const [{ insights, agent }, active, byStatus, recent, expiring] =
+  const [{ insights, agent }, active, byStatus, expiring] =
     await Promise.all([
       loadAgent(isSuper),
       prisma.user.count({ where: { ...employee, isActive: true } }),
       prisma.user.groupBy({ by: ["employmentStatus"], where: { ...employee, isActive: true }, _count: { _all: true } }),
-      prisma.user.findMany({
-        where: { ...employee, isActive: true },
-        orderBy: [{ joinDate: { sort: "desc", nulls: "last" } }],
-        take: 6,
-        select: {
-          id: true, employeeId: true, name: true, position: true, employmentStatus: true, joinDate: true,
-          department: { select: { name: true } },
-        },
-      }),
       prisma.user.count({
         where: {
           ...employee, isActive: true, employmentStatus: "KONTRAK",
@@ -207,49 +196,6 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
         </Panel>
       </div>
 
-      <Panel
-        icon={Users} tone="emerald" title="Karyawan Terbaru" subtitle="Karyawan aktif dengan tanggal masuk terbaru"
-        action={
-          <Link href="/portal/admin/karyawan" className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand hover:bg-brand/15">
-            <T>Lihat semua</T> <ArrowRight size={13} />
-          </Link>
-        }
-      >
-        <div className="-mx-5 -mb-5 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-y border-gray-100 bg-gray-50/70 text-left text-[11px] uppercase tracking-wide text-gray-400">
-                <th className="px-5 py-2.5 font-medium"><T>Employee ID</T></th>
-                <th className="px-5 py-2.5 font-medium"><T>Nama</T></th>
-                <th className="hidden px-5 py-2.5 font-medium md:table-cell"><T>Jabatan</T></th>
-                <th className="hidden px-5 py-2.5 font-medium lg:table-cell"><T>Departemen</T></th>
-                <th className="px-5 py-2.5 font-medium"><T>Status</T></th>
-                <th className="hidden px-5 py-2.5 font-medium sm:table-cell"><T>Tanggal Masuk</T></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {recent.map((e) => (
-                <tr key={e.id} className="hover:bg-gray-50/70">
-                  <td className="whitespace-nowrap px-5 py-3 font-mono text-xs text-gray-500">{e.employeeId ?? "—"}</td>
-                  <td className="px-5 py-3">
-                    <Link href={`/portal/admin/karyawan/${e.id}`} className="font-medium text-gray-900 hover:text-brand">{e.name}</Link>
-                  </td>
-                  <td className="hidden px-5 py-3 text-gray-600 md:table-cell">{e.position ?? "—"}</td>
-                  <td className="hidden max-w-64 truncate px-5 py-3 text-gray-600 lg:table-cell">{e.department?.name ?? "—"}</td>
-                  <td className="px-5 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                      e.employmentStatus === "TETAP" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-700"
-                    }`}>
-                      <T>{STATUS_LABEL[e.employmentStatus] ?? e.employmentStatus}</T>
-                    </span>
-                  </td>
-                  <td className="hidden whitespace-nowrap px-5 py-3 text-gray-600 sm:table-cell">{e.joinDate ? formatDate(e.joinDate) : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
     </div>
   );
 }
