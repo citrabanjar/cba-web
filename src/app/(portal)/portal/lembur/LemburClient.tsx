@@ -28,16 +28,14 @@ export default function LemburClient({ spl, items }: { spl: boolean; items: MyOv
         </p>
       </div>
 
-      {spl ? (
-        waiting.length > 0 && (
-          <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Surat Perintah Lembur menunggu jawaban Anda</T></p>
-            {waiting.map((i) => <SplCard key={i.id} item={i} />)}
-          </section>
-        )
-      ) : (
-        <RequestForm />
+      {/* SPL yang sudah dikirim selalu bisa dijawab, walau saklar SPL kemudian dimatikan. */}
+      {waiting.length > 0 && (
+        <section className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Surat Perintah Lembur menunggu jawaban Anda</T></p>
+          {waiting.map((i) => <SplCard key={i.id} item={i} />)}
+        </section>
       )}
+      {!spl && <RequestForm />}
 
       <section className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Lembur</T></p>
