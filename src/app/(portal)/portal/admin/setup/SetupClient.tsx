@@ -134,7 +134,7 @@ export default function SetupClient({
         <div className="min-w-0 flex-1">
           <h2 className="font-bold text-gray-800"><T>Organisasi</T></h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            <T>Kerangka struktur organisasi perusahaan yang menjadi rujukan baku penempatan setiap karyawan.</T>
+            <T>Tata kelola struktur organisasi perusahaan sebagai landasan penetapan unit kerja dan kedudukan setiap karyawan.</T>
           </p>
         </div>
       </div>

@@ -1078,7 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
-  "Kerangka struktur organisasi perusahaan yang menjadi rujukan baku penempatan setiap karyawan.": "Company organizational framework that serves as the standard reference for every employee's placement.",
+  "Tata kelola struktur organisasi perusahaan sebagai landasan penetapan unit kerja dan kedudukan setiap karyawan.": "Governance of the company's organizational structure as the basis for determining each employee's work unit and position.",
   "(tanpa nama)": "(no name)",
   "Centang “Beri Akses” supaya import itu bisa dipakai Admin yang berkewenangan Import Data (Peran Admin).": "Tick “Grant Access” so that import can be used by Admins with the Import Data permission (Admin Roles).",
   "Semua import yang diberi akses di Pengaturan → Import Data": "All imports granted access in Settings → Import Data",
