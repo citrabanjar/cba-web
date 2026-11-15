@@ -118,9 +118,9 @@ export default function RekapClient({ from, to, picked, tooLong, employees, rows
         ) : rows.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-400"><T>Tidak ada data.</T></p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-[60vh] overflow-auto">
             <table className="w-full whitespace-nowrap text-sm">
-              <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+              <thead className="sticky top-0 z-10 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium"><T>Karyawan</T></th>
                   <th className={th}><T>Hari kerja</T></th><th className={th}><T>Hadir</T></th><th className={th}><T>Terlambat</T></th>
@@ -148,7 +148,7 @@ export default function RekapClient({ from, to, picked, tooLong, employees, rows
                 ))}
               </tbody>
               {rows.length > 1 && (
-                <tfoot className="border-t border-gray-200 bg-gray-50 font-semibold text-gray-800">
+                <tfoot className="sticky bottom-0 border-t border-gray-200 bg-gray-50 font-semibold text-gray-800">
                   <tr>
                     <td className="px-4 py-2"><T>Total</T></td>
                     <td className={td}>{total("workDays")}</td><td className={td}>{total("present")}</td><td className={td}>{total("late")}</td>
@@ -170,9 +170,9 @@ export default function RekapClient({ from, to, picked, tooLong, employees, rows
       {days.length > 0 && (
         <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-5 py-3 text-sm font-semibold text-gray-800"><T>Rincian per hari</T> · {rows[0]?.name}</div>
-          <div className="overflow-x-auto">
+          <div className="max-h-[60vh] overflow-auto">
             <table className="w-full whitespace-nowrap text-sm">
-              <thead className="bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-400">
+              <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-400">
                 <tr>
                   <th className="px-4 py-2 font-medium"><T>Tanggal</T></th><th className="px-3 py-2 font-medium"><T>Shift</T></th>
                   <th className="px-3 py-2 font-medium"><T>Masuk</T></th><th className="px-3 py-2 font-medium"><T>Pulang</T></th>
