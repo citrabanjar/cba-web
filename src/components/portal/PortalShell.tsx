@@ -13,7 +13,7 @@ import { LanguageSwitcher, T, useT } from "@/components/i18n";
 import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 import { EditAccessProvider } from "@/components/portal/edit-access";
-import NotificationBell, { type NotificationItem } from "@/components/portal/NotificationBell";
+import NotificationBell from "@/components/portal/NotificationBell";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number; match?: string[] };
 type NavSection = { section: string; items: NavItem[]; admin?: boolean };
@@ -67,7 +67,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; notifications?: NotificationItem[]; onboardingOn?: boolean; workflowOn?: boolean; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; unread?: number; onboardingOn?: boolean; workflowOn?: boolean; children: React.ReactNode };
 
 // Pemakaian penyimpanan database Neon, hanya untuk super admin.
 function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
@@ -273,7 +273,7 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, storage, approvals = null, notifications = [], onboardingOn = true, workflowOn = true, children }: Props) {
+export default function PortalShell({ user, storage, approvals = null, unread = 0, onboardingOn = true, workflowOn = true, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
@@ -347,7 +347,7 @@ export default function PortalShell({ user, storage, approvals = null, notificat
         <div className="lg:hidden"><LogoBadge width={150} /></div>
         <div className="ml-auto flex items-center gap-3">
           {/* Lonceng: kabar untuk karyawan + pengajuan yang menunggu keputusan (atasan, approver, Admin). */}
-          <NotificationBell items={notifications} approvals={approvals} active={pathname.startsWith("/portal/persetujuan")} />
+          <NotificationBell unread={unread} approvals={approvals} active={pathname.startsWith("/portal/notifikasi")} />
           <LanguageSwitcher />
         </div>
       </header>
