@@ -6,8 +6,8 @@
 // - Kewenangan Admin satu saja: "import" di menuAccess (Peran Admin -> Import Data: Boleh) = semua jenis yang diberi akses.
 //   Isian "import:<jenis>" (sempat dipakai) dianggap sama dengan "import". Karyawan baru masuk lewat Pra-Karyawan.
 export const IMPORT_KINDS = [
-  { key: "organisasi", label: "Import Parameter Organisasi", desc: "Cabang, departemen, dan jabatan dari file Excel." },
-  { key: "karyawan", label: "Import Data Karyawan", desc: "Tambah banyak karyawan sekaligus dari file Excel (template berisi data yang sudah ada)." },
+  { key: "organisasi", label: "Import Parameter Organisasi", desc: "Penetapan struktur organisasi perusahaan (cabang, departemen, dan jabatan) secara massal melalui berkas Excel sebagai landasan penempatan karyawan." },
+  { key: "karyawan", label: "Import Data Karyawan", desc: "Pendaftaran dan pemutakhiran data induk karyawan secara massal melalui berkas Excel; templat memuat data karyawan yang telah terdaftar." },
 ] as const;
 
 export type ImportKind = (typeof IMPORT_KINDS)[number]["key"];

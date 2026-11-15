@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Penetapan struktur organisasi perusahaan (cabang, departemen, dan jabatan) secara massal melalui berkas Excel sebagai landasan penempatan karyawan.": "Bulk establishment of the company's organizational structure (branches, departments, and positions) via an Excel file, as the basis for employee placement.",
+  "Pendaftaran dan pemutakhiran data induk karyawan secara massal melalui berkas Excel; templat memuat data karyawan yang telah terdaftar.": "Bulk registration and updating of employee master data via an Excel file; the template contains already registered employee data.",
   "Import data dasar: parameter organisasi sebagai rumah karyawan, lalu data karyawan. Import foto, saldo cuti, dan saldo pinjaman ada di menunya masing-masing.": "Base data import: organization parameters as the employees' home, then employee data. Photo, leave balance, and loan balance imports are in their own menus.",
   "Import Saldo dari aplikasi lama di Leave → Saldo Cuti.": "Import balances from the previous app in Leave → Leave Balance.",
   "Upload Saldo Awal pinjaman yang masih berjalan di aplikasi lama (menu Pinjaman, bila ada).": "Upload opening balances of running loans from the previous app (Loans menu, if any).",

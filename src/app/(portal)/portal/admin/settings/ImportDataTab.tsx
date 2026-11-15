@@ -46,11 +46,7 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
   const list = IMPORT_KINDS.filter((k) => data.kinds.includes(k.key));
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
-        <T>Import data dasar: parameter organisasi sebagai rumah karyawan, lalu data karyawan. Import foto, saldo cuti, dan saldo pinjaman ada di menunya masing-masing.</T>{" "}
-        {superAdmin && <T>Centang “Beri Akses” supaya import itu bisa dipakai Admin yang berkewenangan Import Data (Peran Admin).</T>}
-        {msg && <span className={`ml-2 inline-flex items-center gap-1 text-xs ${msg.ok ? "text-emerald-700" : "text-red-600"}`}>{msg.ok && <CheckCircle2 size={13} />}<T>{msg.text}</T></span>}
-      </div>
+      {msg && <p className={`flex items-center gap-1 text-xs ${msg.ok ? "text-emerald-700" : "text-red-600"}`}>{msg.ok && <CheckCircle2 size={13} />}<T>{msg.text}</T></p>}
       {list.length === 0 && <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-400"><T>Belum ada kewenangan import.</T></p>}
       <div className="grid gap-3 md:grid-cols-2">
         {list.map((k) => {
