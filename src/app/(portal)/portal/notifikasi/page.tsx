@@ -62,13 +62,13 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
   const history: PendingCard[] = [
     ...(data?.items ?? []).filter((i) => !(i.status === "PENDING" && i.mine))
       .sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt)).map((i) => ({
-        module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : "lembur") as NotifModule, key: `h-${i.kind}-${i.id}`, card: { type: "item" as const, item: i },
+        module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : "lembur") as NotifModule, key: `h-${i.kind}-${i.id}`, at: i.decidedAt ?? i.createdAt, card: { type: "item" as const, item: i },
       })),
-    ...(data?.swaps ?? []).filter((s) => !s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `h-swap-${s.id}`, card: { type: "swap" as const, s } })),
+    ...(data?.swaps ?? []).filter((s) => !s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `h-swap-${s.id}`, at: `${s.date}T00:00:00.000Z`, card: { type: "swap" as const, s } })),
     ...(data?.edits ?? []).filter((e) => !e.mine).map((e) => ({
-      module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `h-edit-${e.id}`, card: { type: "edit" as const, item: e },
+      module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `h-edit-${e.id}`, at: e.decidedAt ?? e.createdAt, card: { type: "edit" as const, item: e },
     })),
-    ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, card: { type: "profile" as const, item: p } })),
+    ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, at: p.decidedAt ?? p.createdAt, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => !i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `h-iv-${i.id}`, card: { type: "interview" as const, item: i } })),
   ];
 

@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Briefcase, Check, ChevronLeft, Landmark, Loader2, Users, X, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ChevronDown, ClipboardCheck, HandCoins, Timer, UserPlus, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Briefcase, Check, ChevronLeft, Landmark, Loader2, Users, X, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, HandCoins, Timer, UserPlus, UserRound, type LucideIcon } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import type { NotifModule } from "@/lib/notif-modules";
 import { markNotificationsRead } from "@/app/(portal)/notif-actions";
@@ -19,7 +19,7 @@ type Mod = { key: NotifModule; label: string; total: number; unread: number; wai
 type Partner = { type: "partner"; id: string; date: string; requester: string; requesterShift: string; partnerShift: string; reason: string | null };
 // Pengajuan yang menunggu keputusan saya (atasan langsung / approver / rekan tukar shift), tampil di modulnya.
 export type PendingCard = {
-  module: NotifModule; key: string;
+  module: NotifModule; key: string; at?: string; // at: tanggal untuk urutan riwayat
   card: { type: "item"; item: ApprovalItem } | { type: "swap"; s: SwapItem } | { type: "edit"; item: EditItem } | { type: "profile"; item: ProfileItem }
     | { type: "interview"; item: InterviewItem } | Partner;
 };
@@ -45,19 +45,23 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
   const t = useT();
   const router = useRouter();
   const [mod, setMod] = useState<NotifModule>(selected);
-  const [showDone, setShowDone] = useState(false);
   const [page, setPage] = useState(1);
   const [, start] = useTransition();
   const scroller = useRef<HTMLDivElement>(null);
   const list = items.filter((i) => i.module === mod);
-  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  const done = history.filter((p) => p.module === mod);
+  // Notifikasi dan riwayat persetujuan (60 hari) jadi satu daftar, terbaru di atas.
+  const entries = [
+    ...list.map((n) => ({ key: n.id, at: n.at, n, h: null as PendingCard | null })),
+    ...done.map((h) => ({ key: h.key, at: h.at ?? "", n: null as Item | null, h })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  const pages = Math.max(1, Math.ceil(entries.length / PER_PAGE));
   const cur = Math.min(page, pages);
-  const shown = list.slice((cur - 1) * PER_PAGE, cur * PER_PAGE);
+  const shown = entries.slice((cur - 1) * PER_PAGE, cur * PER_PAGE);
   const goPage = (p: number) => { setPage(p); scroller.current?.scrollTo({ top: 0 }); };
   const current = modules.find((m) => m.key === mod);
   const unreadIds = list.filter((i) => !i.read).map((i) => i.id);
   const waiting = pending.filter((p) => p.module === mod);
-  const done = history.filter((p) => p.module === mod);
   const renderCard = ({ key, card: c }: PendingCard) =>
     c.type === "item" ? <Card key={key} item={c.item} />
       : c.type === "swap" ? <SwapCard key={key} s={c.s} />
@@ -69,7 +73,6 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
   const choose = (k: NotifModule) => {
     setMod(k);
     setPage(1);
-    setShowDone(false);
     window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
   };
   // Notifikasi cukup dibaca di sini: klik = tandai sudah dibaca, tidak pindah halaman.
@@ -104,7 +107,7 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
         {/* Riwayat modul terpilih */}
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-            <p className="text-sm font-semibold text-gray-900"><T>{current?.label ?? ""}</T> <span className="font-normal text-gray-400">· {list.length} <T>notifikasi</T></span></p>
+            <p className="text-sm font-semibold text-gray-900"><T>{current?.label ?? ""}</T> <span className="font-normal text-gray-400">· {entries.length} <T>notifikasi</T></span></p>
             {unreadIds.length > 0 && (
               <button type="button" onClick={() => start(async () => { await markNotificationsRead(unreadIds); router.refresh(); })}
                 className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline">
@@ -118,12 +121,12 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
               {waiting.map(renderCard)}
             </div>
           )}
-          {list.length === 0 ? (
-            waiting.length > 0 || done.length > 0 ? null : <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
+          {entries.length === 0 ? (
+            waiting.length > 0 ? null : <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
           ) : (
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
-              {shown.map((n) => n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
+              {shown.map(({ key, n, h }) => h ? <div key={key} className="p-3">{renderCard(h)}</div> : !n ? null : n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
                 <button key={n.id} type="button" onClick={() => open(n)} title={n.read ? undefined : t("Tandai dibaca")}
                   className={`flex w-full gap-3 px-4 py-3 text-left ${n.read ? "cursor-default" : "bg-rose-50/40 hover:bg-rose-50"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
@@ -137,7 +140,7 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
             </div>
             {pages > 1 && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-4 py-3">
-                <p className="text-xs text-gray-400">{(cur - 1) * PER_PAGE + 1}–{Math.min(cur * PER_PAGE, list.length)} <T>dari</T> {list.length}</p>
+                <p className="text-xs text-gray-400">{(cur - 1) * PER_PAGE + 1}–{Math.min(cur * PER_PAGE, entries.length)} <T>dari</T> {entries.length}</p>
                 <div className="flex items-center gap-1">
                   <button type="button" disabled={cur === 1} onClick={() => goPage(cur - 1)} aria-label={t("Sebelumnya")}
                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"><ChevronLeft size={15} /></button>
@@ -153,18 +156,6 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
               </div>
             )}
             </>
-          )}
-          {/* Riwayat persetujuan 60 hari (pengganti tab "Riwayat" di menu Persetujuan lama) */}
-          {done.length > 0 && (
-            <div className="border-t border-gray-100">
-              <button type="button" onClick={() => setShowDone((v) => !v)}
-                className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                <ClipboardCheck size={15} className="text-gray-400" /> <T>Riwayat persetujuan (60 hari)</T>
-                <span className="font-normal text-gray-400">· {done.length}</span>
-                <ChevronDown size={15} className={`ml-auto text-gray-400 transition-transform ${showDone ? "rotate-180" : ""}`} />
-              </button>
-              {showDone && <div className="space-y-3 bg-gray-50 p-3 md:max-h-[60vh] md:overflow-y-auto">{done.map(renderCard)}</div>}
-            </div>
           )}
         </section>
       </div>
