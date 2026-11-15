@@ -169,6 +169,7 @@ export async function updateEmployee(id: string, data: EmployeeUpdate): Promise<
   await notifyEditApprover(steps[0].id, access.name ?? "Admin", id);
   revalidatePath(`${LIST_PATH}/${id}`);
   revalidatePath("/portal/persetujuan");
+  revalidatePath("/portal/notifikasi");
   return { proposed: steps.map((x) => x.name).join(" → ") };
 }
 
@@ -209,6 +210,7 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
     await notifyEditApprover(next.id, r.requesterName, r.userId);
     revalidatePath(`${LIST_PATH}/${r.userId}`);
     revalidatePath("/portal/persetujuan");
+  revalidatePath("/portal/notifikasi");
     return {};
   }
   if (approve && typeof kind === "string") {
@@ -233,6 +235,7 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
   }
   revalidatePath(`${LIST_PATH}/${r.userId}`);
   revalidatePath("/portal/persetujuan");
+  revalidatePath("/portal/notifikasi");
   return {};
 }
 

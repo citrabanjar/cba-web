@@ -77,7 +77,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
     ...(edits.length ? [["ubah", "Pengajuan Admin", edits.filter((e) => e.mine).length] as [TabKey, string, number]] : []),
   ];
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-1.5">
         {tabs.map(([k, l, n]) => (
           <button key={k} type="button" onClick={() => setTab(k)}

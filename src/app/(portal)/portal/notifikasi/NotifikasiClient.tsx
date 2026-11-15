@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Briefcase, ChevronLeft, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Briefcase, ChevronLeft, FileCog, Loader2, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDateTime } from "@/lib/utils";
 import type { NotifModule } from "@/lib/notif-modules";
@@ -11,6 +10,8 @@ import { markNotificationsRead } from "@/app/(portal)/notif-actions";
 
 type Item = { id: string; title: string; body: string | null; href: string | null; read: boolean; at: string; module: NotifModule };
 type Mod = { key: NotifModule; label: string; total: number; unread: number };
+// "persetujuan" = antrean pengajuan yang menunggu keputusan (atasan / approver / Admin).
+export type Selected = NotifModule | "persetujuan";
 
 const PER_PAGE = 30;
 
@@ -24,13 +25,16 @@ function pageNumbers(page: number, pages: number): (number | "…")[] {
 }
 
 const ICONS: Record<NotifModule, LucideIcon> = {
-  kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, lainnya: Bell,
+  kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, admin: FileCog, lainnya: Bell,
 };
 
-export default function NotifikasiClient({ modules, items, selected, approvals }: { modules: Mod[]; items: Item[]; selected: NotifModule; approvals: number | null }) {
+export default function NotifikasiClient({ modules, items, selected, approvals, panel }: {
+  modules: Mod[]; items: Item[]; selected: Selected; approvals: number | null; panel: ReactNode;
+}) {
   const t = useT();
   const router = useRouter();
-  const [mod, setMod] = useState<NotifModule>(selected);
+  const [mod, setMod] = useState<Selected>(selected);
+  const [loading, startLoad] = useTransition();
   const [page, setPage] = useState(1);
   const [, start] = useTransition();
   const scroller = useRef<HTMLDivElement>(null);
@@ -42,10 +46,12 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
   const current = modules.find((m) => m.key === mod);
   const unreadIds = list.filter((i) => !i.read).map((i) => i.id);
 
-  const choose = (k: NotifModule) => {
+  const choose = (k: Selected) => {
     setMod(k);
     setPage(1);
-    window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
+    // Isi Persetujuan dimuat dari server saat pertama dibuka; modul lain cukup diganti di browser.
+    if (k === "persetujuan" && !panel) startLoad(() => router.replace("/portal/notifikasi?modul=persetujuan", { scroll: false }));
+    else window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
   };
   const open = (n: Item) => start(async () => {
     if (!n.read) await markNotificationsRead(n.id);
@@ -59,19 +65,18 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
         <p className="text-sm text-white/70"><T>Riwayat kabar per modul.</T></p>
       </div>
 
-      {approvals !== null && (
-        <Link href="/portal/persetujuan" className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${approvals > 0 ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-white"}`}>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400 text-ink"><ClipboardCheck size={16} /></span>
-          <span className="min-w-0 flex-1 text-sm font-semibold text-gray-900">
-            {approvals > 0 ? <>{approvals} <T>pengajuan menunggu persetujuan Anda</T></> : <T>Tidak ada pengajuan yang menunggu</T>}
-          </span>
-          <span className="text-xs font-semibold text-brand"><T>Buka Persetujuan →</T></span>
-        </Link>
-      )}
-
       <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
         {/* Modul bersusun ke bawah */}
         <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          {approvals !== null && (
+            <button type="button" onClick={() => choose("persetujuan")}
+              className={`flex w-full items-center gap-3 border-b border-gray-200 px-4 py-3 text-left ${mod === "persetujuan" ? "bg-brand/10" : "hover:bg-gray-50"}`}>
+              <ClipboardCheck size={18} className={mod === "persetujuan" ? "text-brand" : "text-gray-400"} />
+              <span className={`flex-1 text-sm ${mod === "persetujuan" ? "font-semibold text-brand" : "text-gray-700"}`}><T>Persetujuan</T></span>
+              {approvals > 0 && <span className="min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[10px] font-bold leading-5 text-ink">{approvals}</span>}
+              <ChevronRight size={14} className={mod === "persetujuan" ? "text-brand" : "text-gray-300"} />
+            </button>
+          )}
           {modules.map((m) => {
             const Icon = ICONS[m.key];
             const on = m.key === mod;
@@ -87,7 +92,15 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
           })}
         </nav>
 
-        {/* Riwayat modul terpilih */}
+        {/* Persetujuan: antrean keputusan lengkap (sama seperti menu Persetujuan lama) */}
+        {mod === "persetujuan" ? (
+          <div className="min-w-0">
+            {panel && !loading ? panel : (
+              <p className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-10 text-sm text-gray-400"><Loader2 size={15} className="animate-spin" /> <T>Memuat…</T></p>
+            )}
+          </div>
+        ) : (
+        /* Riwayat modul terpilih */
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
             <p className="text-sm font-semibold text-gray-900"><T>{current?.label ?? ""}</T> <span className="font-normal text-gray-400">· {list.length} <T>notifikasi</T></span></p>
@@ -136,6 +149,7 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
             </>
           )}
         </section>
+        )}
       </div>
     </div>
   );

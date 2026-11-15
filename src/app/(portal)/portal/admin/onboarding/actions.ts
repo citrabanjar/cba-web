@@ -26,7 +26,7 @@ async function requireHR() {
   if (!access || !canEditMenu(access, "prakaryawan")) throw new Error("Anda hanya punya hak lihat di menu ini.");
   return access;
 }
-const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); revalidatePath("/portal/persetujuan"); };
+const refresh = () => { revalidatePath(PATH); revalidatePath("/portal/dashboard"); revalidatePath("/onboarding/form"); revalidatePath("/portal/persetujuan"); revalidatePath("/portal/notifikasi"); };
 const digits = (v: string) => v.replace(/\D/g, "");
 // Waktu persetujuan pernyataan calon tidak bisa diubah HRD: selalu diambil dari database.
 const keepDeclared = (d: CandidateData, c: { data: unknown; name: string; phone: string }) => ({ ...d, declaredAt: readData(c.data, c.name, c.phone).declaredAt });

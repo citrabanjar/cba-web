@@ -27,7 +27,7 @@ async function approver() {
 }
 
 function refresh() {
-  for (const p of ["/portal/persetujuan", "/portal/cuti", "/portal/dinas", "/portal/dashboard", "/portal/admin/leave"]) revalidatePath(p);
+  for (const p of ["/portal/persetujuan", "/portal/notifikasi", "/portal/cuti", "/portal/dinas", "/portal/dashboard", "/portal/admin/leave"]) revalidatePath(p);
   revalidatePath("/portal/admin/karyawan", "layout");
 }
 

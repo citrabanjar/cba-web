@@ -16,7 +16,7 @@ async function me() {
   return { id: session.user.id, name: session.user.name ?? null };
 }
 function refresh() {
-  for (const p of ["/portal/tukar-shift", "/portal/persetujuan", "/portal/dashboard", "/portal/profil", "/portal/admin/schedule"]) revalidatePath(p);
+  for (const p of ["/portal/tukar-shift", "/portal/persetujuan", "/portal/notifikasi", "/portal/dashboard", "/portal/profil", "/portal/admin/schedule"]) revalidatePath(p);
   revalidatePath("/portal/admin/karyawan", "layout");
 }
 

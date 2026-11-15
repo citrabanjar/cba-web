@@ -64,6 +64,7 @@ export async function holdForApproval(o: { kind: string; args: unknown[]; title:
   });
   await notifyApprover(boss.id, access.name ?? "Admin", o.title);
   revalidatePath("/portal/persetujuan");
+  revalidatePath("/portal/notifikasi");
   return { proposed: boss.name };
 }
 

@@ -16,6 +16,7 @@ type Result = { error?: string };
 const refresh = (userId?: string) => {
   revalidatePath("/portal/profil");
   revalidatePath("/portal/persetujuan");
+  revalidatePath("/portal/notifikasi");
   revalidatePath("/portal/dashboard");
   if (userId) revalidatePath(`/portal/admin/karyawan/${userId}`);
 };

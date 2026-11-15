@@ -17,7 +17,7 @@ async function me() {
 }
 
 function refresh() {
-  for (const p of ["/portal/lembur", "/portal/persetujuan", "/portal/admin/lembur", "/portal/profil"]) revalidatePath(p);
+  for (const p of ["/portal/lembur", "/portal/persetujuan", "/portal/notifikasi", "/portal/admin/lembur", "/portal/profil"]) revalidatePath(p);
 }
 
 // Karyawan menjawab SPL: Bersedia → jam lembur langsung tertempel di jadwalnya; Tidak bersedia → alasan wajib.

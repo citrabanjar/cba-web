@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { isApprover, pendingApprovals } from "@/lib/approval";
-import { moduleOf, NOTIF_MODULES, type NotifModule } from "@/lib/notif-modules";
-import NotifikasiClient from "./NotifikasiClient";
+import { moduleOf, NOTIF_MODULES } from "@/lib/notif-modules";
+import PersetujuanPanel from "../persetujuan/panel";
+import NotifikasiClient, { type Selected } from "./NotifikasiClient";
 
 export const metadata: Metadata = { title: "Notifikasi" };
 
@@ -25,13 +26,17 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
   // Modul utama selalu tampil; Data Diri & Lainnya hanya bila ada isinya.
   const modules = NOTIF_MODULES
     .map((m) => ({ key: m.key, label: m.label, total: items.filter((i) => i.module === m.key).length, unread: items.filter((i) => i.module === m.key && !i.read).length }))
-    .filter((m) => !["profil", "lainnya"].includes(m.key) || m.total > 0);
+    .filter((m) => !["profil", "admin", "lainnya"].includes(m.key) || m.total > 0);
 
   const { modul } = await searchParams;
-  const pick = modules.find((m) => m.key === modul)?.key
+  // Persetujuan dipilih bila diminta (tautan lama /portal/persetujuan) atau ada pengajuan yang menunggu.
+  const pick: Selected = approvals !== null && (modul === "persetujuan" || (!modul && approvals > 0)) ? "persetujuan" : modules.find((m) => m.key === modul)?.key
     ?? modules.find((m) => m.unread > 0)?.key
     ?? items.find((i) => modules.some((m) => m.key === i.module))?.module
     ?? modules[0].key;
 
-  return <NotifikasiClient modules={modules} items={items} selected={pick as NotifModule} approvals={approvals} />;
+  return (
+    <NotifikasiClient modules={modules} items={items} selected={pick} approvals={approvals}
+      panel={pick === "persetujuan" ? <PersetujuanPanel a={approver} /> : null} />
+  );
 }
