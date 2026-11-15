@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, Briefcase, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Briefcase, ChevronLeft, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDateTime } from "@/lib/utils";
 import type { NotifModule } from "@/lib/notif-modules";
@@ -11,6 +11,17 @@ import { markNotificationsRead } from "@/app/(portal)/notif-actions";
 
 type Item = { id: string; title: string; body: string | null; href: string | null; read: boolean; at: string; module: NotifModule };
 type Mod = { key: NotifModule; label: string; total: number; unread: number };
+
+const PER_PAGE = 30;
+
+// Nomor halaman yang ditampilkan: semua bila sedikit, selain itu awal, akhir, dan sekitar halaman aktif.
+function pageNumbers(page: number, pages: number): (number | "…")[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  const set = [...new Set([1, pages, page - 1, page, page + 1].filter((p) => p >= 1 && p <= pages))].sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  set.forEach((p, i) => { if (i && p - set[i - 1] > 1) out.push("…"); out.push(p); });
+  return out;
+}
 
 const ICONS: Record<NotifModule, LucideIcon> = {
   kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, lainnya: Bell,
@@ -20,13 +31,20 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
   const t = useT();
   const router = useRouter();
   const [mod, setMod] = useState<NotifModule>(selected);
+  const [page, setPage] = useState(1);
   const [, start] = useTransition();
+  const scroller = useRef<HTMLDivElement>(null);
   const list = items.filter((i) => i.module === mod);
+  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  const cur = Math.min(page, pages);
+  const shown = list.slice((cur - 1) * PER_PAGE, cur * PER_PAGE);
+  const goPage = (p: number) => { setPage(p); scroller.current?.scrollTo({ top: 0 }); };
   const current = modules.find((m) => m.key === mod);
   const unreadIds = list.filter((i) => !i.read).map((i) => i.id);
 
   const choose = (k: NotifModule) => {
     setMod(k);
+    setPage(1);
     window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
   };
   const open = (n: Item) => start(async () => {
@@ -83,8 +101,9 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
           {list.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
           ) : (
-            <div className="divide-y divide-gray-50 md:max-h-[calc(100vh-15rem)] md:overflow-y-auto">
-              {list.map((n) => (
+            <>
+            <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
+              {shown.map((n) => (
                 <button key={n.id} type="button" onClick={() => open(n)} title={n.href ? t("Buka") : undefined}
                   className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-gray-50 ${n.read ? "" : "bg-rose-50/40"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
@@ -97,6 +116,24 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
                 </button>
               ))}
             </div>
+            {pages > 1 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-4 py-3">
+                <p className="text-xs text-gray-400">{(cur - 1) * PER_PAGE + 1}–{Math.min(cur * PER_PAGE, list.length)} <T>dari</T> {list.length}</p>
+                <div className="flex items-center gap-1">
+                  <button type="button" disabled={cur === 1} onClick={() => goPage(cur - 1)} aria-label={t("Sebelumnya")}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"><ChevronLeft size={15} /></button>
+                  {pageNumbers(cur, pages).map((p, i) => p === "…" ? (
+                    <span key={`e${i}`} className="px-1 text-xs text-gray-400">…</span>
+                  ) : (
+                    <button key={p} type="button" onClick={() => goPage(p)}
+                      className={`h-8 min-w-8 rounded-lg px-2 text-xs font-semibold ${p === cur ? "bg-brand text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{p}</button>
+                  ))}
+                  <button type="button" disabled={cur === pages} onClick={() => goPage(cur + 1)} aria-label={t("Berikutnya")}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"><ChevronRight size={15} /></button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </section>
       </div>
