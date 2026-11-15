@@ -19,7 +19,7 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
   const access = await getAccess();
   if (!access) redirect("/portal");
   const approver = { id: access.id, role: access.role, menuAccess: access.menuAccess };
-  const [rows, canApprove, partnerSwaps] = await Promise.all([
+  const [rows, canApprove, partnerSwaps, myEdits] = await Promise.all([
     prisma.notification.findMany({ where: { userId: access.id }, orderBy: { createdAt: "desc" }, take: 500 }),
     isApprover(approver),
     // Tukar shift yang menunggu jawaban saya sebagai rekan.
@@ -27,8 +27,10 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
       where: { partnerId: access.id, status: "MENUNGGU_REKAN" }, orderBy: { date: "asc" },
       include: { requester: { select: { name: true, employeeId: true } } },
     }),
+    // Pengajuan perubahan data yang saya ajukan (Admin wajib approval): ikut tampil supaya bisa dipantau.
+    prisma.employeeEditRequest.count({ where: { requesterId: access.id } }),
   ]);
-  const data = canApprove ? await loadApprovals(approver) : null;
+  const data = canApprove || myEdits > 0 ? await loadApprovals(approver) : null;
 
   // Notifikasi yang perlu dijawab langsung di sini: Surat Perintah Lembur (Bersedia / Tidak bersedia).
   const splNo = (title: string) => /^Surat Perintah Lembur (\S+)$/.exec(title)?.[1] ?? null;

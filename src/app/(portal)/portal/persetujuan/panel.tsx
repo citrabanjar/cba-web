@@ -53,6 +53,8 @@ export async function loadApprovals(a: Approver) {
         OR: [
           { approverId: a.id, OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }, { createdAt: { gte: since } }] },
           { data: { path: ["__approval"], array_contains: [{ id: a.id }] }, OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }, { createdAt: { gte: since } }] },
+          // Pengajuan saya sendiri (Admin pengaju): dipantau sampai diputus, lalu masuk riwayat.
+          { requesterId: a.id, OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }, { createdAt: { gte: since } }] },
           ...(monitor ? [{ status: "PENDING" }] : []),
         ],
       },
