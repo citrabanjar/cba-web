@@ -162,8 +162,8 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     // Bagian hari (jam ÷ lama shift hari itu termasuk istirahat) untuk tarif per jam yang ikut shift (Sabtu 5 jam, hari biasa 8 jam).
     const frac = (f: (p: (typeof in_)[number]) => number) => in_.reduce((s2, p) => s2 + (p.workHours > 0 ? f(p) / p.workHours : 0), 0);
     return {
-      JAM_TERLAMBAT: late, JAM_PULANG_CEPAT: early, JAM_TELAT_PULANG_CEPAT: late + early, KALI_TERLAMBAT: in_.filter((p) => p.late).length,
-      FR_JAM_TERLAMBAT: frac((p) => p.lateHours), FR_JAM_PULANG_CEPAT: frac((p) => p.earlyHours), FR_JAM_TELAT_PULANG_CEPAT: frac((p) => p.lateHours + p.earlyHours),
+      JAM_TELAT_PULANG_CEPAT: late + early,
+      FR_JAM_TELAT_PULANG_CEPAT: frac((p) => p.lateHours + p.earlyHours),
     };
   };
 
@@ -252,9 +252,9 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
           ctx: {
             ...base,
             qty: {
-              ...base.qty, HARI_HADIR: cnt(["HADIR", "DINAS"]), HARI_MANGKIR: cnt(["ALPHA"]), HARI_CUTI: leaveW.all, HARI_CUTI_TANPA_UPAH: leaveW.unpaid, HARI_DINAS: dates,
+              // Hari mangkir = alpha + cuti di luar tanggungan (cuti tanpa upah / melebihi saldo).
+              ...base.qty, HARI_HADIR: cnt(["HADIR", "DINAS"]), HARI_MANGKIR: cnt(["ALPHA"]) + leaveW.unpaid, HARI_DINAS: dates,
               ...penaltyQty(w.a, w.b),
-              KALI_DINAS: trips.filter((t) => utc(t.startDate) >= w.a && utc(t.startDate) <= w.b).length,
             },
           },
         };
@@ -270,8 +270,9 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   const pctx: PayContext = {
     values, fixedTotal, bpjsTk: fixedTotal, bpjsKes: fixedTotal,
     qty: {
-      HARI_HADIR: inputs.daysPresent, HARI_MANGKIR: inputs.absentDays, HARI_KERJA: inputs.workDays, MASA_KERJA: inputs.monthsOfService,
-      HARI_DINAS: inputs.tripDays, KALI_DINAS: inputs.trips, HARI_CUTI: inputs.leaveDays, HARI_CUTI_TANPA_UPAH: inputs.unpaidLeaveDays ?? 0,
+      // Hari mangkir = alpha + cuti di luar tanggungan (cuti tanpa upah / melebihi saldo).
+      HARI_HADIR: inputs.daysPresent, HARI_MANGKIR: inputs.absentDays + (inputs.unpaidLeaveDays ?? 0), MASA_KERJA: inputs.monthsOfService,
+      HARI_DINAS: inputs.tripDays,
       ...penaltyQty(start, end),
     },
     periodDays: calDays,

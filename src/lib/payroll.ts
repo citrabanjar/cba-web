@@ -30,7 +30,7 @@ export const isTaxableCategory = (k: string) => PAY_CATEGORIES.find((c) => c.key
 export const PAY_METHODS = [
   { key: "INPUT", label: "Input nilai", hint: "Nilai diisi admin di profil karyawan (tab Gaji)." },
   { key: "NOMINAL", label: "Flat for all", hint: "Satu nominal per bulan, sama untuk semua karyawan yang ditempel." },
-  { key: "PER_SATUAN", label: "Nominal x Parameter", hint: "Contoh: uang saku dinas Rp100.000 x kegiatan dinas. Bisa diberi syarat minimal, lalu centang \"Berlaku kelipatan\" bila dibayar per kelipatan (mis. uang makan lembur Rp15.000 tiap 4 jam, minimal 4 jam)." },
+  { key: "PER_SATUAN", label: "Nominal x Parameter", hint: "Contoh: uang saku dinas Rp100.000 x hari dinas. Bisa diberi syarat minimal, lalu centang \"Berlaku kelipatan\" bila dibayar per kelipatan (mis. uang makan lembur Rp15.000 tiap 4 jam, minimal 4 jam)." },
   { key: "PERSEN", label: "Persen dari dasar nilai", hint: "Contoh: BPJS 1% x upah, dengan batas atas/bawah." },
   { key: "PRORATA", label: "Dasar nilai / hari sebulan x parameter", hint: "Contoh: potongan mangkir = gaji pokok / jumlah hari bulan berjalan (28-31) x hari mangkir." },
   { key: "PER_JAM", label: "Dasar nilai / hari sebulan / jam x parameter", hint: "Contoh: potongan terlambat = gaji pokok / jumlah hari bulan berjalan (28-31) / 8 jam x jam terlambat." },
@@ -40,20 +40,14 @@ export const PAY_METHODS = [
 export const SYSTEM_METHODS = ["PPH21"];
 
 // Parameter data yang bisa dipakai rumus.
+// Hanya parameter yang dipakai CBA (disepakati pemilik 2026-11-15); yang lain dihapus, dibuat lagi bila dibutuhkan.
+// Masa kerja tetap dihitung di dalam cara hitung THR (bukan pilihan parameter).
 export const PAY_PARAMS = [
+  { key: "HARI_HADIR", label: "Hari hadir", unit: "hari" },
+  { key: "HARI_MANGKIR", label: "Hari mangkir (alpha + cuti di luar tanggungan)", unit: "hari" },
+  { key: "JAM_TELAT_PULANG_CEPAT", label: "Jam terlambat + pulang cepat", unit: "jam" },
   { key: "JAM_LEMBUR", label: "Jam lembur", unit: "jam" },
   { key: "HARI_DINAS", label: "Hari dinas luar", unit: "hari" },
-  { key: "KALI_DINAS", label: "Kegiatan dinas luar (kali)", unit: "kali" },
-  { key: "HARI_HADIR", label: "Hari hadir", unit: "hari" },
-  { key: "HARI_MANGKIR", label: "Hari mangkir", unit: "hari" },
-  { key: "JAM_TELAT_PULANG_CEPAT", label: "Jam terlambat + pulang cepat", unit: "jam" },
-  { key: "JAM_TERLAMBAT", label: "Jam terlambat (lebih dari 30 menit)", unit: "jam" },
-  { key: "JAM_PULANG_CEPAT", label: "Jam pulang cepat", unit: "jam" },
-  { key: "KALI_TERLAMBAT", label: "Kali terlambat (lewat toleransi)", unit: "kali" },
-  { key: "HARI_CUTI", label: "Hari cuti disetujui", unit: "hari" },
-  { key: "HARI_CUTI_TANPA_UPAH", label: "Hari cuti di luar tanggungan", unit: "hari" },
-  { key: "HARI_KERJA", label: "Hari kerja sebulan", unit: "hari" },
-  { key: "MASA_KERJA", label: "Masa kerja", unit: "bulan" },
 ] as const;
 export const NEEDS_PARAM = ["PER_SATUAN", "PRORATA", "PER_JAM"];
 export const NEEDS_BASE = ["PERSEN", "PRORATA", "LEMBUR", "THR", "PER_JAM"];
@@ -177,7 +171,7 @@ export type PayContext = {
   values: Record<string, number>; // nilai komponen input/flat per kode (GP = gaji pokok)
   fixedTotal: number; // upah tetap
   bpjsTk: number; bpjsKes: number;
-  qty: Record<string, number>; // jumlah per parameter (HARI_HADIR, KALI_DINAS, MASA_KERJA, ...)
+  qty: Record<string, number>; // jumlah per parameter (HARI_HADIR, HARI_MANGKIR, ...), plus MASA_KERJA untuk THR
   overtimeWork: number[]; overtimeRest: number[]; // jam lembur per pengajuan (hari kerja / hari libur)
   workDaysPerWeek: 5 | 6; overtimeDivisor: number;
   nonRoutine: string[]; // kode komponen tidak rutin (THR, bonus) yang disertakan periode ini
@@ -301,7 +295,7 @@ export function simulate(components: (EvalComponent & { isActive: boolean })[], 
     + active.filter((c) => c.method === "NOMINAL" && c.params?.fixedWage).reduce((a, c) => a + (c.amount ?? 0), 0);
   const ctx: PayContext = {
     values, fixedTotal, bpjsTk: input.bpjsBase ?? fixedTotal, bpjsKes: input.bpjsBase ?? fixedTotal,
-    qty: { HARI_HADIR: input.daysPresent, HARI_MANGKIR: input.absentDays, HARI_KERJA: input.workDaysInMonth, MASA_KERJA: input.monthsOfService, HARI_DINAS: input.tripDays, KALI_DINAS: input.trips, HARI_CUTI: input.leaveDays },
+    qty: { HARI_HADIR: input.daysPresent, HARI_MANGKIR: input.absentDays, MASA_KERJA: input.monthsOfService, HARI_DINAS: input.tripDays },
     overtimeWork: input.overtimeWork, overtimeRest: input.overtimeRest, workDaysPerWeek: s.workDaysPerWeek, overtimeDivisor: s.overtimeDivisor,
     nonRoutine: active.filter((c) => c.method === "THR").map((c) => c.code),
   };
