@@ -33,7 +33,7 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
           <FlaskConical size={16} className="text-amber-600" /> <T>Absen Uji (masa testing)</T>
         </CardTitle>
         <p className="text-xs text-gray-400">
-          <T>Mengisi absen pura-pura untuk semua karyawan aktif mengikuti shift masing-masing, dengan skenario acak: tepat waktu, terlambat, pulang cepat, lupa absen pulang, lembur, dan alpha. Karyawan yang sudah absen, cuti, dinas, atau libur dilewati. Semua catatan bertanda [UJI].</T>
+          <T>Mengisi absen pura-pura untuk semua karyawan aktif mengikuti shift masing-masing, dengan skenario acak: tepat waktu, terlambat, pulang cepat, lupa absen pulang, lembur, dan alpha. Karyawan yang sudah absen, cuti, dinas, atau libur dilewati. Skenario lembur ikut membuat data lembur yang sudah disetujui (dibayar per jam penuh sampai absen pulang). Semua catatan bertanda [UJI].</T>
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -53,7 +53,7 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
           </select>
           <span className="text-gray-600"><T>hari terakhir (sampai kemarin)</T></span>
           <Button size="sm" className="ml-auto gap-1.5" disabled={busy !== null}
-            onClick={() => act("run", async () => { const r = await runSimNow(days); return `${r.created ?? 0} absen uji dibuat.`; })}>
+            onClick={() => act("run", async () => { const r = await runSimNow(days); return `${r.created ?? 0} absen uji dan ${r.overtime ?? 0} lembur uji dibuat.`; })}>
             {busy === "run" ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} <T>Isi Sekarang</T>
           </Button>
         </div>
@@ -61,7 +61,7 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
           <span className="text-gray-600"><T>Absen uji tersimpan</T>: <b>{count}</b></span>
           <Button size="sm" variant="outline" className="gap-1.5 text-rose-600" disabled={busy !== null || count === 0}
-            onClick={() => { if (window.confirm("Hapus semua absen uji? Absen asli tidak ikut terhapus.")) act("clear", async () => { const r = await clearSim(); return `${r.deleted ?? 0} absen uji dihapus.`; }); }}>
+            onClick={() => { if (window.confirm("Hapus semua absen uji dan lembur uji? Absen dan lembur asli tidak ikut terhapus.")) act("clear", async () => { const r = await clearSim(); return `${r.deleted ?? 0} absen uji dihapus.`; }); }}>
             {busy === "clear" ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} <T>Hapus Semua Absen Uji</T>
           </Button>
         </div>

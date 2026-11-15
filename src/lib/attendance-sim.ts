@@ -2,6 +2,8 @@
 // dengan skenario acak (tepat waktu, terlambat, pulang cepat, lupa absen pulang, lembur, alpha).
 // Dinyalakan Super Admin di Pengaturan → Fitur; dijalankan cron tiap malam untuk hari kemarin (WIB).
 // Semua catatan bertanda "[UJI]" di kolom catatan supaya mudah dikenali dan dihapus sekaligus.
+// Skenario lembur juga membuat data lembur yang sudah disetujui (keperluan "[UJI] ...") dari jam akhir shift sampai
+// jam bulat setelah absen pulang, sehingga ikut estimasi Kehadiran, Proses Gaji, dan kalender.
 import { prisma } from "@/lib/prisma";
 import { getShiftCalendars } from "@/lib/schedule";
 import { AUTO_ALPHA } from "@/lib/attendance-assess";
@@ -35,6 +37,18 @@ const at = (date: Date, hhmm: string, plusMin: number) => {
   const [h, m] = hhmm.split(":").map(Number);
   return new Date(date.getTime() + ((h - 7) * 60 + m + plusMin) * 60_000);
 };
+// "HH:MM" ditambah sekian jam (melewati tengah malam kembali ke 00:00).
+const addHours = (hhmm: string, hours: number) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return `${String((h + hours) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+};
+const SIM_OT_NOTE = `${SIM_TAG} Absen simulasi: lembur`;
+const OT_ACTIVE = ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"];
+// Lembur uji yang sudah disetujui: mulai jam akhir shift, selesai jam bulat setelah absen pulang (dibayar sampai check-out).
+const simOvertime = (userId: string, day: Date, shiftEnd: string, outMin: number) => ({
+  userId, date: day, startTime: shiftEnd, endTime: addHours(shiftEnd, Math.max(1, Math.ceil(outMin / 60))),
+  reason: `${SIM_TAG} Lembur simulasi`, status: "APPROVED", decidedBy: "Simulasi", decidedAt: new Date(), createdBy: "Simulasi",
+});
 
 type Scenario = "NORMAL" | "TERLAMBAT" | "PULANG_CEPAT" | "LUPA_PULANG" | "LEMBUR" | "ALPHA";
 const LABEL: Record<Scenario, string> = {
@@ -58,10 +72,10 @@ export async function simulateDay(date: Date) {
     select: { id: true },
   });
   const ids = users.map((u) => u.id);
-  if (!ids.length) return { created: 0, skipped: 0, scenarios: {} as Record<string, number> };
+  if (!ids.length) return { created: 0, skipped: 0, scenarios: {} as Record<string, number>, overtime: 0 };
   const [cal, existing, leaves, trips] = await Promise.all([
     getShiftCalendars(ids, day, day),
-    prisma.attendance.findMany({ where: { userId: { in: ids }, date: day }, select: { id: true, userId: true, note: true, checkIn: true } }),
+    prisma.attendance.findMany({ where: { userId: { in: ids }, date: day }, select: { id: true, userId: true, note: true, checkIn: true, checkOut: true } }),
     prisma.leaveRequest.findMany({ where: { userId: { in: ids }, status: "APPROVED", startDate: { lte: day }, endDate: { gte: day } }, select: { userId: true } }),
     prisma.businessTrip.findMany({ where: { userId: { in: ids }, status: "APPROVED", startDate: { lte: day }, endDate: { gte: day } }, select: { userId: true } }),
   ]);
@@ -72,7 +86,17 @@ export async function simulateDay(date: Date) {
   const k = keyOf(day);
   const rows: { userId: string; date: Date; checkIn: Date; checkOut: Date | null; status: "HADIR"; note: string; checkInAddr: string; checkInLocation: string; checkOutLocation: string | null }[] = [];
   const scenarios: Record<string, number> = {};
+  const overtimes: ReturnType<typeof simOvertime>[] = [];
   let skipped = 0;
+  // Absen uji lembur yang sudah ada tapi belum punya data lembur (dibuat sebelum fitur ini) dilengkapi.
+  for (const a of existing.filter((x) => x.note === SIM_OT_NOTE && x.checkOut)) {
+    const s = cal[a.userId]?.[k];
+    if (!s?.endTime || !a.checkOut) continue;
+    const overnight = !!s.startTime && s.endTime <= s.startTime;
+    const end = at(overnight ? new Date(day.getTime() + DAY) : day, s.endTime, 0);
+    const outMin = Math.round((a.checkOut.getTime() - end.getTime()) / 60_000);
+    if (outMin >= 60) overtimes.push(simOvertime(a.userId, day, s.endTime, outMin));
+  }
   for (const id of ids) {
     const s = cal[id]?.[k];
     if (skip.has(id) || !s || s.isOff || s.holiday || s.manual || !s.startTime || !s.endTime) { skipped++; continue; }
@@ -83,7 +107,8 @@ export async function simulateDay(date: Date) {
     const overnight = s.endTime <= s.startTime;
     const endDay = overnight ? new Date(day.getTime() + DAY) : day;
     const inMin = sc === "TERLAMBAT" ? 10 + Math.floor(rnd() * 50) : -Math.floor(rnd() * 15);
-    const outMin = sc === "PULANG_CEPAT" ? -(15 + Math.floor(rnd() * 75)) : sc === "LEMBUR" ? 90 + Math.floor(rnd() * 90) : Math.floor(rnd() * 20);
+    const outMin = sc === "PULANG_CEPAT" ? -(15 + Math.floor(rnd() * 75)) : sc === "LEMBUR" ? 60 + Math.floor(rnd() * 180) : Math.floor(rnd() * 20);
+    if (sc === "LEMBUR") overtimes.push(simOvertime(id, day, s.endTime, outMin));
     rows.push({
       userId: id, date: day, status: "HADIR", note: `${SIM_TAG} Absen simulasi: ${LABEL[sc]}`,
       checkIn: at(day, s.startTime, inMin), checkOut: sc === "LUPA_PULANG" ? null : at(endDay, s.endTime, outMin),
@@ -97,15 +122,26 @@ export async function simulateDay(date: Date) {
       prisma.attendance.createMany({ data: rows, skipDuplicates: true }),
     ]);
   }
-  return { created: rows.length, skipped, scenarios };
+  // Lembur uji: dilewati bila karyawan sudah punya lembur aktif di tanggal itu.
+  if (overtimes.length) {
+    const busy = new Set((await prisma.overtime.findMany({
+      where: { userId: { in: overtimes.map((o) => o.userId) }, date: day, status: { in: OT_ACTIVE } }, select: { userId: true },
+    })).map((o) => o.userId));
+    const fresh = overtimes.filter((o) => !busy.has(o.userId));
+    if (fresh.length) await prisma.overtime.createMany({ data: fresh });
+  }
+  return { created: rows.length, skipped, scenarios, overtime: overtimes.length };
 }
 
 // Isi absen uji untuk beberapa hari terakhir (sampai kemarin, WIB).
 export async function simulateRecent(days: number) {
   const today = todayWib();
-  let created = 0;
-  for (let i = Math.max(1, Math.min(31, days)); i >= 1; i--) created += (await simulateDay(new Date(today.getTime() - i * DAY))).created;
-  return { created };
+  let created = 0, overtime = 0;
+  for (let i = Math.max(1, Math.min(31, days)); i >= 1; i--) {
+    const r = await simulateDay(new Date(today.getTime() - i * DAY));
+    created += r.created; overtime += r.overtime ?? 0;
+  }
+  return { created, overtime };
 }
 
 // Dipanggil cron tiap malam: kalau fitur menyala, isi absen uji untuk hari kemarin (WIB).
@@ -119,7 +155,11 @@ export async function countSimulated() {
   return prisma.attendance.count({ where: { note: { startsWith: SIM_TAG } } });
 }
 
+// Hapus semua absen uji beserta lembur ujinya.
 export async function deleteSimulated() {
-  const r = await prisma.attendance.deleteMany({ where: { note: { startsWith: SIM_TAG } } });
+  const [r] = await prisma.$transaction([
+    prisma.attendance.deleteMany({ where: { note: { startsWith: SIM_TAG } } }),
+    prisma.overtime.deleteMany({ where: { reason: { startsWith: SIM_TAG } } }),
+  ]);
   return r.count;
 }

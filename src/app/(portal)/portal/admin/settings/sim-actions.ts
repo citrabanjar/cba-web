@@ -26,12 +26,12 @@ export async function setSimEnabled(enabled: boolean): Promise<{ error?: string 
 }
 
 // Isi absen uji untuk N hari terakhir (sampai kemarin), lalu nilai ulang kehadiran (alpha otomatis).
-export async function runSimNow(days: number): Promise<{ error?: string; created?: number }> {
+export async function runSimNow(days: number): Promise<{ error?: string; created?: number; overtime?: number }> {
   await requireSuper();
   const r = await simulateRecent(days);
   await assessRecent(true).catch(() => null);
   revalidatePath("/portal", "layout");
-  return { created: r.created };
+  return { created: r.created, overtime: r.overtime };
 }
 
 export async function clearSim(): Promise<{ error?: string; deleted?: number }> {
