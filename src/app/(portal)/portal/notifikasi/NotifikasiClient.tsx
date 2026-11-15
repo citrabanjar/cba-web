@@ -72,10 +72,8 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
     setShowDone(false);
     window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
   };
-  const open = (n: Item) => start(async () => {
-    if (!n.read) await markNotificationsRead(n.id);
-    if (n.href) router.push(n.href); else router.refresh();
-  });
+  // Notifikasi cukup dibaca di sini: klik = tandai sudah dibaca, tidak pindah halaman.
+  const open = (n: Item) => { if (!n.read) start(async () => { await markNotificationsRead(n.id); router.refresh(); }); };
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
@@ -126,15 +124,14 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
               {shown.map((n) => n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
-                <button key={n.id} type="button" onClick={() => open(n)} title={n.href ? t("Buka") : undefined}
-                  className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-gray-50 ${n.read ? "" : "bg-rose-50/40"}`}>
+                <button key={n.id} type="button" onClick={() => open(n)} title={n.read ? undefined : t("Tandai dibaca")}
+                  className={`flex w-full gap-3 px-4 py-3 text-left ${n.read ? "cursor-default" : "bg-rose-50/40 hover:bg-rose-50"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
                   <span className="min-w-0 flex-1">
                     <span className={`block text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{n.title}</span>
                     {n.body && <span className="block text-xs text-gray-500">{n.body}</span>}
                     <span className="mt-0.5 block text-[11px] text-gray-400">{formatDateTime(n.at)}</span>
                   </span>
-                  {n.href && <ChevronRight size={14} className="mt-1 shrink-0 text-gray-300" />}
                 </button>
               ))}
             </div>

@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Tandai dibaca": "Mark as read",
   "Riwayat persetujuan (60 hari)": "Approval history (60 days)",
   "Menunggu keputusan Anda": "Awaiting your decision",
   "Permintaan tukar shift": "Shift swap request",
