@@ -54,7 +54,7 @@ type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara" | "ubah";
 
 // Pengajuan ubah data karyawan oleh Admin berhak "Ajukan" (diputus atasan langsung si Admin).
 export type EditItem = {
-  id: string; status: string; person: ApprovalItem["person"]; requester: string; note: string | null;
+  id: string; status: string; person: ApprovalItem["person"]; requester: string; approver?: string; note: string | null;
   summary: { field: string; oldValue: string | null; newValue: string | null }[]; createdAt: string; decidedAt: string | null;
   mine: boolean; // giliran saya memutus
   kind?: string; // jenis pengajuan Admin (mis. "gaji.savePayComponent"); kosong = ubah data karyawan
@@ -352,7 +352,16 @@ export function InterviewCard({ item, master }: { item: InterviewItem; master: O
   );
 }
 
-const EDIT_LABELS: Record<string, string> = { ...PERSONAL_LOG_LABELS, ...WORK_LOG_LABELS };
+// Judul kolom yang dipakai di form Edit profil karyawan (bukan nama kolom database).
+const EXTRA_LABELS: Record<string, string> = {
+  nationality: "Kewarganegaraan", emergencyName: "Nama Kontak Darurat", emergencyPhone: "No. HP Kontak Darurat", emergencyRelation: "Hubungan Kontak Darurat",
+  npwp: "NPWP", ptkpStatus: "Status PTKP", taxability: "Metode Pajak (Taxability)", taxStatus: "Status Pajak", taxObjectCode: "Kode Objek Pajak",
+  bpjsTkNumber: "No BPJS Ketenagakerjaan", bpjsTkActive: "Status BPJS Ketenagakerjaan", bpjsKesNumber: "No BPJS Kesehatan", bpjsKesActive: "Status BPJS Kesehatan",
+  paymentSchedule: "Jadwal Gajian", addressRegion: "Wilayah sesuai Identitas", addressRegionName: "Wilayah sesuai Identitas", addressPostal: "Kode Pos sesuai Identitas",
+  currentRegion: "Wilayah Alamat Saat Ini", currentRegionName: "Wilayah Alamat Saat Ini", currentPostal: "Kode Pos Alamat Saat Ini",
+  departmentName: "Departemen", managerRef: "Atasan Langsung", password: "Password",
+};
+const EDIT_LABELS: Record<string, string> = { ...EXTRA_LABELS, ...PERSONAL_LOG_LABELS, ...WORK_LOG_LABELS };
 const EDIT_STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: "Menunggu", tone: "bg-amber-50 text-amber-700" },
   APPROVED: { label: "Disetujui", tone: "bg-emerald-50 text-emerald-700" },
@@ -411,6 +420,9 @@ export function EditCard({ item }: { item: EditItem }) {
         </ol>
       )}
       {item.note && !item.steps.length && <p className="text-xs text-gray-600">“{item.note}”</p>}
+      {item.status === "PENDING" && !item.mine && item.approver && (
+        <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-600"><T>Menunggu keputusan</T> <b>{item.approver}</b></p>
+      )}
       {item.mine && (
         <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={t("Catatan (wajib bila menolak)")}

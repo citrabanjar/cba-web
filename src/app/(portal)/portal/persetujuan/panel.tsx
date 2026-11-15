@@ -20,6 +20,8 @@ export async function loadApprovals(a: Approver) {
   const since = daysAgo(60);
   const who = { select: { id: true, name: true, employeeId: true, position: true, department: { select: { name: true } } } };
   const reviewer = reviewsProfiles(a);
+  // Pemantau (Super Admin & Admin Data Karyawan) melihat semua perubahan data yang masih menunggu, tanpa tombol putus.
+  const monitor = reviewer || a.role === "SUPER_ADMIN";
   const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots] = await Promise.all([
     // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
@@ -48,8 +50,11 @@ export async function loadApprovals(a: Approver) {
     // Ubah data karyawan oleh Admin berhak "Ajukan": diputus atasan langsung si Admin.
     prisma.employeeEditRequest.findMany({
       where: {
-        OR: [{ approverId: a.id }, { data: { path: ["__approval"], array_contains: [{ id: a.id }] } }],
-        AND: [{ OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }, { createdAt: { gte: since } }] }],
+        OR: [
+          { approverId: a.id, OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }, { createdAt: { gte: since } }] },
+          { data: { path: ["__approval"], array_contains: [{ id: a.id }] }, OR: [{ status: "PENDING" }, { decidedAt: { gte: since } }, { createdAt: { gte: since } }] },
+          ...(monitor ? [{ status: "PENDING" }] : []),
+        ],
       },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 100,
     }),
@@ -130,7 +135,7 @@ export async function loadApprovals(a: Approver) {
     : null;
 
   const edits = editReqs.map((r) => ({
-    id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, note: r.note,
+    id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, approver: r.approverName, note: r.note,
     mine: r.status === "PENDING" && r.approverId === a.id,
     kind: String((r.data as { __kind?: unknown } | null)?.__kind ?? ""),
     title: ((r.data as { __title?: unknown } | null)?.__title as string | undefined) ?? null,

@@ -58,6 +58,10 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     ...(data?.profiles ?? []).filter((p) => p.status === "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `profile-${p.id}`, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `iv-${i.id}`, card: { type: "interview" as const, item: i } })),
   ];
+  // Perubahan data yang masih menunggu keputusan orang lain (dipantau Super Admin & Admin Data Karyawan).
+  const watching: PendingCard[] = (data?.edits ?? []).filter((e) => e.status === "PENDING" && !e.mine).map((e) => ({
+    module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `w-edit-${e.id}`, card: { type: "edit" as const, item: e },
+  }));
   // Riwayat persetujuan (sudah diputus / bukan giliran saya), 60 hari terakhir.
   const history: PendingCard[] = [
     ...(data?.items ?? []).filter((i) => !(i.status === "PENDING" && i.mine))
@@ -65,7 +69,7 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
         module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : "lembur") as NotifModule, key: `h-${i.kind}-${i.id}`, at: i.decidedAt ?? i.createdAt, card: { type: "item" as const, item: i },
       })),
     ...(data?.swaps ?? []).filter((s) => !s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `h-swap-${s.id}`, at: `${s.date}T00:00:00.000Z`, card: { type: "swap" as const, s } })),
-    ...(data?.edits ?? []).filter((e) => !e.mine).map((e) => ({
+    ...(data?.edits ?? []).filter((e) => !e.mine && e.status !== "PENDING").map((e) => ({
       module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `h-edit-${e.id}`, at: e.decidedAt ?? e.createdAt, card: { type: "edit" as const, item: e },
     })),
     ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, at: p.decidedAt ?? p.createdAt, card: { type: "profile" as const, item: p } })),
@@ -77,19 +81,21 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     .map((m) => ({
       key: m.key, label: m.label, total: items.filter((i) => i.module === m.key).length,
       unread: items.filter((i) => i.module === m.key && !i.read).length, waiting: pending.filter((p) => p.module === m.key).length,
+      watching: watching.filter((p) => p.module === m.key).length,
       done: history.filter((p) => p.module === m.key).length,
     }))
-    .filter((m) => !["profil", "payroll", "karyawan", "prakaryawan", "lainnya"].includes(m.key) || m.total > 0 || m.waiting > 0 || m.done > 0);
+    .filter((m) => !["profil", "payroll", "karyawan", "prakaryawan", "lainnya"].includes(m.key) || m.total > 0 || m.waiting > 0 || m.watching > 0 || m.done > 0);
 
   const { modul } = await searchParams;
   // Urutan pilihan awal: modul yang diminta → modul dengan pengajuan menunggu → belum dibaca.
   const pick = modules.find((m) => m.key === modul)?.key
     ?? modules.find((m) => m.waiting > 0)?.key
+    ?? modules.find((m) => m.watching > 0)?.key
     ?? modules.find((m) => m.unread > 0)?.key
     ?? items.find((i) => modules.some((m) => m.key === i.module))?.module
     ?? modules[0].key;
 
   return (
-    <NotifikasiClient modules={modules} items={items} pending={pending} history={history} selected={pick} master={data?.master ?? null} />
+    <NotifikasiClient modules={modules} items={items} pending={pending} watching={watching} history={history} selected={pick} master={data?.master ?? null} />
   );
 }

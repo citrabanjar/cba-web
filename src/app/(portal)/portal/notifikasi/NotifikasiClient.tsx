@@ -15,7 +15,7 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 // action: notifikasi yang dijawab langsung di halaman ini (SPL: Bersedia / Tidak bersedia).
 type Action = { kind: "spl"; id: string; status: string };
 type Item = { id: string; title: string; body: string | null; href: string | null; read: boolean; at: string; module: NotifModule; action: Action | null };
-type Mod = { key: NotifModule; label: string; total: number; unread: number; waiting: number; done: number };
+type Mod = { key: NotifModule; label: string; total: number; unread: number; waiting: number; watching?: number; done: number };
 type Partner = { type: "partner"; id: string; date: string; requester: string; requesterShift: string; partnerShift: string; reason: string | null };
 // Pengajuan yang menunggu keputusan saya (atasan langsung / approver / rekan tukar shift), tampil di modulnya.
 export type PendingCard = {
@@ -39,8 +39,8 @@ const ICONS: Record<NotifModule, LucideIcon> = {
   kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, payroll: Landmark, karyawan: Users, prakaryawan: UserPlus, lainnya: Bell,
 };
 
-export default function NotifikasiClient({ modules, items, pending, history, selected, master }: {
-  modules: Mod[]; items: Item[]; pending: PendingCard[]; history: PendingCard[]; selected: NotifModule; master: OfferMaster;
+export default function NotifikasiClient({ modules, items, pending, watching = [], history, selected, master }: {
+  modules: Mod[]; items: Item[]; pending: PendingCard[]; watching?: PendingCard[]; history: PendingCard[]; selected: NotifModule; master: OfferMaster;
 }) {
   const t = useT();
   const router = useRouter();
@@ -62,6 +62,7 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
   const current = modules.find((m) => m.key === mod);
   const unreadIds = list.filter((i) => !i.read).map((i) => i.id);
   const waiting = pending.filter((p) => p.module === mod);
+  const watched = watching.filter((p) => p.module === mod);
   const renderCard = ({ key, card: c }: PendingCard) =>
     c.type === "item" ? <Card key={key} item={c.item} />
       : c.type === "swap" ? <SwapCard key={key} s={c.s} />
@@ -121,8 +122,14 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
               {waiting.map(renderCard)}
             </div>
           )}
+          {watched.length > 0 && (
+            <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-3">
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Menunggu persetujuan atasan</T> · {watched.length}</p>
+              {watched.map(renderCard)}
+            </div>
+          )}
           {entries.length === 0 ? (
-            waiting.length > 0 ? null : <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
+            waiting.length + watched.length > 0 ? null : <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
           ) : (
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
