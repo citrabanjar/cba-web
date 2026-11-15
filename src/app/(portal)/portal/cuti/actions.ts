@@ -76,7 +76,8 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   ]);
   if (!policy || !me) return { error: "Jenis cuti tidak ditemukan." };
   const today = todayDate();
-  if (!eligible(policy, me, today) || policy.category === "DINAS") return { error: "Jenis cuti ini tidak berlaku untuk Anda." };
+  const ownBalance = hasBalance(policy) ? (await visibleBalances([userId])).find((r) => r.policyId === policy.id)?.balance ?? 0 : 0;
+  if (!eligible(policy, me, today, ownBalance) || policy.category === "DINAS") return { error: "Jenis cuti ini tidak berlaku untuk Anda." };
 
   if (policy.noticeDays > 0 && start.getTime() < today.getTime() + policy.noticeDays * 86_400_000) {
     return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai.` };

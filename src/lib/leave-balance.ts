@@ -48,16 +48,19 @@ export const genderOf = (g: string | null | undefined) =>
   g?.toUpperCase().startsWith("P") ? "P" : g?.toUpperCase().startsWith("L") ? "L" : null;
 
 // Jenis cuti yang boleh dipakai seorang karyawan (status kerja, jenis kelamin, masa kerja).
+// Syarat masa kerja minimal hanya menahan sebelum ada saldo: bila karyawan sudah punya saldo (mis. koreksi
+// saldo oleh Admin untuk pengecualian), saldo itu boleh dipakai walau masa kerjanya belum cukup.
 export function eligible(
   p: Pick<LeavePolicy, "isActive" | "forStatus" | "gender" | "minServiceMonths">,
   e: { employmentStatus: string; gender: string | null; joinDate: Date | null },
   today = todayDate(),
+  balanceDays = 0,
 ) {
   if (!p.isActive) return false;
   if (p.forStatus && p.forStatus !== e.employmentStatus) return false;
   const g = genderOf(e.gender);
   if (p.gender && g && p.gender !== g) return false;
-  if (p.minServiceMonths > 0 && (!e.joinDate || addMonths(utc(e.joinDate), p.minServiceMonths) > today)) return false;
+  if (p.minServiceMonths > 0 && balanceDays <= 0 && (!e.joinDate || addMonths(utc(e.joinDate), p.minServiceMonths) > today)) return false;
   return true;
 }
 

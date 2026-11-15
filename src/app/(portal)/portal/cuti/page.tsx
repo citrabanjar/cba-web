@@ -26,7 +26,7 @@ export default async function CutiPage() {
   // sendiri, dan Cuti Bersama ditetapkan perusahaan lewat Kalender Libur.
   const options = me
     ? policies
-        .filter((p) => eligible(p, me, today) && p.category !== "DINAS" && !(p.category === "TAHUNAN" && !hasBalance(p)))
+        .filter((p) => eligible(p, me, today, hasBalance(p) ? balances.find((b) => b.policyId === p.id)?.balance ?? 0 : 0) && p.category !== "DINAS" && !(p.category === "TAHUNAN" && !hasBalance(p)))
         .map((p) => ({
           id: p.id, code: p.code, name: p.name, category: p.category, quota: p.quota, unit: p.unit, period: p.period,
           noticeDays: p.noticeDays, needsAttachment: p.needsAttachment, attachmentNote: p.attachmentNote,
