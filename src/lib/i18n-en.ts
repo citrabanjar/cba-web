@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Jenis cuti": "Leave types",
+  "Import Saldo dari aplikasi lama di Cuti → Saldo Cuti.": "Import balances from the previous app in Leave → Leave Balance.",
   "Sesuai PP 35/2021, otomatis ikut pola kerja karyawan": "Per PP 35/2021, follows each employee's work pattern",
   "Atur sendiri": "Set manually",
   "Sama dengan tarif hari kerja": "Same as workday rate",

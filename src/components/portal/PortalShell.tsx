@@ -44,7 +44,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   // Jadwal kerja, aturan absensi, jenis & saldo cuti: akses Absensi & Cuti.
   add("TIME", can("absensi") ? [
     { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock },
-    { href: "/portal/admin/leave", label: "Leave", icon: CalendarHeart },
+    { href: "/portal/admin/leave", label: "Cuti", icon: CalendarHeart },
     { href: "/portal/admin/lembur", label: "Lembur", icon: Timer },
     { href: "/portal/admin/rekap", label: "Rekap", icon: ClipboardList },
   ] : []);

@@ -9,7 +9,7 @@ import LeaveClient from "./LeaveClient";
 import { computeBalances, getLeaveBalanceSwitch, maskBalances } from "@/lib/leave-balance";
 import { isSuperAdmin } from "@/lib/roles";
 
-export const metadata: Metadata = { title: "Leave" };
+export const metadata: Metadata = { title: "Cuti" };
 
 // Setup Leave: kebijakan cuti, izin, dan dinas perusahaan.
 export default async function LeavePage() {

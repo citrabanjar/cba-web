@@ -122,7 +122,7 @@ export async function importLeaveBalances(rows: BalanceImportRow[]): Promise<{ e
     const userId = userBy.get(r.employeeId.trim().toLowerCase());
     const policyId = policyBy.get(r.code.trim().toUpperCase());
     if (!userId) return errors.push(`${line}: Employee ID ${r.employeeId} tidak ditemukan`);
-    if (!policyId) return errors.push(`${line}: Kode cuti ${r.code} tidak ada di Setup Leave`);
+    if (!policyId) return errors.push(`${line}: Kode cuti ${r.code} tidak ada di menu Cuti`);
     if (!Number.isFinite(r.days) || r.days < -365 || r.days > 365) return errors.push(`${line}: saldo tidak valid`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return errors.push(`${line}: tanggal harus YYYY-MM-DD`);
     valid.push({ userId, policyId, date: new Date(`${r.date}T00:00:00Z`), days: Math.round(r.days * 100) / 100, note: r.note.trim() || null });
