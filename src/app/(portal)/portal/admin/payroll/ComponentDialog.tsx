@@ -302,6 +302,8 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                   "Ikut jadi dasar upah lembur, THR, dan BPJS (PP 36/2021).")}
               </>
             )}
+            {form.kind === "PENDAPATAN" && form.method !== "THR" && form.method !== "PPH21" && check(!!p.weeklyForMonthly, (v) => setParam({ weeklyForMonthly: v }), "Karyawan bulanan: dibayar mingguan",
+              "Untuk karyawan payroll bulanan, komponen ini dibayar tiap minggu bersama payroll mingguan (mis. lembur, uang makan lembur, uang saku dinas). Di gaji bulanan ikut dasar PPh 21 dan tercatat sudah dibayar.")}
             {form.kind === "POTONGAN" && check(!!p.reducesGross, (v) => setParam({ reducesGross: v }), "Mengurangi penghasilan bruto (pajak)",
               "Potongan ini mengurangi bruto sebelum PPh 21 dihitung, mis. potongan mangkir atau terlambat.")}
             {check(form.isActive, (v) => set("isActive", v), "Aktif", "Komponen nonaktif tidak dipakai saat menghitung gaji.")}

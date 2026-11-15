@@ -82,6 +82,7 @@ export async function savePayComponent(id: string | null, input: PayComponentInp
     ...(method === "THR" ? { months: n(ip.months ?? 1, 0, 24), minMonths: n(ip.minMonths ?? 1, 0, 600), proportional: ip.proportional !== false } : {}),
     ...(method === "PER_JAM" ? (ip.shiftHours ? { shiftHours: true } : { hoursPerDay: n(ip.hoursPerDay || 8, 1, 24) }) : {}),
     ...(input.kind === "POTONGAN" && ip.reducesGross ? { reducesGross: true } : {}),
+    ...(earning && ip.weeklyForMonthly && method !== "THR" && method !== "PPH21" ? { weeklyForMonthly: true } : {}),
   };
   const coef = {
     amount: num(input.amount, 0, 1e10), rate: method === "PERSEN" ? num(input.rate, 0, 100) : null,

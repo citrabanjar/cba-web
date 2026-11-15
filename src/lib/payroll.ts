@@ -81,6 +81,7 @@ export type PayParams = {
   hoursPerDay?: number; // dasar nilai / hari sebulan / jam: jam kerja per hari tetap (bila tidak ikut shift)
   shiftHours?: boolean; // jam kerja per hari ikut lama shift hari itu (jam masuk s/d pulang, termasuk istirahat)
   reducesGross?: boolean; // potongan mengurangi penghasilan bruto PPh 21
+  weeklyForMonthly?: boolean; // karyawan bulanan: komponen ini dibayar di payroll mingguan (mis. lembur, uang makan lembur, uang saku dinas)
   workday?: number[]; rest6?: number[]; rest5?: number[]; // format lama lembur
 };
 export const DEFAULT_WORK_TIERS: Tier[] = [{ upTo: 1, x: 1.5 }, { upTo: null, x: 2 }];

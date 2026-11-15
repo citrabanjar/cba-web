@@ -92,7 +92,13 @@ async function loadContext(period: string) {
 }
 
 // Hitung gaji satu karyawan dari komponen yang ditempel ke karyawan itu.
-async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], override?: Partial<LineInputs>) {
+// Komponen bertanda "Karyawan bulanan: dibayar mingguan".
+const weeklyCodesOf = (ctx: Ctx) => new Set(ctx.components.filter((c) => (c.params as PayParams | null)?.weeklyForMonthly).map((c) => c.code));
+
+// opts.partial: karyawan payroll bulanan di proses gaji mingguan -> hanya komponen "dibayar mingguan" (tanpa gaji pokok,
+// tunjangan tetap, angsuran, BPJS, PPh 21). Di proses bulanan komponen itu tidak dihitung ulang; jumlah yang sudah dibayar
+// di payroll mingguan (final, minggu yang berakhir di bulan itu) ikut dasar PPh 21 lalu dicatat "sudah dibayar".
+async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], override?: Partial<LineInputs>, opts: { partial?: boolean; estimate?: boolean } = {}) {
   const { settings: s, start, end } = ctx;
   // Komponen yang tertempel ke karyawan ini dan masa berlakunya bersinggungan dengan periode.
   const tempel = new Map<string, { startDate: Date | null; endDate: Date | null }>();
@@ -100,7 +106,9 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     const a = c.employees.find((e) => e.userId === userId && (!e.startDate || utc(e.startDate) <= end) && (!e.endDate || utc(e.endDate) >= start));
     if (a) tempel.set(c.code, a);
   }
-  const components = ctx.components.filter((c) => tempel.has(c.code));
+  const weeklyCodes = weeklyCodesOf(ctx);
+  const components = ctx.components.filter((c) => tempel.has(c.code)
+    && (opts.partial ? weeklyCodes.has(c.code) : ctx.weekly || opts.estimate || !weeklyCodes.has(c.code)));
   const [user, salary, trips, leaves] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true, taxability: true } }),
     prisma.employeeSalary.findFirst({ where: { userId, effectiveDate: { lte: end } }, orderBy: { effectiveDate: "desc" }, include: { components: true } }),
@@ -294,13 +302,13 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   // Tunjangan/potongan profil yang diketik bebas (tanpa komponen master) tetap dibayar.
   // Yang tertaut ke komponen master hanya dibayar lewat tempelan yang masih berlaku.
   const master = new Map(ctx.components.map((c) => [c.code, c]));
-  allowances.forEach((a, i) => {
+  if (!opts.partial) allowances.forEach((a, i) => {
     if (a.code && (used.has(a.code) || master.has(a.code))) return;
     if (!ctx.monthEnd) return;
     const m = a.code ? master.get(a.code) : undefined;
     add(a.code && !items.some((x) => x.code === a.code) ? a.code : `TJ${i + 1}`, a.name, "PENDAPATAN", prorate(a.amount), "tunjangan tetap karyawan", m?.taxable ?? true);
   });
-  fixedDeductions.forEach((d, i) => {
+  if (!opts.partial) fixedDeductions.forEach((d, i) => {
     if (d.code && (used.has(d.code) || master.has(d.code))) return;
     if (!ctx.monthEnd) return;
     const m = d.code ? master.get(d.code) : undefined;
@@ -308,7 +316,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   });
 
   // Angsuran pinjaman karyawan periode ini (bukan objek pajak). Ditandai terpotong saat gaji difinalkan.
-  if (ctx.loanPeriod) {
+  if (ctx.loanPeriod && !opts.partial) {
     // Hanya pinjaman yang sudah dicairkan (BERJALAN); satu baris per pinjaman supaya terlihat terpisah di slip.
     const inst = await prisma.loanInstallment.findMany({
       where: { period: ctx.loanPeriod, status: "BELUM", loan: { userId, status: "BERJALAN" } },
@@ -326,6 +334,36 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
         });
       }
     }
+  }
+
+  // Karyawan bulanan: komponen yang sudah dibayar di payroll mingguan (final) bulan ini ikut bruto PPh 21, lalu dikurangkan
+  // dari gaji diterima karena sudah dibayar. Minggu masuk bulan tanggal akhir minggunya (bulan saat dibayar).
+  if (!ctx.weekly && weeklyCodes.size && !opts.estimate) {
+    const lo = iso(new Date(start.getTime() - 6 * DAY)), hi = iso(new Date(end.getTime() - 6 * DAY));
+    const wl = await prisma.payrollLine.findMany({
+      where: { userId, run: { frequency: "MINGGUAN", period: { gte: lo, lte: hi } } },
+      select: { items: true, run: { select: { period: true, status: true } } }, orderBy: { run: { period: "asc" } },
+    });
+    const drafts = wl.filter((l) => l.run.status !== "FINAL").length;
+    if (drafts) warnings.push(`${drafts} payroll mingguan bulan ini belum final; komponen mingguannya belum ikut`);
+    const sums = new Map<string, { name: string; kind: string; taxable: boolean; amount: number; weeks: string[] }>();
+    for (const l of wl.filter((x) => x.run.status === "FINAL")) {
+      for (const i of l.items as LineItem[]) {
+        if (!weeklyCodes.has(i.code)) continue;
+        const v = sums.get(i.code) ?? { name: i.name, kind: i.kind, taxable: i.taxable, amount: 0, weeks: [] };
+        v.amount += i.amount;
+        const w = periodLabel(l.run.period).replace(/^Minggu /, "");
+        if (!v.weeks.includes(w)) v.weeks.push(w);
+        sums.set(i.code, v);
+      }
+    }
+    let paid = 0;
+    for (const [code, v] of sums) {
+      if (!v.amount) continue;
+      items.push({ code, name: v.name, kind: v.kind, amount: v.amount, detail: `dibayar di payroll mingguan: ${v.weeks.join("; ")}`, taxable: v.taxable });
+      if (v.kind === "PENDAPATAN") paid += v.amount;
+    }
+    if (paid) items.push({ code: "DBM", name: "Sudah dibayar di payroll mingguan", kind: "POTONGAN", amount: paid, detail: "komponen dibayar mingguan, ikut dasar PPh 21 bulan ini", taxable: false });
   }
 
   // PPh 21: bruto = pendapatan + benefit objek pajak (premi asuransi perusahaan), dikurangi potongan berkategori Gaji (mis. mangkir).
@@ -420,15 +458,35 @@ export async function generateRun(period: string, extraCodes: string[], by: stri
     },
     select: { id: true },
   });
+  // Mingguan: karyawan bulanan yang ditempel komponen "dibayar mingguan" ikut dengan komponen itu saja.
+  const weeklyCodes = weeklyCodesOf(ctx);
+  const partialIds = ctx.weekly && weeklyCodes.size
+    ? (await prisma.user.findMany({
+        where: {
+          role: { not: "SUPER_ADMIN" }, OR: [{ isActive: true }, { resignDate: { gte: ctx.start } }],
+          AND: [{ OR: [{ paymentSchedule: null }, { paymentSchedule: { not: "Mingguan" } }] }],
+          id: { in: ctx.components.filter((c) => weeklyCodes.has(c.code)).flatMap((c) => c.employees.map((e) => e.userId)) },
+        },
+        select: { id: true },
+      })).map((u) => u.id)
+    : [];
   // Alpha otomatis periode ini dinilai ulang dulu (cuti/dinas yang diinput belakangan ikut terhitung).
-  await assessAttendance(ctx.start, ctx.end, employees.map((e) => e.id));
+  await assessAttendance(ctx.start, ctx.end, [...employees.map((e) => e.id), ...partialIds]);
   // Karyawan yang tidak lagi ikut periode ini (mis. jadwal bayar berubah) dikeluarkan dari draft.
-  await prisma.payrollLine.deleteMany({ where: { runId: run.id, userId: { notIn: employees.map((e) => e.id) } } });
+  await prisma.payrollLine.deleteMany({ where: { runId: run.id, userId: { notIn: [...employees.map((e) => e.id), ...partialIds] } } });
   for (const e of employees) {
     const prev = existing?.lines.find((l) => l.userId === e.id)?.inputs;
     const r = await computeLine(ctx, e.id, extraCodes, prev ? manualOf(prev) : undefined);
     const data = { ...r, inputs: toJson(r.inputs), items: toJson(r.items) };
     await prisma.payrollLine.upsert({ where: { runId_userId: { runId: run.id, userId: e.id } }, update: data, create: { ...data, runId: run.id, userId: e.id } });
+  }
+  for (const id of partialIds) {
+    const prev = existing?.lines.find((l) => l.userId === id)?.inputs;
+    const r = await computeLine(ctx, id, extraCodes, prev ? manualOf(prev) : undefined, { partial: true });
+    // Tidak ada lembur / dinas minggu ini -> tidak masuk payroll mingguan.
+    if (r.earnings <= 0) { await prisma.payrollLine.deleteMany({ where: { runId: run.id, userId: id } }); continue; }
+    const data = { ...r, inputs: toJson(r.inputs), items: toJson(r.items) };
+    await prisma.payrollLine.upsert({ where: { runId_userId: { runId: run.id, userId: id } }, update: data, create: { ...data, runId: run.id, userId: id } });
   }
   return run.id;
 }
@@ -440,7 +498,9 @@ export async function recomputeLine(lineId: string, override: Partial<LineInputs
   const ctx = await loadContext(line.run.period);
   const prev = normalizeInputs(line.inputs);
   const merged: Partial<LineInputs> = { ...prev, ...override, values: { ...(prev.values ?? {}), ...(override.values ?? {}) } };
-  const r = await computeLine(ctx, line.userId, line.run.extraCodes, merged);
+  const u = await prisma.user.findUnique({ where: { id: line.userId }, select: { paymentSchedule: true } });
+  const partial = ctx.weekly && u?.paymentSchedule !== "Mingguan";
+  const r = await computeLine(ctx, line.userId, line.run.extraCodes, merged, { partial });
   await prisma.payrollLine.update({ where: { id: lineId }, data: { ...r, inputs: toJson(r.inputs), items: toJson(r.items) } });
 }
 
@@ -505,7 +565,8 @@ export async function estimateOvertime(userId: string, today: string) {
     period = t.toISOString().slice(0, 7);
   }
   const ctx = await loadContext(period);
-  const r = await computeLine(ctx, userId, []);
+  // Estimasi menghitung semua lembur periode berjalan, termasuk yang dibayar mingguan untuk karyawan bulanan.
+  const r = await computeLine(ctx, userId, [], undefined, { estimate: true });
   const otCodes = new Set(ctx.components.filter((c) => c.method === "LEMBUR" || c.param === "JAM_LEMBUR").map((c) => c.code));
   const items = r.items.filter((i) => otCodes.has(i.code)).map((i) => ({ name: i.name, amount: i.amount, detail: i.detail }));
   return {

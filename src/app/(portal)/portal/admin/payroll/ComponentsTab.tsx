@@ -157,6 +157,7 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                         <T>{c.taxable ? "Objek PPh 21" : "Bukan objek PPh 21"}</T>
                       </span>
                       {c.kind === "PENDAPATAN" && c.params?.fixedWage && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700"><T>Upah tetap</T></span>}
+                      {c.kind === "PENDAPATAN" && c.params?.weeklyForMonthly && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700"><T>Bulanan: dibayar mingguan</T></span>}
                       {c.kind === "PENDAPATAN" && c.params?.prorate && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600"><T>Prorata</T></span>}
                       {c.method === "THR" && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"><T>Tidak rutin</T></span>}
                     </div>
