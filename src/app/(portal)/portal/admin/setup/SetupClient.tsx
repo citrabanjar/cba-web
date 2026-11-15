@@ -134,7 +134,7 @@ export default function SetupClient({
         <div className="min-w-0 flex-1">
           <h2 className="font-bold text-gray-800"><T>Organisasi</T></h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            <T>Cabang, Departemen, dan Jabatan di sini menjadi pilihan di data karyawan.</T>
+            <T>Master struktur perusahaan: daftar cabang, departemen, dan jabatan yang menjadi acuan seluruh data karyawan.</T>
           </p>
         </div>
       </div>
