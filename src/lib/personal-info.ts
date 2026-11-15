@@ -66,3 +66,13 @@ export const WORK_LOG_LABELS: Record<string, string> = {
   position: "Jabatan",
   manager: "Atasan Langsung",
 };
+
+// Status PTKP baku (pilihan di form). K/I/x (penghasilan istri digabung) hanya diterima dari import.
+export const PTKP_STATUSES = ["TK/0", "TK/1", "TK/2", "TK/3", "K/0", "K/1", "K/2", "K/3"] as const;
+export const PTKP_VALID: string[] = [...PTKP_STATUSES, "K/I/0", "K/I/1", "K/I/2", "K/I/3"];
+// Status Pajak dan Kode Objek Pajak PPh 21 yang dipakai CBA (pilihan baku, bukan ketikan bebas).
+export const TAX_STATUSES = ["Pegawai Tetap", "Pegawai Tidak Tetap"] as const;
+export const TAX_OBJECT_CODES = [
+  { value: "21-100-01", label: "21-100-01 · Pegawai Tetap" },
+  { value: "21-100-03", label: "21-100-03 · Pegawai Tidak Tetap" },
+] as const;

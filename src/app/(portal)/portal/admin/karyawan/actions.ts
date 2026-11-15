@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { approvalLevelsFor } from "@/lib/admin-roles";
 import { bossChain, holdForApproval, notifyApprover, runApproved } from "@/lib/approval-hold";
 import { decisionText, notify } from "@/lib/notify";
-import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
+import { FAMILY_RELATIONS, ID_TYPES, PTKP_VALID, TAX_OBJECT_CODES, TAX_STATUSES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow, TemplateRow } from "@/lib/employee-import";
 import { employeeTemplateRows } from "@/lib/employee-export";
 import bcrypt from "bcryptjs";
@@ -121,6 +121,14 @@ export async function updateEmployee(id: string, data: EmployeeUpdate): Promise<
   const access = await getAccess();
   const edit = canEditMenu(access, "karyawan"), propose = canProposeMenu(access, "karyawan");
   if (!access || (!edit && !propose)) throw new Error("Anda hanya punya hak lihat di menu ini.");
+  // Status PTKP hanya boleh nilai baku (TK/0 ... K/3), bukan ketikan bebas.
+  if (data.ptkpStatus?.trim()) {
+    const v = data.ptkpStatus.trim().toUpperCase().replace(/\s/g, "");
+    if (!PTKP_VALID.includes(v)) return { error: "Status PTKP tidak valid. Pilih dari daftar (TK/0 sampai K/3)." };
+    data = { ...data, ptkpStatus: v };
+  }
+  if (data.taxStatus?.trim() && !(TAX_STATUSES as readonly string[]).includes(data.taxStatus.trim())) return { error: "Status Pajak tidak valid. Pilih dari daftar." };
+  if (data.taxObjectCode?.trim() && !TAX_OBJECT_CODES.some((c) => c.value === data.taxObjectCode?.trim())) return { error: "Kode Objek Pajak tidak valid. Pilih dari daftar." };
   if (edit) return applyEmployeeUpdate(id, data, { role: access.role, changedBy: access.name ?? "" });
 
   // Hak Ajukan: password tidak bisa diubah lewat pengajuan.

@@ -21,7 +21,7 @@ import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS as ACTION_ITEMS } from "@/components/portal/ActionMenu";
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 import type { MasterOptions } from "@/lib/master-data";
-import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES, PERSONAL_LOG_LABELS, WORK_LOG_LABELS, normalizeChoice } from "@/lib/personal-info";
+import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES, PERSONAL_LOG_LABELS, PTKP_STATUSES, TAX_OBJECT_CODES, TAX_STATUSES, WORK_LOG_LABELS, normalizeChoice } from "@/lib/personal-info";
 import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, updateEmployee,
 } from "../actions";
@@ -797,10 +797,13 @@ export default function KaryawanDetailClient({
     ],
     pajak: [
       { key: "npwp", label: "NPWP" },
-      { key: "ptkpStatus", label: "Status PTKP" },
+      { key: "ptkpStatus", label: "Status PTKP", type: "select", options: masterOptions([...PTKP_STATUSES], emp.ptkpStatus) },
       { key: "taxability", label: "Metode Pajak (Taxability)", type: "select", options: ["Gross", "Gross Up", "Net"].map((v) => ({ value: v, label: v })) },
-      { key: "taxStatus", label: "Status Pajak" },
-      { key: "taxObjectCode", label: "Kode Objek Pajak" },
+      { key: "taxStatus", label: "Status Pajak", type: "select", options: masterOptions([...TAX_STATUSES], emp.taxStatus) },
+      {
+        key: "taxObjectCode", label: "Kode Objek Pajak", type: "select",
+        options: [{ value: "", label: "—" }, ...(emp.taxObjectCode && !TAX_OBJECT_CODES.some((c) => c.value === emp.taxObjectCode) ? [{ value: emp.taxObjectCode, label: emp.taxObjectCode }] : []), ...TAX_OBJECT_CODES.map((c) => ({ value: c.value, label: c.label }))],
+      },
     ],
     bpjs: [
       { key: "bpjsTkNumber", label: "No BPJS Ketenagakerjaan" },
@@ -808,7 +811,7 @@ export default function KaryawanDetailClient({
       { key: "bpjsKesNumber", label: "No BPJS Kesehatan" },
       { key: "bpjsKesActive", label: "Status BPJS Kesehatan", type: "select", options: FLAG_OPTIONS },
     ],
-  }), [managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule, emp.gender, emp.maritalStatus, emp.religion]);
+  }), [managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule, emp.gender, emp.maritalStatus, emp.religion, emp.ptkpStatus, emp.taxStatus, emp.taxObjectCode]);
 
   const [form, setForm] = useState<Record<string, string>>(() => (quick ? sectionValues(quick.section) : {}));
 
