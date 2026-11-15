@@ -9,7 +9,6 @@ export const LEAVE_CATEGORIES = [
   { key: "IBADAH", label: "Ibadah" },
   { key: "DINAS", label: "Dinas" },
   { key: "TANPA_UPAH", label: "Tanpa Upah" },
-  { key: "LAINNYA", label: "Lainnya" },
 ] as const;
 
 export const LEAVE_UNITS = [

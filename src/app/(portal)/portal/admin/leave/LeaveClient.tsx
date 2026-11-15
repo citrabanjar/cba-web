@@ -33,7 +33,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "
 
 const TONE: Record<string, string> = {
   TAHUNAN: "#10b981", ISTIRAHAT_PANJANG: "#0ea5e9", KHUSUS: "#8b5cf6", MELAHIRKAN: "#ec4899", SAKIT: "#f59e0b",
-  IBADAH: "#14b8a6", DINAS: "#6366f1", TANPA_UPAH: "#64748b", LAINNYA: "#94a3b8",
+  IBADAH: "#14b8a6", DINAS: "#6366f1", TANPA_UPAH: "#64748b",
 };
 
 // "12 hari kerja per tahun", atau "Sesuai kebutuhan" kalau tanpa batas.
