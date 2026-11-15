@@ -2341,7 +2341,7 @@ export const en: Record<string, string> = {
   "Kerja melewati jam pulang sesuai aturan lembur shift, atau masuk di hari libur.": "Working past end time per the shift's overtime rules, or on a holiday.",
   "Shift Aktif": "Active Shifts",
   "Otomatis": "Automatic",
-  "Parameter jadwal kerja: dasar penilaian terlambat, pulang cepat, alpha, dan lembur.": "Work schedule parameters: the basis for late, early leave, absent, and overtime.",
+  "Tata kelola parameter jadwal kerja perusahaan sebagai dasar penilaian keterlambatan, pulang lebih awal, ketidakhadiran, dan lembur karyawan.": "Governance of the company's work schedule parameters as the basis for assessing employee lateness, early departure, absence, and overtime.",
   "Kode dan nama shift wajib diisi.": "Shift code and name are required.",
   "Jam masuk dan jam pulang wajib diisi (format JJ:MM).": "Start and end times are required (HH:MM).",
   "Jam masuk dan jam pulang tidak boleh sama.": "Start and end times can't be the same.",

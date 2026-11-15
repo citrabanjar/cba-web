@@ -733,7 +733,7 @@ export default function ScheduleClient({
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Jadwal</T></h2>
         <p className="text-xs text-gray-400 mt-0.5">
-          <T>Parameter jadwal kerja: dasar penilaian terlambat, pulang cepat, alpha, dan lembur.</T>
+          <T>Tata kelola parameter jadwal kerja perusahaan sebagai dasar penilaian keterlambatan, pulang lebih awal, ketidakhadiran, dan lembur karyawan.</T>
         </p>
       </div>
 
