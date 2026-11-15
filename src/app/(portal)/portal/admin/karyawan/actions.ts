@@ -676,98 +676,119 @@ export async function importEmployees(rows: ImportRow[]) {
     return miss.length ? `${miss.join(", ")} belum ada di Parameter Organisasi` : null;
   };
 
+  // Validasi menyeluruh dulu: satu saja data tidak lolos, seluruh import dibatalkan (tidak ada yang disimpan).
+  // ID yang sudah terdaftar tetap dilewati (file unduhan berisi data yang sudah ada).
+  const ids = rows.map((r) => r.employeeId);
+  const emails = rows.map((r) => r.email?.trim().toLowerCase()).filter((x): x is string => !!x);
+  const ktps = rows.map((r) => r.ktpNumber?.trim()).filter((x): x is string => !!x);
+  const [existingUsers, emailUsers, ktpUsers] = await Promise.all([
+    prisma.user.findMany({ where: { employeeId: { in: ids } }, select: { employeeId: true } }),
+    emails.length ? prisma.user.findMany({ where: { email: { in: emails, mode: "insensitive" } }, select: { email: true, employeeId: true } }) : Promise.resolve([]),
+    ktps.length ? prisma.user.findMany({ where: { ktpNumber: { in: ktps } }, select: { ktpNumber: true, employeeId: true } }) : Promise.resolve([]),
+  ]);
+  const registered = new Set(existingUsers.map((u) => u.employeeId ?? ""));
+  const fresh = rows.filter((r) => !registered.has(r.employeeId));
+  const freshIds = new Set(fresh.map((r) => r.employeeId));
+  const managerRefs = [...new Set(fresh.map((r) => r.managerRef).filter((x): x is string => !!x && !freshIds.has(x)))];
+  const managers = managerRefs.length
+    ? await prisma.user.findMany({ where: { employeeId: { in: managerRefs }, role: { not: "SUPER_ADMIN" } }, select: { employeeId: true } })
+    : [];
+  const knownManager = new Set([...freshIds, ...managers.map((m) => m.employeeId)]);
+  const emailOwner = new Map(emailUsers.map((u) => [u.email!.toLowerCase(), u.employeeId]));
+  const ktpOwner = new Map(ktpUsers.map((u) => [u.ktpNumber!, u.employeeId]));
+  const problems: string[] = [];
+  for (const row of fresh) {
+    const p = [orgProblem(row)];
+    const email = row.email?.trim().toLowerCase();
+    if (email && emailOwner.has(email)) p.push(`Email ${row.email} sudah dipakai karyawan lain`);
+    if (row.ktpNumber && ktpOwner.has(row.ktpNumber.trim())) p.push("No KTP sudah dipakai karyawan lain");
+    if (row.managerRef && !knownManager.has(row.managerRef)) p.push(`ID atasan ${row.managerRef} tidak ditemukan`);
+    const list = p.filter(Boolean);
+    if (list.length) problems.push(`${row.employeeId}: ${list.join("; ")}`);
+  }
+  if (problems.length) return { results: [] as ImportResult[], error: "Import dibatalkan karena ada data yang tidak lolos validasi. Tidak ada data yang disimpan.", problems };
+
   // No. Urut mengikuti tanggal masuk: karyawan terlama dapat nomor terkecil.
-  const ordered = [...rows].sort((a, b) =>
+  const ordered = [...fresh].sort((a, b) =>
     (a.joinDate ?? "9999").localeCompare(b.joinDate ?? "9999") ||
     a.employeeId.localeCompare(b.employeeId));
 
   let nextNo = await nextEmployeeNo();
-  const results: ImportResult[] = [];
+  const results: ImportResult[] = [...registered].map((employeeId) => ({ employeeId, status: "skip" as const, reason: "ID sudah ada" }));
   const created: { id: string; row: ImportRow }[] = [];
 
-  for (const row of ordered) {
-    const existing = await prisma.user.findUnique({ where: { employeeId: row.employeeId } });
-    if (existing) {
-      results.push({ employeeId: row.employeeId, status: "skip", reason: "ID sudah ada" });
-      continue;
-    }
-    const problem = orgProblem(row);
-    if (problem) {
-      results.push({ employeeId: row.employeeId, status: "skip", reason: problem });
-      continue;
-    }
-    try {
-      const user = await prisma.user.create({
-        data: {
-          employeeNo: nextNo,
-          employeeId: row.employeeId,
-          name: row.name,
-          email: row.email || null,
-          phone: row.phone,
-          branch: row.branch?.trim() ? branchMap.get(row.branch.trim().toLowerCase())?.name : undefined,
-          departmentId: row.departmentName?.trim() ? deptMap.get(row.departmentName.trim().toLowerCase())?.id : undefined,
-          position: row.position?.trim() ? positionMap.get(row.position.trim().toLowerCase())?.name : undefined,
-          employmentStatus: STATUS_MAP[row.employmentStatus ?? ""] ?? "KONTRAK",
-          joinDate: toDate(row.joinDate),
-          contractEndDate: toDate(row.contractEndDate),
-          resignDate: toDate(row.resignDate),
-          isActive: row.isActive,
-          paymentSchedule: row.paymentSchedule,
-          bpjsTkNumber: row.bpjsTkNumber,
-          bpjsTkActive: row.bpjsTkActive,
-          bpjsKesNumber: row.bpjsKesNumber,
-          bpjsKesActive: row.bpjsKesActive,
-          npwp: row.npwp,
-          ptkpStatus: row.ptkpStatus,
-          taxability: row.taxability,
-          taxStatus: row.taxStatus,
-          taxObjectCode: row.taxObjectCode,
-          bankName: row.bankName,
-          bankAccount: row.bankAccount,
-          bankHolder: row.bankHolder,
-          idType: row.ktpNumber ? "KTP" : null,
-          ktpNumber: row.ktpNumber,
-          address: row.address,
-          // Wilayah hanya disimpan bila cocok dengan data Kemendagri (dicocokkan di browser); selain itu kosong.
-          addressRegion: row.addressRegion && /^\d{2}\.\d{2}\.\d{2}\.\d{4}$/.test(row.addressRegion) ? row.addressRegion : null,
-          addressRegionName: row.addressRegion && row.addressRegionName ? row.addressRegionName.toUpperCase() : null,
-          addressPostal: row.addressPostal && /^\d{5}$/.test(row.addressPostal) ? row.addressPostal : null,
-          birthPlace: row.birthPlace?.trim().toUpperCase() || undefined,
-          birthDate: toDate(row.birthDate),
-          gender: row.gender,
-          religion: row.religion,
-          maritalStatus: row.maritalStatus,
-          nationality: row.nationality,
-          emergencyName: row.emergencyName,
-          emergencyPhone: row.emergencyPhone,
-          emergencyRelation: row.emergencyRelation,
-          salaries: row.basicSalary
-            ? {
-                create: {
-                  // Gaji awal berlaku sejak tanggal masuk.
-                  effectiveDate: toDate(row.joinDate) ?? new Date(new Date().toISOString().split("T")[0]),
-                  basicSalary: row.basicSalary,
-                  bpjsTkBase: row.bpjsTkBase,
-                  bpjsKesBase: row.bpjsKesBase,
-                  note: "Gaji awal dari import",
-                  createdBy: actor.name,
-                  components: { create: row.components },
-                },
-              }
-            : undefined,
-        },
-      });
-      nextNo += 1;
-      created.push({ id: user.id, row });
-      results.push({ employeeId: row.employeeId, status: "ok" });
-    } catch {
-      results.push({
-        employeeId: row.employeeId,
-        status: "skip",
-        reason: "Email atau No KTP sudah dipakai karyawan lain",
-      });
-    }
+  // Semua karyawan disimpan dalam satu transaksi: gagal satu, batal semua.
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const row of ordered) {
+        const user = await tx.user.create({
+          data: {
+            employeeNo: nextNo,
+            employeeId: row.employeeId,
+            name: row.name,
+            email: row.email || null,
+            phone: row.phone,
+            branch: row.branch?.trim() ? branchMap.get(row.branch.trim().toLowerCase())?.name : undefined,
+            departmentId: row.departmentName?.trim() ? deptMap.get(row.departmentName.trim().toLowerCase())?.id : undefined,
+            position: row.position?.trim() ? positionMap.get(row.position.trim().toLowerCase())?.name : undefined,
+            employmentStatus: STATUS_MAP[row.employmentStatus ?? ""] ?? "KONTRAK",
+            joinDate: toDate(row.joinDate),
+            contractEndDate: toDate(row.contractEndDate),
+            resignDate: toDate(row.resignDate),
+            isActive: row.isActive,
+            paymentSchedule: row.paymentSchedule,
+            bpjsTkNumber: row.bpjsTkNumber,
+            bpjsTkActive: row.bpjsTkActive,
+            bpjsKesNumber: row.bpjsKesNumber,
+            bpjsKesActive: row.bpjsKesActive,
+            npwp: row.npwp,
+            ptkpStatus: row.ptkpStatus,
+            taxability: row.taxability,
+            taxStatus: row.taxStatus,
+            taxObjectCode: row.taxObjectCode,
+            bankName: row.bankName,
+            bankAccount: row.bankAccount,
+            bankHolder: row.bankHolder,
+            idType: row.ktpNumber ? "KTP" : null,
+            ktpNumber: row.ktpNumber,
+            address: row.address,
+            // Wilayah hanya disimpan bila cocok dengan data Kemendagri (dicocokkan di browser); selain itu kosong.
+            addressRegion: row.addressRegion && /^\d{2}\.\d{2}\.\d{2}\.\d{4}$/.test(row.addressRegion) ? row.addressRegion : null,
+            addressRegionName: row.addressRegion && row.addressRegionName ? row.addressRegionName.toUpperCase() : null,
+            addressPostal: row.addressPostal && /^\d{5}$/.test(row.addressPostal) ? row.addressPostal : null,
+            birthPlace: row.birthPlace?.trim().toUpperCase() || undefined,
+            birthDate: toDate(row.birthDate),
+            gender: row.gender,
+            religion: row.religion,
+            maritalStatus: row.maritalStatus,
+            nationality: row.nationality,
+            emergencyName: row.emergencyName,
+            emergencyPhone: row.emergencyPhone,
+            emergencyRelation: row.emergencyRelation,
+            salaries: row.basicSalary
+              ? {
+                  create: {
+                    // Gaji awal berlaku sejak tanggal masuk.
+                    effectiveDate: toDate(row.joinDate) ?? new Date(new Date().toISOString().split("T")[0]),
+                    basicSalary: row.basicSalary,
+                    bpjsTkBase: row.bpjsTkBase,
+                    bpjsKesBase: row.bpjsKesBase,
+                    note: "Gaji awal dari import",
+                    createdBy: actor.name,
+                    components: { create: row.components },
+                  },
+                }
+              : undefined,
+          },
+        });
+        nextNo += 1;
+        created.push({ id: user.id, row });
+      }
+    }, { timeout: 180_000, maxWait: 20_000 });
+  } catch {
+    return { results: [] as ImportResult[], error: "Import gagal disimpan; tidak ada data yang tersimpan. Periksa kembali data lalu lakukan import ulang.", problems: [] as string[] };
   }
+  for (const { row } of created) results.push({ employeeId: row.employeeId, status: "ok" });
 
   // Atasan dihubungkan setelah semua karyawan masuk, supaya urutan baris di file tidak berpengaruh.
   for (const { id, row } of created) {
@@ -777,9 +798,8 @@ export async function importEmployees(rows: ImportRow[]) {
       select: { id: true },
     });
     const result = results.find((r) => r.employeeId === row.employeeId);
-    if (!manager) {
-      if (result) result.warning = `ID atasan ${row.managerRef} tidak ditemukan`;
-    } else if (await wouldLoop(id, manager.id)) {
+    if (!manager) continue; // sudah divalidasi di awal
+    if (await wouldLoop(id, manager.id)) {
       if (result) result.warning = `Atasan ${row.managerRef} membuat rantai berputar`;
     } else {
       await prisma.user.update({ where: { id }, data: { managerId: manager.id } });
@@ -787,7 +807,7 @@ export async function importEmployees(rows: ImportRow[]) {
   }
 
   revalidatePath(LIST_PATH);
-  return { results };
+  return { results, error: undefined as string | undefined, problems: [] as string[] };
 }
 
 // Data karyawan yang sudah ada untuk diisikan ke file template (Download Template). Gaji pokok hanya untuk yang punya

@@ -22,6 +22,7 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
   const [matching, setMatching] = useState(false);
   const [regionStat, setRegionStat] = useState<{ matched: number; missed: string[] } | null>(null);
   const [importResult, setImportResult] = useState<ImportResult[] | null>(null);
+  const [failed, setFailed] = useState<{ error: string; problems: string[] } | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +35,7 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
       setParsed(p);
       setRegionStat(null);
       setImportResult(null);
+      setFailed(null);
       // Cocokkan wilayah alamat KTP ke data Kemendagri; yang tidak ketemu tetap diimport dengan wilayah kosong.
       if (p.rows.length) {
         setMatching(true);
@@ -55,14 +57,18 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
   }
 
   function handleImport() {
-    if (!parsed?.rows.length || parsed.orgMissing.length || matching) return;
+    if (!parsed?.rows.length || blocked || matching) return;
     startTransition(async () => {
-      const { results } = await importEmployees(parsed.rows);
+      const { results, error, problems } = await importEmployees(parsed.rows);
+      if (error) { setFailed({ error, problems }); return; }
       setImportResult(results);
       setParsed(null);
       if (fileRef.current) fileRef.current.value = "";
     });
   }
+
+  // Satu saja baris tidak lolos validasi, seluruh import tidak dijalankan.
+  const blocked = !!parsed && (parsed.errors.length > 0 || parsed.orgMissing.length > 0);
 
   function closeImport() {
     onClose(!!importResult?.some((r) => r.status === "ok"));
@@ -80,7 +86,7 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
         <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
           <p><T>• Cabang, departemen, dan jabatan pada berkas wajib telah terdaftar di Parameter Organisasi; lakukan Import Parameter Organisasi terlebih dahulu.</T></p>
           <p><T>• Ketentuan pengisian tercantum pada sheet Petunjuk.</T></p>
-          <p><T>• Karyawan dengan ID yang telah terdaftar dilewati; perubahan datanya dilakukan melalui menu Data Karyawan. Baris yang tidak valid tidak diimport.</T></p>
+          <p><T>• Data yang tidak lolos validasi maka seluruh import akan gagal, silakan perbaiki data terlebih dahulu lalu lakukan import ulang.</T></p>
           <p><T>• Nomor urut ditetapkan otomatis berdasarkan Tanggal Masuk, dan gaji awal berlaku sejak Tanggal Masuk.</T></p>
         </div>
 
@@ -94,7 +100,6 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
           }}>
           {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} <T>Download Template Excel (.xlsx)</T>
         </Button>
-        <p className="-mt-2 text-[11px] text-gray-500"><T>Templat memuat data karyawan yang telah terdaftar sebagai acuan; tambahkan karyawan baru pada baris di bawahnya.</T></p>
 
         <div className="space-y-1.5">
           <Label className="text-xs"><T>Pilih File Excel</T></Label>
@@ -113,6 +118,9 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
                 {parsed.rows.filter((r) => !r.isActive).length} <T>berstatus nonaktif.</T>
                 {!!parsed.existing && <> {parsed.existing} <T>baris sudah ada di portal (dilewati).</T></>}
               </p>
+            )}
+            {blocked && (
+              <p className="rounded-lg bg-red-100 p-3 font-semibold text-red-800"><T>Import tidak dapat dijalankan karena ada data yang tidak lolos validasi. Perbaiki data terlebih dahulu, lalu pilih berkas kembali.</T></p>
             )}
             {parsed.errors.length > 0 && (
               <div className="bg-red-50 text-red-700 rounded-lg p-3 space-y-1 max-h-32 overflow-y-auto">
@@ -167,6 +175,13 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
           </div>
         )}
 
+        {failed && (
+          <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg bg-red-50 p-3 text-xs text-red-700">
+            <p className="font-semibold"><T>{failed.error}</T></p>
+            {failed.problems.map((p) => <p key={p}>{p}</p>)}
+          </div>
+        )}
+
         {importResult && (
           <div className="bg-green-50 rounded-lg p-3 space-y-1">
             <div className="flex items-center gap-2 text-green-700 text-sm font-semibold">
@@ -186,7 +201,7 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
 
       <DialogFooter>
         <Button variant="outline" size="sm" onClick={closeImport}><T>Tutup</T></Button>
-        <Button size="sm" onClick={handleImport} disabled={isPending || !parsed?.rows.length || !!parsed?.orgMissing.length} className="gap-2">
+        <Button size="sm" onClick={handleImport} disabled={isPending || matching || !parsed?.rows.length || blocked} className="gap-2">
           {isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
           {isPending ? <T>{"Mengimport..."}</T> : `Import ${parsed?.rows.length ?? 0} Karyawan`}
         </Button>
