@@ -6,7 +6,8 @@ import { ArrowLeftRight, Briefcase, Calendar, Check, Clock, Inbox, Loader2, User
 import { InterviewDecision, InterviewSummary, ReviewForm, type CandidateBrief } from "@/components/portal/InterviewPanel";
 import { latestOffer, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
-import { T, useT } from "@/components/i18n";
+import { T, useT, useLang } from "@/components/i18n";
+import { adminTitleEn } from "@/lib/notif-en";
 import { formatDate } from "@/lib/utils";
 import { halfDayLabel } from "@/lib/leave";
 import { decideLeave, decideOvertime, decideTrip } from "./actions";
@@ -362,6 +363,7 @@ const EDIT_STATUS: Record<string, { label: string; tone: string }> = {
 // Kartu pengajuan ubah data karyawan: siapa mengajukan, karyawan yang diubah, isian lama → baru, keputusan.
 export function EditCard({ item }: { item: EditItem }) {
   const t = useT();
+  const lang = useLang();
   const router = useRouter();
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -378,7 +380,7 @@ export function EditCard({ item }: { item: EditItem }) {
     <div className={`space-y-3 rounded-2xl border bg-white p-4 ${item.status === "PENDING" ? "border-amber-300" : "border-gray-200"}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          {item.title && <p className="font-semibold text-gray-900">{item.title}</p>}
+          {item.title && <p className="font-semibold text-gray-900">{lang === "en" ? adminTitleEn(item.title) : item.title}</p>}
           {item.hasTarget && <p className={item.title ? "text-sm text-gray-700" : "font-semibold text-gray-900"}>{item.person.name} <span className="text-xs font-normal text-gray-500">{item.person.employeeId}</span></p>}
           <p className="text-xs text-gray-500"><T>Diajukan oleh</T> <b>{item.requester}</b> · {formatDate(new Date(item.createdAt), "Asia/Jakarta")}</p>
         </div>

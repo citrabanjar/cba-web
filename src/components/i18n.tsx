@@ -10,6 +10,10 @@ export function LangProvider({ lang, children }: { lang: Lang; children: React.R
   return <LangContext.Provider value={lang}>{children}</LangContext.Provider>;
 }
 
+export function useLang() {
+  return useContext(LangContext);
+}
+
 export function useT() {
   const lang = useContext(LangContext);
   return (text: string) => translate(lang, text);

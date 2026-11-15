@@ -3,7 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Briefcase, Check, ChevronLeft, Landmark, Loader2, Users, X, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, HandCoins, Timer, UserPlus, UserRound, type LucideIcon } from "lucide-react";
-import { T, useT } from "@/components/i18n";
+import { T, useLang, useT } from "@/components/i18n";
+import { adminTitleEn, notifBodyEn, notifTitleEn } from "@/lib/notif-en";
 import type { NotifModule } from "@/lib/notif-modules";
 import { markNotificationsRead } from "@/app/(portal)/notif-actions";
 import { respondSpl } from "@/app/(portal)/portal/lembur/actions";
@@ -43,6 +44,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
   modules: Mod[]; items: Item[]; pending: PendingCard[]; watching?: PendingCard[]; history: PendingCard[]; selected: NotifModule; master: OfferMaster;
 }) {
   const t = useT();
+  const en = useLang() === "en";
   const router = useRouter();
   const [mod, setMod] = useState<NotifModule>(selected);
   const [page, setPage] = useState(1);
@@ -138,8 +140,8 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
                   className={`flex w-full gap-3 px-4 py-3 text-left ${n.read ? "cursor-default" : "bg-rose-50/40 hover:bg-rose-50"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
                   <span className="min-w-0 flex-1">
-                    <span className={`block text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{n.title}</span>
-                    {n.body && <span className="block text-xs text-gray-500">{n.body}</span>}
+                    <span className={`block text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{en ? notifTitleEn(n.title) : n.title}</span>
+                    {n.body && <span className="block text-xs text-gray-500">{en ? notifBodyEn(n.body) : n.body}</span>}
                     <span className="mt-0.5 block text-[11px] text-gray-400">{formatDateTime(n.at)}</span>
                   </span>
                 </button>
@@ -173,6 +175,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
 // Notifikasi yang dijawab di tempat. SPL: Bersedia, atau Tidak bersedia dengan alasan; setelah dijawab tampil statusnya.
 function ActionItem({ item: n, action }: { item: Item; action: Action }) {
   const t = useT();
+  const en = useLang() === "en";
   const router = useRouter();
   const [pending, start] = useTransition();
   const [refusing, setRefusing] = useState(false);
@@ -193,10 +196,10 @@ function ActionItem({ item: n, action }: { item: Item; action: Action }) {
       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <p className={`text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{n.title}</p>
+          <p className={`text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{en ? notifTitleEn(n.title) : n.title}</p>
           {!waiting && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>}
         </div>
-        {n.body && <p className="text-xs text-gray-500">{n.body.replace(/\s*Pilih Bersedia atau Tidak bersedia\.?$/, "")}</p>}
+        {n.body && <p className="text-xs text-gray-500">{(en ? notifBodyEn : (x: string) => x)(n.body.replace(/\s*Pilih Bersedia atau Tidak bersedia\.?$/, ""))}</p>}
         <p className="mt-0.5 text-[11px] text-gray-400">{formatDateTime(n.at)}</p>
         {waiting && (
           <div className="mt-2.5">
@@ -292,30 +295,33 @@ const range = (a: string, b: string) => (a === b ? formatDate(a) : `${formatDate
 const num = (n: number) => String(n).replace(".", ",");
 
 function HistoryRow({ h }: { h: PendingCard }) {
+  const t = useT();
+  const en = useLang() === "en";
+  const at = (x: string) => (en ? adminTitleEn(x) : x);
   const c = h.card;
   let title = "", body = "", status = "", by = "";
   if (c.type === "item") {
     const i = c.item;
-    title = `${i.title} · ${who(i.person)}`;
-    body = [i.kind === "LEMBUR" ? `${formatDate(i.start)} · ${i.time ?? ""}` : `${range(i.start, i.end)} · ${num(i.days)} hari`, i.reason].filter(Boolean).join(" · ");
+    title = `${t(i.title)} · ${who(i.person)}`;
+    body = [i.kind === "LEMBUR" ? `${formatDate(i.start)} · ${i.time ?? ""}` : `${range(i.start, i.end)} · ${num(i.days)} ${t("hari")}`, i.reason].filter(Boolean).join(" · ");
     status = i.status;
     by = i.flow ? i.flow.steps.filter((s) => s.decision).map((s) => s.name).join(", ") : i.decidedBy ?? "";
   } else if (c.type === "swap") {
-    title = `Tukar shift · ${who(c.s.requester)} ⇄ ${who(c.s.partner)}`;
+    title = `${t("Tukar shift")} · ${who(c.s.requester)} ⇄ ${who(c.s.partner)}`;
     body = [`${formatDate(c.s.date)} · ${c.s.requesterShift} ⇄ ${c.s.partnerShift}`, c.s.reason].filter(Boolean).join(" · ");
     status = c.s.status; by = c.s.decidedBy ?? "";
   } else if (c.type === "edit") {
     // Pengajuan parameter (Absensi, Cuti, Payroll) tidak menyangkut seorang karyawan: nama tidak ditampilkan.
-    title = c.item.hasTarget ? `${c.item.title ?? "Perubahan data karyawan"} · ${who(c.item.person)}` : c.item.title ?? "Perubahan data karyawan";
-    body = `Diajukan ${c.item.requester}`;
+    title = c.item.hasTarget ? `${at(c.item.title ?? "Perubahan data karyawan")} · ${who(c.item.person)}` : at(c.item.title ?? "Perubahan data karyawan");
+    body = `${t("Diajukan")} ${c.item.requester}`;
     status = c.item.status; by = c.item.steps.filter((s) => s.decision).map((s) => s.name).join(", ");
   } else if (c.type === "profile") {
-    title = `Perubahan data pribadi · ${who(c.item.person)}`;
+    title = `${t("Perubahan data pribadi")} · ${who(c.item.person)}`;
     body = c.item.reason ?? "";
     status = c.item.status; by = c.item.decidedBy ?? "";
   } else if (c.type === "interview") {
-    title = `Calon karyawan · ${c.item.name}`;
-    body = c.item.statusLabel;
+    title = `${t("Calon karyawan")} · ${c.item.name}`;
+    body = t(c.item.statusLabel);
   }
   const st = status ? H_STATUS[status] ?? { label: status, cls: "bg-gray-100 text-gray-600" } : null;
   return (
@@ -326,7 +332,7 @@ function HistoryRow({ h }: { h: PendingCard }) {
           <p className="text-sm text-gray-700">{title}</p>
           {st && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>}
         </div>
-        {(body || by) && <p className="text-xs text-gray-500">{[body, by && `Diputus oleh ${by}`].filter(Boolean).join(" · ")}</p>}
+        {(body || by) && <p className="text-xs text-gray-500">{[body, by && `${t("Diputus oleh")} ${by}`].filter(Boolean).join(" · ")}</p>}
         {h.at && <p className="mt-0.5 text-[11px] text-gray-400">{formatDateTime(h.at)}</p>}
       </div>
     </div>
