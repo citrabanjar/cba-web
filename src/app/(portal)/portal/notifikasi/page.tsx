@@ -5,38 +5,78 @@ import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { isApprover, pendingApprovals } from "@/lib/approval";
-import { moduleOf, NOTIF_MODULES } from "@/lib/notif-modules";
-import PersetujuanPanel from "../persetujuan/panel";
-import NotifikasiClient, { type Selected } from "./NotifikasiClient";
+import { moduleOf, NOTIF_MODULES, type NotifModule } from "@/lib/notif-modules";
+import PersetujuanPanel, { loadApprovals } from "../persetujuan/panel";
+import NotifikasiClient, { type PendingCard, type Selected } from "./NotifikasiClient";
 
 export const metadata: Metadata = { title: "Notifikasi" };
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
 
 // Halaman Notifikasi (dibuka dari lonceng): modul bersusun di kiri, riwayat lengkap modul terpilih di kanan.
+// Pengajuan yang menunggu keputusan saya (atasan langsung / approver) tampil di modulnya dengan tombol Setujui / Tolak.
 export default async function NotifikasiPage({ searchParams }: { searchParams: Promise<{ modul?: string }> }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
   const approver = { id: access.id, role: access.role, menuAccess: access.menuAccess };
-  const [rows, approvals] = await Promise.all([
+  const [rows, approvals, partnerSwaps] = await Promise.all([
     prisma.notification.findMany({ where: { userId: access.id }, orderBy: { createdAt: "desc" }, take: 500 }),
     isApprover(approver).then((ok) => (ok ? pendingApprovals(approver) : null)),
+    // Tukar shift yang menunggu jawaban saya sebagai rekan.
+    prisma.shiftSwapRequest.findMany({
+      where: { partnerId: access.id, status: "MENUNGGU_REKAN" }, orderBy: { date: "asc" },
+      include: { requester: { select: { name: true, employeeId: true } } },
+    }),
   ]);
+  const data = approvals !== null ? await loadApprovals(approver) : null;
+
+  // Notifikasi yang perlu dijawab langsung di sini: Surat Perintah Lembur (Bersedia / Tidak bersedia).
+  const splNo = (title: string) => /^Surat Perintah Lembur (\S+)$/.exec(title)?.[1] ?? null;
+  const numbers = [...new Set(rows.map((n) => splNo(n.title)).filter((x): x is string => !!x))];
+  const spls = numbers.length
+    ? await prisma.overtime.findMany({ where: { userId: access.id, order: { number: { in: numbers } } }, select: { id: true, status: true, order: { select: { number: true } } } })
+    : [];
+  const splBy = new Map(spls.map((o) => [o.order?.number ?? "", { kind: "spl" as const, id: o.id, status: o.status }]));
   const items = rows.map((n) => ({
     id: n.id, title: n.title, body: n.body, href: n.href, read: !!n.readAt, at: n.createdAt.toISOString(), module: moduleOf(n.href, n.title),
+    action: splBy.get(splNo(n.title) ?? "") ?? null,
   }));
+
+  // Pengajuan menunggu keputusan saya, dikelompokkan ke modulnya.
+  const pending: PendingCard[] = [
+    ...partnerSwaps.map((s) => ({
+      module: "kehadiran" as NotifModule, key: `partner-${s.id}`,
+      card: { type: "partner" as const, id: s.id, date: ymd(s.date), requester: `${s.requester.name}${s.requester.employeeId ? ` (${s.requester.employeeId})` : ""}`, requesterShift: s.requesterShift, partnerShift: s.partnerShift, reason: s.reason },
+    })),
+    ...(data?.items ?? []).filter((i) => i.status === "PENDING" && i.mine).map((i) => ({
+      module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : "lembur") as NotifModule, key: `${i.kind}-${i.id}`, card: { type: "item" as const, item: i },
+    })),
+    ...(data?.swaps ?? []).filter((s) => s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `swap-${s.id}`, card: { type: "swap" as const, s } })),
+    ...(data?.edits ?? []).filter((e) => e.mine).map((e) => ({
+      module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `edit-${e.id}`, card: { type: "edit" as const, item: e },
+    })),
+    ...(data?.profiles ?? []).filter((p) => p.status === "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `profile-${p.id}`, card: { type: "profile" as const, item: p } })),
+  ];
+
   // Modul utama selalu tampil; Data Diri, Payroll & Benefit, Data Karyawan, Lainnya hanya bila ada isinya.
   const modules = NOTIF_MODULES
-    .map((m) => ({ key: m.key, label: m.label, total: items.filter((i) => i.module === m.key).length, unread: items.filter((i) => i.module === m.key && !i.read).length }))
-    .filter((m) => !["profil", "payroll", "karyawan", "lainnya"].includes(m.key) || m.total > 0);
+    .map((m) => ({
+      key: m.key, label: m.label, total: items.filter((i) => i.module === m.key).length,
+      unread: items.filter((i) => i.module === m.key && !i.read).length, waiting: pending.filter((p) => p.module === m.key).length,
+    }))
+    .filter((m) => !["profil", "payroll", "karyawan", "lainnya"].includes(m.key) || m.total > 0 || m.waiting > 0);
 
   const { modul } = await searchParams;
-  // Persetujuan dipilih bila diminta (tautan lama /portal/persetujuan) atau ada pengajuan yang menunggu.
-  const pick: Selected = approvals !== null && (modul === "persetujuan" || (!modul && approvals > 0)) ? "persetujuan" : modules.find((m) => m.key === modul)?.key
+  // Urutan pilihan awal: modul yang diminta → modul dengan pengajuan menunggu → Persetujuan (mis. wawancara) → belum dibaca.
+  const pick: Selected = (modul === "persetujuan" && data ? "persetujuan" : null)
+    ?? modules.find((m) => m.key === modul)?.key
+    ?? modules.find((m) => m.waiting > 0)?.key
+    ?? (approvals ? "persetujuan" : null)
     ?? modules.find((m) => m.unread > 0)?.key
     ?? items.find((i) => modules.some((m) => m.key === i.module))?.module
     ?? modules[0].key;
 
   return (
-    <NotifikasiClient modules={modules} items={items} selected={pick} approvals={approvals}
-      panel={approvals !== null ? <PersetujuanPanel a={approver} /> : null} />
+    <NotifikasiClient modules={modules} items={items} pending={pending} selected={pick} approvals={approvals}
+      panel={data ? <PersetujuanPanel data={data} /> : null} />
   );
 }

@@ -57,6 +57,7 @@ export type EditItem = {
   id: string; status: string; person: ApprovalItem["person"]; requester: string; note: string | null;
   summary: { field: string; oldValue: string | null; newValue: string | null }[]; createdAt: string; decidedAt: string | null;
   mine: boolean; // giliran saya memutus
+  kind?: string; // jenis pengajuan Admin (mis. "gaji.savePayComponent"); kosong = ubah data karyawan
   title: string | null; // judul pengajuan menu lain (mis. "Payroll: tambah komponen …"); kosong = ubah data karyawan
   hasTarget: boolean; // pengajuan menyangkut seorang karyawan
   steps: { name: string; level: number; decision: string; at: string; note: string }[]; // approval berurutan (Level 1, 2)
@@ -115,7 +116,7 @@ function Empty({ text }: { text: string }) {
   );
 }
 
-function Card({ item: i }: { item: ApprovalItem }) {
+export function Card({ item: i }: { item: ApprovalItem }) {
   const t = useT();
   const [pending, start] = useTransition();
   const [note, setNote] = useState("");
@@ -192,7 +193,7 @@ function Card({ item: i }: { item: ApprovalItem }) {
 }
 
 // Pengajuan perubahan data pribadi: data lama → data baru, Setujui (langsung diterapkan) atau Tolak (alasan wajib).
-function ProfileCard({ item: p }: { item: ProfileItem }) {
+export function ProfileCard({ item: p }: { item: ProfileItem }) {
   const t = useT();
   const [pending, start] = useTransition();
   const [note, setNote] = useState("");
@@ -269,7 +270,7 @@ function ProfileCard({ item: p }: { item: ProfileItem }) {
 }
 
 // Tukar shift: pemohon & rekan, shift sebelum → sesudah, status persetujuan kedua atasan.
-function SwapCard({ s }: { s: SwapItem }) {
+export function SwapCard({ s }: { s: SwapItem }) {
   const t = useT();
   const [pending, start] = useTransition();
   const [note, setNote] = useState("");
@@ -359,7 +360,7 @@ const EDIT_STATUS: Record<string, { label: string; tone: string }> = {
 };
 
 // Kartu pengajuan ubah data karyawan: siapa mengajukan, karyawan yang diubah, isian lama → baru, keputusan.
-function EditCard({ item }: { item: EditItem }) {
+export function EditCard({ item }: { item: EditItem }) {
   const t = useT();
   const router = useRouter();
   const [note, setNote] = useState("");

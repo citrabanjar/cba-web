@@ -2,14 +2,26 @@
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Briefcase, ChevronLeft, Landmark, Loader2, Users, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Briefcase, Check, ChevronLeft, Landmark, Loader2, Users, X, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
 import { T, useT } from "@/components/i18n";
-import { formatDateTime } from "@/lib/utils";
 import type { NotifModule } from "@/lib/notif-modules";
 import { markNotificationsRead } from "@/app/(portal)/notif-actions";
+import { respondSpl } from "@/app/(portal)/portal/lembur/actions";
+import { OT_STATUS } from "@/lib/overtime-status";
+import { respondSwap } from "@/app/(portal)/portal/tukar-shift/actions";
+import { Card, EditCard, ProfileCard, SwapCard, type ApprovalItem, type EditItem, type ProfileItem, type SwapItem } from "@/app/(portal)/portal/persetujuan/PersetujuanClient";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
-type Item = { id: string; title: string; body: string | null; href: string | null; read: boolean; at: string; module: NotifModule };
-type Mod = { key: NotifModule; label: string; total: number; unread: number };
+// action: notifikasi yang dijawab langsung di halaman ini (SPL: Bersedia / Tidak bersedia).
+type Action = { kind: "spl"; id: string; status: string };
+type Item = { id: string; title: string; body: string | null; href: string | null; read: boolean; at: string; module: NotifModule; action: Action | null };
+type Mod = { key: NotifModule; label: string; total: number; unread: number; waiting: number };
+type Partner = { type: "partner"; id: string; date: string; requester: string; requesterShift: string; partnerShift: string; reason: string | null };
+// Pengajuan yang menunggu keputusan saya (atasan langsung / approver / rekan tukar shift), tampil di modulnya.
+export type PendingCard = {
+  module: NotifModule; key: string;
+  card: { type: "item"; item: ApprovalItem } | { type: "swap"; s: SwapItem } | { type: "edit"; item: EditItem } | { type: "profile"; item: ProfileItem } | Partner;
+};
 // "persetujuan" = antrean pengajuan yang menunggu keputusan (atasan / approver / Admin).
 export type Selected = NotifModule | "persetujuan";
 
@@ -28,8 +40,8 @@ const ICONS: Record<NotifModule, LucideIcon> = {
   kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, payroll: Landmark, karyawan: Users, lainnya: Bell,
 };
 
-export default function NotifikasiClient({ modules, items, selected, approvals, panel }: {
-  modules: Mod[]; items: Item[]; selected: Selected; approvals: number | null; panel: ReactNode;
+export default function NotifikasiClient({ modules, items, pending, selected, approvals, panel }: {
+  modules: Mod[]; items: Item[]; pending: PendingCard[]; selected: Selected; approvals: number | null; panel: ReactNode;
 }) {
   const t = useT();
   const router = useRouter();
@@ -45,6 +57,7 @@ export default function NotifikasiClient({ modules, items, selected, approvals, 
   const goPage = (p: number) => { setPage(p); scroller.current?.scrollTo({ top: 0 }); };
   const current = modules.find((m) => m.key === mod);
   const unreadIds = list.filter((i) => !i.read).map((i) => i.id);
+  const waiting = pending.filter((p) => p.module === mod);
 
   const choose = (k: Selected) => {
     setMod(k);
@@ -85,6 +98,7 @@ export default function NotifikasiClient({ modules, items, selected, approvals, 
                 className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 ${on ? "bg-brand/10" : "hover:bg-gray-50"}`}>
                 <Icon size={18} className={on ? "text-brand" : "text-gray-400"} />
                 <span className={`flex-1 text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}><T>{m.label}</T></span>
+                {m.waiting > 0 && <span title={t("Menunggu keputusan Anda")} className="min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[10px] font-bold leading-5 text-ink">{m.waiting}</span>}
                 {m.unread > 0 && <span className="min-w-5 rounded-full bg-brand px-1.5 text-center text-[10px] font-bold leading-5 text-white">{m.unread}</span>}
                 <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
               </button>
@@ -111,12 +125,23 @@ export default function NotifikasiClient({ modules, items, selected, approvals, 
               </button>
             )}
           </div>
+          {waiting.length > 0 && (
+            <div className="space-y-3 border-b border-amber-100 bg-amber-50/60 p-3">
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-amber-700"><T>Menunggu keputusan Anda</T> · {waiting.length}</p>
+              {waiting.map(({ key, card: c }) =>
+                c.type === "item" ? <Card key={key} item={c.item} />
+                  : c.type === "swap" ? <SwapCard key={key} s={c.s} />
+                  : c.type === "edit" ? <EditCard key={key} item={c.item} />
+                  : c.type === "profile" ? <ProfileCard key={key} item={c.item} />
+                  : <PartnerCard key={key} c={c} />)}
+            </div>
+          )}
           {list.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
+            waiting.length > 0 ? null : <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
           ) : (
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
-              {shown.map((n) => (
+              {shown.map((n) => n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
                 <button key={n.id} type="button" onClick={() => open(n)} title={n.href ? t("Buka") : undefined}
                   className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-gray-50 ${n.read ? "" : "bg-rose-50/40"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
@@ -149,6 +174,111 @@ export default function NotifikasiClient({ modules, items, selected, approvals, 
             </>
           )}
         </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Notifikasi yang dijawab di tempat. SPL: Bersedia, atau Tidak bersedia dengan alasan; setelah dijawab tampil statusnya.
+function ActionItem({ item: n, action }: { item: Item; action: Action }) {
+  const t = useT();
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [refusing, setRefusing] = useState(false);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const waiting = action.status === "MENUNGGU_KARYAWAN";
+  const st = OT_STATUS[action.status] ?? { label: action.status, cls: "bg-gray-100 text-gray-600" };
+  const answer = (accept: boolean) => start(async () => {
+    setError("");
+    const r = await respondSpl(action.id, accept, note);
+    if (r.error) { setError(r.error); return; }
+    if (!n.read) await markNotificationsRead(n.id);
+    router.refresh();
+  });
+  const markRead = () => { if (!n.read) start(async () => { await markNotificationsRead(n.id); router.refresh(); }); };
+  return (
+    <div onClick={waiting ? undefined : markRead} className={`flex w-full gap-3 px-4 py-3 ${n.read ? "" : "bg-rose-50/40"} ${waiting ? "" : "cursor-default"}`}>
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <p className={`text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{n.title}</p>
+          {!waiting && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>}
+        </div>
+        {n.body && <p className="text-xs text-gray-500">{n.body.replace(/\s*Pilih Bersedia atau Tidak bersedia\.?$/, "")}</p>}
+        <p className="mt-0.5 text-[11px] text-gray-400">{formatDateTime(n.at)}</p>
+        {waiting && (
+          <div className="mt-2.5">
+            {refusing && (
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Alasan tidak bersedia (wajib)")} autoFocus
+                className="mb-2 h-9 w-full rounded-lg border border-gray-200 px-3 text-sm" />
+            )}
+            {error && <p className="mb-2 text-xs text-rose-600"><T>{error}</T></p>}
+            <div className="flex flex-wrap gap-2">
+              {refusing ? (
+                <>
+                  <button type="button" disabled={pending} onClick={() => answer(false)} className="inline-flex items-center gap-1 rounded-full bg-gray-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                    {pending ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} <T>Kirim: Tidak bersedia</T>
+                  </button>
+                  <button type="button" disabled={pending} onClick={() => { setRefusing(false); setError(""); }} className="rounded-full px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"><T>Batal</T></button>
+                </>
+              ) : (
+                <>
+                  <button type="button" disabled={pending} onClick={() => answer(true)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                    {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Bersedia</T>
+                  </button>
+                  <button type="button" disabled={pending} onClick={() => setRefusing(true)} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Tidak bersedia</T></button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Rekan tukar shift: Terima → diteruskan ke atasan langsung kedua karyawan; Tolak dengan alasan.
+function PartnerCard({ c }: { c: Partner }) {
+  const t = useT();
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [rejecting, setRejecting] = useState(false);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const answer = (accept: boolean) => start(async () => {
+    setError("");
+    if (!accept && !note.trim()) { setError("Tulis alasan menolak."); return; }
+    const r = await respondSwap(c.id, accept, note);
+    if (r.error) setError(r.error); else router.refresh();
+  });
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <p className="text-sm font-semibold text-gray-900"><T>Permintaan tukar shift</T></p>
+      <p className="text-sm text-gray-700">{c.requester} · {formatDate(c.date)}</p>
+      <p className="text-xs text-gray-500"><T>Anda masuk shift</T> <b>{c.requesterShift}</b>, <T>rekan masuk shift</T> <b>{c.partnerShift}</b></p>
+      {c.reason && <p className="mt-1.5 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">{c.reason}</p>}
+      {rejecting && (
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Alasan menolak (wajib)")} autoFocus
+          className="mt-3 h-9 w-full rounded-lg border border-gray-200 px-3 text-sm" />
+      )}
+      {error && <p className="mt-2 text-xs text-rose-600"><T>{error}</T></p>}
+      <div className="mt-3 flex justify-end gap-2">
+        {rejecting ? (
+          <>
+            <button type="button" disabled={pending} onClick={() => setRejecting(false)} className="rounded-full px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"><T>Batal</T></button>
+            <button type="button" disabled={pending} onClick={() => answer(false)} className="inline-flex items-center gap-1 rounded-full bg-gray-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+              {pending ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} <T>Kirim: Tolak</T>
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" disabled={pending} onClick={() => setRejecting(true)} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Tolak</T></button>
+            <button type="button" disabled={pending} onClick={() => answer(true)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+              {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Terima</T>
+            </button>
+          </>
         )}
       </div>
     </div>

@@ -28,8 +28,11 @@ export default async function PortalLayout({
   const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
   const [onboardingOn, workflowOn, unread] = await Promise.all([
     getOnboardingSettings().then((s) => s.enabled), workflowFeatureOn(),
-    // Jumlah notifikasi belum dibaca untuk angka di lonceng.
-    access ? prisma.notification.count({ where: { userId: access.id, readAt: null } }) : 0,
+    // Angka di lonceng: notifikasi belum dibaca + permintaan tukar shift yang menunggu jawaban saya sebagai rekan.
+    access ? Promise.all([
+      prisma.notification.count({ where: { userId: access.id, readAt: null } }),
+      prisma.shiftSwapRequest.count({ where: { partnerId: access.id, status: "MENUNGGU_REKAN" } }),
+    ]).then(([a, b]) => a + b) : 0,
   ]);
 
   return (

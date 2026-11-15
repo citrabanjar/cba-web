@@ -14,7 +14,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
 
 // Persetujuan (cuti, dinas, lembur, tukar shift, perubahan data, wawancara) untuk atasan / approver / Admin.
 // Tampil sebagai modul "Persetujuan" di halaman Notifikasi; pemanggil memastikan a adalah approver.
-export default async function PersetujuanPanel({ a }: { a: Approver }) {
+export async function loadApprovals(a: Approver) {
 
   const user = requesterFilter(a);
   const since = daysAgo(60);
@@ -129,16 +129,22 @@ export default async function PersetujuanPanel({ a }: { a: Approver }) {
     ? { ...(await getMasterOptions()), managers: (await prisma.user.findMany({ where: { isActive: true, employeeId: { not: null } }, orderBy: { employeeId: "asc" }, select: { id: true, name: true, employeeId: true } })).map((u) => ({ value: u.id, label: `${u.employeeId} - ${u.name}` })) }
     : null;
 
-  return (
-    <PersetujuanClient items={items} profiles={reviewer ? profiles : null} swaps={swaps} interviews={interviews} master={master}
-        edits={editReqs.map((r) => ({
-          id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, note: r.note,
-          mine: r.status === "PENDING" && r.approverId === a.id,
-          title: ((r.data as { __title?: unknown } | null)?.__title as string | undefined) ?? null,
-          hasTarget: !(r.data as { __kind?: unknown } | null)?.__kind || !!(r.data as { __target?: unknown } | null)?.__target,
-          steps: (((r.data as { __approval?: unknown } | null)?.__approval as { name: string; level: number; decision: string; at: string; note: string }[] | undefined) ?? []),
-          summary: (r.summary as { field: string; oldValue: string | null; newValue: string | null }[]) ?? [],
-          createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
-        }))} />
-  );
+  const edits = editReqs.map((r) => ({
+    id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, note: r.note,
+    mine: r.status === "PENDING" && r.approverId === a.id,
+    kind: String((r.data as { __kind?: unknown } | null)?.__kind ?? ""),
+    title: ((r.data as { __title?: unknown } | null)?.__title as string | undefined) ?? null,
+    hasTarget: !(r.data as { __kind?: unknown } | null)?.__kind || !!(r.data as { __target?: unknown } | null)?.__target,
+    steps: (((r.data as { __approval?: unknown } | null)?.__approval as { name: string; level: number; decision: string; at: string; note: string }[] | undefined) ?? []),
+    summary: (r.summary as { field: string; oldValue: string | null; newValue: string | null }[]) ?? [],
+    createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
+  }));
+  return { items, profiles: reviewer ? profiles : null, swaps, interviews, master, edits };
+}
+
+export type ApprovalData = Awaited<ReturnType<typeof loadApprovals>>;
+
+// Isi modul Persetujuan (semua pengajuan + riwayat), dari data yang sudah dimuat.
+export default function PersetujuanPanel({ data }: { data: ApprovalData }) {
+  return <PersetujuanClient {...data} />;
 }
