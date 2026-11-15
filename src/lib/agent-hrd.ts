@@ -8,6 +8,7 @@ export const AGENT_SETTING_KEY = "agent.settings";
 export const MONITOR_CHECKS = [
   { key: "emp-no-pay", group: "Data Karyawan", title: "Karyawan belum memiliki komponen gaji" },
   { key: "emp-no-shift", group: "Data Karyawan", title: "Karyawan belum memiliki jadwal kerja (bulan berjalan)" },
+  { key: "emp-female-ptkp", group: "Data Karyawan", title: "Karyawan wanita berstatus pajak TK/0" },
 ] as const;
 
 // Pengingat SOP buatan Super Admin. MONTHLY: setiap tanggal `day`; YEARLY: setiap `day` bulan `month`;
