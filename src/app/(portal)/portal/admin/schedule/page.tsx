@@ -9,7 +9,7 @@ import ScheduleClient from "./ScheduleClient";
 import { loadRoster } from "./roster";
 import type { BreakTime } from "./actions";
 
-export const metadata: Metadata = { title: "Schedule" };
+export const metadata: Metadata = { title: "Jadwal" };
 
 export default async function SchedulePage({
   searchParams,
