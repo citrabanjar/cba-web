@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, Building2, Check, Network, Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { Briefcase, Building2, Check, ChevronRight, Network, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
@@ -34,7 +34,7 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+    <section className="min-w-0 bg-white rounded-2xl border border-gray-200 overflow-hidden">
       <div className="section-head flex items-center justify-between gap-3 px-5 py-4">
         <div className="flex items-center gap-3">
           <span className="section-icon"><Icon size={17} /></span>
@@ -63,7 +63,7 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
         {items.length === 0 ? (
           <p className="py-4 text-center text-sm text-gray-400"><T>Belum ada data.</T></p>
         ) : (
-          <ul className="max-h-80 overflow-y-auto pr-1 space-y-2">
+          <ul className="max-h-[calc(100vh-22rem)] min-h-40 overflow-y-auto pr-1 space-y-2">
             {items.map((item) => (
               <li key={item.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5">
                 {editing?.id === item.id ? (
@@ -115,11 +115,19 @@ function MasterCard({ kind, title, items }: { kind: MasterKind; title: string; i
   );
 }
 
+// Seperti halaman Notifikasi: Cabang / Departemen / Jabatan bersusun di kiri, isi yang dipilih di kanan.
+const KINDS: { kind: MasterKind; title: string }[] = [
+  { kind: "branch", title: "Cabang" }, { kind: "department", title: "Departemen" }, { kind: "position", title: "Jabatan" },
+];
+
 export default function SetupClient({
   branches, departments, positions,
 }: {
   branches: Item[]; departments: Item[]; positions: Item[];
 }) {
+  const [sel, setSel] = useState<MasterKind>("branch");
+  const lists: Record<MasterKind, Item[]> = { branch: branches, department: departments, position: positions };
+  const current = KINDS.find((k) => k.kind === sel)!;
   return (
     <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex flex-wrap items-center gap-3">
@@ -130,29 +138,24 @@ export default function SetupClient({
           </p>
         </div>
       </div>
-      <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        {/* Ringkasan jumlah, gaya kartu angka seperti Data Karyawan */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Cabang", value: branches.length, icon: Building2, tone: "from-brand to-rose-400" },
-            { label: "Departemen", value: departments.length, icon: Network, tone: "from-sky-500 to-indigo-400" },
-            { label: "Jabatan", value: positions.length, icon: Briefcase, tone: "from-emerald-500 to-teal-400" },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}>
-                  <s.icon size={15} />
-                </span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
-            </div>
-          ))}
-        </div>
-        <div className="section-stack space-y-5">
-        <MasterCard kind="branch" title="Cabang" items={branches} />
-        <MasterCard kind="department" title="Departemen" items={departments} />
-        <MasterCard kind="position" title="Jabatan" items={positions} />
+      <main className="px-4 sm:px-6 py-5 max-w-6xl">
+        <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
+          <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            {KINDS.map((k) => {
+              const Icon = ICON[k.kind];
+              const on = k.kind === sel;
+              return (
+                <button key={k.kind} type="button" onClick={() => setSel(k.kind)}
+                  className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 ${on ? "bg-brand/10" : "hover:bg-gray-50"}`}>
+                  <Icon size={18} className={on ? "text-brand" : "text-gray-400"} />
+                  <span className={`flex-1 text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}><T>{k.title}</T></span>
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">{lists[k.kind].length}</span>
+                  <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+                </button>
+              );
+            })}
+          </nav>
+          <MasterCard key={sel} kind={sel} title={current.title} items={lists[sel]} />
         </div>
       </main>
     </div>
