@@ -13,7 +13,7 @@ import { decideLeave, decideOvertime, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
 import { decideSwap } from "../tukar-shift/actions";
 import { decideEmployeeEdit } from "../admin/karyawan/actions";
-import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
+import { EDIT_FIELD_LABELS } from "@/lib/personal-info";
 import { SWAP_STATUS } from "@/lib/shift-swap-status";
 import { fieldLabel, isRegionCode, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 
@@ -352,16 +352,7 @@ export function InterviewCard({ item, master }: { item: InterviewItem; master: O
   );
 }
 
-// Judul kolom yang dipakai di form Edit profil karyawan (bukan nama kolom database).
-const EXTRA_LABELS: Record<string, string> = {
-  nationality: "Kewarganegaraan", emergencyName: "Nama Kontak Darurat", emergencyPhone: "No. HP Kontak Darurat", emergencyRelation: "Hubungan Kontak Darurat",
-  npwp: "NPWP", ptkpStatus: "Status PTKP", taxability: "Metode Pajak (Taxability)", taxStatus: "Status Pajak", taxObjectCode: "Kode Objek Pajak",
-  bpjsTkNumber: "No BPJS Ketenagakerjaan", bpjsTkActive: "Status BPJS Ketenagakerjaan", bpjsKesNumber: "No BPJS Kesehatan", bpjsKesActive: "Status BPJS Kesehatan",
-  paymentSchedule: "Jadwal Gajian", addressRegion: "Wilayah sesuai Identitas", addressRegionName: "Wilayah sesuai Identitas", addressPostal: "Kode Pos sesuai Identitas",
-  currentRegion: "Wilayah Alamat Saat Ini", currentRegionName: "Wilayah Alamat Saat Ini", currentPostal: "Kode Pos Alamat Saat Ini",
-  departmentName: "Departemen", managerRef: "Atasan Langsung", password: "Password",
-};
-const EDIT_LABELS: Record<string, string> = { ...EXTRA_LABELS, ...PERSONAL_LOG_LABELS, ...WORK_LOG_LABELS };
+const EDIT_LABELS = EDIT_FIELD_LABELS;
 const EDIT_STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: "Menunggu", tone: "bg-amber-50 text-amber-700" },
   APPROVED: { label: "Disetujui", tone: "bg-emerald-50 text-emerald-700" },

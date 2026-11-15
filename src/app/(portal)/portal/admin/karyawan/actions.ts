@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { approvalLevelsFor } from "@/lib/admin-roles";
 import { bossChain, holdForApproval, notifyApprover, runApproved } from "@/lib/approval-hold";
 import { decisionText, notify } from "@/lib/notify";
-import { FAMILY_RELATIONS, ID_TYPES, PTKP_VALID, TAX_OBJECT_CODES, TAX_STATUSES } from "@/lib/personal-info";
+import { EDIT_FIELD_LABELS, FAMILY_RELATIONS, ID_TYPES, PTKP_VALID, TAX_OBJECT_CODES, TAX_STATUSES } from "@/lib/personal-info";
 import type { ImportComponent, ImportRow, TemplateRow } from "@/lib/employee-import";
 import { employeeTemplateRows } from "@/lib/employee-export";
 import bcrypt from "bcryptjs";
@@ -220,6 +220,13 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
     const kind = String((r.data as { __kind?: unknown })?.__kind ?? "");
     const href = typeof target === "string" && target ? `${LIST_PATH}/${target}` : kind.startsWith("gaji.") ? "/portal/admin/payroll" : `${LIST_PATH}/${r.userId}`;
     await notify(r.requesterId, `Pengajuan ${approve ? "disetujui" : "ditolak"}: ${title}`, decisionText(approve, steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName, note), href);
+    // Perubahan data karyawan yang sudah berlaku: karyawan yang datanya diubah ikut diberi tahu (kecuali password).
+    if (approve && !kind && r.userId !== r.requesterId) {
+      const lines = ((r.summary as { field: string; oldValue: string | null; newValue: string | null }[] | null) ?? [])
+        .filter((c) => c.field !== "password")
+        .map((c) => `${EDIT_FIELD_LABELS[c.field] ?? c.field}: ${c.oldValue || "—"} → ${c.newValue || "—"}`);
+      if (lines.length) await notify(r.userId, "Data Anda diperbarui", `Diubah oleh ${r.requesterName}, disetujui ${steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName}. ${lines.join("; ")}`, "/portal/profil");
+    }
   }
   revalidatePath(`${LIST_PATH}/${r.userId}`);
   revalidatePath("/portal/persetujuan");
