@@ -29,8 +29,10 @@ export default async function DashboardPage() {
   const indicatorOnly = !isAdmin && (user.role === "ADMIN" || superAdmin) ? await loadIndicators() : null;
   const swapAsks = !superAdmin && user.id ? await prisma.shiftSwapRequest.count({ where: { partnerId: user.id, status: "MENUNGGU_REKAN" } }) : 0;
 
+  // Admin & Super Admin memakai menu Tombol HP; kartu menu karyawan dan info bantuan hanya untuk karyawan biasa.
+  const staff = superAdmin || user.role === "ADMIN";
   const menuItems = [
-    ...(superAdmin ? [] : [
+    ...(staff ? [] : [
     {
       href: "/portal/absensi",
       icon: Clock,
@@ -130,7 +132,7 @@ export default async function DashboardPage() {
       </div>}
 
       {/* Info */}
-      {!superAdmin && <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
+      {!staff && <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
         <AlertCircle size={18} className="text-brand mt-0.5 shrink-0" />
         <p className="text-xs text-gray-600">
           <T>Butuh bantuan? Hubungi HRD melalui email atau datang langsung ke kantor.</T>
