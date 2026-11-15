@@ -17,7 +17,7 @@ export default async function PayslipPage() {
 
   const payslips = await prisma.payslip.findMany({
     where: { userId: session.user.id! },
-    orderBy: { period: "desc" },
+    orderBy: [{ createdAt: "desc" }, { period: "desc" }], // urut terbit (slip THR / Bonus terpisah ikut urutan tanggalnya)
   });
   // Rincian per baris dari Proses Gaji yang sudah final (mis. angsuran tiap pinjaman tampil terpisah).
   const lines = await prisma.payrollLine.findMany({

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import BonusSchedule from "./BonusSchedule";
+import type { BonusEntry } from "@/lib/payroll-bonus";
 import { Calculator, CheckCircle2, HandCoins, Landmark, Loader2, Play, Settings2, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,8 +82,8 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
   );
 }
 
-export default function PayrollClient({ components, settings, runs, employees, nonRoutine, taxSettings, terSettings }: {
-  components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[];
+export default function PayrollClient({ components, settings, runs, employees, nonRoutine, bonus, taxSettings, terSettings }: {
+  components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[]; bonus: BonusEntry[];
   taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[];
 }) {
   const t = useT();
@@ -121,10 +123,10 @@ export default function PayrollClient({ components, settings, runs, employees, n
             </button>
           ))}
         </div>
-        {tab === "proses" && <RunTab runs={runs} nonRoutine={nonRoutine} weekStartDay={settings.weekStartDay} />}
+        {tab === "proses" && <RunTab runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay} />}
         {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={settings.workDaysPerWeek} />}
         {tab === "kalkulator" && <DeductionCalculator />}
-        {tab === "pengaturan" && <><SettingsTab settings={settings} /><TaxSettings all={taxSettings} /><TerSettings versions={terSettings} /></>}
+        {tab === "pengaturan" && <><SettingsTab settings={settings} /><BonusSchedule entries={bonus} components={nonRoutine} /><TaxSettings all={taxSettings} /><TerSettings versions={terSettings} /></>}
       </main>
     </div>
   );

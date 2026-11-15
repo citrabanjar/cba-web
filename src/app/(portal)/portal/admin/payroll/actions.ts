@@ -12,6 +12,8 @@ import {
 import { TAX_SETTING_KEY, TER_SETTING_KEY, type TaxYearConfig, type TerRow, type TerVersion } from "@/lib/pph21";
 import { getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { finalizeRun, generateRun, recomputeLine, type LineInputs } from "@/lib/payroll-run";
+import { BONUS_MODES, BONUS_SETTING_KEY, getBonusSchedule, type BonusEntry } from "@/lib/payroll-bonus";
+import { isSeparate } from "@/lib/payroll-run-period";
 import { holdForApproval, type HoldDetail } from "@/lib/approval-hold";
 
 const PATH = "/portal/admin/payroll";
@@ -202,12 +204,12 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
 
 // ─── Proses gaji bulanan ────────────────────────────────────────────────────
 
-export async function generatePayroll(period: string, extraCodes: string[]): Promise<Result> {
+// THR / Bonus ikut otomatis menurut Jadwal THR / Bonus (Pengaturan); periode "X-<tanggal>-<kode>" = THR / Bonus terpisah.
+export async function generatePayroll(period: string): Promise<Result> {
   const access = await requirePayroll();
-  if (!/^\d{4}-\d{2}(-\d{2})?$/.test(period)) return { error: "Periode tidak valid." };
+  if (!/^\d{4}-\d{2}(-\d{2})?$/.test(period) && !isSeparate(period)) return { error: "Periode tidak valid." };
   try {
-    const valid = await prisma.payComponent.findMany({ where: { code: { in: extraCodes }, method: "THR" }, select: { code: true } });
-    await generateRun(period, valid.map((c) => c.code), access.name ?? null);
+    await generateRun(period, access.name ?? null);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal menghitung gaji." };
   }
@@ -333,6 +335,36 @@ export async function deleteTerVersion(effectiveDate: string): Promise<Result> {
     where: { key: TER_SETTING_KEY },
     update: { value: all, updatedBy: access.name ?? null },
     create: { key: TER_SETTING_KEY, value: all, updatedBy: access.name ?? null },
+  });
+  revalidatePath(PATH);
+  return {};
+}
+
+// Jadwal THR / Bonus: tanggal bayar dan cara bayar (ikut bulanan / mingguan / terpisah).
+export async function saveBonusSchedule(input: BonusEntry[]): Promise<Result> {
+  const access = await requirePayroll();
+  const codes = new Set((await prisma.payComponent.findMany({ where: { method: "THR" }, select: { code: true } })).map((c) => c.code));
+  const modes = new Set<string>(BONUS_MODES.map((m) => m.key));
+  const entries: BonusEntry[] = [];
+  for (const e of (Array.isArray(input) ? input : []).slice(0, 100)) {
+    if (!codes.has(e.code)) return { error: "Pilih komponen THR / Bonus di setiap jadwal." };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(e.payDate ?? "")) return { error: "Isi tanggal bayar di setiap jadwal." };
+    if (!modes.has(e.mode)) return { error: "Pilih cara bayar di setiap jadwal." };
+    entries.push({ id: String(e.id || Math.random().toString(36).slice(2, 10)).slice(0, 20), code: e.code, label: String(e.label ?? "").trim().slice(0, 80), payDate: e.payDate, mode: e.mode });
+  }
+  const dup = entries.find((e, i) => entries.findIndex((x) => x.code === e.code && x.payDate === e.payDate) !== i);
+  if (dup) return { error: `Jadwal ${dup.code} tanggal ${dup.payDate.split("-").reverse().join("-")} dobel.` };
+  entries.sort((a, b) => a.payDate.localeCompare(b.payDate));
+  const show = (list: BonusEntry[]) => list.map((e) => `${e.code} ${e.payDate.split("-").reverse().join("-")} (${BONUS_MODES.find((m) => m.key === e.mode)?.label ?? e.mode})`).join("; ") || null;
+  const held = await holdForApproval({
+    kind: "gaji.saveBonusSchedule", args: [entries], title: "Payroll: ubah Jadwal THR / Bonus",
+    details: [{ field: "Jadwal THR / Bonus", oldValue: show(await getBonusSchedule()), newValue: show(entries) }],
+  });
+  if (held) return held;
+  await prisma.appSetting.upsert({
+    where: { key: BONUS_SETTING_KEY },
+    update: { value: { entries }, updatedBy: access.name ?? null },
+    create: { key: BONUS_SETTING_KEY, value: { entries }, updatedBy: access.name ?? null },
   });
   revalidatePath(PATH);
   return {};

@@ -55,7 +55,7 @@ export default async function ProfilPage() {
       where: { userId: id, status: { in: ["DISETUJUI", "BERJALAN"] } }, orderBy: { createdAt: "asc" },
       select: { seqNo: true, principal: true, status: true, installments: { select: { amount: true, status: true, period: true }, orderBy: { seq: "asc" } } },
     }),
-    prisma.payslip.findFirst({ where: { userId: id }, orderBy: { period: "desc" }, select: { periodLabel: true, netPay: true } }),
+    prisma.payslip.findFirst({ where: { userId: id }, orderBy: [{ createdAt: "desc" }, { period: "desc" }], select: { periodLabel: true, netPay: true } }),
     prisma.overtime.findMany({
       where: { userId: id, date: { gte: from, lte: to }, status: { in: ["DISETUJUI", "APPROVED", "MENUNGGU_KARYAWAN", "PENDING"] } },
       select: { date: true, startTime: true, endTime: true, status: true },

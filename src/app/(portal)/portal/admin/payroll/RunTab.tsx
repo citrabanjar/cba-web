@@ -5,7 +5,8 @@ import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2 } from "lu
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { parseHours, rupiah } from "@/lib/payroll";
-import { isWeekly, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
+import { isSeparate, isWeekly, periodLabel, separatePeriod, weekStartOf } from "@/lib/payroll-run-period";
+import type { BonusEntry } from "@/lib/payroll-bonus";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
 import { deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
 import { proposedText } from "@/lib/approval-text";
@@ -54,18 +55,33 @@ function HoursCell({ value, disabled, onSave }: { value: number[]; disabled: boo
 // lalu finalkan untuk mengunci angka dan menerbitkan slip gaji.
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
 
-export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]; nonRoutine: NonRoutine[]; weekStartDay: number }) {
+type Freq = "BULANAN" | "MINGGUAN" | "TERPISAH";
+const freqOf = (p: string): Freq => (isSeparate(p) ? "TERPISAH" : isWeekly(p) ? "MINGGUAN" : "BULANAN");
+const BONUS_MODE_LABEL: Record<string, string> = { BULANAN: "ikut payroll bulanan", MINGGUAN: "ikut payroll mingguan", TERPISAH: "dibayar terpisah" };
+const dmy = (d: string) => d.split("-").reverse().join("-");
+
+export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bonus: BonusEntry[]; weekStartDay: number }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: tombol hitung/final/hapus & isian baris disembunyikan
-  const [weekly, setWeekly] = useState(false);
-  const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT" && !isWeekly(r.period))?.period ?? thisMonth());
-  const switchFreq = (w: boolean) => {
-    setWeekly(w); setMsg(null);
-    const p = runs.find((r) => r.status === "DRAFT" && isWeekly(r.period) === w)?.period ?? (w ? weekStartOf(today(), weekStartDay) : thisMonth());
-    setPeriod(p); setExtra(runs.find((r) => r.period === p)?.extraCodes ?? []);
+  const separateList = bonus.filter((b) => b.mode === "TERPISAH");
+  const [freq, setFreq] = useState<Freq>("BULANAN");
+  const weekly = freq === "MINGGUAN";
+  const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT" && freqOf(r.period) === "BULANAN")?.period ?? thisMonth());
+  const switchFreq = (f: Freq) => {
+    setFreq(f); setMsg(null);
+    const draft = runs.find((r) => r.status === "DRAFT" && freqOf(r.period) === f)?.period;
+    const next = separateList.find((b) => b.payDate >= today()) ?? separateList[separateList.length - 1];
+    setPeriod(draft ?? (f === "MINGGUAN" ? weekStartOf(today(), weekStartDay) : f === "TERPISAH" ? (next ? separatePeriod(next.payDate, next.code) : "") : thisMonth()));
   };
   const run = runs.find((r) => r.period === period);
-  const [extra, setExtra] = useState<string[]>(run?.extraCodes ?? []);
+  // THR / Bonus yang terjadwal dibayar di periode terpilih (Pengaturan -> Jadwal THR / Bonus).
+  const range = (() => {
+    if (freq === "TERPISAH") return null;
+    if (weekly) { const a = new Date(`${period}T00:00:00Z`); return isNaN(a.getTime()) ? null : [period, new Date(a.getTime() + 6 * 86_400_000).toISOString().slice(0, 10)]; }
+    return /^\d{4}-\d{2}$/.test(period) ? [`${period}-01`, `${period}-31`] : null;
+  })();
+  const scheduled = range ? bonus.filter((b) => b.payDate >= range[0] && b.payDate <= range[1] && (weekly ? b.mode !== "TERPISAH" : b.mode === "BULANAN")) : [];
+  const taxedHere = range && !weekly ? bonus.filter((b) => b.payDate >= range[0] && b.payDate <= range[1] && b.mode !== "BULANAN") : [];
   const [open, setOpen] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -88,38 +104,45 @@ export default function RunTab({ runs, nonRoutine, weekStartDay }: { runs: Run[]
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500"><T>Jadwal bayar</T></p>
           <div className="flex h-9 gap-1 rounded-full bg-gray-100 p-1">
-            {([[false, "Bulanan"], [true, "Mingguan"]] as const).map(([w, l]) => (
-              <button key={l} type="button" onClick={() => switchFreq(w)}
-                className={`rounded-full px-3 text-xs ${weekly === w ? "bg-white font-semibold text-gray-900 shadow-sm" : "text-gray-500"}`}><T>{l}</T></button>
+            {([["BULANAN", "Bulanan"], ["MINGGUAN", "Mingguan"], ["TERPISAH", "THR / Bonus terpisah"]] as const).map(([f, l]) => (
+              <button key={f} type="button" onClick={() => switchFreq(f)}
+                className={`rounded-full px-3 text-xs ${freq === f ? "bg-white font-semibold text-gray-900 shadow-sm" : "text-gray-500"}`}><T>{l}</T></button>
             ))}
           </div>
         </div>
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500"><T>Periode</T>{weekly && <span className="ml-1 font-normal text-gray-400">{periodLabel(period)}</span>}</p>
-          <input type={weekly ? "date" : "month"} value={period}
-            onChange={(e) => {
-              const p = weekly && e.target.value ? weekStartOf(e.target.value, weekStartDay) : e.target.value;
-              setPeriod(p); setMsg(null); setExtra(runs.find((r) => r.period === p)?.extraCodes ?? []);
-            }}
-            className="h-9 rounded-lg border border-gray-200 px-3 text-sm" />
-        </div>
-        {canEdit && nonRoutine.length > 0 && (
+        {freq === "TERPISAH" ? (
           <div className="space-y-1">
-            <p className="text-xs font-medium text-gray-500"><T>Sertakan komponen tidak rutin</T></p>
-            <div className="flex h-9 flex-wrap items-center gap-3">
-              {nonRoutine.map((c) => (
-                <label key={c.code} className="flex items-center gap-1.5 text-sm text-gray-700">
-                  <input type="checkbox" checked={extra.includes(c.code)} disabled={final} className="h-4 w-4 accent-[var(--color-brand)]"
-                    onChange={(e) => setExtra((x) => (e.target.checked ? [...x, c.code] : x.filter((k) => k !== c.code)))} />
-                  {t(c.name)}
-                </label>
-              ))}
-            </div>
+            <p className="text-xs font-medium text-gray-500"><T>THR / Bonus terpisah</T></p>
+            {separateList.length === 0 ? (
+              <p className="flex h-9 items-center text-xs text-gray-400"><T>Belum ada jadwal “Dibayar terpisah” di Pengaturan → Jadwal THR / Bonus.</T></p>
+            ) : (
+              <select value={period} onChange={(e) => { setPeriod(e.target.value); setMsg(null); }} className="h-9 rounded-lg border border-gray-200 px-3 text-sm">
+                {separateList.map((b) => (
+                  <option key={b.id} value={separatePeriod(b.payDate, b.code)}>{b.code}{b.label ? ` · ${b.label}` : ""} · {dmy(b.payDate)}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500"><T>Periode</T>{weekly && <span className="ml-1 font-normal text-gray-400">{periodLabel(period)}</span>}</p>
+            <input type={weekly ? "date" : "month"} value={period}
+              onChange={(e) => {
+                const p = weekly && e.target.value ? weekStartOf(e.target.value, weekStartDay) : e.target.value;
+                setPeriod(p); setMsg(null);
+              }}
+              className="h-9 rounded-lg border border-gray-200 px-3 text-sm" />
+          </div>
+        )}
+        {(scheduled.length > 0 || taxedHere.length > 0) && (
+          <div className="space-y-1 text-xs text-gray-600">
+            {scheduled.length > 0 && <p><T>THR / Bonus dibayar di periode ini</T>: {scheduled.map((b) => `${b.code}${b.label ? ` (${b.label})` : ""} ${dmy(b.payDate)}`).join(", ")}</p>}
+            {taxedHere.length > 0 && <p className="text-gray-400"><T>PPh 21 THR / Bonus yang dibayar mingguan / terpisah ikut di sini</T>: {taxedHere.map((b) => `${b.code} ${dmy(b.payDate)} (${t(BONUS_MODE_LABEL[b.mode])})`).join(", ")}</p>}
           </div>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
-          {canEdit && !final && (
-            <button type="button" disabled={pending} onClick={() => act(() => generatePayroll(period, extra), "Gaji dihitung.")}
+          {canEdit && !final && period && (
+            <button type="button" disabled={pending} onClick={() => act(() => generatePayroll(period), "Gaji dihitung.")}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85 disabled:opacity-50">
               <Play size={14} /> <T>{run ? "Hitung Ulang" : "Hitung Gaji"}</T>
             </button>

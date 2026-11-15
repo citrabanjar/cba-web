@@ -123,7 +123,7 @@ export default async function KaryawanDetailPage({
   const payslips = canSeePay
     ? await prisma.payslip.findMany({
         where: { userId: id },
-        orderBy: { period: "desc" },
+        orderBy: [{ createdAt: "desc" }, { period: "desc" }],
         take: 12,
         select: { id: true, periodLabel: true, netPay: true, paidAt: true, paidVia: true },
       })

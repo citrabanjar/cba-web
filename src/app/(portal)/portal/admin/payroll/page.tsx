@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureSystemComponents, getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import PayrollClient from "./PayrollClient";
 import { normalizeInputs, periodLabel, type LineInputs, type LineItem } from "@/lib/payroll-run";
+import { getBonusSchedule } from "@/lib/payroll-bonus";
 
 export const metadata: Metadata = { title: "Payroll & Benefit" };
 
@@ -20,7 +21,7 @@ export default async function PayrollPage() {
 
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
   await ensureSystemComponents();
-  const [components, settings, runs, employees, taxSettings, terSettings] = await Promise.all([
+  const [components, settings, runs, employees, taxSettings, terSettings, bonus] = await Promise.all([
     prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     getPayrollSettings(),
     prisma.payrollRun.findMany({
@@ -33,6 +34,7 @@ export default async function PayrollPage() {
     }),
     getTaxSettings(),
     getTerSettings(),
+    getBonusSchedule(),
   ]);
   return (
     <PayrollClient
@@ -42,6 +44,7 @@ export default async function PayrollPage() {
       }))}
       employees={employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId ?? "", department: e.department?.name ?? null }))}
       nonRoutine={components.filter((c) => c.isActive && c.method === "THR").map((c) => ({ code: c.code, name: c.name }))}
+      bonus={bonus}
       taxSettings={taxSettings}
       terSettings={terSettings}
       settings={settings}

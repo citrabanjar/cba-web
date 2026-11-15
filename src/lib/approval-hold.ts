@@ -76,6 +76,7 @@ const REGISTRY: Record<string, () => Promise<Fn>> = {
   "gaji.setComponentAssignments": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).setComponentAssignments as Fn,
   "gaji.deletePayComponent": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).deletePayComponent as Fn,
   "gaji.savePayrollSettings": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).savePayrollSettings as Fn,
+  "gaji.saveBonusSchedule": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).saveBonusSchedule as Fn,
   "gaji.finalizePayroll": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).finalizePayroll as Fn,
   "gaji.saveTaxYear": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).saveTaxYear as Fn,
   "gaji.saveTerVersion": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).saveTerVersion as Fn,
