@@ -4,7 +4,7 @@
 // Peran juga bisa dipilih sebagai penyetuju (approve/reject) di menu Workflow: nilai level "PERAN:<id>".
 import { prisma } from "@/lib/prisma";
 import { MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
-import { IMPORT_KINDS, IMPORT_PREFIX, importEntry } from "@/lib/import-kinds";
+import { IMPORT_KINDS, IMPORT_PREFIX, LEGACY_IMPORT, importEntry } from "@/lib/import-kinds";
 
 export const ADMIN_ROLES_KEY = "admin-roles";
 // approvalLevels (per peran): 0 = tanpa approval; 1 = atasan langsung; 2 = atasan dari atasan langsung (dari bagan karyawan
@@ -19,10 +19,10 @@ const withApproval = (menus: string[], levels: number) => menus.map((k) =>
 const known = new Set<string>(MENUS.flatMap((m) => (m.levels as readonly MenuLevel[]).map((l) => menuEntry(m.key, l))));
 // Satu entri per menu; bila ada edit dan lihat sekaligus, edit yang dipakai.
 // Menu yang hanya punya satu tingkat (Company: lihat, Import: edit) disesuaikan ke tingkat itu.
-// Kewenangan Import Data per jenis ("import:<jenis>"); isian lama "import" = Import Data Karyawan, Foto, Tambah Karyawan.
+// Kewenangan Import Data per jenis ("import:<jenis>"); isian lama "import" = Import Data Karyawan dan Foto.
 const importsOf = (list: string[]) => {
   const out = new Set(list.filter((k) => k.startsWith(IMPORT_PREFIX) && IMPORT_KINDS.some((x) => importEntry(x.key) === k)));
-  if (list.includes("import")) for (const k of ["tambah-karyawan", "karyawan", "foto"] as const) out.add(importEntry(k));
+  if (list.includes("import")) for (const k of LEGACY_IMPORT) out.add(importEntry(k));
   return [...out];
 };
 const tidy = (list: string[]) => [...MENUS.flatMap((m) => {

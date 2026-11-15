@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bot, CheckCircle2, GitBranch, Loader2, Save, Timer, UserPlus } from "lucide-react";
+import { Bot, CheckCircle2, GitBranch, Loader2, Save, Timer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { T } from "@/components/i18n";
@@ -30,13 +30,12 @@ function Feature({ icon: Icon, title, desc, checked, onChange, children }: {
 
 // Pengaturan → Fitur (Super Admin): pilih fitur yang dipakai perusahaan.
 export default function OnboardingSettings({ settings, workflow: wf, agent: ag, spl: sp, setupDone }: { settings: Settings; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean }) {
-  const [s, setS] = useState<Settings>(settings);
+  const s = settings; // isian Pra-Karyawan (alur wawancara) tetap ikut tersimpan apa adanya
   const [workflow, setWorkflow] = useState(wf);
   const [agent, setAgent] = useState(ag);
   const [spl, setSpl] = useState(sp);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
-  const set = (patch: Partial<Settings>) => { setMsg(null); setS((x) => ({ ...x, ...patch })); };
 
   return (
     <Card className="border-gray-100">
@@ -48,11 +47,6 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag, 
         <Feature icon={GitBranch} title="Workflow" checked={workflow} onChange={(v) => { setMsg(null); setWorkflow(v); }}
           desc="Pengaturan approval per modul sesuai kebutuhan perusahaan.">
           <p className="text-[11px] text-gray-500"><T>Level approval per modul diatur Admin di menu Workflow.</T></p>
-        </Feature>
-
-        <Feature icon={UserPlus} title="Pra-Karyawan (onboarding)" checked={s.enabled} onChange={(v) => set({ enabled: v })}
-          desc="Proses rekrutmen karyawan secara mandiri.">
-          <p className="text-[11px] text-gray-500"><T>Wawancara, pewawancara, dan approver diatur Admin di menu Pra-Karyawan → Alur.</T></p>
         </Feature>
 
         <Feature icon={Timer} title="Surat Perintah Lembur (SPL)" checked={spl} onChange={(v) => { setMsg(null); setSpl(v); }}

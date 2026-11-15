@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  createEmployee, updateEmployee, reactivateEmployee, type EmployeeInput,
+  updateEmployee, reactivateEmployee, type EmployeeInput,
 } from "./actions";
 import type { MasterOptions } from "@/lib/master-data";
 import { BANK_OPTIONS } from "@/lib/personal-info";
@@ -138,19 +138,7 @@ export default function KaryawanClient({
     }
     startTransition(async () => {
       try {
-        if (modal === "add") {
-          await createEmployee(form as EmployeeInput);
-          setEmployees(prev => [...prev, {
-            id: "tmp-" + Date.now(), employeeNo: null,
-            employeeId: form.employeeId!, name: form.name!,
-            email: form.email || null, phone: form.phone || null,
-            role: "KARYAWAN", employmentStatus: form.employmentStatus ?? "KONTRAK",
-            branch: form.branch || null, position: form.position || null, isActive: true, joinDate: null,
-            bankName: form.bankName || null, bankAccount: form.bankAccount || null,
-            bankHolder: form.bankHolder || null,
-            department: form.departmentName ? { id: "", name: form.departmentName } : null,
-          }]);
-        } else if (editTarget) {
+        if (editTarget) {
           await updateEmployee(editTarget.id, {
             ...form,
             password: form.password || undefined,

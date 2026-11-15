@@ -80,32 +80,6 @@ function logValue(value: unknown): string | null {
   return String(value);
 }
 
-export async function createEmployee(data: EmployeeInput) {
-  await requireImport("tambah-karyawan");
-  await assertInMaster(data);
-  const departmentId = await findDeptId(data.departmentName);
-  await prisma.user.create({
-    data: {
-      employeeNo: await nextEmployeeNo(),
-      employeeId: data.employeeId,
-      name: data.name,
-      email: data.email || null,
-      phone: data.phone || null,
-      departmentId,
-      branch: data.branch || null,
-      position: data.position || null,
-      employmentStatus: STATUS_MAP[data.employmentStatus?.toUpperCase() ?? ""] ?? "KONTRAK",
-      joinDate: toDate(data.joinDate),
-      passwordHash: data.password ? await bcrypt.hash(data.password, 12) : null,
-      bankName: data.bankName || null,
-      bankAccount: data.bankAccount || null,
-      bankHolder: data.bankHolder || null,
-    },
-  });
-  revalidatePath(LIST_PATH);
-  return { success: true };
-}
-
 // Selain super admin, hanya akun karyawan biasa yang boleh diubah. Aturan ini mencegah
 // admin mengambil alih akun admin lain lewat ganti password atau email.
 function editableTarget(actorRole: string) {

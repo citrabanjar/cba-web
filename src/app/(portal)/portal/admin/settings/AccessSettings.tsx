@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
 import { LEVEL_LABEL, MENUS, menuEntry, menuLevelOf, type MenuLevel } from "@/lib/roles";
-import { IMPORT_KINDS, importEntry } from "@/lib/import-kinds";
+import { IMPORT_KINDS, LEGACY_IMPORT, importEntry } from "@/lib/import-kinds";
 import type { AdminRole } from "@/lib/admin-roles";
 import { saveRoles } from "./role-actions";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
@@ -150,11 +150,11 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
                 <p className="mt-3 text-xs font-medium text-gray-500"><T>Import Data</T></p>
                 <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
                   {IMPORT_KINDS.filter((k) => importEnabled.includes(k.key)).map((k) => {
-                    const on = r.menus.includes(importEntry(k.key)) || (r.menus.includes("import") && ["tambah-karyawan", "karyawan", "foto"].includes(k.key));
+                    const on = r.menus.includes(importEntry(k.key)) || (r.menus.includes("import") && LEGACY_IMPORT.includes(k.key));
                     const set = (v: boolean) => s.patch(r.id, {
                       menus: [...r.menus.filter((m) => m !== importEntry(k.key) && m !== "import"),
                         // isian lama "import" dipecah ke jenisnya supaya bisa dilepas satu per satu
-                        ...(r.menus.includes("import") ? (["tambah-karyawan", "karyawan", "foto"] as const).filter((x) => x !== k.key && !r.menus.includes(importEntry(x))).map(importEntry) : []),
+                        ...(r.menus.includes("import") ? LEGACY_IMPORT.filter((x) => x !== k.key && !r.menus.includes(importEntry(x))).map(importEntry) : []),
                         ...(v ? [importEntry(k.key)] : [])],
                     });
                     return (

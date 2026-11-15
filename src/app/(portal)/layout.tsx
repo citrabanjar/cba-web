@@ -6,7 +6,6 @@ import { getAccess } from "@/lib/access";
 import { isSuperAdmin } from "@/lib/roles";
 import { getDatabaseStorage } from "@/lib/storage";
 import { isApprover, pendingApprovals } from "@/lib/approval";
-import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { workflowFeatureOn } from "@/lib/workflow-settings";
 import { prisma } from "@/lib/prisma";
 import { getImportEnabled } from "@/lib/import-access";
@@ -28,8 +27,8 @@ export default async function PortalLayout({
   // Menu Persetujuan (atasan langsung, Admin/HRD) dengan jumlah pengajuan yang menunggu.
   const approver = access ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
-  const [onboardingOn, workflowOn, unread, importEnabled] = await Promise.all([
-    getOnboardingSettings().then((s) => s.enabled), workflowFeatureOn(),
+  const [workflowOn, unread, importEnabled] = await Promise.all([
+    workflowFeatureOn(),
     // Angka di lonceng: notifikasi belum dibaca + permintaan tukar shift yang menunggu jawaban saya sebagai rekan.
     access ? Promise.all([
       prisma.notification.count({ where: { userId: access.id, readAt: null } }),
@@ -49,7 +48,6 @@ export default async function PortalLayout({
       storage={storage}
       approvals={approvals}
       unread={unread}
-      onboardingOn={onboardingOn}
       workflowOn={workflowOn}
       importOn={importKindsFor(access, importEnabled).length > 0}
     >

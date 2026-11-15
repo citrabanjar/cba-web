@@ -1,15 +1,14 @@
 "use client";
 
-// Pengaturan -> Import Data: semua import (dan Tambah Karyawan) di satu tempat.
+// Pengaturan -> Import Data: semua import di satu tempat. Karyawan baru masuk lewat Pra-Karyawan (onboarding).
 // Super Admin mencentang "Beri Akses" per jenis: hanya yang dicentang muncul di kewenangan Peran Admin.
 // Admin hanya melihat jenis import yang menjadi kewenangannya.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CheckCircle2, HandCoins, ImageUp, Loader2, UserPlus, Users, Wallet, type LucideIcon } from "lucide-react";
+import { Building2, CheckCircle2, HandCoins, ImageUp, Loader2, Users, Wallet, type LucideIcon } from "lucide-react";
 import { T } from "@/components/i18n";
 import { IMPORT_KINDS, type ImportKind } from "@/lib/import-kinds";
 import type { MasterOptions } from "@/lib/master-data";
-import AddEmployeeDialog from "../karyawan/AddEmployeeDialog";
 import EmployeeImportDialog from "../karyawan/EmployeeImportDialog";
 import PhotoUpload from "../karyawan/PhotoUpload";
 import { LeaveBalanceImportDialog } from "../leave/BalanceTab";
@@ -26,7 +25,7 @@ export type ImportData = {
 };
 
 const ICON: Record<ImportKind, LucideIcon> = {
-  "tambah-karyawan": UserPlus, karyawan: Users, foto: ImageUp, "saldo-cuti": Wallet, "saldo-pinjaman": HandCoins, organisasi: Building2,
+  karyawan: Users, foto: ImageUp, "saldo-cuti": Wallet, "saldo-pinjaman": HandCoins, organisasi: Building2,
 };
 
 export default function ImportDataTab({ data }: { data: ImportData }) {
@@ -81,7 +80,7 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
                 <div>
                   <button type="button" onClick={() => setOpen(k.key)}
                     className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
-                    {pending && open === k.key ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />} <T>{k.key === "tambah-karyawan" ? "Tambah Karyawan" : "Buka Import"}</T>
+                    {pending && open === k.key ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />} <T>Buka Import</T>
                   </button>
                 </div>
               )}
@@ -90,7 +89,6 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
         })}
       </div>
 
-      {open === "tambah-karyawan" && <AddEmployeeDialog master={data.master} onClose={done} />}
       {open === "karyawan" && <EmployeeImportDialog master={data.master} employeeIds={data.employees.map((e) => e.employeeId)} onClose={done} />}
       {open === "foto" && <PhotoUpload employees={data.employees} onClose={done} />}
       {open === "saldo-cuti" && <LeaveBalanceImportDialog rows={data.leaveRows} onClose={() => done(true)} />}

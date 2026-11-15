@@ -20,7 +20,7 @@ type NavSection = { section: string; items: NavItem[]; admin?: boolean };
 
 // Menu dibagi dua blok: menu pribadi karyawan (MENU SAYA) di atas, lalu blok PANEL ADMIN
 // berwarna berbeda — supaya admin yang juga karyawan bisa membedakan mana menu pribadinya.
-function getNavSections(role: string, menuAccess: string[], approvals: number | null, onboardingOn: boolean, workflowOn: boolean, importOn: boolean): NavSection[] {
+function getNavSections(role: string, menuAccess: string[], approvals: number | null, workflowOn: boolean, importOn: boolean): NavSection[] {
   const can = (m: Parameters<typeof hasMenu>[1]) => hasMenu({ role, menuAccess }, m);
   const sections: NavSection[] = [
     {
@@ -54,8 +54,9 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     ...(can("pinjaman") ? [{ href: "/portal/admin/pinjaman", label: "Pinjaman Karyawan", icon: HandCoins }] : []),
   ]);
   add("EMPLOYEE", [
+    // Pra-Karyawan (onboarding) di atas Data Karyawan: jalur karyawan baru, tampil sesuai kewenangan di Peran Admin.
+    ...(can("prakaryawan") ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
     ...(can("karyawan") ? [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }] : []),
-    ...(can("prakaryawan") && onboardingOn ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
   ]);
   // COMPANY: Organisasi (Super Admin) dan Workflow (semua Admin, bila fitur Workflow dinyalakan Super Admin).
   add("COMPANY", [
@@ -69,7 +70,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; unread?: number; onboardingOn?: boolean; workflowOn?: boolean; importOn?: boolean; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; unread?: number; workflowOn?: boolean; importOn?: boolean; children: React.ReactNode };
 
 // Pemakaian penyimpanan database Neon, hanya untuk super admin.
 function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
@@ -275,12 +276,12 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, storage, approvals = null, unread = 0, onboardingOn = true, workflowOn = true, importOn = false, children }: Props) {
+export default function PortalShell({ user, storage, approvals = null, unread = 0, workflowOn = true, importOn = false, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useT();
-  const sections = getNavSections(user.role, user.menuAccess, approvals, onboardingOn, workflowOn, importOn);
+  const sections = getNavSections(user.role, user.menuAccess, approvals, workflowOn, importOn);
 
   // Pilihan lipat menu diingat di browser ini saja.
   useEffect(() => {

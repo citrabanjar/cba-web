@@ -54,8 +54,8 @@ export function normalizeOnboardingSettings(raw: unknown): OnboardingSettings {
         .filter((a) => a.id && !seen.has(a.id) && seen.add(a.id))
     : [];
   return {
-    // Modul Pra-Karyawan aktif kecuali dimatikan Super Admin (perusahaan tidak butuh onboarding di portal).
-    enabled: v.enabled !== false,
+    // Pra-Karyawan selalu aktif (jalur resmi karyawan baru); aksesnya lewat kewenangan Pra-Karyawan di Peran Admin.
+    enabled: true,
     interview: v.interview === true,
     mode: v.mode === "SIRKULAR" ? "SIRKULAR" : "TUNGGAL",
     order: v.order === "BERSAMAAN" ? "BERSAMAAN" : "BERURUTAN",
