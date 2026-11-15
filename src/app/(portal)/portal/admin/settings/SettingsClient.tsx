@@ -84,7 +84,7 @@ export default function SettingsClient({
   const [tab, setTab] = useState(() => (initialTab && tabs.some((x) => x.key === initialTab) ? initialTab : "akun"));
 
   return (
-    <div className="p-6 max-w-4xl space-y-5">
+    <div className="p-6 max-w-6xl space-y-5">
       <div>
         <h1 className="text-xl font-bold text-white"><T>Pengaturan</T></h1>
         <p className="text-sm text-white/70 mt-0.5"><T>Kelola akun dan pengaturan portal</T></p>

@@ -137,7 +137,7 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
               </Button>
             </div>
             <p className="mt-3 text-xs font-medium text-gray-500"><T>Kewenangan</T></p>
-            <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+            <div className="mt-1.5 grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-1.5">
               {MENUS.map((m) => {
                 // "Ajukan" tidak tampil sebagai pilihan sendiri: Edit dengan approval diatur di kotak Approval di bawah.
                 const raw = menuLevelOf(r.menus, m.key);
@@ -152,7 +152,7 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
                 });
                 return (
                   <div key={m.key} title={t(m.desc)} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-1.5">
-                    <span className={`truncate text-xs font-medium ${level ? "text-gray-900" : "text-gray-400"}`}><T>{m.label}</T></span>
+                    <span className={`min-w-0 text-xs font-medium leading-tight ${level ? "text-gray-900" : "text-gray-400"}`}><T>{m.label}</T></span>
                     <span className="flex shrink-0 rounded-full border border-gray-200 bg-white p-0.5">
                       {choices.map((c) => (
                         <button key={c.label} type="button" onClick={() => pick(c.v)}
@@ -172,9 +172,9 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
               const on = hasImportRight(r.menus);
               const set = (v: boolean) => s.patch(r.id, { menus: [...r.menus.filter((m) => m !== "import" && !m.startsWith("import:")), ...(v ? ["import"] : [])] });
               return (
-                <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                <div className="mt-1.5 grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-1.5">
                   <div title={t("Semua import yang diberi akses di Pengaturan → Import Data")} className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-1.5">
-                    <span className={`truncate text-xs font-medium ${on ? "text-gray-900" : "text-gray-400"}`}><T>Import Data</T></span>
+                    <span className={`min-w-0 text-xs font-medium leading-tight ${on ? "text-gray-900" : "text-gray-400"}`}><T>Import Data</T></span>
                     <span className="flex shrink-0 rounded-full border border-gray-200 bg-white p-0.5">
                       {([[false, "Tidak"], [true, "Boleh"]] as const).map(([v, l]) => (
                         <button key={l} type="button" onClick={() => set(v)}
