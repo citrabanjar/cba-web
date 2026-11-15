@@ -7,8 +7,6 @@ import { loadInsights, type Task } from "./insights";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { aiFeatureOn } from "@/lib/ai-checker";
 import { hasMenu } from "@/lib/roles";
-import { getImportEnabled } from "@/lib/import-access";
-import { importKindsFor } from "@/lib/import-kinds";
 
 const DAY = 86_400_000;
 const todayKey = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -32,7 +30,7 @@ async function loadSetup(user: SetupAccess): Promise<SetupStep[]> {
   const year = Number(todayKey().slice(0, 4));
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
   const [branches, depts, positions, locations, shifts, holidays, policies, components, payrollSetting, taxSetting,
-    employees, noPhoto, admins, leaveOpening, loanOpening, finalRuns, importOn] = await Promise.all([
+    employees, noPhoto, admins, leaveOpening, loanOpening, finalRuns] = await Promise.all([
     prisma.branch.count(), prisma.department.count(), prisma.position.count(),
     prisma.workLocation.count({ where: { isActive: true } }),
     prisma.workShift.count(),
@@ -47,7 +45,6 @@ async function loadSetup(user: SetupAccess): Promise<SetupStep[]> {
     prisma.leaveBalanceEntry.count({ where: { kind: "SALDO_AWAL" } }),
     prisma.employeeLoan.count({ where: { isOpening: true } }),
     prisma.payrollRun.count({ where: { status: "FINAL" } }),
-    getImportEnabled(),
   ]);
   const taxYears = Object.keys((taxSetting?.value ?? {}) as Record<string, unknown>);
 
@@ -60,7 +57,6 @@ async function loadSetup(user: SetupAccess): Promise<SetupStep[]> {
       done: admins > 0, note: `${admins} Admin`, href: "/portal/admin/settings?tab=peran" },
   ];
 
-  const kinds = importKindsFor(user, importOn);
   const can = (m: Parameters<typeof hasMenu>[1]) => hasMenu(user, m);
   const steps: (SetupStep | false)[] = [
     can("absensi") && { key: "location", phase: "1. Kehadiran", title: "Lokasi absen (GPS)", hint: "Titik lokasi dan radius untuk absensi.",
@@ -71,16 +67,16 @@ async function loadSetup(user: SetupAccess): Promise<SetupStep[]> {
       done: holidays > 0, note: `${holidays} hari libur`, href: "/portal/admin/schedule" },
     can("absensi") && { key: "leave", phase: "2. Cuti", title: "Setup Leave (jenis cuti)", hint: "Kebijakan cuti dan jatahnya.",
       done: policies > 0, note: `${policies} jenis cuti`, href: "/portal/admin/leave" },
-    kinds.includes("saldo-cuti") && { key: "leave-balance", phase: "2. Cuti", title: "Saldo awal cuti", hint: "Import Saldo Cuti dari aplikasi lama di Pengaturan → Import Data.",
-      done: leaveOpening > 0, note: `${leaveOpening} baris saldo awal`, href: IMPORT_TAB },
+    can("absensi") && { key: "leave-balance", phase: "2. Cuti", title: "Saldo awal cuti", hint: "Import Saldo dari aplikasi lama di Leave → Saldo Cuti.",
+      done: leaveOpening > 0, note: `${leaveOpening} baris saldo awal`, href: "/portal/admin/leave" },
     can("gaji") && { key: "pay", phase: "3. Payroll", title: "Komponen gaji & pengaturan payroll", hint: "Komponen gaji, periode gaji, tanggal gajian, jadwal THR / Bonus.",
       done: components > 0 && !!payrollSetting, note: payrollSetting ? `${components} komponen` : "Pengaturan Payroll belum disimpan", href: "/portal/admin/payroll" },
     can("gaji") && { key: "tax", phase: "3. Payroll", title: `PTKP & tarif PPh 21 tahun ${year}`, hint: "Simpan Pengaturan PPh 21 tahun berjalan (dan cek tarif TER).",
       done: taxYears.includes(String(year)), href: "/portal/admin/payroll" },
-    kinds.includes("saldo-pinjaman") && { key: "loan-balance", phase: "3. Payroll", title: "Saldo awal pinjaman", hint: "Import Saldo Pinjaman yang masih berjalan di aplikasi lama (bila ada).",
-      done: loanOpening > 0, note: `${loanOpening} pinjaman saldo awal`, href: IMPORT_TAB, optional: true },
-    kinds.includes("foto") && { key: "photo", phase: "4. Data pelengkap", title: "Foto karyawan", hint: "Import Foto Karyawan; nama file = Employee ID.",
-      done: employees > 0 && noPhoto === 0, note: employees ? `${employees - noPhoto}/${employees} sudah ada foto` : undefined, href: IMPORT_TAB, optional: true },
+    can("pinjaman") && { key: "loan-balance", phase: "3. Payroll", title: "Saldo awal pinjaman", hint: "Upload Saldo Awal pinjaman yang masih berjalan di aplikasi lama (menu Pinjaman, bila ada).",
+      done: loanOpening > 0, note: `${loanOpening} pinjaman saldo awal`, href: "/portal/admin/pinjaman", optional: true },
+    can("karyawan") && { key: "photo", phase: "4. Data pelengkap", title: "Foto karyawan", hint: "Upload Foto di Data Karyawan; nama file = Employee ID.",
+      done: employees > 0 && noPhoto === 0, note: employees ? `${employees - noPhoto}/${employees} sudah ada foto` : undefined, href: "/portal/admin/karyawan", optional: true },
     can("gaji") && { key: "first-run", phase: "5. Mulai jalan", title: "Proses Gaji pertama difinalkan", hint: "Hitung, cek, lalu finalkan gaji pertama di portal.",
       done: finalRuns > 0, href: "/portal/admin/payroll" },
   ];

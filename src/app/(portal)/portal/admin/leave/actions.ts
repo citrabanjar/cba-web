@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireImport } from "@/lib/import-access";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
@@ -85,7 +84,7 @@ export type BalanceImportRow = { employeeId: string; code: string; days: number;
 // Import saldo cuti dari aplikasi lama. Satu baris = saldo satu jenis cuti per tanggal tertentu.
 // SALDO_AWAL lama untuk karyawan + jenis cuti yang sama diganti.
 export async function importLeaveBalances(rows: BalanceImportRow[]): Promise<{ error?: string; saved?: number; errors?: string[] }> {
-  const access = await requireImport("saldo-cuti");
+  const access = await requireAdmin();
   if (rows.length === 0) return { error: "File tidak berisi data." };
   if (rows.length > 5000) return { error: "Baris terlalu banyak sekaligus." };
   const [users, policies] = await Promise.all([

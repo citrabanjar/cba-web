@@ -17,7 +17,6 @@ import { splEnabled } from "@/lib/overtime";
 import { getImportEnabled } from "@/lib/import-access";
 import { importKindsFor } from "@/lib/import-kinds";
 import { getMasterOptions } from "@/lib/master-data";
-import { computeBalances } from "@/lib/leave-balance";
 import type { ImportData } from "./ImportDataTab";
 
 export default async function AdminSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
@@ -57,20 +56,15 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   );
 }
 
-// Data tab Import Data: pilihan organisasi, daftar karyawan (foto, saldo pinjaman), dan baris template saldo cuti.
+// Data tab Import Data: pilihan organisasi dan ID karyawan yang sudah ada (template import karyawan).
 async function loadImport(kinds: ImportData["kinds"], enabled: ImportData["enabled"]): Promise<ImportData> {
-  const [master, employees, balances] = await Promise.all([
+  const [master, employees] = await Promise.all([
     getMasterOptions(),
-    prisma.user.findMany({
-      where: { role: { not: "SUPER_ADMIN" }, employeeId: { not: null } }, orderBy: { name: "asc" },
-      select: { id: true, employeeId: true, name: true, isActive: true },
-    }),
-    kinds.includes("saldo-cuti") ? computeBalances() : Promise.resolve([]),
+    prisma.user.findMany({ where: { role: { not: "SUPER_ADMIN" }, employeeId: { not: null } }, select: { employeeId: true } }),
   ]);
   return {
     kinds, enabled, master,
-    employees: employees.filter((e) => e.isActive).map((e) => ({ id: e.id, employeeId: e.employeeId ?? "", name: e.name })),
-    leaveRows: balances.map((b) => ({ employeeId: b.employeeId, name: b.name, code: b.code })),
+    employeeIds: employees.map((e) => e.employeeId ?? ""),
     org: { branch: master.branches, department: master.departments, position: master.positions },
   };
 }

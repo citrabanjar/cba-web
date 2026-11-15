@@ -27,8 +27,7 @@ const OLD_POS: Record<keyof typeof COLS, number> = { id: 0, remaining: 1, tenor:
 const EXAMPLE_NOTE = "CONTOH - hapus atau timpa baris ini";
 const isExample = (note: unknown) => String(note ?? "").trim().toUpperCase().startsWith("CONTOH");
 
-// Upload saldo awal pinjaman dari aplikasi lama (Super Admin): template → pratinjau → simpan.
-// Import saldo awal pinjaman (dibuka dari Pengaturan -> Import Data).
+// Upload saldo awal pinjaman dari aplikasi lama: template → pratinjau → simpan.
 export function OpeningLoanImportDialog({ employees, onClose }: { employees: LoanEmployee[]; onClose: () => void }) {
   const t = useT();
   const [rows, setRows] = useState<(OpeningRow & { name?: string; problem?: string })[]>([]);
@@ -153,11 +152,12 @@ export function OpeningLoanImportDialog({ employees, onClose }: { employees: Loa
 }
 
 // Daftar semua pinjaman semua karyawan. Proses, pencairan, dan perubahan angsuran dilakukan di tab Pinjaman profil karyawan.
-export default function PinjamanAdminClient({ loans, isSuper }: { loans: AdminLoan[]; employees?: LoanEmployee[]; isSuper: boolean }) {
+export default function PinjamanAdminClient({ loans, employees, isSuper }: { loans: AdminLoan[]; employees: LoanEmployee[]; isSuper: boolean }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: Upload & Hapus disembunyikan
   const [tab, setTab] = useState<string>(() => (loans.some((l) => ["PENDING", "DISETUJUI"].includes(l.status)) ? "menunggu" : "berjalan"));
   const [q, setQ] = useState("");
+  const [upload, setUpload] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const inGroup = (key: string) => loans.filter((l) => (LOAN_GROUPS.find((g) => g.key === key)!.statuses as readonly string[]).includes(l.status));
   const list = inGroup(tab).filter((l) => !q || `${l.name} ${l.employeeId}`.toLowerCase().includes(q.toLowerCase()));
@@ -191,6 +191,12 @@ export default function PinjamanAdminClient({ loans, isSuper }: { loans: AdminLo
           <Search size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama / ID")} className="h-9 w-48 pl-8" />
         </div>
+        {canEdit && (
+          <button type="button" onClick={() => setUpload(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+            <Upload size={14} /> <T>Upload Saldo Awal</T>
+          </button>
+        )}
       </div>
       {/* Daftar ringkas; klik satu baris untuk membuka rinciannya (hanya satu yang terbuka). */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -243,6 +249,7 @@ export default function PinjamanAdminClient({ loans, isSuper }: { loans: AdminLo
           );
         })}
       </div>
+      {upload && <OpeningLoanImportDialog employees={employees} onClose={() => setUpload(false)} />}
     </main>
   );
 }

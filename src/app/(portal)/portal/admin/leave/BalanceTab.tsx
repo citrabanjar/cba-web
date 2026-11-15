@@ -30,7 +30,7 @@ function toDateKey(v: unknown): string {
   return s.slice(0, 10);
 }
 
-// Import saldo cuti (dibuka dari Pengaturan -> Import Data).
+// Import saldo cuti dari aplikasi lama (tombol Import Saldo di tab Saldo Cuti).
 export function LeaveBalanceImportDialog({ rows, onClose }: { rows: Pick<BalanceRow, "employeeId" | "name" | "code">[]; onClose: () => void }) {
   const [parsed, setParsed] = useState<BalanceImportRow[] | null>(null);
   const [result, setResult] = useState<{ error?: string; saved?: number; errors?: string[] } | null>(null);
@@ -167,6 +167,7 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
   };
   const [q, setQ] = useState("");
   const [adjusting, setAdjusting] = useState<BalanceRow | null>(null);
+  const [importing, setImporting] = useState(false);
   const shown = rows.filter((r) => !q || `${r.name} ${r.employeeId} ${r.department ?? ""} ${r.code}`.toLowerCase().includes(q.toLowerCase()));
   const withoutOpening = rows.filter((r) => r.opening === null).length;
 
@@ -182,6 +183,12 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama atau ID...")} className="h-9 w-56 rounded-full bg-gray-50 pl-9" />
         </div>
+        {canEdit && (
+          <button type="button" onClick={() => setImporting(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+            <Upload size={14} /> <T>Import Saldo</T>
+          </button>
+        )}
       </div>
       {superAdmin ? (
         <label className={`mx-5 mt-4 flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${balanceSwitch.active ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-gray-50"}`}>
@@ -257,6 +264,7 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
           </tbody>
         </table>
       </div>
+      {importing && <LeaveBalanceImportDialog rows={rows} onClose={() => setImporting(false)} />}
       {adjusting && <AdjustDialog row={adjusting} onClose={() => setAdjusting(null)} />}
     </section>
   );

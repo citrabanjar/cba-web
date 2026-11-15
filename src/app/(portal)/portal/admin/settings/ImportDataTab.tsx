@@ -1,30 +1,27 @@
 "use client";
 
-// Pengaturan -> Import Data: semua import di satu tempat. Karyawan baru masuk lewat Pra-Karyawan (onboarding).
+// Pengaturan -> Import Data: data dasar (parameter organisasi, data karyawan). Karyawan baru masuk lewat Pra-Karyawan.
+// Import foto, saldo cuti, dan saldo pinjaman ada di modulnya (Data Karyawan, Leave, Pinjaman).
 // Super Admin mencentang "Beri Akses" per jenis: yang dicentang bisa dipakai Admin berkewenangan Import Data.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CheckCircle2, HandCoins, ImageUp, Loader2, Users, Wallet, type LucideIcon } from "lucide-react";
+import { Building2, CheckCircle2, Loader2, Users, type LucideIcon } from "lucide-react";
 import { T } from "@/components/i18n";
 import { IMPORT_KINDS, type ImportKind } from "@/lib/import-kinds";
 import type { MasterOptions } from "@/lib/master-data";
 import EmployeeImportDialog from "../karyawan/EmployeeImportDialog";
-import PhotoUpload from "../karyawan/PhotoUpload";
-import { LeaveBalanceImportDialog } from "../leave/BalanceTab";
-import { OpeningLoanImportDialog } from "../pinjaman/PinjamanAdminClient";
 import OrgImport from "../setup/OrgImport";
 import { saveImportAccess } from "./import-actions";
 
 export type ImportData = {
   kinds: ImportKind[]; enabled: ImportKind[] | null; // enabled: hanya untuk Super Admin (centang Beri Akses)
   master: MasterOptions;
-  employees: { id: string; employeeId: string; name: string }[];
-  leaveRows: { employeeId: string; name: string; code: string }[];
+  employeeIds: string[];
   org: { branch: string[]; department: string[]; position: string[] };
 };
 
 const ICON: Record<ImportKind, LucideIcon> = {
-  karyawan: Users, foto: ImageUp, "saldo-cuti": Wallet, "saldo-pinjaman": HandCoins, organisasi: Building2,
+  organisasi: Building2, karyawan: Users,
 };
 
 export default function ImportDataTab({ data }: { data: ImportData }) {
@@ -50,7 +47,7 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
-        <T>Semua import data ada di sini.</T>{" "}
+        <T>Import data dasar: parameter organisasi sebagai rumah karyawan, lalu data karyawan. Import foto, saldo cuti, dan saldo pinjaman ada di menunya masing-masing.</T>{" "}
         {superAdmin && <T>Centang “Beri Akses” supaya import itu bisa dipakai Admin yang berkewenangan Import Data (Peran Admin).</T>}
         {msg && <span className={`ml-2 inline-flex items-center gap-1 text-xs ${msg.ok ? "text-emerald-700" : "text-red-600"}`}>{msg.ok && <CheckCircle2 size={13} />}<T>{msg.text}</T></span>}
       </div>
@@ -84,11 +81,8 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
         })}
       </div>
 
-      {open === "karyawan" && <EmployeeImportDialog master={data.master} employeeIds={data.employees.map((e) => e.employeeId)} onClose={done} />}
-      {open === "foto" && <PhotoUpload employees={data.employees} onClose={done} />}
-      {open === "saldo-cuti" && <LeaveBalanceImportDialog rows={data.leaveRows} onClose={() => done(true)} />}
+      {open === "karyawan" && <EmployeeImportDialog master={data.master} employeeIds={data.employeeIds} onClose={done} />}
       {open === "organisasi" && <OrgImport existing={data.org} onClose={() => done(true)} />}
-      {open === "saldo-pinjaman" && <OpeningLoanImportDialog employees={data.employees} onClose={() => done(true)} />}
     </div>
   );
 }

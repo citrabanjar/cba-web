@@ -425,7 +425,7 @@ const MAX_PHOTO_BYTES = 200_000;
 
 // Pesan dikembalikan karena pesan error server action disamarkan di production.
 export async function uploadEmployeePhoto(id: string, form: FormData) {
-  const actor = await requireImport("foto");
+  const actor = await requireMenu("karyawan");
   const file = form.get("photo");
   if (!(file instanceof File) || file.size === 0) return { error: "File foto kosong." };
   if (file.size > MAX_PHOTO_BYTES) return { error: "Ukuran foto terlalu besar." };

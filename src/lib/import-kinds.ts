@@ -1,20 +1,20 @@
 // Jenis Import Data (Pengaturan -> tab Import Data). Aman dipakai di server dan browser.
+// Hanya data dasar yang disiapkan Super Admin: parameter organisasi (rumah karyawan) dan data karyawan.
+// Import detail ada di modulnya masing-masing dan mengikuti kewenangan menu itu:
+// foto -> Data Karyawan, saldo cuti -> Leave, saldo pinjaman -> Pinjaman.
 // - Super Admin mencentang "Beri Akses" per jenis: jenis yang dicentang bisa dipakai Admin berkewenangan Import Data.
 // - Kewenangan Admin satu saja: "import" di menuAccess (Peran Admin -> Import Data: Boleh) = semua jenis yang diberi akses.
 //   Isian "import:<jenis>" (sempat dipakai) dianggap sama dengan "import". Karyawan baru masuk lewat Pra-Karyawan.
 export const IMPORT_KINDS = [
-  { key: "karyawan", label: "Import Data Karyawan", desc: "Tambah banyak karyawan sekaligus dari file Excel (template berisi data yang sudah ada)." },
-  { key: "foto", label: "Import Foto Karyawan", desc: "Upload banyak foto karyawan sekaligus; nama file = ID Karyawan." },
-  { key: "saldo-cuti", label: "Import Saldo Cuti", desc: "Saldo awal cuti dari aplikasi lama." },
-  { key: "saldo-pinjaman", label: "Import Saldo Pinjaman", desc: "Saldo awal pinjaman yang masih berjalan dari aplikasi lama." },
   { key: "organisasi", label: "Import Parameter Organisasi", desc: "Cabang, departemen, dan jabatan dari file Excel." },
+  { key: "karyawan", label: "Import Data Karyawan", desc: "Tambah banyak karyawan sekaligus dari file Excel (template berisi data yang sudah ada)." },
 ] as const;
 
 export type ImportKind = (typeof IMPORT_KINDS)[number]["key"];
 export const IMPORT_PREFIX = "import:";
 export const isImportKind = (k: string): k is ImportKind => IMPORT_KINDS.some((x) => x.key === k);
 // Default "Beri Akses" sebelum Super Admin mengatur: yang dulu termasuk kewenangan Import Data.
-export const DEFAULT_IMPORT_ENABLED: ImportKind[] = ["karyawan", "foto"];
+export const DEFAULT_IMPORT_ENABLED: ImportKind[] = ["karyawan"];
 
 export const hasImportRight = (menuAccess: string[]) => menuAccess.some((m) => m === "import" || m.startsWith(IMPORT_PREFIX));
 

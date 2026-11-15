@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Search, Loader2, Users, UserCheck, BadgeCheck, Clock3,
+  Search, Loader2, Users, UserCheck, BadgeCheck, Clock3, ImageUp,
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -27,6 +27,7 @@ import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
+import PhotoUpload from "./PhotoUpload";
 
 type Dept = { id: string; name: string };
 type Employee = {
@@ -179,7 +180,12 @@ export default function KaryawanClient({
           <h2 className="font-bold text-gray-800"><T>Data Karyawan</T></h2>
           <p className="text-xs text-gray-400 mt-0.5">{employees.length} <T>karyawan terdaftar</T></p>
         </div>
-        {/* Tambah karyawan, import data karyawan, dan upload foto ada di Pengaturan -> Import Data. */}
+        {/* Karyawan baru lewat Pra-Karyawan / Pengaturan -> Import Data. Upload foto di sini. */}
+        {canEdit && (
+          <Button variant="outline" size="sm" onClick={() => setModal("photo")} className="h-9 gap-1.5 self-start rounded-full px-4 lg:self-auto">
+            <ImageUp size={15} /> <T>Upload Foto</T>
+          </Button>
+        )}
       </div>
 
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
@@ -423,6 +429,12 @@ export default function KaryawanClient({
         </DialogContent>
       </Dialog>
 
+      {modal === "photo" && (
+        <PhotoUpload
+          employees={employees.filter((e) => e.isActive && !e.id.startsWith("tmp-"))}
+          onClose={(changed) => { setModal("none"); if (changed) router.refresh(); }}
+        />
+      )}
     </div>
   );
 }
