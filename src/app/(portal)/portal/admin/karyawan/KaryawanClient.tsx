@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Search, Plus, Upload, Download, CheckCircle2, ImageUp, Loader2, Users, UserCheck, BadgeCheck, Clock3,
+  Search, Loader2, Users, UserCheck, BadgeCheck, Clock3,
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -19,18 +19,12 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  createEmployee, updateEmployee, reactivateEmployee,
-  importEmployees, exportEmployeeTemplateRows, type EmployeeInput, type ImportResult,
+  createEmployee, updateEmployee, reactivateEmployee, type EmployeeInput,
 } from "./actions";
-import {
-  downloadTemplate, parseEmployeeFile, type ParsedFile,
-} from "@/lib/employee-import";
-import { matchRegion } from "@/lib/wilayah-match";
 import type { MasterOptions } from "@/lib/master-data";
 import { BANK_OPTIONS } from "@/lib/personal-info";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
-import PhotoUpload from "./PhotoUpload";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 
@@ -89,9 +83,9 @@ function MasterSelect({
 }
 
 export default function KaryawanClient({
-  employees: initial, master, canImport,
+  employees: initial, master,
 }: {
-  employees: Employee[]; master: MasterOptions; canImport: boolean;
+  employees: Employee[]; master: MasterOptions;
 }) {
   const t = useT();
   const router = useRouter();
@@ -101,14 +95,8 @@ export default function KaryawanClient({
   const [modal, setModal] = useState<"none" | "add" | "edit" | "upload" | "photo">("none");
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [form, setForm] = useState<Partial<EmployeeInput>>({ ...EMPTY });
-  const [downloading, setDownloading] = useState(false);
-  const [parsed, setParsed] = useState<ParsedFile | null>(null);
-  const [matching, setMatching] = useState(false);
-  const [regionStat, setRegionStat] = useState<{ matched: number; missed: string[] } | null>(null);
-  const [importResult, setImportResult] = useState<ImportResult[] | null>(null);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [view, setView] = useState<"all" | "active" | "inactive">("active");
   const stats = {
@@ -128,12 +116,6 @@ export default function KaryawanClient({
     (e.position ?? "").toLowerCase().includes(search.toLowerCase()) ||
     (e.department?.name ?? "").toLowerCase().includes(search.toLowerCase())
   );
-
-  function openAdd() {
-    setForm({ ...EMPTY });
-    setMsg(null);
-    setModal("add");
-  }
 
   function openEdit(emp: Employee) {
     setEditTarget(emp);
@@ -200,50 +182,6 @@ export default function KaryawanClient({
     });
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const p = parseEmployeeFile(ev.target?.result as ArrayBuffer, master, new Set(employees.map((e) => e.employeeId).filter(Boolean) as string[]));
-      setParsed(p);
-      setRegionStat(null);
-      setImportResult(null);
-      // Cocokkan wilayah alamat KTP ke data Kemendagri; yang tidak ketemu tetap diimport dengan wilayah kosong.
-      if (p.rows.length) {
-        setMatching(true);
-        Promise.all(p.rows.map(async (r) => {
-          const filled = !!(r.addressVillage || r.addressDistrict || r.addressCity || r.addressProvince);
-          const m = filled ? await matchRegion({ village: r.addressVillage, district: r.addressDistrict, city: r.addressCity, province: r.addressProvince }).catch(() => null) : null;
-          const postal = /^\d{5}$/.test(r.addressPostal ?? "") ? r.addressPostal : m?.postal || undefined;
-          return { row: { ...r, addressRegion: m?.code, addressRegionName: m?.name, addressPostal: postal }, filled, ok: !!m };
-        })).then((list) => {
-          setParsed({ ...p, rows: list.map((x) => x.row) });
-          setRegionStat({
-            matched: list.filter((x) => x.ok).length,
-            missed: list.filter((x) => x.filled && !x.ok).map((x) => `${x.row.employeeId}: ${[x.row.addressVillage, x.row.addressDistrict, x.row.addressCity, x.row.addressProvince].filter(Boolean).join(", ")}`),
-          });
-        }).finally(() => setMatching(false));
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  function handleImport() {
-    if (!parsed?.rows.length || parsed.orgMissing.length || matching) return;
-    startTransition(async () => {
-      const { results } = await importEmployees(parsed.rows);
-      setImportResult(results);
-      setParsed(null);
-      if (fileRef.current) fileRef.current.value = "";
-    });
-  }
-
-  function closeImport() {
-    setModal("none");
-    if (importResult?.some((r) => r.status === "ok")) window.location.reload();
-  }
-
   const isFormOpen = modal === "add" || modal === "edit";
 
   return (
@@ -253,25 +191,7 @@ export default function KaryawanClient({
           <h2 className="font-bold text-gray-800"><T>Data Karyawan</T></h2>
           <p className="text-xs text-gray-400 mt-0.5">{employees.length} <T>karyawan terdaftar</T></p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canEdit && (
-            <Button onClick={openAdd} size="sm" className="h-9 gap-1.5 rounded-full px-4">
-              <Plus size={15} /> <T>Tambah Karyawan</T>
-            </Button>
-          )}
-          {canImport && (
-            <>
-              <Button variant="outline" size="sm"
-                onClick={() => { setModal("upload"); setParsed(null); setImportResult(null); }}
-                className="h-9 gap-1.5 rounded-full px-4">
-                <Upload size={15} /> <T>Import Karyawan</T>
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setModal("photo")} className="h-9 gap-1.5 rounded-full px-4">
-                <ImageUp size={15} /> <T>Upload Foto</T>
-              </Button>
-            </>
-          )}
-        </div>
+        {/* Tambah karyawan, import data karyawan, dan upload foto ada di Pengaturan -> Import Data. */}
       </div>
 
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
@@ -515,140 +435,6 @@ export default function KaryawanClient({
         </DialogContent>
       </Dialog>
 
-      {modal === "photo" && (
-        <PhotoUpload
-          employees={employees.filter((e) => !e.id.startsWith("tmp-"))}
-          onClose={(changed) => {
-            setModal("none");
-            if (changed) window.location.reload();
-          }}
-        />
-      )}
-
-      {/* Dialog import */}
-      <Dialog open={modal === "upload"} onOpenChange={(open: boolean) => { if (!open) closeImport(); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle><T>Import Data Karyawan</T></DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-1">
-            <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
-              <p><T>• Pakai template portal, atau langsung file ekspor KantorKu. Aturan isian ada di sheet Petunjuk.</T></p>
-              <p><T>• No. Urut dibuat otomatis, karyawan terlama dapat nomor terkecil.</T></p>
-              <p><T>• ID Karyawan yang sudah ada dilewati, dan baris yang salah tidak ikut masuk.</T></p>
-              <p><T>• Gaji awal dicatat berlaku sejak Tanggal Masuk.</T></p>
-            </div>
-
-            <Button variant="outline" disabled={downloading} className="w-full gap-2"
-              onClick={async () => {
-                // File berisi data karyawan yang sudah ada (+ baris kosong untuk karyawan baru).
-                setDownloading(true);
-                try { downloadTemplate((await exportEmployeeTemplateRows()).rows); }
-                catch { downloadTemplate(); }
-                finally { setDownloading(false); }
-              }}>
-              {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} <T>Download Template Excel (.xlsx)</T>
-            </Button>
-            <p className="-mt-2 text-[11px] text-gray-500"><T>File berisi data karyawan yang sudah ada. Saat diimport, ID yang sudah ada dilewati; tambahkan karyawan baru di baris bawah.</T></p>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs"><T>Pilih File Excel</T></Label>
-              <input ref={fileRef} type="file"
-                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                onChange={handleFileChange}
-                className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-brand file:text-white file:text-xs file:font-medium hover:file:bg-brand-dark cursor-pointer" />
-            </div>
-
-            {parsed && (
-              <div className="space-y-2 text-xs">
-                {parsed.sheet && (
-                  <p className="text-gray-600">
-                    <T>Sheet</T> <span className="font-semibold">{parsed.sheet}</span>:{" "}
-                    {parsed.rows.length} <T>karyawan siap diimport,</T>{" "}
-                    {parsed.rows.filter((r) => !r.isActive).length} <T>berstatus nonaktif.</T>
-                    {!!parsed.existing && <> {parsed.existing} <T>baris sudah ada di portal (dilewati).</T></>}
-                  </p>
-                )}
-                {parsed.errors.length > 0 && (
-                  <div className="bg-red-50 text-red-700 rounded-lg p-3 space-y-1 max-h-32 overflow-y-auto">
-                    {parsed.errors.map((e) => <p key={e}>{e}</p>)}
-                  </div>
-                )}
-                {parsed.orgMissing.length > 0 && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
-                    <p className="font-semibold"><T>Import diblokir: parameter organisasi berikut belum terdaftar.</T></p>
-                    <p className="mt-1">{parsed.orgMissing.join(" · ")}</p>
-                    <p className="mt-1">
-                      <T>Tambahkan dulu di</T>{" "}
-                      <Link href="/portal/admin/setup" className="font-semibold underline"><T>Setup Organisasi</T></Link>{" "}
-                      <T>atau perbaiki penulisannya di file, lalu pilih file lagi.</T>
-                    </p>
-                  </div>
-                )}
-                {(matching || regionStat) && (
-                  <div className="rounded-lg bg-sky-50 p-3 text-sky-900">
-                    {matching ? <p><T>Mencocokkan wilayah dengan data Kemendagri…</T></p> : regionStat && (
-                      <>
-                        <p><T>Wilayah alamat KTP dikenali</T>: <b>{regionStat.matched}</b> <T>dari</T> {parsed.rows.length} <T>karyawan</T>.</p>
-                        {regionStat.missed.length > 0 && (
-                          <div className="mt-1 max-h-24 overflow-y-auto text-amber-800">
-                            <p className="font-semibold"><T>Tidak ketemu (tetap diimport, wilayah dikosongkan untuk diisi manual):</T></p>
-                            {regionStat.missed.map((m) => <p key={m}>{m}</p>)}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-                {parsed.unknown.length > 0 && (
-                  <p className="text-gray-500">
-                    <T>Kolom yang tidak dipakai:</T> {parsed.unknown.join(", ")}
-                  </p>
-                )}
-                {parsed.rows.length > 0 && (
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {parsed.rows.slice(0, 10).map((r) => (
-                      <div key={r.employeeId} className="flex items-center gap-2 bg-gray-50 rounded px-3 py-1.5">
-                        <span className="font-mono text-gray-500 w-16 shrink-0">{r.employeeId}</span>
-                        <span className="text-gray-700 flex-1 truncate">{r.name}</span>
-                        <span className="text-gray-400 shrink-0">{r.employmentStatus}</span>
-                      </div>
-                    ))}
-                    {parsed.rows.length > 10 && (
-                      <p className="text-gray-400 text-center"><T>... dan</T> {parsed.rows.length - 10} <T>lainnya</T></p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {importResult && (
-              <div className="bg-green-50 rounded-lg p-3 space-y-1">
-                <div className="flex items-center gap-2 text-green-700 text-sm font-semibold">
-                  <CheckCircle2 size={16} /> <T>Import selesai</T>
-                </div>
-                <p className="text-xs text-green-600">
-                  {importResult.filter((r) => r.status === "ok").length} <T>karyawan berhasil diimport</T>
-                </p>
-                {importResult.filter((r) => r.status === "skip" || r.warning).map((r) => (
-                  <p key={r.employeeId} className="text-xs text-amber-700">
-                    {r.employeeId}: <T>{r.reason ?? r.warning}</T>
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeImport}><T>Tutup</T></Button>
-            <Button size="sm" onClick={handleImport} disabled={isPending || !parsed?.rows.length || !!parsed?.orgMissing.length} className="gap-2">
-              {isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {isPending ? <T>{"Mengimport..."}</T> : `Import ${parsed?.rows.length ?? 0} Karyawan`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

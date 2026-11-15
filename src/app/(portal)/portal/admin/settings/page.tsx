@@ -14,21 +14,32 @@ import { getAdminRoles } from "@/lib/admin-roles";
 import SettingsClient from "./SettingsClient";
 import { countSimulated, simEnabled } from "@/lib/attendance-sim";
 import { splEnabled } from "@/lib/overtime";
+import { getImportEnabled } from "@/lib/import-access";
+import { importKindsFor } from "@/lib/import-kinds";
+import { getMasterOptions } from "@/lib/master-data";
+import { computeBalances } from "@/lib/leave-balance";
+import type { ImportData } from "./ImportDataTab";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/portal");
   const access = await getAccess();
-  if (!access || !hasMenu(access, "pengaturan")) redirect("/portal/dashboard");
+  if (!access) redirect("/portal/dashboard");
+  // Admin tanpa kewenangan Pengaturan tetap bisa masuk bila punya kewenangan Import Data (hanya tab Akun & Import Data).
+  const enabled = await getImportEnabled();
+  const kinds = importKindsFor(access, enabled);
+  const settingsMenu = hasMenu(access, "pengaturan");
+  if (!settingsMenu && kinds.length === 0) redirect("/portal/dashboard");
 
   // Super Admin: Akun, Fitur, Task Admin, Running Indikator, Peran & Anggota Admin. Admin: setup detail Agent HRD.
   const admin = isManagement(session.user.role) && !isSuperAdmin(session.user.role);
   const hidden = isSuperAdmin(session.user.role) ? await getHiddenIndicators() : null;
   // Parameter Task Admin diatur Super Admin.
   const agent = isSuperAdmin(session.user.role) ? await getAgentSettings() : null;
-  const ai = admin && (await aiFeatureOn()) ? await loadAi() : null;
+  const ai = admin && settingsMenu && (await aiFeatureOn()) ? await loadAi() : null;
   const onboarding = isSuperAdmin(session.user.role) ? await loadOnboarding() : null;
-  const access2 = isSuperAdmin(session.user.role) ? await loadAccess() : null;
+  const access2 = isSuperAdmin(session.user.role) ? await loadAccess(enabled) : null;
+  const importData = kinds.length ? await loadImport(kinds, isSuperAdmin(session.user.role) ? enabled : null) : null;
 
   return (
     <SettingsClient
@@ -37,6 +48,7 @@ export default async function AdminSettingsPage() {
       ai={ai}
       onboarding={onboarding}
       access={access2}
+      importData={importData}
       name={session.user.name ?? ""}
       employeeId={session.user.employeeId ?? session.user.email ?? ""}
       role={session.user.role}
@@ -44,8 +56,26 @@ export default async function AdminSettingsPage() {
   );
 }
 
+// Data tab Import Data: pilihan organisasi, daftar karyawan (foto, saldo pinjaman), dan baris template saldo cuti.
+async function loadImport(kinds: ImportData["kinds"], enabled: ImportData["enabled"]): Promise<ImportData> {
+  const [master, employees, balances] = await Promise.all([
+    getMasterOptions(),
+    prisma.user.findMany({
+      where: { role: { not: "SUPER_ADMIN" }, employeeId: { not: null } }, orderBy: { name: "asc" },
+      select: { id: true, employeeId: true, name: true, isActive: true },
+    }),
+    kinds.includes("saldo-cuti") ? computeBalances() : Promise.resolve([]),
+  ]);
+  return {
+    kinds, enabled, master,
+    employees: employees.filter((e) => e.isActive).map((e) => ({ id: e.id, employeeId: e.employeeId ?? "", name: e.name })),
+    leaveRows: balances.map((b) => ({ employeeId: b.employeeId, name: b.name, code: b.code })),
+    org: { branch: master.branches, department: master.departments, position: master.positions },
+  };
+}
+
 // Data tab Peran Admin & Anggota Admin (Super Admin).
-async function loadAccess() {
+async function loadAccess(importEnabled: string[]) {
   const [roles, people] = await Promise.all([
     getAdminRoles(),
     prisma.user.findMany({
@@ -54,7 +84,7 @@ async function loadAccess() {
       orderBy: [{ employeeId: "asc" }, { name: "asc" }],
     }),
   ]);
-  return { roles, people };
+  return { roles, people, importEnabled };
 }
 
 // Data tab Agent HRD (Admin).

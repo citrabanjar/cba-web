@@ -9,6 +9,8 @@ import { isApprover, pendingApprovals } from "@/lib/approval";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { workflowFeatureOn } from "@/lib/workflow-settings";
 import { prisma } from "@/lib/prisma";
+import { getImportEnabled } from "@/lib/import-access";
+import { importKindsFor } from "@/lib/import-kinds";
 
 export default async function PortalLayout({
   children,
@@ -26,13 +28,14 @@ export default async function PortalLayout({
   // Menu Persetujuan (atasan langsung, Admin/HRD) dengan jumlah pengajuan yang menunggu.
   const approver = access ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
-  const [onboardingOn, workflowOn, unread] = await Promise.all([
+  const [onboardingOn, workflowOn, unread, importEnabled] = await Promise.all([
     getOnboardingSettings().then((s) => s.enabled), workflowFeatureOn(),
     // Angka di lonceng: notifikasi belum dibaca + permintaan tukar shift yang menunggu jawaban saya sebagai rekan.
     access ? Promise.all([
       prisma.notification.count({ where: { userId: access.id, readAt: null } }),
       prisma.shiftSwapRequest.count({ where: { partnerId: access.id, status: "MENUNGGU_REKAN" } }),
     ]).then(([a, b]) => a + b) : 0,
+    getImportEnabled(),
   ]);
 
   return (
@@ -48,6 +51,7 @@ export default async function PortalLayout({
       unread={unread}
       onboardingOn={onboardingOn}
       workflowOn={workflowOn}
+      importOn={importKindsFor(access, importEnabled).length > 0}
     >
       {children}
     </PortalShell>

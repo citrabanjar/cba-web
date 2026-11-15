@@ -20,7 +20,7 @@ type NavSection = { section: string; items: NavItem[]; admin?: boolean };
 
 // Menu dibagi dua blok: menu pribadi karyawan (MENU SAYA) di atas, lalu blok PANEL ADMIN
 // berwarna berbeda — supaya admin yang juga karyawan bisa membedakan mana menu pribadinya.
-function getNavSections(role: string, menuAccess: string[], approvals: number | null, onboardingOn: boolean, workflowOn: boolean): NavSection[] {
+function getNavSections(role: string, menuAccess: string[], approvals: number | null, onboardingOn: boolean, workflowOn: boolean, importOn: boolean): NavSection[] {
   const can = (m: Parameters<typeof hasMenu>[1]) => hasMenu({ role, menuAccess }, m);
   const sections: NavSection[] = [
     {
@@ -62,13 +62,14 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
     ...(role === "ADMIN" && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
   ]);
-  add("PENGATURAN", can("pengaturan") ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
+  // Pengaturan: kewenangan Pengaturan, atau kewenangan Import Data (tab Import Data).
+  add("PENGATURAN", can("pengaturan") || importOn ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
 
   return [...sections, ...admin];
 }
 
 type User = { name: string; employeeId: string | null; role: string; menuAccess: string[] };
-type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; unread?: number; onboardingOn?: boolean; workflowOn?: boolean; children: React.ReactNode };
+type Props = { user: User; storage?: StorageInfo | null; approvals?: number | null; unread?: number; onboardingOn?: boolean; workflowOn?: boolean; importOn?: boolean; children: React.ReactNode };
 
 // Pemakaian penyimpanan database Neon, hanya untuk super admin.
 function StorageMeter({ storage, collapsed = false }: { storage: StorageInfo; collapsed?: boolean }) {
@@ -274,12 +275,12 @@ function UserCard({ user, collapsed = false }: { user: User; collapsed?: boolean
   );
 }
 
-export default function PortalShell({ user, storage, approvals = null, unread = 0, onboardingOn = true, workflowOn = true, children }: Props) {
+export default function PortalShell({ user, storage, approvals = null, unread = 0, onboardingOn = true, workflowOn = true, importOn = false, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const t = useT();
-  const sections = getNavSections(user.role, user.menuAccess, approvals, onboardingOn, workflowOn);
+  const sections = getNavSections(user.role, user.menuAccess, approvals, onboardingOn, workflowOn, importOn);
 
   // Pilihan lipat menu diingat di browser ini saja.
   useEffect(() => {

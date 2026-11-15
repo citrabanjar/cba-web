@@ -1,5 +1,6 @@
 "use server";
 import { prisma } from "@/lib/prisma";
+import { requireImport } from "@/lib/import-access";
 import { requireSuperAdmin } from "@/lib/access";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
@@ -63,7 +64,7 @@ export async function deleteMasterItem(kind: MasterKind, id: string) {
 
 // Upload template Parameter Organisasi: nama baru ditambahkan; yang sudah ada (tanpa beda huruf besar/kecil) dilewati.
 export async function importOrgParameters(data: Record<MasterKind, string[]>) {
-  await requireSuperAdmin();
+  await requireImport("organisasi");
   const result: Record<MasterKind, { added: number; skipped: number }> = {
     branch: { added: 0, skipped: 0 }, department: { added: 0, skipped: 0 }, position: { added: 0, skipped: 0 },
   };

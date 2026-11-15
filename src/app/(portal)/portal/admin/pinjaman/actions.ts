@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireImport } from "@/lib/import-access";
 import { notify } from "@/lib/notify";
 import { formatRupiah } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
@@ -175,8 +176,7 @@ export async function deleteLoan(id: string): Promise<Result> {
 // Langsung berjalan karena uangnya sudah dicairkan di aplikasi lama.
 export type OpeningRow = { employeeId: string; remaining: number; tenor: number; installment?: number | null; startPeriod: string; original: number | null; note: string };
 export async function importOpeningLoans(rows: OpeningRow[]): Promise<Result & { count?: number; errors?: string[] }> {
-  const access = await requireAdmin();
-  if (!isSuperAdmin(access.role)) return { error: "Upload saldo awal hanya untuk Super Admin." };
+  const access = await requireImport("saldo-pinjaman");
   const users = await prisma.user.findMany({ where: { employeeId: { in: rows.map((r) => r.employeeId.trim()) } }, select: { id: true, employeeId: true } });
   const byId = new Map(users.map((u) => [u.employeeId!.toLowerCase(), u.id]));
   const errors: string[] = [];

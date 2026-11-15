@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { changeAdminPassword } from "./actions";
-import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog, ToggleRight, ShieldCheck, Users } from "lucide-react";
+import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog, ToggleRight, ShieldCheck, Users, Upload } from "lucide-react";
+import ImportDataTab, { type ImportData } from "./ImportDataTab";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -60,12 +61,13 @@ function PasswordField({
 }
 
 export default function SettingsClient({
-  name, employeeId, role, indicatorHidden, agentSettings, ai, onboarding, access,
+  name, employeeId, role, indicatorHidden, agentSettings, ai, onboarding, access, importData,
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
   onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean; sim: { enabled: boolean; count: number } } | null;
-  access?: { roles: AdminRole[]; people: Person[] } | null;
+  access?: { roles: AdminRole[]; people: Person[]; importEnabled: string[] } | null;
+  importData?: ImportData | null;
 }) {
   const [state, action, isPending] = useActionState(formAction, undefined);
   // Pengaturan dibagi per tab supaya tidak memanjang ke bawah; Super Admin: Akun, Fitur, Task Admin, Running Indikator, Peran & Anggota Admin; Admin: Agent HRD.
@@ -76,6 +78,7 @@ export default function SettingsClient({
     ...(agentSettings ? [{ key: "agent", label: "Task Admin", icon: ClipboardList }] : []),
     ...(indicatorHidden ? [{ key: "beranda", label: "Running Indikator", icon: LayoutDashboard }] : []),
     ...(ai ? [{ key: "ai", label: "Agent HRD", icon: Bot }] : []),
+    ...(importData ? [{ key: "import", label: "Import Data", icon: Upload }] : []),
   ];
   const [tab, setTab] = useState("akun");
 
@@ -104,7 +107,8 @@ export default function SettingsClient({
           <SimSettings enabled={onboarding.sim.enabled} count={onboarding.sim.count} />
         </>
       )}
-      {tab === "peran" && access && <RolesSettings roles={access.roles} />}
+      {tab === "peran" && access && <RolesSettings roles={access.roles} importEnabled={access.importEnabled} />}
+      {tab === "import" && importData && <ImportDataTab data={importData} />}
       {tab === "anggota" && access && <MembersSettings roles={access.roles} people={access.people} />}
       {tab === "ai" && ai && <AiSettings {...ai} />}
       {tab === "beranda" && indicatorHidden && <IndicatorSettings hidden={indicatorHidden} />}

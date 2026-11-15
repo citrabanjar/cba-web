@@ -1,6 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { getAccess, requireMenu, requireMenuApply } from "@/lib/access";
+import { getAccess, requireMenu } from "@/lib/access";
+import { requireImport } from "@/lib/import-access";
 import { canEditMenu, canProposeMenu, hasMenu, isSuperAdmin } from "@/lib/roles";
 import { auth } from "@/auth";
 import { approvalLevelsFor } from "@/lib/admin-roles";
@@ -80,7 +81,7 @@ function logValue(value: unknown): string | null {
 }
 
 export async function createEmployee(data: EmployeeInput) {
-  await requireMenu("karyawan");
+  await requireImport("tambah-karyawan");
   await assertInMaster(data);
   const departmentId = await findDeptId(data.departmentName);
   await prisma.user.create({
@@ -450,7 +451,7 @@ const MAX_PHOTO_BYTES = 200_000;
 
 // Pesan dikembalikan karena pesan error server action disamarkan di production.
 export async function uploadEmployeePhoto(id: string, form: FormData) {
-  const actor = await requireMenu("import");
+  const actor = await requireImport("foto");
   const file = form.get("photo");
   if (!(file instanceof File) || file.size === 0) return { error: "File foto kosong." };
   if (file.size > MAX_PHOTO_BYTES) return { error: "Ukuran foto terlalu besar." };
@@ -681,7 +682,7 @@ export type ImportResult = {
 };
 
 export async function importEmployees(rows: ImportRow[]) {
-  const actor = await requireMenu("import");
+  const actor = await requireImport("karyawan");
 
   // Cabang, Departemen, Jabatan harus sudah ada di Parameter Organisasi (tidak dibuat otomatis lagi).
   // Pencocokan tidak membedakan huruf besar/kecil; yang disimpan nama sesuai parameter.
@@ -818,6 +819,6 @@ export async function importEmployees(rows: ImportRow[]) {
 // Data karyawan yang sudah ada untuk diisikan ke file template (Download Template). Gaji pokok hanya untuk yang punya
 // akses Payroll & Benefit. Saat file diimport ulang, ID yang sudah ada dilewati (data portal tidak berubah).
 export async function exportEmployeeTemplateRows(): Promise<{ rows: TemplateRow[] }> {
-  const actor = await requireMenuApply("import");
+  const actor = await requireImport("karyawan");
   return { rows: await employeeTemplateRows(hasMenu(actor, "gaji")) };
 }

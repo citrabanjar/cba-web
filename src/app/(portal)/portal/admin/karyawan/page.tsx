@@ -39,7 +39,6 @@ export default async function AdminKaryawanPage() {
     <KaryawanClient
       employees={employees.map((e) => ({ ...e, employeeId: e.employeeId ?? "" }))}
       master={await getMasterOptions()}
-      canImport={hasMenu(access, "import")}
     />
   );
 }
