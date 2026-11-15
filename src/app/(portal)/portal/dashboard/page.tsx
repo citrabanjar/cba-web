@@ -9,7 +9,7 @@ import {
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
+import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { T } from "@/components/i18n";
 import AdminDashboard from "./AdminDashboard";
 import IndicatorCards from "./IndicatorCards";
@@ -84,12 +84,6 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold text-white mt-0.5">
           {isAdmin ? <><T>Selamat datang kembali</T>, {user.name}! 👋</> : user.name}
         </h1>
-        {isAdmin && <p className="text-sm text-white/80 mt-1"><T>Berikut ringkasan perusahaan hari ini.</T></p>}
-        <p className="text-xs text-white/60 mt-0.5">
-          {[user.employeeId, roleLabel(user.role), superAdmin ? null : user.employmentStatus]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
       </div>
 
       {swapAsks > 0 && (

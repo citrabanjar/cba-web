@@ -357,7 +357,7 @@ export default function PortalShell({ user, storage, approvals = null, unread = 
         {pathname === "/portal/dashboard" && (
           <div className="hidden min-w-0 lg:block">
             <p className="text-[11px] text-white/70" suppressHydrationWarning>
-              <T>{greetingNow()}</T> · {roleLabel(user.role)}
+              <T>{greetingNow()}</T>
             </p>
             <p className="truncate text-lg font-bold leading-tight text-white">
               {isManagement(user.role) ? <><T>Selamat datang kembali</T>, {user.name}! 👋</> : user.name}
