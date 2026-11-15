@@ -78,10 +78,10 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
 
       <div className="space-y-4 py-1">
         <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
-          <p><T>• Pakai template portal, atau langsung file ekspor KantorKu. Aturan isian ada di sheet Petunjuk.</T></p>
-          <p><T>• No. Urut dibuat otomatis, karyawan terlama dapat nomor terkecil.</T></p>
-          <p><T>• ID Karyawan yang sudah ada dilewati, dan baris yang salah tidak ikut masuk.</T></p>
-          <p><T>• Gaji awal dicatat berlaku sejak Tanggal Masuk.</T></p>
+          <p><T>• Cabang, departemen, dan jabatan pada berkas wajib telah terdaftar di Parameter Organisasi; lakukan Import Parameter Organisasi terlebih dahulu.</T></p>
+          <p><T>• Gunakan templat portal atau berkas ekspor KantorKu; ketentuan pengisian tercantum pada sheet Petunjuk.</T></p>
+          <p><T>• Karyawan dengan ID yang telah terdaftar dilewati; perubahan datanya dilakukan melalui menu Data Karyawan. Baris yang tidak valid tidak diimport.</T></p>
+          <p><T>• Nomor urut ditetapkan otomatis berdasarkan Tanggal Masuk, dan gaji awal berlaku sejak Tanggal Masuk.</T></p>
         </div>
 
         <Button variant="outline" disabled={downloading} className="w-full gap-2"
@@ -94,7 +94,7 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
           }}>
           {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} <T>Download Template Excel (.xlsx)</T>
         </Button>
-        <p className="-mt-2 text-[11px] text-gray-500"><T>File berisi data karyawan yang sudah ada. Saat diimport, ID yang sudah ada dilewati; tambahkan karyawan baru di baris bawah.</T></p>
+        <p className="-mt-2 text-[11px] text-gray-500"><T>Templat memuat data karyawan yang telah terdaftar sebagai acuan; tambahkan karyawan baru pada baris di bawahnya.</T></p>
 
         <div className="space-y-1.5">
           <Label className="text-xs"><T>Pilih File Excel</T></Label>
@@ -124,9 +124,9 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
                 <p className="font-semibold"><T>Import diblokir: parameter organisasi berikut belum terdaftar.</T></p>
                 <p className="mt-1">{parsed.orgMissing.join(" · ")}</p>
                 <p className="mt-1">
-                  <T>Tambahkan dulu di</T>{" "}
-                  <Link href="/portal/admin/setup" className="font-semibold underline"><T>Setup Organisasi</T></Link>{" "}
-                  <T>atau perbaiki penulisannya di file, lalu pilih file lagi.</T>
+                  <T>Daftarkan terlebih dahulu melalui</T>{" "}
+                  <Link href="/portal/admin/setup" className="font-semibold underline"><T>menu Organisasi</T></Link>{" "}
+                  <T>atau Import Parameter Organisasi, atau perbaiki penulisannya pada berkas, lalu pilih berkas kembali.</T>
                 </p>
               </div>
             )}
