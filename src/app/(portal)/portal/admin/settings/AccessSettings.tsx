@@ -125,7 +125,7 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
                   ))}
                 </div>
                 {r.approvalLevels > 0 && (
-                  <p className="text-[11px] text-gray-500"><T>Setiap perubahan data oleh Admin dengan peran ini baru berlaku setelah memperoleh persetujuan dari satu approver sesuai level yang dipilih pada struktur organisasi, yaitu atasan dari karyawan yang datanya diubah, atau atasan Admin yang bersangkutan untuk perubahan pengaturan. Ketentuan ini saat ini berlaku pada menu Data Karyawan serta Payroll & Benefit.</T></p>
+                  <p className="text-[11px] text-gray-500"><T>Setiap perubahan data oleh Admin dengan peran ini baru berlaku setelah memperoleh persetujuan dari satu approver sesuai level yang dipilih pada struktur organisasi, yaitu atasan dari karyawan yang datanya diubah, atau atasan Admin yang bersangkutan untuk perubahan pengaturan.</T></p>
                 )}
               </div>
               <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-full text-red-600 hover:text-red-700"
