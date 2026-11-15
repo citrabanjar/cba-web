@@ -206,24 +206,34 @@ function instructionRows(): string[][] {
     ["5. No KTP, NPWP, No Rekening, dan No HP sudah diatur sebagai teks. Saat menempel dari file lain, pakai Paste Values supaya angkanya tidak berubah."],
     ["6. Baris yang salah ditampilkan saat import dan tidak ikut masuk. Baris lain tetap bisa diimport."],
     ["7. Tunjangan dan potongan tidak diisi di file ini: atur lewat menu Payroll & Benefit (tempel komponen ke karyawan, lalu isi nominalnya di profil)."],
+    ["8. File unduhan berisi data karyawan yang sudah ada di portal. Saat diimport, baris dengan ID Karyawan yang sudah ada dilewati (data di portal tidak berubah); karyawan baru ditambahkan di baris paling bawah."],
     [],
     ["Kolom", "Wajib", "Format", "Pilihan Nilai", "Contoh", "Catatan"],
     ...rows,
   ];
 }
 
-export function buildTemplate(): XLSX.WorkBook {
+// Isi template dengan data karyawan yang sudah ada (nilai per kolom, sudah dalam format template).
+export type TemplateRow = Partial<Record<Field, string | number>>;
+
+export function buildTemplate(existing: TemplateRow[] = []): XLSX.WorkBook {
   const headers = templateHeaders();
   const data = XLSX.utils.aoa_to_sheet([headers]);
 
   // Kolom teks diformat lebih dulu supaya Excel tidak mengubah angka panjang atau tanggal.
-  const TEMPLATE_ROWS = 300;
+  // Data yang sudah ada mengisi baris 2 dst; sisa 300 baris kosong untuk karyawan baru.
+  const TEMPLATE_ROWS = existing.length + 300;
   headers.forEach((name, c) => {
     const col = COLUMNS.find((x) => x.names[0] === name);
     const asText = col?.kind === "digits" || col?.kind === "phone" || col?.kind === "date" || col?.field === "employeeId";
-    if (asText) {
-      for (let r = 1; r <= TEMPLATE_ROWS; r++) {
-        data[XLSX.utils.encode_cell({ r, c })] = { t: "s", v: "", z: "@" };
+    for (let r = 1; r <= TEMPLATE_ROWS; r++) {
+      const v = col ? existing[r - 1]?.[col.field] : undefined;
+      if (v === undefined || v === null || v === "") {
+        if (asText) data[XLSX.utils.encode_cell({ r, c })] = { t: "s", v: "", z: "@" };
+      } else if (typeof v === "number" && !asText) {
+        data[XLSX.utils.encode_cell({ r, c })] = { t: "n", v };
+      } else {
+        data[XLSX.utils.encode_cell({ r, c })] = { t: "s", v: String(v), ...(asText ? { z: "@" } : {}) };
       }
     }
     const help = col?.shown ?? col?.note ?? (col?.kind === "date" ? "DD-MMM-YYYY" : "");
@@ -247,12 +257,21 @@ export function buildTemplate(): XLSX.WorkBook {
   return wb;
 }
 
-export function downloadTemplate() {
-  XLSX.writeFile(buildTemplate(), "template_karyawan.xlsx");
+export function downloadTemplate(existing: TemplateRow[] = []) {
+  XLSX.writeFile(buildTemplate(existing), existing.length ? "data_karyawan.xlsx" : "template_karyawan.xlsx");
 }
 
+// Tanggal (YYYY-MM-DD) -> format template DD-MMM-YYYY, mis. 15-Jan-2024.
+const ID_MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+export const templateDate = (d: Date | null | undefined) => {
+  if (!d) return undefined;
+  const s = d.toISOString().slice(0, 10);
+  return `${s.slice(8, 10)}-${ID_MONTHS[Number(s.slice(5, 7)) - 1]}-${s.slice(0, 4)}`;
+};
+
 // orgMissing: Cabang/Departemen/Jabatan di file yang belum ada di Parameter Organisasi (import diblokir).
-export type ParsedFile = { sheet: string; rows: ImportRow[]; errors: string[]; unknown: string[]; orgMissing: string[] };
+// existing: baris dengan ID Karyawan yang sudah ada di portal (dilewati tanpa diperiksa, mis. dari file unduhan berisi data).
+export type ParsedFile = { sheet: string; rows: ImportRow[]; errors: string[]; unknown: string[]; orgMissing: string[]; existing?: number };
 export type OrgMaster = { branches: string[]; departments: string[]; positions: string[] };
 const ORG_FIELDS = [
   { field: "branch", label: "Cabang", list: "branches" },
@@ -319,7 +338,7 @@ function readCell(col: Column, value: unknown, row: Record<string, unknown>): st
   return null;
 }
 
-export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster): ParsedFile {
+export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster, existingIds?: Set<string>): ParsedFile {
   const workbook = XLSX.read(buffer, { type: "array" });
 
   // File bisa berisi beberapa sheet, jadi pilih sheet yang kolomnya paling banyak dikenali.
@@ -369,10 +388,13 @@ export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster): Pars
   const seen = { id: new Set<string>(), email: new Set<string>(), ktp: new Set<string>() };
   const orgMissing = new Set<string>();
   const lookup = master && Object.fromEntries(ORG_FIELDS.map((o) => [o.field, new Map(master[o.list].map((n) => [n.trim().toLowerCase(), n]))]));
+  let existing = 0;
 
   found.table.slice(found.headerRow + 1).forEach((cells, offset) => {
     if (!cells.some((c) => clean(c))) return;
     const line = found.headerRow + offset + 2;
+    const idAt = index.get("employeeId");
+    if (existingIds && idAt !== undefined && existingIds.has(clean(cells[idAt]))) { existing++; return; }
     const row: Record<string, unknown> = {
       components: [] as ImportComponent[], isActive: true, bpjsTkActive: false, bpjsKesActive: false,
     };
@@ -422,5 +444,5 @@ export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster): Pars
     rows.push(parsed);
   });
 
-  return { sheet: found.sheet, rows, errors, unknown, orgMissing: [...orgMissing] };
+  return { sheet: found.sheet, rows, errors, unknown, orgMissing: [...orgMissing], existing };
 }

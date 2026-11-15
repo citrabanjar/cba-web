@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   createEmployee, updateEmployee, reactivateEmployee,
-  importEmployees, type EmployeeInput, type ImportResult,
+  importEmployees, exportEmployeeTemplateRows, type EmployeeInput, type ImportResult,
 } from "./actions";
 import {
   downloadTemplate, parseEmployeeFile, type ParsedFile,
@@ -101,6 +101,7 @@ export default function KaryawanClient({
   const [modal, setModal] = useState<"none" | "add" | "edit" | "upload" | "photo">("none");
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [form, setForm] = useState<Partial<EmployeeInput>>({ ...EMPTY });
+  const [downloading, setDownloading] = useState(false);
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
   const [matching, setMatching] = useState(false);
   const [regionStat, setRegionStat] = useState<{ matched: number; missed: string[] } | null>(null);
@@ -204,7 +205,7 @@ export default function KaryawanClient({
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const p = parseEmployeeFile(ev.target?.result as ArrayBuffer, master);
+      const p = parseEmployeeFile(ev.target?.result as ArrayBuffer, master, new Set(employees.map((e) => e.employeeId).filter(Boolean) as string[]));
       setParsed(p);
       setRegionStat(null);
       setImportResult(null);
@@ -539,9 +540,17 @@ export default function KaryawanClient({
               <p><T>• Gaji awal dicatat berlaku sejak Tanggal Masuk.</T></p>
             </div>
 
-            <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
-              <Download size={15} /> <T>Download Template Excel (.xlsx)</T>
+            <Button variant="outline" disabled={downloading} className="w-full gap-2"
+              onClick={async () => {
+                // File berisi data karyawan yang sudah ada (+ baris kosong untuk karyawan baru).
+                setDownloading(true);
+                try { downloadTemplate((await exportEmployeeTemplateRows()).rows); }
+                catch { downloadTemplate(); }
+                finally { setDownloading(false); }
+              }}>
+              {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} <T>Download Template Excel (.xlsx)</T>
             </Button>
+            <p className="-mt-2 text-[11px] text-gray-500"><T>File berisi data karyawan yang sudah ada. Saat diimport, ID yang sudah ada dilewati; tambahkan karyawan baru di baris bawah.</T></p>
 
             <div className="space-y-1.5">
               <Label className="text-xs"><T>Pilih File Excel</T></Label>
@@ -558,6 +567,7 @@ export default function KaryawanClient({
                     <T>Sheet</T> <span className="font-semibold">{parsed.sheet}</span>:{" "}
                     {parsed.rows.length} <T>karyawan siap diimport,</T>{" "}
                     {parsed.rows.filter((r) => !r.isActive).length} <T>berstatus nonaktif.</T>
+                    {!!parsed.existing && <> {parsed.existing} <T>baris sudah ada di portal (dilewati).</T></>}
                   </p>
                 )}
                 {parsed.errors.length > 0 && (

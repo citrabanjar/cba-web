@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "baris sudah ada di portal (dilewati).": "rows already exist in the portal (skipped).",
+  "File berisi data karyawan yang sudah ada. Saat diimport, ID yang sudah ada dilewati; tambahkan karyawan baru di baris bawah.": "The file contains existing employee data. On import, existing IDs are skipped; add new employees in the rows below.",
   "Jadwal THR / Bonus": "THR / Bonus Schedule",
   "Tanggal bayar dan cara bayar THR / Bonus. PPh 21 THR karyawan bulanan dihitung di payroll bulanan pada bulan THR dibayar.": "Payment date and method for THR / bonus. PPh 21 on THR for monthly employees is calculated in the monthly payroll of the month it is paid.",
   "Belum ada komponen dengan cara hitung THR / Bonus. Buat dulu di tab Komponen.": "No component uses the THR / Bonus method yet. Create one in the Components tab first.",

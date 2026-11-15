@@ -1,13 +1,14 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { getAccess, requireMenu } from "@/lib/access";
-import { canEditMenu, canProposeMenu, isSuperAdmin } from "@/lib/roles";
+import { getAccess, requireMenu, requireMenuApply } from "@/lib/access";
+import { canEditMenu, canProposeMenu, hasMenu, isSuperAdmin } from "@/lib/roles";
 import { auth } from "@/auth";
 import { approvalLevelsFor } from "@/lib/admin-roles";
 import { bossChain, holdForApproval, notifyApprover, runApproved } from "@/lib/approval-hold";
 import { decisionText, notify } from "@/lib/notify";
 import { FAMILY_RELATIONS, ID_TYPES } from "@/lib/personal-info";
-import type { ImportComponent, ImportRow } from "@/lib/employee-import";
+import type { ImportComponent, ImportRow, TemplateRow } from "@/lib/employee-import";
+import { employeeTemplateRows } from "@/lib/employee-export";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import type { EmploymentStatus, Prisma } from "@prisma/client";
@@ -812,4 +813,11 @@ export async function importEmployees(rows: ImportRow[]) {
 
   revalidatePath(LIST_PATH);
   return { results };
+}
+
+// Data karyawan yang sudah ada untuk diisikan ke file template (Download Template). Gaji pokok hanya untuk yang punya
+// akses Payroll & Benefit. Saat file diimport ulang, ID yang sudah ada dilewati (data portal tidak berubah).
+export async function exportEmployeeTemplateRows(): Promise<{ rows: TemplateRow[] }> {
+  const actor = await requireMenuApply("import");
+  return { rows: await employeeTemplateRows(hasMenu(actor, "gaji")) };
 }
