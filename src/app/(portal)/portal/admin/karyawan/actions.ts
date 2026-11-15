@@ -231,7 +231,11 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
   });
   if (steps.every((x) => x.decision) || !approve) {
     const title = typeof (r.data as { __title?: unknown })?.__title === "string" ? (r.data as { __title: string }).__title : "Perubahan data karyawan";
-    await notify(r.requesterId, `Pengajuan ${approve ? "disetujui" : "ditolak"}: ${title}`, decisionText(approve, steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName, note), "/portal/persetujuan");
+    // Tautan ke menu asal: karyawan yang diubah, atau Payroll & Benefit untuk pengaturan payroll.
+    const target = (r.data as { __target?: unknown })?.__target;
+    const kind = String((r.data as { __kind?: unknown })?.__kind ?? "");
+    const href = typeof target === "string" && target ? `${LIST_PATH}/${target}` : kind.startsWith("gaji.") ? "/portal/admin/payroll" : `${LIST_PATH}/${r.userId}`;
+    await notify(r.requesterId, `Pengajuan ${approve ? "disetujui" : "ditolak"}: ${title}`, decisionText(approve, steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName, note), href);
   }
   revalidatePath(`${LIST_PATH}/${r.userId}`);
   revalidatePath("/portal/persetujuan");

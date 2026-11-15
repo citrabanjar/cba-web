@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Briefcase, ChevronLeft, FileCog, Loader2, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Briefcase, ChevronLeft, Landmark, Loader2, Users, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDateTime } from "@/lib/utils";
 import type { NotifModule } from "@/lib/notif-modules";
@@ -25,7 +25,7 @@ function pageNumbers(page: number, pages: number): (number | "…")[] {
 }
 
 const ICONS: Record<NotifModule, LucideIcon> = {
-  kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, admin: FileCog, lainnya: Bell,
+  kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, payroll: Landmark, karyawan: Users, lainnya: Bell,
 };
 
 export default function NotifikasiClient({ modules, items, selected, approvals, panel }: {
@@ -49,7 +49,7 @@ export default function NotifikasiClient({ modules, items, selected, approvals, 
   const choose = (k: Selected) => {
     setMod(k);
     setPage(1);
-    // Isi Persetujuan dimuat dari server saat pertama dibuka; modul lain cukup diganti di browser.
+    // Isi Persetujuan sudah dimuat bersama halaman, jadi semua modul berganti di halaman yang sama.
     if (k === "persetujuan" && !panel) startLoad(() => router.replace("/portal/notifikasi?modul=persetujuan", { scroll: false }));
     else window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
   };

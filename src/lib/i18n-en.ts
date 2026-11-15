@@ -54,7 +54,6 @@ export const en: Record<string, string> = {
   "MENU UTAMA": "MAIN MENU",
   "Hanya Admin yang bisa mengubah workflow.": "Only Admins can change the workflow.",
   "Fitur Workflow belum dinyalakan Super Admin.": "The Workflow feature has not been enabled by Super Admin.",
-  "Pengajuan Admin": "Admin Requests",
   "Perubahan baru berlaku setelah disetujui satu approver sesuai level di bagan: atasan karyawan yang datanya diubah, atau atasan Admin sendiri untuk perubahan pengaturan. Saat ini berlaku untuk Data Karyawan serta Payroll & Benefit.": "Changes apply only after one approver at the chosen level in the org chart approves: the changed employee's superior, or the admin's own superior for settings changes. Currently applies to Employee Data and Payroll & Benefit.",
   "Approval perubahan data": "Data change approval",
   "Perubahan ini wajib approval: baru berlaku setelah disetujui atasan karyawan ini sesuai bagan.": "This change requires approval: it applies only after the employee's manager (per org chart) approves.",

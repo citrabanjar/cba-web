@@ -21,12 +21,12 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     isApprover(approver).then((ok) => (ok ? pendingApprovals(approver) : null)),
   ]);
   const items = rows.map((n) => ({
-    id: n.id, title: n.title, body: n.body, href: n.href, read: !!n.readAt, at: n.createdAt.toISOString(), module: moduleOf(n.href),
+    id: n.id, title: n.title, body: n.body, href: n.href, read: !!n.readAt, at: n.createdAt.toISOString(), module: moduleOf(n.href, n.title),
   }));
-  // Modul utama selalu tampil; Data Diri & Lainnya hanya bila ada isinya.
+  // Modul utama selalu tampil; Data Diri, Payroll & Benefit, Data Karyawan, Lainnya hanya bila ada isinya.
   const modules = NOTIF_MODULES
     .map((m) => ({ key: m.key, label: m.label, total: items.filter((i) => i.module === m.key).length, unread: items.filter((i) => i.module === m.key && !i.read).length }))
-    .filter((m) => !["profil", "admin", "lainnya"].includes(m.key) || m.total > 0);
+    .filter((m) => !["profil", "payroll", "karyawan", "lainnya"].includes(m.key) || m.total > 0);
 
   const { modul } = await searchParams;
   // Persetujuan dipilih bila diminta (tautan lama /portal/persetujuan) atau ada pengajuan yang menunggu.
@@ -37,6 +37,6 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
 
   return (
     <NotifikasiClient modules={modules} items={items} selected={pick} approvals={approvals}
-      panel={pick === "persetujuan" ? <PersetujuanPanel a={approver} /> : null} />
+      panel={approvals !== null ? <PersetujuanPanel a={approver} /> : null} />
   );
 }
