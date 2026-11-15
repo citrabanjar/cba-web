@@ -305,7 +305,8 @@ function HistoryRow({ h }: { h: PendingCard }) {
     body = [`${formatDate(c.s.date)} · ${c.s.requesterShift} ⇄ ${c.s.partnerShift}`, c.s.reason].filter(Boolean).join(" · ");
     status = c.s.status; by = c.s.decidedBy ?? "";
   } else if (c.type === "edit") {
-    title = `${c.item.title ?? "Perubahan data karyawan"} · ${who(c.item.person)}`;
+    // Pengajuan parameter (Absensi, Cuti, Payroll) tidak menyangkut seorang karyawan: nama tidak ditampilkan.
+    title = c.item.hasTarget ? `${c.item.title ?? "Perubahan data karyawan"} · ${who(c.item.person)}` : c.item.title ?? "Perubahan data karyawan";
     body = `Diajukan ${c.item.requester}`;
     status = c.item.status; by = c.item.steps.filter((s) => s.decision).map((s) => s.name).join(", ");
   } else if (c.type === "profile") {
