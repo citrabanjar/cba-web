@@ -126,7 +126,7 @@ export default function NotifikasiClient({ modules, items, pending, history, sel
           ) : (
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
-              {shown.map(({ key, n, h }) => h ? <div key={key} className="p-3">{renderCard(h)}</div> : !n ? null : n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
+              {shown.map(({ key, n, h }) => h ? <HistoryRow key={key} h={h} /> : !n ? null : n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
                 <button key={n.id} type="button" onClick={() => open(n)} title={n.read ? undefined : t("Tandai dibaca")}
                   className={`flex w-full gap-3 px-4 py-3 text-left ${n.read ? "cursor-default" : "bg-rose-50/40 hover:bg-rose-50"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
@@ -263,6 +263,63 @@ function PartnerCard({ c }: { c: Partner }) {
             </button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Riwayat persetujuan ditampilkan seperti baris notifikasi biasa: judul, keterangan, tanggal, dan label status.
+const H_STATUS: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: "Menunggu", cls: "bg-amber-100 text-amber-700" },
+  MENUNGGU_REKAN: { label: "Menunggu rekan", cls: "bg-amber-100 text-amber-700" },
+  MENUNGGU_ATASAN: { label: "Menunggu atasan", cls: "bg-amber-100 text-amber-700" },
+  APPROVED: { label: "Disetujui", cls: "bg-emerald-100 text-emerald-700" },
+  DISETUJUI: { label: "Disetujui", cls: "bg-emerald-100 text-emerald-700" },
+  REJECTED: { label: "Ditolak", cls: "bg-rose-100 text-rose-700" },
+  DITOLAK: { label: "Ditolak", cls: "bg-rose-100 text-rose-700" },
+  CANCELLED: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-500" },
+  DIBATALKAN: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-500" },
+};
+const who = (p: { name: string; employeeId: string | null }) => `${p.name}${p.employeeId ? ` (${p.employeeId})` : ""}`;
+const range = (a: string, b: string) => (a === b ? formatDate(a) : `${formatDate(a)} – ${formatDate(b)}`);
+const num = (n: number) => String(n).replace(".", ",");
+
+function HistoryRow({ h }: { h: PendingCard }) {
+  const c = h.card;
+  let title = "", body = "", status = "", by = "";
+  if (c.type === "item") {
+    const i = c.item;
+    title = `${i.title} · ${who(i.person)}`;
+    body = [i.kind === "LEMBUR" ? `${formatDate(i.start)} · ${i.time ?? ""}` : `${range(i.start, i.end)} · ${num(i.days)} hari`, i.reason].filter(Boolean).join(" · ");
+    status = i.status;
+    by = i.flow ? i.flow.steps.filter((s) => s.decision).map((s) => s.name).join(", ") : i.decidedBy ?? "";
+  } else if (c.type === "swap") {
+    title = `Tukar shift · ${who(c.s.requester)} ⇄ ${who(c.s.partner)}`;
+    body = [`${formatDate(c.s.date)} · ${c.s.requesterShift} ⇄ ${c.s.partnerShift}`, c.s.reason].filter(Boolean).join(" · ");
+    status = c.s.status; by = c.s.decidedBy ?? "";
+  } else if (c.type === "edit") {
+    title = `${c.item.title ?? "Perubahan data karyawan"} · ${who(c.item.person)}`;
+    body = `Diajukan ${c.item.requester}`;
+    status = c.item.status; by = c.item.steps.filter((s) => s.decision).map((s) => s.name).join(", ");
+  } else if (c.type === "profile") {
+    title = `Perubahan data pribadi · ${who(c.item.person)}`;
+    body = c.item.reason ?? "";
+    status = c.item.status; by = c.item.decidedBy ?? "";
+  } else if (c.type === "interview") {
+    title = `Calon karyawan · ${c.item.name}`;
+    body = c.item.statusLabel;
+  }
+  const st = status ? H_STATUS[status] ?? { label: status, cls: "bg-gray-100 text-gray-600" } : null;
+  return (
+    <div className="flex w-full gap-3 px-4 py-3">
+      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-transparent" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <p className="text-sm text-gray-700">{title}</p>
+          {st && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>}
+        </div>
+        {(body || by) && <p className="text-xs text-gray-500">{[body, by && `Diputus oleh ${by}`].filter(Boolean).join(" · ")}</p>}
+        {h.at && <p className="mt-0.5 text-[11px] text-gray-400">{formatDateTime(h.at)}</p>}
       </div>
     </div>
   );
