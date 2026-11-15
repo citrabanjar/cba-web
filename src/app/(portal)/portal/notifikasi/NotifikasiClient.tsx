@@ -83,7 +83,7 @@ export default function NotifikasiClient({ modules, items, selected, approvals }
           {list.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-gray-50 md:max-h-[calc(100vh-15rem)] md:overflow-y-auto">
               {list.map((n) => (
                 <button key={n.id} type="button" onClick={() => open(n)} title={n.href ? t("Buka") : undefined}
                   className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-gray-50 ${n.read ? "" : "bg-rose-50/40"}`}>
