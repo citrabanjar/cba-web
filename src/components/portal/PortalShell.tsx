@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
-import { hasMenu, isSuperAdmin, roleLabel } from "@/lib/roles";
+import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 import { EditAccessProvider } from "@/components/portal/edit-access";
 import NotificationBell from "@/components/portal/NotificationBell";
@@ -106,6 +106,11 @@ const WIDE = 256;
 const NARROW = 78;
 const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const;
 // Halaman yang dibuka dari menu Tombol HP (menu sidebar ikut tersorot).
+// Salam menurut jam WIB.
+const greetingNow = () => {
+  const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", hour12: false }).format(new Date()));
+  return h < 12 ? "Selamat Pagi" : h < 15 ? "Selamat Siang" : h < 18 ? "Selamat Sore" : "Selamat Malam";
+};
 const HP_PATHS = ["/portal/tombol-hp", "/portal/absensi", "/portal/kehadiran", "/portal/cuti", "/portal/dinas", "/portal/tukar-shift", "/portal/lembur", "/portal/payslip", "/portal/pph21", "/portal/pinjaman"];
 const COLLAPSE_KEY = "cba-sidebar-collapsed";
 
@@ -348,6 +353,17 @@ export default function PortalShell({ user, storage, approvals = null, unread = 
           <Menu size={22} />
         </button>
         <div className="lg:hidden"><LogoBadge width={150} /></div>
+        {/* Salam Beranda di bar atas (layar lebar). */}
+        {pathname === "/portal/dashboard" && (
+          <div className="hidden min-w-0 lg:block">
+            <p className="text-[11px] text-white/70" suppressHydrationWarning>
+              <T>{greetingNow()}</T> · {roleLabel(user.role)}
+            </p>
+            <p className="truncate text-lg font-bold leading-tight text-white">
+              {isManagement(user.role) ? <><T>Selamat datang kembali</T>, {user.name}! 👋</> : user.name}
+            </p>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-3">
           {/* Lonceng: kabar untuk karyawan + pengajuan yang menunggu keputusan (atasan, approver, Admin). */}
           <NotificationBell unread={unread} approvals={approvals} active={pathname.startsWith("/portal/notifikasi")} />

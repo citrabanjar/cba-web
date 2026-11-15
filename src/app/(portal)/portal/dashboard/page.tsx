@@ -78,8 +78,8 @@ export default async function DashboardPage() {
 
   return (
     <div className={`p-4 sm:p-6 ${isAdmin ? "max-w-7xl" : "max-w-4xl"}`}>
-      {/* Welcome */}
-      <div className="mb-6">
+      {/* Salam: di layar lebar tampil di bar atas (PortalShell); di HP tetap di sini. */}
+      <div className="mb-6 lg:hidden">
         <p className="text-sm text-white/70"><T>{greeting}</T></p>
         <h1 className="text-2xl font-bold text-white mt-0.5">
           {isAdmin ? <><T>Selamat datang kembali</T>, {user.name}! 👋</> : user.name}
@@ -146,8 +146,9 @@ export default async function DashboardPage() {
   );
 }
 
+// Jam WIB (server Vercel memakai UTC).
 function getGreeting() {
-  const hour = new Date().getHours();
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", hour12: false }).format(new Date()));
   if (hour < 12) return "Selamat Pagi";
   if (hour < 15) return "Selamat Siang";
   if (hour < 18) return "Selamat Sore";
