@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Perubahan Data Belum Disetujui": "Unapproved Data Changes",
+  "Perubahan data yang diajukan Admin (Data Karyawan, Payroll & Benefit) dan karyawan (Profil Saya) yang belum diputus. Hilang sendiri saat semua sudah diputus.": "Data changes submitted by Admins (Employee Data, Payroll & Benefit) and employees (My Profile) that have not been decided. Disappears once all are decided.",
   "Status Pajak tidak valid. Pilih dari daftar.": "Invalid Tax Status. Choose from the list.",
   "Kode Objek Pajak tidak valid. Pilih dari daftar.": "Invalid Tax Object Code. Choose from the list.",
   "Status PTKP tidak valid. Pilih dari daftar (TK/0 sampai K/3).": "Invalid PTKP status. Choose from the list (TK/0 to K/3).",

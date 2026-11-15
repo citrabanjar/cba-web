@@ -120,7 +120,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const today = todayDate();
   const todayKey = keyOf(today);
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
-  const [hidden, leaveRunning, onLeave, checkIns, onTrip] = await Promise.all([
+  const [hidden, leaveRunning, onLeave, checkIns, onTrip, adminEdits, profileEdits] = await Promise.all([
     getHiddenIndicators(),
     // Pengajuan cuti yang sedang berjalan: sejak diajukan karyawan sampai diputus (disetujui / ditolak / dibatalkan).
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
@@ -139,6 +139,9 @@ export async function loadIndicators(): Promise<Indicator[]> {
       where: { status: "APPROVED", startDate: { lte: today }, endDate: { gte: today }, user: active },
       orderBy: { startDate: "asc" }, select: { userId: true, destination: true, user: { select: { name: true } } },
     }),
+    // Perubahan data yang belum diputus: pengajuan Admin (wajib approval) dan pengajuan karyawan dari Profil Saya.
+    prisma.employeeEditRequest.count({ where: { status: "PENDING" } }),
+    prisma.profileChangeRequest.count({ where: { status: "PENDING" } }),
   ]);
   // Terlambat / tepat waktu dinilai dari jam masuk shift hari itu + toleransi terlambat shift.
   const cal = checkIns.length ? await getShiftCalendars(checkIns.map((a) => a.userId), today, today) : {};
@@ -172,6 +175,11 @@ export async function loadIndicators(): Promise<Indicator[]> {
       key: "cuti-berjalan", title: "Pengajuan Cuti Berjalan", value: leaveRunning.length,
       noteValue: new Set(leaveRunning.map((l) => l.userId)).size, note: "karyawan · menunggu persetujuan",
       icon: "leave", tone: "violet", href: "/portal/persetujuan", actionable: true,
+    },
+    {
+      key: "perubahan-data", title: "Perubahan Data Belum Disetujui", value: adminEdits + profileEdits,
+      noteValue: `${adminEdits} Admin · ${profileEdits}`, note: "karyawan · menunggu persetujuan",
+      icon: "users", tone: "amber", href: "/portal/notifikasi", actionable: true,
     },
   ];
   return indicators.filter((i) => !hidden.includes(i.key) && !(i.actionable && i.value === 0));
