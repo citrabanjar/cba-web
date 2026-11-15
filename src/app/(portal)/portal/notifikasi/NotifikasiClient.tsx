@@ -1,29 +1,28 @@
 "use client";
 
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Briefcase, Check, ChevronLeft, Landmark, Loader2, Users, X, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ClipboardCheck, HandCoins, Timer, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Briefcase, Check, ChevronLeft, Landmark, Loader2, Users, X, CalendarCheck, CalendarDays, CheckCheck, ChevronRight, ChevronDown, ClipboardCheck, HandCoins, Timer, UserPlus, UserRound, type LucideIcon } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import type { NotifModule } from "@/lib/notif-modules";
 import { markNotificationsRead } from "@/app/(portal)/notif-actions";
 import { respondSpl } from "@/app/(portal)/portal/lembur/actions";
 import { OT_STATUS } from "@/lib/overtime-status";
 import { respondSwap } from "@/app/(portal)/portal/tukar-shift/actions";
-import { Card, EditCard, ProfileCard, SwapCard, type ApprovalItem, type EditItem, type ProfileItem, type SwapItem } from "@/app/(portal)/portal/persetujuan/PersetujuanClient";
+import { Card, EditCard, InterviewCard, ProfileCard, SwapCard, type ApprovalItem, type EditItem, type InterviewItem, type OfferMaster, type ProfileItem, type SwapItem } from "@/app/(portal)/portal/persetujuan/PersetujuanClient";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 // action: notifikasi yang dijawab langsung di halaman ini (SPL: Bersedia / Tidak bersedia).
 type Action = { kind: "spl"; id: string; status: string };
 type Item = { id: string; title: string; body: string | null; href: string | null; read: boolean; at: string; module: NotifModule; action: Action | null };
-type Mod = { key: NotifModule; label: string; total: number; unread: number; waiting: number };
+type Mod = { key: NotifModule; label: string; total: number; unread: number; waiting: number; done: number };
 type Partner = { type: "partner"; id: string; date: string; requester: string; requesterShift: string; partnerShift: string; reason: string | null };
 // Pengajuan yang menunggu keputusan saya (atasan langsung / approver / rekan tukar shift), tampil di modulnya.
 export type PendingCard = {
   module: NotifModule; key: string;
-  card: { type: "item"; item: ApprovalItem } | { type: "swap"; s: SwapItem } | { type: "edit"; item: EditItem } | { type: "profile"; item: ProfileItem } | Partner;
+  card: { type: "item"; item: ApprovalItem } | { type: "swap"; s: SwapItem } | { type: "edit"; item: EditItem } | { type: "profile"; item: ProfileItem }
+    | { type: "interview"; item: InterviewItem } | Partner;
 };
-// "persetujuan" = antrean pengajuan yang menunggu keputusan (atasan / approver / Admin).
-export type Selected = NotifModule | "persetujuan";
 
 const PER_PAGE = 30;
 
@@ -37,16 +36,16 @@ function pageNumbers(page: number, pages: number): (number | "…")[] {
 }
 
 const ICONS: Record<NotifModule, LucideIcon> = {
-  kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, payroll: Landmark, karyawan: Users, lainnya: Bell,
+  kehadiran: CalendarCheck, lembur: Timer, cuti: CalendarDays, dinas: Briefcase, pinjaman: HandCoins, profil: UserRound, payroll: Landmark, karyawan: Users, prakaryawan: UserPlus, lainnya: Bell,
 };
 
-export default function NotifikasiClient({ modules, items, pending, selected, approvals, panel }: {
-  modules: Mod[]; items: Item[]; pending: PendingCard[]; selected: Selected; approvals: number | null; panel: ReactNode;
+export default function NotifikasiClient({ modules, items, pending, history, selected, master }: {
+  modules: Mod[]; items: Item[]; pending: PendingCard[]; history: PendingCard[]; selected: NotifModule; master: OfferMaster;
 }) {
   const t = useT();
   const router = useRouter();
-  const [mod, setMod] = useState<Selected>(selected);
-  const [loading, startLoad] = useTransition();
+  const [mod, setMod] = useState<NotifModule>(selected);
+  const [showDone, setShowDone] = useState(false);
   const [page, setPage] = useState(1);
   const [, start] = useTransition();
   const scroller = useRef<HTMLDivElement>(null);
@@ -58,13 +57,20 @@ export default function NotifikasiClient({ modules, items, pending, selected, ap
   const current = modules.find((m) => m.key === mod);
   const unreadIds = list.filter((i) => !i.read).map((i) => i.id);
   const waiting = pending.filter((p) => p.module === mod);
+  const done = history.filter((p) => p.module === mod);
+  const renderCard = ({ key, card: c }: PendingCard) =>
+    c.type === "item" ? <Card key={key} item={c.item} />
+      : c.type === "swap" ? <SwapCard key={key} s={c.s} />
+      : c.type === "edit" ? <EditCard key={key} item={c.item} />
+      : c.type === "profile" ? <ProfileCard key={key} item={c.item} />
+      : c.type === "interview" ? <InterviewCard key={key} item={c.item} master={master} />
+      : <PartnerCard key={key} c={c} />;
 
-  const choose = (k: Selected) => {
+  const choose = (k: NotifModule) => {
     setMod(k);
     setPage(1);
-    // Isi Persetujuan sudah dimuat bersama halaman, jadi semua modul berganti di halaman yang sama.
-    if (k === "persetujuan" && !panel) startLoad(() => router.replace("/portal/notifikasi?modul=persetujuan", { scroll: false }));
-    else window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
+    setShowDone(false);
+    window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
   };
   const open = (n: Item) => start(async () => {
     if (!n.read) await markNotificationsRead(n.id);
@@ -81,15 +87,6 @@ export default function NotifikasiClient({ modules, items, pending, selected, ap
       <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
         {/* Modul bersusun ke bawah */}
         <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
-          {approvals !== null && (
-            <button type="button" onClick={() => choose("persetujuan")}
-              className={`flex w-full items-center gap-3 border-b border-gray-200 px-4 py-3 text-left ${mod === "persetujuan" ? "bg-brand/10" : "hover:bg-gray-50"}`}>
-              <ClipboardCheck size={18} className={mod === "persetujuan" ? "text-brand" : "text-gray-400"} />
-              <span className={`flex-1 text-sm ${mod === "persetujuan" ? "font-semibold text-brand" : "text-gray-700"}`}><T>Persetujuan</T></span>
-              {approvals > 0 && <span className="min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[10px] font-bold leading-5 text-ink">{approvals}</span>}
-              <ChevronRight size={14} className={mod === "persetujuan" ? "text-brand" : "text-gray-300"} />
-            </button>
-          )}
           {modules.map((m) => {
             const Icon = ICONS[m.key];
             const on = m.key === mod;
@@ -106,15 +103,7 @@ export default function NotifikasiClient({ modules, items, pending, selected, ap
           })}
         </nav>
 
-        {/* Persetujuan: antrean keputusan lengkap (sama seperti menu Persetujuan lama) */}
-        {mod === "persetujuan" ? (
-          <div className="min-w-0">
-            {panel && !loading ? panel : (
-              <p className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-10 text-sm text-gray-400"><Loader2 size={15} className="animate-spin" /> <T>Memuat…</T></p>
-            )}
-          </div>
-        ) : (
-        /* Riwayat modul terpilih */
+        {/* Riwayat modul terpilih */}
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
             <p className="text-sm font-semibold text-gray-900"><T>{current?.label ?? ""}</T> <span className="font-normal text-gray-400">· {list.length} <T>notifikasi</T></span></p>
@@ -128,16 +117,11 @@ export default function NotifikasiClient({ modules, items, pending, selected, ap
           {waiting.length > 0 && (
             <div className="space-y-3 border-b border-amber-100 bg-amber-50/60 p-3">
               <p className="px-1 text-xs font-semibold uppercase tracking-wide text-amber-700"><T>Menunggu keputusan Anda</T> · {waiting.length}</p>
-              {waiting.map(({ key, card: c }) =>
-                c.type === "item" ? <Card key={key} item={c.item} />
-                  : c.type === "swap" ? <SwapCard key={key} s={c.s} />
-                  : c.type === "edit" ? <EditCard key={key} item={c.item} />
-                  : c.type === "profile" ? <ProfileCard key={key} item={c.item} />
-                  : <PartnerCard key={key} c={c} />)}
+              {waiting.map(renderCard)}
             </div>
           )}
           {list.length === 0 ? (
-            waiting.length > 0 ? null : <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
+            waiting.length > 0 || done.length > 0 ? null : <p className="px-4 py-10 text-center text-sm text-gray-400"><T>Belum ada notifikasi.</T></p>
           ) : (
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
@@ -173,8 +157,19 @@ export default function NotifikasiClient({ modules, items, pending, selected, ap
             )}
             </>
           )}
+          {/* Riwayat persetujuan 60 hari (pengganti tab "Riwayat" di menu Persetujuan lama) */}
+          {done.length > 0 && (
+            <div className="border-t border-gray-100">
+              <button type="button" onClick={() => setShowDone((v) => !v)}
+                className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                <ClipboardCheck size={15} className="text-gray-400" /> <T>Riwayat persetujuan (60 hari)</T>
+                <span className="font-normal text-gray-400">· {done.length}</span>
+                <ChevronDown size={15} className={`ml-auto text-gray-400 transition-transform ${showDone ? "rotate-180" : ""}`} />
+              </button>
+              {showDone && <div className="space-y-3 bg-gray-50 p-3 md:max-h-[60vh] md:overflow-y-auto">{done.map(renderCard)}</div>}
+            </div>
+          )}
         </section>
-        )}
       </div>
     </div>
   );

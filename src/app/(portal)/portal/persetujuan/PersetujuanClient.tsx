@@ -48,7 +48,7 @@ export type InterviewItem = {
   review: Review | null; // penilaian saya yang belum dikirim (pewawancara, saat gilirannya)
   candidate: CandidateBrief; // ringkasan data calon untuk pewawancara & approver
 };
-type OfferMaster = { branches: string[]; departments: string[]; positions: string[]; managers: { value: string; label: string }[] } | null;
+export type OfferMaster = { branches: string[]; departments: string[]; positions: string[]; managers: { value: string; label: string }[] } | null;
 
 type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara" | "ubah";
 
@@ -329,7 +329,7 @@ export function SwapCard({ s }: { s: SwapItem }) {
 }
 
 // Approval Pra-Karyawan: hasil wawancara atau data calon.
-function InterviewCard({ item, master }: { item: InterviewItem; master: OfferMaster }) {
+export function InterviewCard({ item, master }: { item: InterviewItem; master: OfferMaster }) {
   const router = useRouter();
   return (
     <div className={`space-y-3 rounded-2xl border bg-white p-4 ${item.mine ? "border-amber-300" : "border-gray-200"}`}>

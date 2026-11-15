@@ -1,4 +1,3 @@
-// "Persetujuan" (antrean keputusan untuk atasan/approver/Admin) bukan modul notifikasi; ditambahkan halaman Notifikasi.
 // Pengelompokan notifikasi per modul (aman dipakai di server dan browser). Modul ditentukan dari tautan notifikasi.
 export const NOTIF_MODULES = [
   { key: "kehadiran", label: "Kehadiran", paths: ["/portal/absensi", "/portal/kehadiran", "/portal/tukar-shift"] },
@@ -9,6 +8,7 @@ export const NOTIF_MODULES = [
   { key: "profil", label: "Data Diri", paths: ["/portal/profil"] },
   { key: "payroll", label: "Payroll & Benefit", paths: ["/portal/admin/payroll"] },
   { key: "karyawan", label: "Data Karyawan", paths: ["/portal/admin/karyawan"] },
+  { key: "prakaryawan", label: "Pra-Karyawan", paths: ["/portal/admin/onboarding"] },
   { key: "lainnya", label: "Lainnya", paths: [] as string[] },
 ] as const;
 

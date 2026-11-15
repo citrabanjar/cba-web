@@ -4,30 +4,31 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { isApprover, pendingApprovals } from "@/lib/approval";
+import { isApprover } from "@/lib/approval";
 import { moduleOf, NOTIF_MODULES, type NotifModule } from "@/lib/notif-modules";
-import PersetujuanPanel, { loadApprovals } from "../persetujuan/panel";
-import NotifikasiClient, { type PendingCard, type Selected } from "./NotifikasiClient";
+import { loadApprovals } from "../persetujuan/panel";
+import NotifikasiClient, { type PendingCard } from "./NotifikasiClient";
 
 export const metadata: Metadata = { title: "Notifikasi" };
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
 
 // Halaman Notifikasi (dibuka dari lonceng): modul bersusun di kiri, riwayat lengkap modul terpilih di kanan.
-// Pengajuan yang menunggu keputusan saya (atasan langsung / approver) tampil di modulnya dengan tombol Setujui / Tolak.
+// Pengajuan yang menunggu keputusan saya (atasan langsung / approver) tampil di modulnya dengan tombol Setujui / Tolak,
+// beserta riwayat persetujuan 60 hari terakhir di modul yang sama.
 export default async function NotifikasiPage({ searchParams }: { searchParams: Promise<{ modul?: string }> }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
   const approver = { id: access.id, role: access.role, menuAccess: access.menuAccess };
-  const [rows, approvals, partnerSwaps] = await Promise.all([
+  const [rows, canApprove, partnerSwaps] = await Promise.all([
     prisma.notification.findMany({ where: { userId: access.id }, orderBy: { createdAt: "desc" }, take: 500 }),
-    isApprover(approver).then((ok) => (ok ? pendingApprovals(approver) : null)),
+    isApprover(approver),
     // Tukar shift yang menunggu jawaban saya sebagai rekan.
     prisma.shiftSwapRequest.findMany({
       where: { partnerId: access.id, status: "MENUNGGU_REKAN" }, orderBy: { date: "asc" },
       include: { requester: { select: { name: true, employeeId: true } } },
     }),
   ]);
-  const data = approvals !== null ? await loadApprovals(approver) : null;
+  const data = canApprove ? await loadApprovals(approver) : null;
 
   // Notifikasi yang perlu dijawab langsung di sini: Surat Perintah Lembur (Bersedia / Tidak bersedia).
   const splNo = (title: string) => /^Surat Perintah Lembur (\S+)$/.exec(title)?.[1] ?? null;
@@ -55,6 +56,20 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
       module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `edit-${e.id}`, card: { type: "edit" as const, item: e },
     })),
     ...(data?.profiles ?? []).filter((p) => p.status === "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `profile-${p.id}`, card: { type: "profile" as const, item: p } })),
+    ...(data?.interviews ?? []).filter((i) => i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `iv-${i.id}`, card: { type: "interview" as const, item: i } })),
+  ];
+  // Riwayat persetujuan (sudah diputus / bukan giliran saya), 60 hari terakhir.
+  const history: PendingCard[] = [
+    ...(data?.items ?? []).filter((i) => !(i.status === "PENDING" && i.mine))
+      .sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt)).map((i) => ({
+        module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : "lembur") as NotifModule, key: `h-${i.kind}-${i.id}`, card: { type: "item" as const, item: i },
+      })),
+    ...(data?.swaps ?? []).filter((s) => !s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `h-swap-${s.id}`, card: { type: "swap" as const, s } })),
+    ...(data?.edits ?? []).filter((e) => !e.mine).map((e) => ({
+      module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `h-edit-${e.id}`, card: { type: "edit" as const, item: e },
+    })),
+    ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, card: { type: "profile" as const, item: p } })),
+    ...(data?.interviews ?? []).filter((i) => !i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `h-iv-${i.id}`, card: { type: "interview" as const, item: i } })),
   ];
 
   // Modul utama selalu tampil; Data Diri, Payroll & Benefit, Data Karyawan, Lainnya hanya bila ada isinya.
@@ -62,21 +77,19 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     .map((m) => ({
       key: m.key, label: m.label, total: items.filter((i) => i.module === m.key).length,
       unread: items.filter((i) => i.module === m.key && !i.read).length, waiting: pending.filter((p) => p.module === m.key).length,
+      done: history.filter((p) => p.module === m.key).length,
     }))
-    .filter((m) => !["profil", "payroll", "karyawan", "lainnya"].includes(m.key) || m.total > 0 || m.waiting > 0);
+    .filter((m) => !["profil", "payroll", "karyawan", "prakaryawan", "lainnya"].includes(m.key) || m.total > 0 || m.waiting > 0 || m.done > 0);
 
   const { modul } = await searchParams;
-  // Urutan pilihan awal: modul yang diminta → modul dengan pengajuan menunggu → Persetujuan (mis. wawancara) → belum dibaca.
-  const pick: Selected = (modul === "persetujuan" && data ? "persetujuan" : null)
-    ?? modules.find((m) => m.key === modul)?.key
+  // Urutan pilihan awal: modul yang diminta → modul dengan pengajuan menunggu → belum dibaca.
+  const pick = modules.find((m) => m.key === modul)?.key
     ?? modules.find((m) => m.waiting > 0)?.key
-    ?? (approvals ? "persetujuan" : null)
     ?? modules.find((m) => m.unread > 0)?.key
     ?? items.find((i) => modules.some((m) => m.key === i.module))?.module
     ?? modules[0].key;
 
   return (
-    <NotifikasiClient modules={modules} items={items} pending={pending} selected={pick} approvals={approvals}
-      panel={data ? <PersetujuanPanel data={data} /> : null} />
+    <NotifikasiClient modules={modules} items={items} pending={pending} history={history} selected={pick} master={data?.master ?? null} />
   );
 }
