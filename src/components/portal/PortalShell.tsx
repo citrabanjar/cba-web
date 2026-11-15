@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Home, CalendarClock, CalendarHeart, Timer, Landmark, ChevronLeft, ChevronRight,
+  Home, CalendarClock, CalendarHeart, Timer, ClipboardList, Landmark, ChevronLeft, ChevronRight,
   Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Smartphone,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
@@ -46,6 +46,7 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     { href: "/portal/admin/schedule", label: "Schedule", icon: CalendarClock },
     { href: "/portal/admin/leave", label: "Leave", icon: CalendarHeart },
     { href: "/portal/admin/lembur", label: "Lembur", icon: Timer },
+    { href: "/portal/admin/rekap", label: "Rekap", icon: ClipboardList },
   ] : []);
   add("FINANCE", [
     ...(can("gaji") ? [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }] : []),
