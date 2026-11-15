@@ -1,5 +1,6 @@
 "use client";
 
+import { proposedText } from "@/lib/approval-text";
 import { useMemo, useState, useTransition } from "react";
 import { Crosshair, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { googleMapsLink } from "@/lib/google-maps";
@@ -110,7 +111,7 @@ function LocationDialog({
     start(async () => {
       const r = await saveLocation(location === "new" ? null : location.id, form);
       if (r.error) setError(r.error);
-      else onClose();
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
     });
   }
 
@@ -286,7 +287,7 @@ export default function LocationTab({
                           <Pencil size={14} />
                         </button>
                         <button type="button" disabled={pending} aria-label={t("Hapus")}
-                          onClick={() => { if (window.confirm(t("Hapus lokasi ini?"))) start(async () => { await deleteLocation(l.id); }); }}
+                          onClick={() => { if (window.confirm(t("Hapus lokasi ini?"))) start(async () => { const r = await deleteLocation(l.id); if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); }); }}
                           className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30">
                           <Trash2 size={14} />
                         </button>

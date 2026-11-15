@@ -1,5 +1,6 @@
 "use client";
 
+import { proposedText } from "@/lib/approval-text";
 import { useState, useTransition } from "react";
 import * as XLSX from "xlsx";
 import { AlertCircle, CheckCircle2, Download, Loader2, Search, SlidersHorizontal, Upload, Wallet } from "lucide-react";
@@ -33,7 +34,7 @@ function toDateKey(v: unknown): string {
 // Import saldo cuti dari aplikasi lama (tombol Import Saldo di tab Saldo Cuti).
 export function LeaveBalanceImportDialog({ rows, onClose }: { rows: Pick<BalanceRow, "employeeId" | "name" | "code">[]; onClose: () => void }) {
   const [parsed, setParsed] = useState<BalanceImportRow[] | null>(null);
-  const [result, setResult] = useState<{ error?: string; saved?: number; errors?: string[] } | null>(null);
+  const [result, setResult] = useState<{ error?: string; saved?: number; errors?: string[]; proposed?: string } | null>(null);
   const [pending, start] = useTransition();
 
   // Template sudah berisi karyawan aktif dan jenis cutinya (CT untuk tetap, CMK untuk kontrak).
@@ -101,6 +102,7 @@ export function LeaveBalanceImportDialog({ rows, onClose }: { rows: Pick<Balance
               <CheckCircle2 size={15} /> {result.saved} <T>saldo tersimpan.</T>
             </p>
           )}
+          {result?.proposed && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{proposedText(result.proposed)}</p>}
           {result?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{result.error}</T></p>}
           {!!result?.errors?.length && (
             <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg bg-red-50 p-3 text-xs text-red-700">
@@ -129,7 +131,7 @@ function AdjustDialog({ row, onClose }: { row: BalanceRow; onClose: () => void }
     start(async () => {
       const r = await adjustLeaveBalance(row.userId, row.policyId, Number(days.replace(",", ".")), note);
       if (r.error) setError(r.error);
-      else onClose();
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
     });
   }
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { proposedText } from "@/lib/approval-text";
 import { useState, useTransition } from "react";
 import {
   BadgeCheck, CalendarHeart, Coins, Loader2, Paperclip, Pencil, Plus, Scale, Trash2, Users, Wallet,
@@ -91,7 +92,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
     start(async () => {
       const r = await saveLeavePolicy(policy === "new" ? null : policy.id, { ...form, quota: saldo ? (monthly ? null : form.quota) : unlimited ? null : form.quota });
       if (r.error) setError(r.error);
-      else onClose();
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
     });
   }
 
@@ -287,7 +288,7 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
 
   function remove(p: Policy) {
     if (!window.confirm(t("Hapus jenis cuti ini?"))) return;
-    start(async () => { await deleteLeavePolicy(p.id); });
+    start(async () => { const r = await deleteLeavePolicy(p.id); if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); });
   }
 
   return (

@@ -3,9 +3,19 @@ import { revalidatePath } from "next/cache";
 import type { HolidayType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMenu, requireMenuApply } from "@/lib/access";
+import { holdForApproval } from "@/lib/approval-hold";
+import { holdDiff } from "@/lib/hold-diff";
 
 // Hasil dikembalikan sebagai pesan karena pesan error server action disamarkan di production.
-type Result = { error?: string };
+// proposed = perubahan parameter ditahan untuk approval (aturan Peran Admin): berisi nama approver.
+// Menempel jadwal ke karyawan (operasional) tidak ditahan.
+type Result = { error?: string; proposed?: string };
+const SHIFT_LABELS: Record<string, string> = {
+  code: "Kode", name: "Nama", isOff: "Hari libur", startTime: "Jam masuk", endTime: "Jam pulang", breaks: "Istirahat",
+  lateTolerance: "Toleransi terlambat (menit)", earlyLeaveTolerance: "Toleransi pulang cepat (menit)", checkInEarliest: "Check-in paling awal (menit)",
+  checkOutLatest: "Check-out paling lambat (menit)", overtimeStartAfter: "Lembur mulai setelah (menit)", overtimeMinimum: "Minimal lembur (menit)",
+  overtimeRounding: "Pembulatan lembur (menit)", isActive: "Aktif",
+};
 
 export type BreakTime = { start: string; end: string };
 export type ShiftInput = {
@@ -76,6 +86,12 @@ export async function saveShift(id: string | null, input: ShiftInput): Promise<R
     overtimeStartAfter: input.overtimeStartAfter, overtimeMinimum: input.overtimeMinimum,
     overtimeRounding: input.overtimeRounding, isActive: input.isActive,
   };
+  const before = id ? await prisma.workShift.findUnique({ where: { id } }) : null;
+  const held = await holdForApproval({
+    kind: "absensi.saveShift", args: [id, input], title: `Absensi: ${id ? "ubah" : "tambah"} shift ${code} - ${name}`,
+    details: holdDiff(SHIFT_LABELS, before as Record<string, unknown> | null, data as Record<string, unknown>),
+  });
+  if (held) return held;
   if (id) await prisma.workShift.update({ where: { id }, data });
   else {
     // Shift baru ditaruh paling akhir.
@@ -104,6 +120,12 @@ export async function deleteShift(id: string): Promise<Result> {
   if (used > 0) return { error: "Shift masih dipakai di pola kerja. Nonaktifkan saja, atau ganti dulu di pola kerja." };
   const scheduled = await prisma.employeeShiftDay.count({ where: { shiftId: id } });
   if (scheduled > 0) return { error: "Shift masih dipakai di Jadwal Bulanan. Nonaktifkan saja supaya riwayat jadwal tetap utuh." };
+  const sh = await prisma.workShift.findUnique({ where: { id }, select: { code: true, name: true } });
+  const held = await holdForApproval({
+    kind: "absensi.deleteShift", args: [id], title: `Absensi: hapus shift ${sh?.code ?? ""} - ${sh?.name ?? ""}`,
+    details: [{ field: "Shift", oldValue: `${sh?.code ?? ""} - ${sh?.name ?? ""}`, newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   await prisma.workShift.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -133,6 +155,18 @@ export async function savePattern(id: string | null, input: PatternInput): Promi
     startDate: new Date(`${input.startDate}T00:00:00Z`),
   };
   const days = input.shiftIds.map((shiftId, dayIndex) => ({ dayIndex, shiftId }));
+  const [old, codes] = await Promise.all([
+    id ? prisma.workPattern.findUnique({ where: { id }, include: { days: { orderBy: { dayIndex: "asc" }, select: { shift: { select: { code: true } } } } } }) : null,
+    prisma.workShift.findMany({ where: { id: { in: input.shiftIds } }, select: { id: true, code: true } }),
+  ]);
+  const codeOf = new Map(codes.map((c) => [c.id, c.code]));
+  const held = await holdForApproval({
+    kind: "absensi.savePattern", args: [id, input], title: `Absensi: ${id ? "ubah" : "tambah"} pola kerja ${name}`,
+    details: holdDiff({ name: "Nama", description: "Keterangan", cycleDays: "Panjang siklus (hari)", startDate: "Mulai siklus", shifts: "Urutan shift" },
+      old ? { ...old, shifts: old.days.map((d) => d.shift.code).join(", ") } : null,
+      { ...data, shifts: input.shiftIds.map((s) => codeOf.get(s) ?? "?").join(", ") }),
+  });
+  if (held) return held;
   if (id) {
     await prisma.$transaction([
       prisma.workPatternDay.deleteMany({ where: { patternId: id } }),
@@ -149,6 +183,12 @@ export async function deletePattern(id: string): Promise<Result> {
   await requireMenu("absensi");
   const used = await prisma.employeeSchedule.count({ where: { patternId: id } });
   if (used > 0) return { error: "Pola kerja masih dipakai karyawan. Ganti jadwal karyawannya dulu." };
+  const pt = await prisma.workPattern.findUnique({ where: { id }, select: { name: true } });
+  const held = await holdForApproval({
+    kind: "absensi.deletePattern", args: [id], title: `Absensi: hapus pola kerja ${pt?.name ?? ""}`,
+    details: [{ field: "Pola kerja", oldValue: pt?.name ?? null, newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   await prisma.workPattern.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -166,6 +206,12 @@ export async function saveHoliday(
   const date = new Date(`${input.date}T00:00:00Z`);
   const taken = await prisma.holiday.findFirst({ where: { date, ...(id ? { id: { not: id } } : {}) }, select: { id: true } });
   if (taken) return { error: "Tanggal ini sudah ada di daftar libur." };
+  const oldH = id ? await prisma.holiday.findUnique({ where: { id } }) : null;
+  const held = await holdForApproval({
+    kind: "absensi.saveHoliday", args: [id, input], title: `Absensi: ${id ? "ubah" : "tambah"} hari libur ${input.date} - ${name}`,
+    details: holdDiff({ date: "Tanggal", name: "Nama", type: "Jenis" }, oldH as Record<string, unknown> | null, { date, name, type }),
+  });
+  if (held) return held;
   if (id) await prisma.holiday.update({ where: { id }, data: { date, name, type } });
   else await prisma.holiday.create({ data: { date, name, type } });
   revalidatePath(PATH);
@@ -174,6 +220,13 @@ export async function saveHoliday(
 
 export async function deleteHoliday(id: string): Promise<Result> {
   await requireMenu("absensi");
+  const h = await prisma.holiday.findUnique({ where: { id }, select: { date: true, name: true } });
+  const label = h ? `${h.date.toISOString().slice(0, 10)} - ${h.name}` : "";
+  const held = await holdForApproval({
+    kind: "absensi.deleteHoliday", args: [id], title: `Absensi: hapus hari libur ${label}`,
+    details: [{ field: "Hari libur", oldValue: label || null, newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   await prisma.holiday.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -186,6 +239,15 @@ export async function saveRule(input: RuleInput): Promise<Result> {
     return { error: "Batas terlambat harus 0 sampai 1440 menit." };
   }
   const data = { ...input, updatedBy: user.name };
+  const oldRule = await prisma.attendanceRule.findUnique({ where: { id: "default" } });
+  const held = await holdForApproval({
+    kind: "absensi.saveRule", args: [input], title: "Absensi: ubah aturan kehadiran",
+    details: holdDiff({
+      overtimeNeedsApproval: "Lembur perlu persetujuan", holidayWorkIsOvertime: "Kerja di hari libur = lembur", halfDayMinutes: "Batas setengah hari (menit)",
+      lateAsHalfDayMinutes: "Terlambat dihitung setengah hari (menit)", noCheckInIsAlpha: "Tanpa check-in = alpha",
+    }, oldRule as Record<string, unknown> | null, input as unknown as Record<string, unknown>),
+  });
+  if (held) return held;
   await prisma.attendanceRule.upsert({ where: { id: "default" }, update: data, create: { id: "default", ...data } });
   revalidatePath(PATH);
   return {};
@@ -217,6 +279,16 @@ export async function saveLocation(id: string | null, input: LocationInput): Pro
 
   const links = (ids: string[]) => [...new Set(ids)].map((v) => ({ id: v }));
   const data = { name, address: input.address.trim() || null, latitude, longitude, radius, isActive: input.isActive };
+  const oldLoc = id ? await prisma.workLocation.findUnique({ where: { id }, include: { _count: { select: { employees: true, shifts: true, patterns: true } } } }) : null;
+  const held = await holdForApproval({
+    kind: "absensi.saveLocation", args: [id, input], title: `Absensi: ${id ? "ubah" : "tambah"} lokasi absen ${name}`,
+    details: holdDiff(
+      { name: "Nama lokasi", address: "Alamat", latitude: "Latitude", longitude: "Longitude", radius: "Radius (meter)", isActive: "Aktif", employees: "Khusus karyawan", shifts: "Khusus shift", patterns: "Khusus pola kerja" },
+      oldLoc ? { ...oldLoc, employees: oldLoc._count.employees, shifts: oldLoc._count.shifts, patterns: oldLoc._count.patterns } : null,
+      { ...data, employees: new Set(input.employeeIds).size, shifts: new Set(input.shiftIds).size, patterns: new Set(input.patternIds).size },
+    ),
+  });
+  if (held) return held;
   if (id) {
     await prisma.workLocation.update({
       where: { id },
@@ -243,6 +315,12 @@ export async function saveLocation(id: string | null, input: LocationInput): Pro
 
 export async function deleteLocation(id: string): Promise<Result> {
   await requireMenu("absensi");
+  const loc = await prisma.workLocation.findUnique({ where: { id }, select: { name: true } });
+  const held = await holdForApproval({
+    kind: "absensi.deleteLocation", args: [id], title: `Absensi: hapus lokasi absen ${loc?.name ?? ""}`,
+    details: [{ field: "Lokasi absen", oldValue: loc?.name ?? null, newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   await prisma.workLocation.delete({ where: { id } });
   revalidatePath(PATH);
   return {};

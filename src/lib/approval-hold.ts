@@ -84,6 +84,20 @@ const REGISTRY: Record<string, () => Promise<Fn>> = {
   "gaji.addSalaryAdjustment": async () => (await import("@/app/(portal)/portal/admin/karyawan/actions")).addSalaryAdjustment as Fn,
   "gaji.savePayAssignment": async () => (await import("@/app/(portal)/portal/admin/karyawan/actions")).savePayAssignment as Fn,
   "gaji.removePayAssignment": async () => (await import("@/app/(portal)/portal/admin/karyawan/actions")).removePayAssignment as Fn,
+  // Absensi & Cuti: parameter (tempel jadwal ke karyawan tidak ditahan).
+  "absensi.saveShift": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).saveShift as Fn,
+  "absensi.deleteShift": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).deleteShift as Fn,
+  "absensi.savePattern": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).savePattern as Fn,
+  "absensi.deletePattern": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).deletePattern as Fn,
+  "absensi.saveHoliday": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).saveHoliday as Fn,
+  "absensi.deleteHoliday": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).deleteHoliday as Fn,
+  "absensi.saveRule": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).saveRule as Fn,
+  "absensi.saveLocation": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).saveLocation as Fn,
+  "absensi.deleteLocation": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).deleteLocation as Fn,
+  "cuti.saveLeavePolicy": async () => (await import("@/app/(portal)/portal/admin/leave/actions")).saveLeavePolicy as Fn,
+  "cuti.deleteLeavePolicy": async () => (await import("@/app/(portal)/portal/admin/leave/actions")).deleteLeavePolicy as Fn,
+  "cuti.importLeaveBalances": async () => (await import("@/app/(portal)/portal/admin/leave/actions")).importLeaveBalances as Fn,
+  "cuti.adjustLeaveBalance": async () => (await import("@/app/(portal)/portal/admin/leave/actions")).adjustLeaveBalance as Fn,
 };
 
 // Jalankan pengajuan yang sudah disetujui atas nama Admin pengaju. Kembalian error = gagal diterapkan.

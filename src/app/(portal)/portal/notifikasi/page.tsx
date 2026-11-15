@@ -11,6 +11,9 @@ import NotifikasiClient, { type PendingCard } from "./NotifikasiClient";
 
 export const metadata: Metadata = { title: "Notifikasi" };
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
+// Modul pengajuan Admin menurut jenisnya (gaji.* → Payroll, absensi.* → Kehadiran, cuti.* → Cuti, lainnya → Data Karyawan).
+const editModule = (kind?: string): NotifModule =>
+  kind?.startsWith("gaji.") ? "payroll" : kind?.startsWith("absensi.") ? "kehadiran" : kind?.startsWith("cuti.") ? "cuti" : "karyawan";
 
 // Halaman Notifikasi (dibuka dari lonceng): modul bersusun di kiri, riwayat lengkap modul terpilih di kanan.
 // Pengajuan yang menunggu keputusan saya (atasan langsung / approver) tampil di modulnya dengan tombol Setujui / Tolak,
@@ -55,14 +58,14 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     })),
     ...(data?.swaps ?? []).filter((s) => s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `swap-${s.id}`, card: { type: "swap" as const, s } })),
     ...(data?.edits ?? []).filter((e) => e.mine).map((e) => ({
-      module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `edit-${e.id}`, card: { type: "edit" as const, item: e },
+      module: editModule(e.kind), key: `edit-${e.id}`, card: { type: "edit" as const, item: e },
     })),
     ...(data?.profiles ?? []).filter((p) => p.status === "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `profile-${p.id}`, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `iv-${i.id}`, card: { type: "interview" as const, item: i } })),
   ];
   // Perubahan data yang masih menunggu keputusan orang lain (dipantau Super Admin & Admin Data Karyawan).
   const watching: PendingCard[] = (data?.edits ?? []).filter((e) => e.status === "PENDING" && !e.mine).map((e) => ({
-    module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `w-edit-${e.id}`, card: { type: "edit" as const, item: e },
+    module: editModule(e.kind), key: `w-edit-${e.id}`, card: { type: "edit" as const, item: e },
   }));
   // Riwayat persetujuan (sudah diputus / bukan giliran saya), 60 hari terakhir.
   const history: PendingCard[] = [
@@ -72,7 +75,7 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
       })),
     ...(data?.swaps ?? []).filter((s) => !s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `h-swap-${s.id}`, at: `${s.date}T00:00:00.000Z`, card: { type: "swap" as const, s } })),
     ...(data?.edits ?? []).filter((e) => !e.mine && e.status !== "PENDING").map((e) => ({
-      module: (e.kind?.startsWith("gaji.") ? "payroll" : "karyawan") as NotifModule, key: `h-edit-${e.id}`, at: e.decidedAt ?? e.createdAt, card: { type: "edit" as const, item: e },
+      module: editModule(e.kind), key: `h-edit-${e.id}`, at: e.decidedAt ?? e.createdAt, card: { type: "edit" as const, item: e },
     })),
     ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, at: p.decidedAt ?? p.createdAt, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => !i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `h-iv-${i.id}`, card: { type: "interview" as const, item: i } })),

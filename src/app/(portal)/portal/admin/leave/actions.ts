@@ -6,9 +6,19 @@ import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
 import { LEAVE_BALANCE_KEY } from "@/lib/leave-balance";
 import { isLeaveCategory, isLeavePeriod, isLeaveUnit, type LeavePolicyInput } from "@/lib/leave";
+import { holdForApproval } from "@/lib/approval-hold";
+import { holdDiff } from "@/lib/hold-diff";
 
 const PATH = "/portal/admin/leave";
-type Result = { error?: string };
+// proposed = perubahan ditahan untuk approval (aturan Peran Admin): berisi nama approver.
+type Result = { error?: string; proposed?: string };
+const POLICY_LABELS: Record<string, string> = {
+  code: "Kode", name: "Nama", category: "Kategori", quota: "Hak cuti", unit: "Satuan", period: "Periode", minServiceMonths: "Minimal masa kerja (bulan)",
+  gender: "Khusus jenis kelamin", forStatus: "Khusus status", accrualPerMonth: "Saldo per bulan", paid: "Dibayar", payNote: "Catatan upah",
+  deductsAnnual: "Potong cuti tahunan", needsAttachment: "Wajib lampiran", attachmentNote: "Keterangan lampiran", carryOverDays: "Sisa bawaan (hari)",
+  noticeDays: "Diajukan paling lambat (hari)", renewal: "Pembaruan saldo", carryOverExpires: "Sisa bawaan hangus", carryOverExpiry: "Batas sisa bawaan",
+  allowHalfDay: "Boleh setengah hari", legalBasis: "Dasar hukum", note: "Catatan", isActive: "Aktif",
+};
 
 async function requireAdmin() {
   const access = await getAccess();
@@ -49,6 +59,12 @@ export async function saveLeavePolicy(id: string | null, input: LeavePolicyInput
     legalBasis: text(input.legalBasis), note: text(input.note), isActive: !!input.isActive,
     updatedBy: access.name ?? null,
   };
+  const before = id ? await prisma.leavePolicy.findUnique({ where: { id } }) : null;
+  const held = await holdForApproval({
+    kind: "cuti.saveLeavePolicy", args: [id, input], title: `Cuti: ${id ? "ubah" : "tambah"} jenis cuti ${code} - ${name}`,
+    details: holdDiff(POLICY_LABELS, before as Record<string, unknown> | null, data as Record<string, unknown>),
+  });
+  if (held) return held;
   if (id) await prisma.leavePolicy.update({ where: { id }, data });
   else {
     const last = await prisma.leavePolicy.aggregate({ _max: { sortOrder: true } });
@@ -74,6 +90,12 @@ export async function setLeaveBalanceActive(active: boolean): Promise<Result> {
 
 export async function deleteLeavePolicy(id: string): Promise<Result> {
   await requireAdmin();
+  const p = await prisma.leavePolicy.findUnique({ where: { id }, select: { code: true, name: true } });
+  const held = await holdForApproval({
+    kind: "cuti.deleteLeavePolicy", args: [id], title: `Cuti: hapus jenis cuti ${p?.code ?? ""} - ${p?.name ?? ""}`,
+    details: [{ field: "Jenis cuti", oldValue: `${p?.code ?? ""} - ${p?.name ?? ""}`, newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   await prisma.leavePolicy.delete({ where: { id } });
   revalidatePath(PATH);
   return {};
@@ -83,7 +105,7 @@ export type BalanceImportRow = { employeeId: string; code: string; days: number;
 
 // Import saldo cuti dari aplikasi lama. Satu baris = saldo satu jenis cuti per tanggal tertentu.
 // SALDO_AWAL lama untuk karyawan + jenis cuti yang sama diganti.
-export async function importLeaveBalances(rows: BalanceImportRow[]): Promise<{ error?: string; saved?: number; errors?: string[] }> {
+export async function importLeaveBalances(rows: BalanceImportRow[]): Promise<{ error?: string; saved?: number; errors?: string[]; proposed?: string }> {
   const access = await requireAdmin();
   if (rows.length === 0) return { error: "File tidak berisi data." };
   if (rows.length > 5000) return { error: "Baris terlalu banyak sekaligus." };
@@ -106,6 +128,14 @@ export async function importLeaveBalances(rows: BalanceImportRow[]): Promise<{ e
     valid.push({ userId, policyId, date: new Date(`${r.date}T00:00:00Z`), days: Math.round(r.days * 100) / 100, note: r.note.trim() || null });
   });
   if (valid.length === 0) return { error: "Tidak ada baris yang valid.", errors };
+  const held = await holdForApproval({
+    kind: "cuti.importLeaveBalances", args: [rows], title: `Cuti: import saldo awal cuti (${valid.length} baris)`,
+    details: [
+      { field: "Baris saldo awal", oldValue: null, newValue: `${valid.length} baris, ${new Set(valid.map((v) => v.userId)).size} karyawan` },
+      ...(errors.length ? [{ field: "Baris dilewati", oldValue: null, newValue: String(errors.length) }] : []),
+    ],
+  });
+  if (held) return { ...held, errors };
   await prisma.$transaction([
     ...valid.map((v) => prisma.leaveBalanceEntry.deleteMany({ where: { userId: v.userId, policyId: v.policyId, kind: "SALDO_AWAL" } })),
     ...valid.map((v) => prisma.leaveBalanceEntry.create({ data: { ...v, kind: "SALDO_AWAL", createdBy: access.name ?? null } })),
@@ -119,6 +149,12 @@ export async function adjustLeaveBalance(userId: string, policyId: string, days:
   const access = await requireAdmin();
   if (!Number.isFinite(days) || days === 0 || Math.abs(days) > 365) return { error: "Jumlah hari tidak valid." };
   if (!note.trim()) return { error: "Alasan koreksi wajib diisi." };
+  const pol = await prisma.leavePolicy.findUnique({ where: { id: policyId }, select: { name: true } });
+  const held = await holdForApproval({
+    kind: "cuti.adjustLeaveBalance", args: [userId, policyId, days, note], title: `Cuti: koreksi saldo ${pol?.name ?? ""}`, targetUserId: userId,
+    details: [{ field: `Saldo ${pol?.name ?? "cuti"}`, oldValue: null, newValue: `${days > 0 ? "+" : ""}${days} hari (${note.trim()})` }],
+  });
+  if (held) return held;
   const text = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
   await prisma.leaveBalanceEntry.create({
     data: { userId, policyId, date: new Date(`${text}T00:00:00Z`), days: Math.round(days * 100) / 100, kind: "PENYESUAIAN", note: note.trim(), createdBy: access.name ?? null },

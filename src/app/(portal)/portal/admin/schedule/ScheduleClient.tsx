@@ -1,5 +1,6 @@
 "use client";
 
+import { proposedText } from "@/lib/approval-text";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -150,7 +151,7 @@ function ShiftDialog({ shift, onClose }: { shift: Shift | "new"; onClose: () => 
     start(async () => {
       const r = await saveShift(shift === "new" ? null : shift.id, form);
       if (r.error) setError(r.error);
-      else onClose();
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
     });
   }
 
@@ -299,6 +300,7 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
     start(async () => {
       const r = await deleteShift(s.id);
       if (r.error) setError(r.error);
+      else if (r.proposed) window.alert(proposedText(r.proposed));
     });
   }
 
@@ -405,7 +407,7 @@ function PatternDialog({ pattern, shifts, onClose }: { pattern: Pattern | "new";
     start(async () => {
       const r = await savePattern(pattern === "new" ? null : pattern.id, form);
       if (r.error) setError(r.error);
-      else onClose();
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
     });
   }
 
@@ -511,7 +513,7 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
                       <Pencil size={14} />
                     </button>
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus pola kerja ini?"))) start(async () => { setError(null); const r = await deletePattern(p.id); if (r.error) setError(r.error); }); }}
+                      onClick={() => { if (window.confirm(t("Hapus pola kerja ini?"))) start(async () => { setError(null); const r = await deletePattern(p.id); if (r.error) setError(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); }); }}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
@@ -556,7 +558,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
     start(async () => {
       const r = await saveHoliday(editId, form);
       if (r.error) setError(r.error);
-      else { setForm({ date: "", name: "", type: "NASIONAL" }); setEditId(null); }
+      else { if (r.proposed) window.alert(proposedText(r.proposed));  setForm({ date: "", name: "", type: "NASIONAL" }); setEditId(null); }
     });
   }
 
@@ -607,7 +609,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
                       <Pencil size={14} />
                     </button>
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus hari libur ini?"))) start(async () => { await deleteHoliday(h.id); }); }}
+                      onClick={() => { if (window.confirm(t("Hapus hari libur ini?"))) start(async () => { const r = await deleteHoliday(h.id); if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); }); }}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
@@ -638,7 +640,7 @@ function RuleTab({ rule }: { rule: Rule }) {
     setMsg(null);
     start(async () => {
       const r = await saveRule(form);
-      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: "Aturan kehadiran tersimpan." });
+      setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : "Aturan kehadiran tersimpan." });
     });
   }
 
