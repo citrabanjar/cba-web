@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Perubahan belum disimpan. Tinggalkan tanpa menyimpan?": "Changes have not been saved. Leave without saving?",
   "hari kerja per minggu": "workdays per week",
   "s/d jam": "up to hour",
   "Sesuai PP 35/2021. Jumlah hari kerja per minggu mengikuti pola kerja masing-masing karyawan.": "Per PP 35/2021. Workdays per week follow each employee's work pattern.",

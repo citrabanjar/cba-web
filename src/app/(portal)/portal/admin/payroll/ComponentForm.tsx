@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import {
   NEEDS_BASE, NEEDS_PARAM, LEGACY_BASES, PAY_BASES, PAY_CATEGORIES, PAY_KINDS, PAY_METHODS, PAY_PARAMS, defaultRestTiers, describe, isTaxableCategory,
@@ -15,6 +14,7 @@ import { savePayComponent } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import type { Component } from "./ComponentsTab";
 import { showNotice } from "@/components/portal/Confirm";
+import { toast } from "@/components/portal/Toast";
 
 const EMPTY: PayComponentInput = {
   code: "", name: "", kind: "PENDAPATAN", category: "TUNJANGAN_LAIN", method: "INPUT", param: null,
@@ -66,11 +66,17 @@ function TierEditor({ tiers, onChange }: { tiers: Tier[]; onChange: (t: Tier[]) 
   );
 }
 
-export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, onCreated }: {
-  comp: Component | "new"; all: Component[]; workDaysPerWeek: 5 | 6; onClose: () => void; onCreated: (id: string) => void;
+// Formulir komponen yang tampil langsung di panel kanan tab Komponen (tanpa dialog).
+// Komponen lama: Batal = kembalikan isian ke data tersimpan. Komponen baru: Batal = tutup formulir (onClose).
+export default function ComponentForm({ comp, all, workDaysPerWeek, onClose, onCreated, onDirty }: {
+  comp: Component | "new"; all: Component[]; workDaysPerWeek: 5 | 6; onClose: () => void; onCreated: (id: string) => void; onDirty?: (dirty: boolean) => void;
 }) {
   const t = useT();
-  const [form, setForm] = useState<PayComponentInput>(() => (comp === "new" ? EMPTY : { ...comp, legalBasis: comp.legalBasis ?? "", note: comp.note ?? "" }));
+  const initial = useMemo<PayComponentInput>(() => (comp === "new" ? EMPTY : { ...comp, legalBasis: comp.legalBasis ?? "", note: comp.note ?? "" }), [comp]);
+  const [form, setForm] = useState<PayComponentInput>(initial);
+  const dirty = comp === "new" || JSON.stringify(form) !== JSON.stringify(initial);
+  const touched = comp === "new" ? !!(form.code || form.name) : dirty;
+  useEffect(() => { onDirty?.(touched); }, [touched, onDirty]);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const set = <K extends keyof PayComponentInput>(k: K, v: PayComponentInput[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -110,10 +116,10 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
     start(async () => {
       const r = await savePayComponent(comp === "new" ? null : comp.id, form);
       if (r.error) setError(r.error);
-      else if (r.proposed) { showNotice(proposedText(r.proposed)); onClose(); }
+      else if (r.proposed) { showNotice(proposedText(r.proposed)); if (comp === "new") onClose(); else setForm(initial); }
       else {
-        onClose();
-        if (comp === "new" && r.id) onCreated(r.id);
+        toast(t("Tersimpan"), "ok");
+        if (comp === "new") { if (r.id) onCreated(r.id); else onClose(); }
       }
     });
   }
@@ -127,9 +133,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
     </label>
   );
   return (
-    <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle><T>{comp === "new" ? "Tambah Komponen" : "Ubah Komponen"}</T></DialogTitle></DialogHeader>
+    <div>
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
             <div className="space-y-1.5"><Label className="text-xs"><T>Kode</T></Label>
@@ -306,11 +310,10 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}><T>Batal</T></Button>
-          <Button onClick={save} disabled={pending} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T></Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="mt-4 flex justify-end gap-2 border-t border-gray-100 pt-4">
+          <Button variant="outline" disabled={pending || !dirty} onClick={() => { setError(null); if (comp === "new") onClose(); else setForm(initial); }}><T>Batal</T></Button>
+          <Button onClick={save} disabled={pending || !dirty} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T></Button>
+        </div>
+    </div>
   );
 }

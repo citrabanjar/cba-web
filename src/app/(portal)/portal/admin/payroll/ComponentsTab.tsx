@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ChevronRight, Coins, Loader2, MinusCircle, Pencil, Plus, Search, ShieldCheck, Trash2, UserPlus, Users, Wallet } from "lucide-react";
+import { ChevronRight, Coins, Loader2, MinusCircle, Plus, Search, ShieldCheck, Trash2, UserPlus, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { useCanApply, useCanEdit } from "@/components/portal/edit-access";
 import { PAY_KINDS, categoryLabel, describe, type PayComponentInput } from "@/lib/payroll";
 import { deletePayComponent, setComponentAssignments } from "./actions";
 import { proposedText } from "@/lib/approval-text";
-import ComponentDialog from "./ComponentDialog";
+import ComponentForm from "./ComponentForm";
 import { toast } from "@/components/portal/Toast";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
@@ -24,6 +24,13 @@ const KIND_TONE: Record<string, { color: string; icon: React.ElementType }> = {
   POTONGAN: { color: "#f43f5e", icon: MinusCircle },
   BENEFIT: { color: "#6366f1", icon: ShieldCheck },
 };
+// Sidik ringkas data komponen (untuk key formulir).
+function fingerprint(c: Component) {
+  const s = JSON.stringify({ ...c, employeeIds: undefined });
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h.toString(36);
+}
 // Tempel komponen ke karyawan (mirip tempel jadwal): centang karyawan yang mendapat komponen ini.
 function AssignDialog({ comp, employees, onClose }: { comp: Component; employees: PayEmployee[]; onClose: () => void }) {
   const t = useT();
@@ -92,7 +99,8 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: tombol tambah/ubah/hapus disembunyikan
   const canApply = useCanApply(); // tempel komponen ke karyawan cukup hak lihat
-  const [editing, setEditing] = useState<Component | "new" | null>(null);
+  const [creating, setCreating] = useState(false); // formulir komponen baru di panel kanan
+  const [dirty, setDirty] = useState(false); // ada isian formulir yang belum disimpan
   const [assigning, setAssigning] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const assignComp = components.find((c) => c.id === assigning);
@@ -100,6 +108,12 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
   const ordered = PAY_KINDS.flatMap((k) => components.filter((c) => c.kind === k.key));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = ordered.find((c) => c.id === selectedId) ?? ordered[0];
+  // Pindah komponen / buka formulir baru: isian yang belum disimpan dikonfirmasi dulu.
+  async function leave(go: () => void) {
+    if (dirty && !(await askConfirm(t("Perubahan belum disimpan. Tinggalkan tanpa menyimpan?")))) return;
+    setDirty(false);
+    go();
+  }
   async function remove(c: Component) {
     if (!await askConfirm(t("Hapus komponen ini?"))) return;
     start(async () => {
@@ -116,13 +130,13 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
           <p className="text-xs text-gray-400"><T>Setiap komponen menjadi bagian dari hasil Proses Gaji. Nilai komponen ditetapkan melalui Input atau Rumus.</T></p>
         </div>
         {canEdit && (
-          <button type="button" onClick={() => setEditing("new")}
+          <button type="button" onClick={() => leave(() => setCreating(true))}
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
             <Plus size={14} /> <T>Tambah Komponen</T>
           </button>
         )}
       </div>
-      {components.length === 0 ? (
+      {components.length === 0 && !creating ? (
         <p className="px-5 py-10 text-center text-sm text-gray-400"><T>Belum ada komponen.</T></p>
       ) : (
       // Daftar komponen di kiri (per jenis), rincian komponen terpilih di kanan (seperti halaman Organisasi).
@@ -138,9 +152,9 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                   <tone.icon size={13} style={{ color: tone.color }} /> <T>{k.label}</T> <span className="text-gray-300">{list.length}</span>
                 </p>
                 {list.map((c) => {
-                  const on = c.id === selected?.id;
+                  const on = !creating && c.id === selected?.id;
                   return (
-                    <button key={c.id} type="button" onClick={() => setSelectedId(c.id)}
+                    <button key={c.id} type="button" onClick={() => { if (!on) leave(() => { setCreating(false); setSelectedId(c.id); }); }}
                       className={`flex w-full items-center gap-2.5 border-b border-gray-100 px-4 py-2.5 text-left ${on ? "bg-brand/10" : "hover:bg-gray-50"} ${c.isActive ? "" : "opacity-55"}`}>
                       <span className="flex h-7 min-w-10 items-center justify-center rounded-lg px-1.5 text-[10px] font-bold text-white" style={{ background: tone.color }}>{c.code}</span>
                       <span className={`min-w-0 flex-1 truncate text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}>{t(c.name)}</span>
@@ -154,22 +168,32 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
             );
           })}
         </nav>
-        {selected && (() => {
+        {creating && canEdit && (
+          <div className="relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <span className="absolute inset-y-0 left-0 w-1.5 bg-ink" />
+            <div className="p-4 pl-5">
+              <p className="mb-4 font-bold text-gray-900"><T>Tambah Komponen</T></p>
+              <ComponentForm key="new" comp="new" all={components} workDaysPerWeek={workDaysPerWeek} onDirty={setDirty}
+                onClose={() => { setDirty(false); setCreating(false); }}
+                onCreated={(id) => { setDirty(false); setCreating(false); setSelectedId(id); setAssigning(id); }} />
+            </div>
+          </div>
+        )}
+        {!creating && selected && (() => {
           const c = selected, tone = KIND_TONE[c.kind] ?? KIND_TONE.PENDAPATAN;
           return (
-                <div className={`relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white ${c.isActive ? "" : "opacity-55"}`}>
+            <div className="relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
               <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: tone.color }} />
               <div className="p-4 pl-5">
-                <div className="flex items-start gap-3">
+                <div className={`flex items-start gap-3 ${c.isActive ? "" : "opacity-55"}`}>
                   <span className="flex h-9 min-w-12 items-center justify-center rounded-xl px-2 text-[11px] font-bold text-white" style={{ background: tone.color }}>{c.code}</span>
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-gray-900">{t(c.name)}</p>
                     <p className="text-xs text-gray-500"><T>{categoryLabel(c.category)}</T> · <T>{c.method === "INPUT" ? "Input" : c.method === "PPH21" ? "Sistem" : "Rumus"}</T>{!c.isActive && <> · <T>Nonaktif</T></>}</p>
                   </div>
-                  {canEdit && <button type="button" onClick={() => setEditing(c)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>}
                   {canEdit && <button type="button" onClick={() => remove(c)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
                 </div>
-                <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>
+                {!canEdit && <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {canApply ? (
                     <button type="button" onClick={() => setAssigning(c.id)}
@@ -191,13 +215,19 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                   {c.kind === "PENDAPATAN" && c.params?.prorate && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600"><T>Prorata</T></span>}
                   {c.method === "THR" && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"><T>Tidak rutin</T></span>}
                 </div>
+                {canEdit && (
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    {/* key berubah bila data tersimpan berubah, supaya isian kembali ke data terbaru. */}
+                    <ComponentForm key={`${c.id}:${fingerprint(c)}`} comp={c} all={components} workDaysPerWeek={workDaysPerWeek}
+                      onDirty={setDirty} onClose={() => {}} onCreated={() => {}} />
+                  </div>
+                )}
               </div>
             </div>
           );
         })()}
       </div>
       )}
-      {canEdit && editing && <ComponentDialog comp={editing} all={components} workDaysPerWeek={workDaysPerWeek} onClose={() => setEditing(null)} onCreated={setAssigning} />}
       {canApply && assignComp && <AssignDialog key={assignComp.id} comp={assignComp} employees={employees} onClose={() => setAssigning(null)} />}
     </section>
   );
