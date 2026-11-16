@@ -131,7 +131,7 @@ export function LoanRequestSummary({ plan: p }: { plan: LoanPlan }) {
           <p className="text-[11px] text-gray-500"><T>Digabung</T>: {p.merged.join(", ")} + <T>pinjaman baru</T> {formatRupiah(p.principal)}</p>
           <p className="flex justify-between gap-2"><span><T>Total pinjaman gabungan</T></span><b>{formatRupiah(p.total)}</b></p>
           <p className="flex justify-between gap-2"><span><T>Angsuran yang diminta</T></span><span><b>{formatRupiah(p.first)}</b><T>/bulan</T> x {p.count} · {periodShort(p.startPeriod)} – {periodShort(p.endPeriod)}</span></p>
-          {p.last !== p.first && <p className="text-right text-[11px] text-gray-500"><T>terakhir</T> {formatRupiah(p.last)}</p>}
+          {p.last !== p.first && <p className="text-right text-[11px] text-gray-500"><T>angsuran terakhir</T> {formatRupiah(p.last)}</p>}
         </>
       )}
       <p className="flex justify-between gap-2 rounded-md bg-amber-50 px-2 py-1 text-amber-900"><span><T>Total potongan pinjaman per bulan</T></span><span>{formatRupiah(p.before)} → <b>{formatRupiah(p.after)}</b></span></p>

@@ -130,7 +130,7 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
               <p className="text-xs font-semibold text-gray-600"><T>Angsuran baru</T></p>
               <p className="text-sm text-gray-800">
                 <b>{formatRupiah(preview[0].amount)}</b><T>/bulan</T> x {preview.length} · {periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}
-                {preview[preview.length - 1].amount !== preview[0].amount && <span className="text-gray-500"> · <T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)}</span>}
+                {preview[preview.length - 1].amount !== preview[0].amount && <span className="text-gray-500"> · <T>angsuran terakhir</T> {formatRupiah(preview[preview.length - 1].amount)}</span>}
               </p>
               {running.length > 0 && (
                 <p className="flex justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">

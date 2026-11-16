@@ -9,7 +9,7 @@ import { assessAttendance } from "@/lib/attendance-assess";
 import { decideStep } from "@/lib/workflow-settings";
 import { readApproval } from "@/lib/onboarding-interview";
 import { dateRange, decisionText, notify } from "@/lib/notify";
-import { loanPreStep, loanStepIds, loanTopIds, loanTurn, readLoanFlow } from "@/lib/loans";
+import { loanPreStep, loanTopIds, loanTurn, readLoanFlow } from "@/lib/loans";
 import { applyPlan, loanAdmins, planLoan } from "@/lib/loan-flow";
 import { formatRupiah } from "@/lib/utils";
 
@@ -143,7 +143,6 @@ export async function decideLoan(id: string, approve: boolean, note: string): Pr
     if (following) {
       // Level Workflow berikutnya (sebelum pemeriksaan Admin).
       await prisma.employeeLoan.update({ where: { id }, data: { flow: next } });
-      await notify(loanStepIds(following), "Pengajuan pinjaman baru", `${loan.user.name} · ${amount} · ${loan.tenor} kali angsuran. Menunggu persetujuan Anda.`, "/portal/notifikasi?modul=pinjaman");
       return done();
     }
     await prisma.employeeLoan.update({ where: { id }, data: { stage: "ADMIN", flow: next } });

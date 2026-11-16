@@ -478,7 +478,7 @@ export function LoanApprovalCard({ item: l }: { item: LoanItem }) {
               <p className="flex justify-between gap-2"><span><T>Total pinjaman</T></span><b>{formatRupiah(plan.total)}</b></p>
               {plan.merged.length > 0 && <p className="text-[11px] text-gray-500"><T>Digabung</T>: {plan.merged.join(", ")} + <T>dana baru</T> {formatRupiah(plan.principal)}</p>}
               <p className="flex justify-between gap-2"><span><T>Angsuran</T></span><span><b>{formatRupiah(plan.first)}</b><T>/bulan</T> x {plan.count} · {periodShort(plan.startPeriod)} – {periodShort(plan.endPeriod)}</span></p>
-              {plan.last !== plan.first && <p className="text-right text-[11px] text-gray-500"><T>terakhir</T> {formatRupiah(plan.last)}</p>}
+              {plan.last !== plan.first && <p className="text-right text-[11px] text-gray-500"><T>angsuran terakhir</T> {formatRupiah(plan.last)}</p>}
               <p className="flex justify-between gap-2 rounded-md bg-amber-50 px-2 py-1 text-amber-900"><span><T>Total potongan pinjaman per bulan</T></span><span>{formatRupiah(plan.before)} → <b>{formatRupiah(plan.after)}</b></span></p>
               {l.flow.adminNote && <p className="text-[11px] text-gray-500"><T>Catatan pemeriksaan</T>: {l.flow.adminNote}</p>}
             </div>

@@ -63,9 +63,8 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
     },
   });
   const what = `${session.user.name ?? ""} · ${formatRupiah(amount)} · ${tenor} kali angsuran.${request?.mergeIds.length ? " Dengan permohonan hitung ulang angsuran." : ""}`;
-  if (stage === "ATASAN") {
-    await notify(flow.pre ? loanStepIds(flow.pre[0]) : [flow.managerId], "Pengajuan pinjaman baru", `${what} Menunggu persetujuan Anda.`, "/portal/notifikasi?modul=pinjaman");
-  } else {
+  // Penyetuju yang mendapat giliran cukup melihat kartu "Menunggu keputusan Anda" (tanpa notifikasi ganda, sama seperti cuti).
+  if (stage !== "ATASAN") {
     // Workflow satu level: langsung ke pemeriksaan Admin; penyetuju mendapat kabar.
     await notify(await loanAdmins(), "Pengajuan pinjaman perlu diperiksa", `${what} Periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
     await notify(flow.topIds ?? [], "Pengajuan pinjaman dalam pemeriksaan Admin", `${what} Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");

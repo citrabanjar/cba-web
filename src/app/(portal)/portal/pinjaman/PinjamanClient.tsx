@@ -133,7 +133,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
                   {preview.length <= 120 && (
                     <>
                       <p className="flex justify-between gap-2"><span><T>Angsuran per bulan</T></span><span><b>{formatRupiah(preview[0].amount)}</b>
-                        {preview[preview.length - 1].amount !== preview[0].amount && <> (<T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)})</>}</span></p>
+                        {preview[preview.length - 1].amount !== preview[0].amount && <> (<T>angsuran terakhir</T> {formatRupiah(preview[preview.length - 1].amount)})</>}</span></p>
                       <p className="flex justify-between gap-2"><span><T>Jangka waktu</T></span><b>{preview.length} <T>bulan</T></b></p>
                       <p className="flex justify-between gap-2"><span><T>Periode potongan</T></span><b>{periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}</b></p>
                     </>

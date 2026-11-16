@@ -129,7 +129,7 @@ export function OpeningLoanImportDialog({ employees, onClose }: { employees: Loa
                 {rows.map((r, i) => (
                   <tr key={i} className={r.problem ? "bg-rose-50/60" : ""}>
                     <td className="px-3 py-1.5">{r.employeeId}</td><td className="px-3 py-1.5">{r.name ?? "—"}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">{formatRupiah(r.remaining)}</td><td className="px-3 py-1.5 text-right">{r.installment ? <>{formatRupiah(r.installment)} x {r.tenor}{r.remaining - r.installment * (r.tenor - 1) !== r.installment && <span className="block text-[10px] text-gray-400"><T>terakhir</T> {formatRupiah(r.remaining - r.installment * (r.tenor - 1))}</span>}</> : r.tenor}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{formatRupiah(r.remaining)}</td><td className="px-3 py-1.5 text-right">{r.installment ? <>{formatRupiah(r.installment)} x {r.tenor}{r.remaining - r.installment * (r.tenor - 1) !== r.installment && <span className="block text-[10px] text-gray-400"><T>angsuran terakhir</T> {formatRupiah(r.remaining - r.installment * (r.tenor - 1))}</span>}</> : r.tenor}</td>
                     <td className="px-3 py-1.5">{r.startPeriod}</td>
                     <td className={`px-3 py-1.5 ${r.problem ? "text-rose-700" : "text-emerald-700"}`}>{r.problem ? t(r.problem) : "OK"}</td>
                   </tr>

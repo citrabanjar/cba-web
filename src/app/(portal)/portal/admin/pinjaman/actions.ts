@@ -6,7 +6,7 @@ import { formatRupiah } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
-import { buildSchedule, buildScheduleByAmount, isPeriod, loanTopIds, readLoanFlow } from "@/lib/loans";
+import { buildSchedule, buildScheduleByAmount, isPeriod, readLoanFlow } from "@/lib/loans";
 import { planLoan, topLeaderOf, type PlanInput } from "@/lib/loan-flow";
 import { nextLoanNo } from "@/lib/loan-view";
 import { holdForApproval } from "@/lib/approval-hold";
@@ -59,8 +59,6 @@ export async function submitLoanReview(id: string, input: PlanInput & { note: st
       flow: { ...flow, topId: top.id, topName: top.name, adminId: access.id, adminName: access.name ?? "Admin", adminAt: new Date().toISOString(), adminNote: input.note.trim(), plan: p.plan },
     },
   });
-  await notify(flow.workflow ? loanTopIds(flow) : [top.id], "Pengajuan pinjaman menunggu keputusan Anda",
-    `${loan.user.name} · ${formatRupiah(p.total)} · ${p.rows.length} kali angsuran. Dokumen sudah diperiksa ${access.name ?? "Admin"}.`, "/portal/notifikasi?modul=pinjaman");
   await notify(loan.userId, "Pengajuan pinjaman sudah diperiksa Admin", `${formatRupiah(loan.principal)} · Menunggu keputusan pimpinan.`, "/portal/pinjaman");
   refresh(loan.userId);
   revalidatePath("/portal/notifikasi");
