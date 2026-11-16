@@ -57,31 +57,31 @@ export function ConfirmHost() {
   const close = (ok: boolean) => { req?.resolve(ok); setReq(null); };
   const act = req && !req.notice ? actionOf(req.message, t) : null;
   const icon = req?.notice === "error"
-    ? <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600"><XCircle size={22} /></span>
+    ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600"><XCircle size={16} /></span>
     : req?.notice === "warn"
-    ? <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600"><TriangleAlert size={22} /></span>
+    ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600"><TriangleAlert size={16} /></span>
     : req?.notice
-    ? <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><CheckCircle2 size={22} /></span>
+    ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><CheckCircle2 size={16} /></span>
     : act?.danger
-      ? <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600"><TriangleAlert size={22} /></span>
-      : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"><HelpCircle size={22} /></span>;
+      ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600"><TriangleAlert size={16} /></span>
+      : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"><HelpCircle size={16} /></span>;
   return (
     <Dialog open={!!req} onOpenChange={(o: boolean) => { if (!o) close(!!req?.notice); }}>
-      <DialogContent className="p-6 sm:max-w-lg">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3 text-lg">
+          <DialogTitle className="flex items-center gap-2">
             {icon}
             {req?.notice === "error" ? t("Gagal") : req?.notice === "warn" ? t("Peringatan") : req?.notice ? t("Pemberitahuan") : t("Konfirmasi")}
           </DialogTitle>
         </DialogHeader>
-        <p className="py-1 text-base leading-relaxed text-gray-800">{req ? t(req.message) : ""}</p>
+        <p className="text-sm leading-relaxed text-gray-700">{req ? t(req.message) : ""}</p>
         <DialogFooter className="gap-2">
           {req?.notice ? (
-            <Button autoFocus size="lg" className="h-10 min-w-28 px-5 text-sm" onClick={() => close(true)}>OK</Button>
+            <Button autoFocus onClick={() => close(true)}>OK</Button>
           ) : (
             <>
-              <Button variant="outline" size="lg" className="h-10 px-5 text-sm" onClick={() => close(false)}>{t("Batal")}</Button>
-              <Button autoFocus size="lg" onClick={() => close(true)} className={`h-10 min-w-28 px-5 text-sm ${act?.danger ? "bg-red-600 text-white hover:bg-red-700" : ""}`}>{act?.label}</Button>
+              <Button variant="outline" onClick={() => close(false)}>{t("Batal")}</Button>
+              <Button autoFocus onClick={() => close(true)} className={`${act?.danger ? "bg-red-600 text-white hover:bg-red-700" : ""}`}>{act?.label}</Button>
             </>
           )}
         </DialogFooter>
