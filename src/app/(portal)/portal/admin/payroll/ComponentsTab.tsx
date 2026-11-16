@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ChevronRight, Coins, Loader2, MinusCircle, Plus, Search, ShieldCheck, Trash2, UserPlus, Users, Wallet } from "lucide-react";
+import { ChevronDown, ChevronRight, Coins, Loader2, MinusCircle, Plus, Search, ShieldCheck, Trash2, UserPlus, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -101,6 +101,7 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
   const canApply = useCanApply(); // tempel komponen ke karyawan cukup hak lihat
   const [creating, setCreating] = useState(false); // formulir komponen baru di panel kanan
   const [dirty, setDirty] = useState(false); // ada isian formulir yang belum disimpan
+  const [showForm, setShowForm] = useState(false); // formulir ubah di bawah garis: dibuka / disembunyikan
   const [assigning, setAssigning] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const assignComp = components.find((c) => c.id === assigning);
@@ -193,7 +194,7 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                   </div>
                   {canEdit && <button type="button" onClick={() => remove(c)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
                 </div>
-                {!canEdit && <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>}
+                {(!canEdit || !showForm) && <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {canApply ? (
                     <button type="button" onClick={() => setAssigning(c.id)}
@@ -216,11 +217,22 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
                   {c.method === "THR" && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"><T>Tidak rutin</T></span>}
                 </div>
                 {canEdit && (
-                  <div className="mt-4 border-t border-gray-100 pt-4">
+                  <>
+                  {/* Garis pembatas sekaligus tombol buka / sembunyikan formulir ubah. */}
+                  <button type="button" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}
+                    className="group mt-4 flex w-full items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-brand">
+                    <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                    <T>{showForm ? "Sembunyikan pengaturan" : "Tampilkan pengaturan"}</T>
+                    <ChevronDown size={14} className={`transition-transform ${showForm ? "rotate-180" : ""}`} />
+                    <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                  </button>
+                  {/* Disembunyikan (bukan dilepas) supaya isian yang belum disimpan tidak hilang. */}
+                  <div className={showForm ? "pt-4" : "hidden"}>
                     {/* key berubah bila data tersimpan berubah, supaya isian kembali ke data terbaru. */}
                     <ComponentForm key={`${c.id}:${fingerprint(c)}`} comp={c} all={components} workDaysPerWeek={workDaysPerWeek}
                       onDirty={setDirty} onClose={() => {}} onCreated={() => {}} />
                   </div>
+                  </>
                 )}
               </div>
             </div>
