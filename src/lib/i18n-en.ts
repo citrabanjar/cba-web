@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Buka profil karyawan": "Open employee profile",
   "Isian per tanggal menggantikan pola kerja di tanggal itu; Hapus isian mengembalikannya ke pola kerja.": "A per-date entry replaces the work pattern on that date; Clear entry returns it to the work pattern.",
   "Seret shift ke tanggal, atau klik shift lalu klik / sapu tanggal-tanggalnya. Tanggal yang diubah bergaris merah sampai disimpan.": "Drag a shift onto a date, or click a shift then click / sweep across dates. Changed dates have a red border until saved.",
   "Setelah disimpan, seret shift ke tanggal-tanggalnya langsung di Kalender Kehadiran (untuk Security atau jadwal tidak teratur).": "After saving, drag shifts onto the dates directly in the Attendance Calendar (for Security or irregular schedules).",

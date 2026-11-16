@@ -232,7 +232,9 @@ export default function RosterTab({
                 {shown.map((row) => (
                   <tr key={row.id}>
                     <td className="sticky left-0 z-10 border-b border-r border-gray-100 bg-white px-3 py-1.5">
-                      <p className="truncate font-semibold text-gray-900">{row.name}</p>
+                      {/* Klik nama: buka profil karyawan (tab Kehadiran & Shift). */}
+                      <Link href={`/portal/admin/karyawan/${row.id}?tab=absensi`} title={t("Buka profil karyawan")}
+                        className="block truncate font-semibold text-gray-900 hover:text-brand hover:underline">{row.name}</Link>
                       <p className="truncate text-[10px] text-gray-400">{[row.employeeId, row.department].filter(Boolean).join(" · ")}</p>
                       {row.unscheduled > 0 && (
                         <span className="mt-0.5 inline-flex rounded-full bg-rose-50 px-1.5 py-px text-[10px] font-semibold text-rose-600"><T>Belum ada jadwal</T></span>
