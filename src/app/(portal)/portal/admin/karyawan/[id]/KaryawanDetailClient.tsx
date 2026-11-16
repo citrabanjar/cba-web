@@ -710,10 +710,6 @@ export default function KaryawanDetailClient({
   const canEditMenu = useCanEdit("karyawan");
   const canEditPay = useCanEdit("gaji");
   const canEditSchedule = useCanApply("absensi"); // tempel jadwal cukup hak lihat Absensi
-  // Palet shift tampil bila jadwalnya bukan Pola Kerja: Jadwal Manual, atau belum punya jadwal (mis. jadwalnya
-  // dihapus tapi isian per tanggal masih ada) supaya isian itu tetap bisa diubah / dikosongkan. Menyimpan isian
-  // pada karyawan tanpa jadwal otomatis menandainya Jadwal Manual.
-  const manualNow = schedules[0]?.type !== "POLA";
   const canEdit = canEditTarget && canEditMenu;
   // Hak "Ajukan": boleh membuka Edit data (Ubah Data saja); simpanan menjadi pengajuan ke atasan langsung si Admin.
   const canPropose = useCanPropose("karyawan");
@@ -1172,7 +1168,7 @@ export default function KaryawanDetailClient({
 
         {tab === "absensi" && (
           <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
-            shiftEdit={canEditTarget && canEditSchedule && manualNow ? { userId: emp.id, shifts: shiftOptions } : undefined}
+            shiftEdit={canEditTarget && canEditSchedule ? { userId: emp.id, shifts: shiftOptions } : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} />} />
         )}
 

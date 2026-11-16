@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Loader2, LogIn, LogOut, MapPin } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Eraser, Loader2, LogIn, LogOut, MapPin } from "lucide-react";
 import { saveShiftDays } from "../../schedule/actions";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -185,33 +185,34 @@ export default function AttendanceCalendar({
 
         <div className="p-4 sm:p-5">
           {shiftEdit && (
-            <div className="mb-4 space-y-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 text-xs font-semibold text-gray-500"><T>Shift</T>:</span>
+            <div className="mb-4 space-y-2 rounded-2xl border border-gray-200 bg-white p-3">
+              {/* Kartu shift: sama dengan Jadwal → Jadwal Bulanan (baris karyawan ini), tanpa "Isi dari minggu sebelumnya". */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-xs font-semibold text-gray-500"><T>Kartu shift</T>:</span>
                 {shiftEdit.shifts.length === 0 && <span className="text-xs text-amber-700"><T>Belum ada shift aktif. Buat dulu di Jadwal → Shift.</T></span>}
                 {shiftEdit.shifts.map((s) => (
-                  <button key={s.id} type="button" draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", s.id)}
+                  <button key={s.id} type="button" draggable onDragStart={(e) => { e.dataTransfer.setData("text/plain", s.id); setBrush(s.id); }}
                     onClick={() => setBrush(brush === s.id ? null : s.id)} title={s.name}
-                    className={`inline-flex cursor-grab items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold active:cursor-grabbing ${brush === s.id ? "ring-2 ring-offset-1" : ""}`}
-                    style={{ borderColor: s.color, color: s.color, background: `${s.color}1a`, ...(brush === s.id ? { ["--tw-ring-color" as string]: s.color } : {}) }}>
-                    {s.code} <span className="font-normal text-gray-500">{s.name}</span>
+                    className={`inline-flex h-9 cursor-grab items-center gap-2 rounded-xl px-3 text-xs font-bold text-white shadow-sm transition-transform active:cursor-grabbing ${brush === s.id ? "ring-2 ring-ink ring-offset-2 scale-105" : "opacity-85 hover:opacity-100"}`}
+                    style={{ background: s.color }}>
+                    {s.code} <span className="font-medium opacity-90">{s.name}</span>
                   </button>
                 ))}
-                <button type="button" draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "CLEAR")}
+                <button type="button" draggable onDragStart={(e) => { e.dataTransfer.setData("text/plain", "CLEAR"); setBrush(""); }}
                   onClick={() => setBrush(brush === "" ? null : "")}
-                  className={`inline-flex items-center rounded-full border border-dashed border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-500 ${brush === "" ? "ring-2 ring-gray-400 ring-offset-1" : ""}`}>
-                  <T>Kosongkan</T>
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-xl border border-dashed border-gray-300 bg-white px-3 text-xs font-semibold text-gray-600 ${brush === "" ? "ring-2 ring-ink ring-offset-2" : ""}`}>
+                  <Eraser size={14} /> <T>Hapus isian</T>
                 </button>
                 {editCount > 0 && (
                   <span className="ml-auto flex items-center gap-1.5">
-                    <button type="button" disabled={saving} onClick={() => setEdits({})} className="h-8 rounded-full border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Batal</T></button>
-                    <button type="button" disabled={saving} onClick={saveEdits} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-brand px-3 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60">
+                    <button type="button" disabled={saving} onClick={() => setEdits({})} className="h-9 rounded-full border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Batal</T></button>
+                    <button type="button" disabled={saving} onClick={saveEdits} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60">
                       {saving && <Loader2 size={13} className="animate-spin" />} <T>Simpan</T> ({editCount})
                     </button>
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-gray-500"><T>Seret shift ke tanggal, atau klik shift lalu klik / sapu tanggal-tanggalnya. Tanggal yang diubah bergaris merah sampai disimpan.</T></p>
+              <p className="text-[11px] text-gray-500"><T>Pilih kartu, lalu klik atau tahan-dan-geser di kotak tanggal. Kartu juga bisa diseret ke kotak.</T> <T>Isian per tanggal menggantikan pola kerja di tanggal itu; Hapus isian mengembalikannya ke pola kerja.</T></p>
               {saveErr && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700"><T>{saveErr}</T></p>}
             </div>
           )}
@@ -258,7 +259,7 @@ export default function AttendanceCalendar({
                     {edited ? (
                       es ? (
                         <span title={es.name} className="pointer-events-none rounded-md px-1 py-px text-[9px] font-bold leading-tight text-white sm:text-[10px]" style={{ background: es.color }}>{es.code}</span>
-                      ) : <span title={t("Kosongkan")} className="pointer-events-none h-4 w-5 rounded-md border border-dashed border-gray-300 bg-white" />
+                      ) : <span title={t("Hapus isian")} className="pointer-events-none h-4 w-5 rounded-md border border-dashed border-gray-300 bg-white" />
                     ) : shiftDays[k]?.manual ? (
                       <span title={t("Belum diisi")} className="h-4 w-5 rounded-md border border-dashed border-amber-300 bg-amber-50" />
                     ) : shiftDays[k] && (
