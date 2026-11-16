@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -156,11 +156,6 @@ function ScheduleDialog({ loan, onClose }: { loan: LoanView; onClose: () => void
   const total = rows.reduce((a, r) => a + (Number(r.amount) || 0), 0);
   const diff = Math.round(remaining - total);
   const set = (i: number, patch: Partial<(typeof rows)[number]>) => setRows((x) => x.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-  const spread = () => {
-    if (!rows.length) return;
-    const fresh = buildSchedule(remaining, rows.length, rows[0].period);
-    setRows(rows.map((r, i) => ({ period: r.period, amount: String(fresh[i].amount) })));
-  };
   // Nominal yang diubah berlaku juga untuk angsuran sesudahnya; jumlah angsuran menyesuaikan dan
   // angsuran terakhir = sisanya. Dijalankan saat kolom ditinggalkan (atau Enter), bukan tiap ketikan.
   const [follow, setFollow] = useState(true);
@@ -208,13 +203,6 @@ function ScheduleDialog({ loan, onClose }: { loan: LoanView; onClose: () => void
               <button type="button" aria-label={t("Hapus baris")} className="rounded p-1 text-gray-400 hover:text-rose-600" onClick={() => setRows((x) => x.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
             </div>
           ))}
-        </div>
-        <div className="flex flex-wrap gap-3 text-xs">
-          <button type="button" className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
-            onClick={() => setRows((x) => [...x, { period: x.length ? addMonths(x[x.length - 1].period, 1) : addMonths(thisMonth(), 1), amount: String(Math.max(0, diff)) }])}>
-            <Plus size={12} /> <T>Tambah angsuran</T>
-          </button>
-          <button type="button" className="font-medium text-brand hover:underline" onClick={spread}><T>Ratakan sisa ke semua angsuran</T></button>
         </div>
         <p className={`rounded-lg px-3 py-2 text-xs ${diff === 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
           <T>Total angsuran belum terpotong</T>: {formatRupiah(total)} {diff === 0 ? `· ${t("sudah sama dengan sisa pinjaman")}` : `· ${t("selisih")} ${formatRupiah(diff)}`}
