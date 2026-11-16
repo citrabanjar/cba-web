@@ -14,6 +14,7 @@ import {
 import { savePayComponent } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import type { Component } from "./ComponentsTab";
+import { toast } from "@/components/portal/Toast";
 
 const EMPTY: PayComponentInput = {
   code: "", name: "", kind: "PENDAPATAN", category: "TUNJANGAN_LAIN", method: "INPUT", param: null,
@@ -111,7 +112,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
     start(async () => {
       const r = await savePayComponent(comp === "new" ? null : comp.id, form);
       if (r.error) setError(r.error);
-      else if (r.proposed) { window.alert(proposedText(r.proposed)); onClose(); }
+      else if (r.proposed) { toast(proposedText(r.proposed), "info"); onClose(); }
       else {
         onClose();
         if (comp === "new" && r.id) onCreated(r.id);

@@ -9,6 +9,7 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
 import { cancelSplItem, createSpl, decideRevision } from "./actions";
+import { toast } from "@/components/portal/Toast";
 
 export type AdminOvertime = {
   id: string; name: string; employeeId: string | null; date: string; start: string; end: string; breakStart: string | null; breakEnd: string | null;
@@ -99,7 +100,7 @@ function Row({ r, canEdit }: { r: AdminOvertime; canEdit: boolean }) {
       <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{r.paid === null ? "—" : `${num(r.paid)} jam`}</td>
       <td className="px-3 py-2.5 text-right">
         {canEdit && r.spl && ["MENUNGGU_KARYAWAN", "DISETUJUI"].includes(r.status) && !r.checkOut && (
-          <button type="button" disabled={pending} onClick={() => { if (window.confirm("Batalkan lembur karyawan ini?")) start(async () => { const x = await cancelSplItem(r.id); if (x.error) window.alert(x.error); }); }}
+          <button type="button" disabled={pending} onClick={() => { if (window.confirm("Batalkan lembur karyawan ini?")) start(async () => { const x = await cancelSplItem(r.id); if (x.error) toast(x.error, "error"); }); }}
             className="text-xs text-rose-600 hover:underline disabled:opacity-50"><T>Batalkan</T></button>
         )}
       </td>

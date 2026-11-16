@@ -37,6 +37,7 @@ import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import ProfileLoans from "@/components/portal/LoanManager";
 import type { LoanView } from "@/components/portal/LoanCard";
 import RegionSelect from "@/components/RegionSelect";
+import { toast } from "@/components/portal/Toast";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; dailyWage: number | null; monthlyFactor: number | null; bpjsTkBase: number | null;
@@ -578,7 +579,7 @@ function SalaryDialog({
           components: components.filter((c) => c.name.trim() && c.amount > 0),
         });
         if (r && "error" in r && r.error) { setError(r.error); return; }
-        if (r && "proposed" in r && r.proposed) window.alert(proposedText(r.proposed));
+        if (r && "proposed" in r && r.proposed) toast(proposedText(r.proposed), "info");
         onClose();
       } catch {
         setError("Gagal menyimpan. Periksa isian; tanggal berlaku tidak boleh sama dengan riwayat yang ada.");

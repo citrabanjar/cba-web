@@ -12,6 +12,7 @@ import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import LocationMap from "./LocationMap";
 import { deleteLocation, saveLocation, type LocationInput } from "./actions";
+import { toast } from "@/components/portal/Toast";
 
 export type Location = LocationInput & { id: string; address: string };
 type Option = { id: string; label: string; sub?: string; color?: string; department?: string | null };
@@ -111,7 +112,7 @@ function LocationDialog({
     start(async () => {
       const r = await saveLocation(location === "new" ? null : location.id, form);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
     });
   }
 
@@ -287,7 +288,7 @@ export default function LocationTab({
                           <Pencil size={14} />
                         </button>
                         <button type="button" disabled={pending} aria-label={t("Hapus")}
-                          onClick={() => { if (window.confirm(t("Hapus lokasi ini?"))) start(async () => { const r = await deleteLocation(l.id); if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); }); }}
+                          onClick={() => { if (window.confirm(t("Hapus lokasi ini?"))) start(async () => { const r = await deleteLocation(l.id); if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info"); }); }}
                           className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30">
                           <Trash2 size={14} />
                         </button>

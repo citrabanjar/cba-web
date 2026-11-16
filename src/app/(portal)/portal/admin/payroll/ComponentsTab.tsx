@@ -11,6 +11,7 @@ import { PAY_KINDS, categoryLabel, describe, type PayComponentInput } from "@/li
 import { deletePayComponent, setComponentAssignments } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import ComponentDialog from "./ComponentDialog";
+import { toast } from "@/components/portal/Toast";
 
 export type Component = Omit<PayComponentInput, "legalBasis" | "note"> & {
   id: string; legalBasis: string | null; note: string | null; sortOrder: number; updatedBy: string | null; employeeIds: string[];
@@ -39,7 +40,7 @@ function AssignDialog({ comp, employees, onClose }: { comp: Component; employees
     start(async () => {
       const r = await setComponentAssignments(comp.id, [...picked]);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
     });
   }
   return (
@@ -98,7 +99,7 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
     if (!window.confirm(t("Hapus komponen ini?"))) return;
     start(async () => {
       const r = await deletePayComponent(c.id);
-      if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed));
+      if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info");
     });
   }
   return (

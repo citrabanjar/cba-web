@@ -20,6 +20,7 @@ import AssignDialog, { type EmployeeOption } from "./AssignDialog";
 import {
   deleteHoliday, deletePattern, deleteShift, saveHoliday, savePattern, saveRule, saveShift,
   type BreakTime, type PatternInput, type RuleInput, type ShiftInput, reorderShifts } from "./actions";
+import { toast } from "@/components/portal/Toast";
 
 type Shift = Omit<ShiftInput, "startTime" | "endTime"> & {
   id: string; used: number; startTime: string | null; endTime: string | null;
@@ -151,7 +152,7 @@ function ShiftDialog({ shift, onClose }: { shift: Shift | "new"; onClose: () => 
     start(async () => {
       const r = await saveShift(shift === "new" ? null : shift.id, form);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
     });
   }
 
@@ -300,7 +301,7 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
     start(async () => {
       const r = await deleteShift(s.id);
       if (r.error) setError(r.error);
-      else if (r.proposed) window.alert(proposedText(r.proposed));
+      else if (r.proposed) toast(proposedText(r.proposed), "info");
     });
   }
 
@@ -407,7 +408,7 @@ function PatternDialog({ pattern, shifts, onClose }: { pattern: Pattern | "new";
     start(async () => {
       const r = await savePattern(pattern === "new" ? null : pattern.id, form);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
     });
   }
 
@@ -513,7 +514,7 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
                       <Pencil size={14} />
                     </button>
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus pola kerja ini?"))) start(async () => { setError(null); const r = await deletePattern(p.id); if (r.error) setError(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); }); }}
+                      onClick={() => { if (window.confirm(t("Hapus pola kerja ini?"))) start(async () => { setError(null); const r = await deletePattern(p.id); if (r.error) setError(r.error); else if (r.proposed) toast(proposedText(r.proposed), "info"); }); }}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
@@ -556,7 +557,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
     start(async () => {
       const r = await saveHoliday(editId, edit);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); setEditId(null); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); setEditId(null); }
     });
   }
   const [error, setError] = useState<string | null>(null);
@@ -569,7 +570,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
     start(async () => {
       const r = await saveHoliday(null, form);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed));  setForm({ date: "", name: "", type: "NASIONAL" }); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info");  setForm({ date: "", name: "", type: "NASIONAL" }); }
     });
   }
 
@@ -628,7 +629,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
                       <Pencil size={14} />
                     </button>
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus hari libur ini?"))) start(async () => { const r = await deleteHoliday(h.id); if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); }); }}
+                      onClick={() => { if (window.confirm(t("Hapus hari libur ini?"))) start(async () => { const r = await deleteHoliday(h.id); if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info"); }); }}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>

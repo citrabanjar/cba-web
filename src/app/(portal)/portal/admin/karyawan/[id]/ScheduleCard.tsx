@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { assignSchedule, deleteEmployeeSchedule } from "../../schedule/actions";
+import { toast } from "@/components/portal/Toast";
 
 export type ScheduleRow = {
   id: string; type: string; effectiveDate: Date; note: string | null; createdBy: string | null;
@@ -96,7 +97,7 @@ export default function ScheduleCard({
                         if (!window.confirm(ask)) return;
                         start(async () => {
                           const r = await deleteEmployeeSchedule(s.id);
-                          if (r.error) window.alert(t(r.error));
+                          if (r.error) toast(r.error, "error");
                         });
                       }}
                       className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30">

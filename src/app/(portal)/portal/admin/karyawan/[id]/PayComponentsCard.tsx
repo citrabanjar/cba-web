@@ -10,6 +10,7 @@ import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { removePayAssignment, savePayAssignment } from "../actions";
 import { proposedText } from "@/lib/approval-text";
+import { toast } from "@/components/portal/Toast";
 
 export type PayComponentRow = {
   componentId: string; code: string; name: string; kind: string; method: string; formula: string;
@@ -48,7 +49,7 @@ function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row:
     run(async () => {
       const r = await fn();
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
     });
   };
   return (

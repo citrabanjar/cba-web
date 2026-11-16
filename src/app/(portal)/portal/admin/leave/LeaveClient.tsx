@@ -17,6 +17,7 @@ import { deleteLeavePolicy, saveLeavePolicy } from "./actions";
 import BalanceTab from "./BalanceTab";
 import { useCanEdit } from "@/components/portal/edit-access";
 import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
+import { toast } from "@/components/portal/Toast";
 
 export type Policy = Omit<LeavePolicyInput, "payNote" | "attachmentNote" | "legalBasis" | "note" | "carryOverExpiry"> & {
   id: string; payNote: string | null; attachmentNote: string | null; legalBasis: string | null; note: string | null; carryOverExpiry: string | null;
@@ -92,7 +93,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
     start(async () => {
       const r = await saveLeavePolicy(policy === "new" ? null : policy.id, { ...form, quota: saldo ? (monthly ? null : form.quota) : unlimited ? null : form.quota });
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
     });
   }
 
@@ -288,7 +289,7 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
 
   function remove(p: Policy) {
     if (!window.confirm(t("Hapus jenis cuti ini?"))) return;
-    start(async () => { const r = await deleteLeavePolicy(p.id); if (r.error) window.alert(r.error); else if (r.proposed) window.alert(proposedText(r.proposed)); });
+    start(async () => { const r = await deleteLeavePolicy(p.id); if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info"); });
   }
 
   return (

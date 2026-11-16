@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/utils";
 import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { adjustLeaveBalance, importLeaveBalances, setLeaveBalanceActive, type BalanceImportRow } from "./actions";
+import { toast } from "@/components/portal/Toast";
 
 const HEADERS = ["Employee ID", "Nama", "Kode Cuti", "Saldo (hari)", "Per Tanggal (YYYY-MM-DD)", "Keterangan"];
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
@@ -131,7 +132,7 @@ function AdjustDialog({ row, onClose }: { row: BalanceRow; onClose: () => void }
     start(async () => {
       const r = await adjustLeaveBalance(row.userId, row.policyId, Number(days.replace(",", ".")), note);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed)); onClose(); }
+      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
     });
   }
   return (
@@ -165,7 +166,7 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
       ? "Aktifkan saldo cuti? Saldo di tabel ini akan tampil di profil karyawan dan halaman Cuti karyawan."
       : "Nonaktifkan saldo cuti? Saldo di profil dan halaman Cuti karyawan kembali menjadi 0.";
     if (!window.confirm(t(ask))) return;
-    startSwitch(async () => { const r = await setLeaveBalanceActive(on); if (r.error) window.alert(t(r.error)); });
+    startSwitch(async () => { const r = await setLeaveBalanceActive(on); if (r.error) toast(r.error, "error"); });
   };
   const [q, setQ] = useState("");
   const [adjusting, setAdjusting] = useState<BalanceRow | null>(null);
