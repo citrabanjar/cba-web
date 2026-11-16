@@ -14,7 +14,7 @@ import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { adjustLeaveBalance, importLeaveBalances, setLeaveBalanceActive, type BalanceImportRow } from "./actions";
 import { toast } from "@/components/portal/Toast";
-import { askConfirm } from "@/components/portal/Confirm";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
 const HEADERS = ["Employee ID", "Nama", "Kode Cuti", "Saldo (hari)", "Per Tanggal (YYYY-MM-DD)", "Keterangan"];
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
@@ -133,7 +133,7 @@ function AdjustDialog({ row, onClose }: { row: BalanceRow; onClose: () => void }
     start(async () => {
       const r = await adjustLeaveBalance(row.userId, row.policyId, Number(days.replace(",", ".")), note);
       if (r.error) setError(r.error);
-      else { if (r.proposed) toast(proposedText(r.proposed), "info"); onClose(); }
+      else { if (r.proposed) showNotice(proposedText(r.proposed)); onClose(); }
     });
   }
   return (

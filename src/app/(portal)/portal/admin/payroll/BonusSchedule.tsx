@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { proposedText } from "@/lib/approval-text";
 import type { BonusEntry, BonusMode } from "@/lib/payroll-bonus";
 import { saveBonusSchedule } from "./actions";
+import { showNotice } from "@/components/portal/Confirm";
 
 const MODES: { key: BonusMode; label: string; hint: string }[] = [
   { key: "BULANAN", label: "Ikut payroll bulanan", hint: "Dibayar bersama gaji bulan yang memuat tanggal bayar (karyawan mingguan: minggu tanggal bayar)." },
@@ -30,6 +31,7 @@ export default function BonusSchedule({ entries, components }: { entries: BonusE
   const add = () => { setMsg(null); setRows((r) => [...r, { id: newId(), code: components[0]?.code ?? "", label: "", payDate: "", mode: "BULANAN" }]); };
   const save = () => start(async () => {
     const r = await saveBonusSchedule(rows);
+    if (r.proposed) showNotice(proposedText(r.proposed));
     setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : "Jadwal THR / Bonus tersimpan." });
   });
 

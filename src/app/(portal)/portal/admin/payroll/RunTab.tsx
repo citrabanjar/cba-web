@@ -10,7 +10,7 @@ import type { BonusEntry } from "@/lib/payroll-bonus";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
 import { deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
 import { proposedText } from "@/lib/approval-text";
-import { askConfirm } from "@/components/portal/Confirm";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
 export type RunLine = {
   id: string; userId: string; name: string; employeeId: string; department: string | null;
@@ -94,6 +94,7 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
     setMsg(null);
     start(async () => {
       const r = await fn();
+      if (r.proposed) showNotice(proposedText(r.proposed));
       setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : ok.replace("{n}", String(r.count ?? "")) });
     });
   };

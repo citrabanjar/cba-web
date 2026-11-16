@@ -18,6 +18,7 @@ import TerSettings from "./TerSettings";
 import type { TaxYearConfig, TerVersion } from "@/lib/pph21";
 import ComponentsTab, { type Component, type PayEmployee } from "./ComponentsTab";
 import DeductionCalculator from "./DeductionCalculator";
+import { showNotice } from "@/components/portal/Confirm";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
 
@@ -32,6 +33,7 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
   function save() {
     start(async () => {
       const r = await savePayrollSettings(form);
+      if (r.proposed) showNotice(proposedText(r.proposed));
       setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : "Pengaturan tersimpan." });
     });
   }
