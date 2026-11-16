@@ -104,7 +104,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
     <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Payroll & Benefit</T></h2>
-        <p className="text-xs text-gray-400 mt-0.5"><T>Komponen gaji, BPJS, lembur, THR, dan pengaturan payroll. Isi awal mengikuti aturan yang berlaku; sesuaikan dengan kebijakan perusahaan.</T></p>
+        <p className="text-xs text-gray-400 mt-0.5"><T>Tata kelola komponen gaji, BPJS, lembur, THR, dan pengaturan payroll yang mengacu pada ketentuan peraturan perundang-undangan, serta disesuaikan dengan kebijakan perusahaan.</T></p>
       </div>
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
