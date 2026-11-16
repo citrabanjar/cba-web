@@ -358,12 +358,24 @@ export async function assignSchedule(userIds: string[], input: ScheduleInput): P
   return { count: ids.length };
 }
 
-export async function deleteEmployeeSchedule(id: string): Promise<Result> {
+// Hapus jadwal karyawan. Jadwal Manual: semua isian shift per tanggal sejak tanggal berlakunya (sampai jadwal
+// berikutnya) ikut dihapus, termasuk tanggal yang sudah ada absennya (keputusan pemilik 2026-11-16).
+export async function deleteEmployeeSchedule(id: string): Promise<Result & { removed?: number }> {
   await requireMenuApply("absensi");
+  const sc = await prisma.employeeSchedule.findUnique({ where: { id } });
+  if (!sc) return { error: "Jadwal tidak ditemukan." };
+  let removed = 0;
+  if (sc.type === "MANUAL") {
+    const next = await prisma.employeeSchedule.findFirst({
+      where: { userId: sc.userId, effectiveDate: { gt: sc.effectiveDate } }, orderBy: { effectiveDate: "asc" }, select: { effectiveDate: true },
+    });
+    const range = { gte: sc.effectiveDate, ...(next ? { lt: next.effectiveDate } : {}) };
+    removed = (await prisma.employeeShiftDay.deleteMany({ where: { userId: sc.userId, date: range } })).count;
+  }
   await prisma.employeeSchedule.delete({ where: { id } });
   revalidatePath(PATH);
   revalidatePath("/portal/admin/karyawan", "layout");
-  return {};
+  return { removed };
 }
 
 // ─── Jadwal bulanan (shift per tanggal) ─────────────────────────────────────

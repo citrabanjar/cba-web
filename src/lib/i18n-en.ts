@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Hapus Jadwal Manual ini? Semua shift yang sudah ditempatkan sejak tanggal berlakunya ikut terhapus.": "Delete this Manual Schedule? All shifts placed since its effective date will be deleted too.",
+  "Jadwal tidak ditemukan.": "Schedule not found.",
   "Pastikan jadwal yang Anda simpan sudah benar. Revisi / koreksi jadwal yang sudah tersimpan hanya dapat dilakukan melalui menu Jadwal → Jadwal Bulanan. Simpan sekarang?": "Make sure the schedule you are saving is correct. Revisions / corrections to a saved schedule can only be made via Schedule → Monthly Schedule. Save now?",
   "Tanggal yang sudah berisi shift dikunci; revisi / koreksi melalui": "Dates that already have a shift are locked; revise / correct them via",
   "Jadwal → Jadwal Bulanan": "Schedule → Monthly Schedule",

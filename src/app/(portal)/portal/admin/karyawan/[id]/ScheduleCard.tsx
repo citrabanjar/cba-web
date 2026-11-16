@@ -89,7 +89,16 @@ export default function ScheduleCard({
                   </span>
                   {canEdit && (
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus jadwal ini?"))) start(async () => { await deleteEmployeeSchedule(s.id); }); }}
+                      onClick={() => {
+                        const ask = s.type === "MANUAL"
+                          ? t("Hapus Jadwal Manual ini? Semua shift yang sudah ditempatkan sejak tanggal berlakunya ikut terhapus.")
+                          : t("Hapus jadwal ini?");
+                        if (!window.confirm(ask)) return;
+                        start(async () => {
+                          const r = await deleteEmployeeSchedule(s.id);
+                          if (r.error) window.alert(t(r.error));
+                        });
+                      }}
                       className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30">
                       <Trash2 size={13} />
                     </button>
