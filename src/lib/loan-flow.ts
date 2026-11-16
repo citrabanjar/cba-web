@@ -82,7 +82,7 @@ export async function applyPlan(loan: EmployeeLoan, p: Exclude<Awaited<ReturnTyp
       prisma.loanInstallment.deleteMany({ where: { loanId: m.o.id, status: { not: "LUNAS" } } }),
       prisma.employeeLoan.update({
         where: { id: m.o.id },
-        data: { status: "DIGABUNG", note: [m.o.note, `Sisa ${rp(m.rest)} digabung ke Pinjaman ke-${loan.seqNo}.`].filter(Boolean).join(" ") },
+        data: { status: "DIGABUNG", note: [m.o.note, `Lunas melalui penggabungan: sisa ${rp(m.rest)} dipindahkan ke Pinjaman ke-${loan.seqNo}.`].filter(Boolean).join(" ") },
       }),
     ]),
     prisma.employeeLoan.update({

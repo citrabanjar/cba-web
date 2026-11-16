@@ -8,7 +8,8 @@ export const LOAN_STATUS: Record<string, { label: string; tone: string }> = {
   LUNAS: { label: "Lunas", tone: "bg-emerald-50 text-emerald-700" },
   DITOLAK: { label: "Ditolak", tone: "bg-rose-50 text-rose-700" },
   BATAL: { label: "Dibatalkan", tone: "bg-gray-100 text-gray-500" },
-  DIGABUNG: { label: "Digabung", tone: "bg-indigo-50 text-indigo-700" },
+  // Pinjaman lama yang digabung ke pinjaman baru dianggap lunas (sisanya dipindah ke pinjaman gabungan).
+  DIGABUNG: { label: "Lunas", tone: "bg-emerald-50 text-emerald-700" },
 };
 export const loanStatusLabel = (s: string) => LOAN_STATUS[s]?.label ?? s;
 
