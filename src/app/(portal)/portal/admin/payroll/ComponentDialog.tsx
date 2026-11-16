@@ -98,8 +98,8 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
       ...f, method: m,
       param: NEEDS_PARAM.includes(m) ? (m === "PER_JAM" ? "JAM_TELAT_PULANG_CEPAT" : f.param ?? (m === "PRORATA" ? "HARI_MANGKIR" : "HARI_HADIR")) : m === "LEMBUR" ? "JAM_LEMBUR" : m === "THR" ? "MASA_KERJA" : null,
       base: NEEDS_BASE.includes(m) ? f.base ?? "UPAH_TETAP" : null,
-      // Lembur baru: tarif hari libur sesuai PP 35/2021, batas jamnya ikut pola kerja tiap karyawan (5/6 hari kerja).
-      params: m === "LEMBUR" ? { divisor: 173, work: tiers.work, rest: null, restAuto: true, ...(f.params ?? {}) }
+      // Lembur baru: tarif hari kerja & hari libur bawaan (bisa diubah).
+      params: m === "LEMBUR" ? { divisor: 173, work: tiers.work, rest: tiers.rest ?? defaultRestTiers(6), restAuto: false, ...(f.params ?? {}) }
         : m === "THR" ? { months: 1, minMonths: 1, proportional: true, ...(f.params ?? {}) }
         : m === "PER_JAM" ? { shiftHours: true, ...(f.params ?? {}) } : f.params,
     }));
@@ -242,24 +242,12 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                         <span className="text-gray-400"><T>x dasar nilai</T></span></div>
                       <div className="rounded-lg bg-gray-50 p-2.5">
                         <p className="mb-1.5 font-semibold text-gray-600"><T>Tarif hari kerja</T></p>
-                        <TierEditor tiers={tiers.work} onChange={(work) => setParam({ work, rest: null, restAuto: true })} />
+                        <TierEditor tiers={tiers.work} onChange={(work) => setParam({ work, rest: tiers.rest ?? defaultRestTiers(6), restAuto: false })} />
                       </div>
-                      {/* Tarif hari libur: tetap PP 35/2021; batas jamnya mengikuti hari kerja per minggu pola kerja karyawan. */}
+                      {/* Tarif hari libur: diatur sendiri, format sama dengan tarif hari kerja. */}
                       <div className="rounded-lg bg-gray-50 p-2.5">
                         <p className="mb-1.5 font-semibold text-gray-600"><T>Tarif hari libur</T></p>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {([[6, defaultRestTiers(6)], [5, defaultRestTiers(5)]] as const).map(([d, rows]) => (
-                            <div key={d} className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-                              <p className="mb-1 text-[11px] font-semibold text-gray-500">{d} <T>hari kerja per minggu</T></p>
-                              {rows.map((r, i) => (
-                                <p key={i} className="flex justify-between text-gray-700">
-                                  <span>{r.upTo === null ? t("Jam berikutnya") : `${t("s/d jam")} ${r.upTo}`}</span><b>{r.x}x</b>
-                                </p>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                        <p className="mt-1.5 text-[11px] text-gray-500"><T>Sesuai PP 35/2021. Jumlah hari kerja per minggu mengikuti pola kerja masing-masing karyawan.</T></p>
+                        <TierEditor tiers={tiers.rest ?? defaultRestTiers(6)} onChange={(rest) => setParam({ work: tiers.work, rest, restAuto: false })} />
                       </div>
                     </div>
                   )}
