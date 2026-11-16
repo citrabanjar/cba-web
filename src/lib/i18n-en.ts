@@ -1078,7 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
-  "Buat komponen gaji lalu tempel ke karyawan (bisa banyak sekaligus) di Payroll & Benefit → Komponen, supaya ikut terhitung di Proses Gaji.": "Create pay components then attach them to employees (many at once) in Payroll & Benefit → Components, so they are included in Payroll Processing.",
+  "Komponen gaji perlu dibuat dan ditempelkan kepada karyawan melalui menu Payroll & Benefit → Komponen agar diperhitungkan dalam Proses Gaji.": "Pay components must be created and attached to employees via Payroll & Benefit → Components so they are included in Payroll Processing.",
   "Peringatan": "Warning",
   "Pemberitahuan": "Notice",
   "Konfirmasi": "Confirmation",
