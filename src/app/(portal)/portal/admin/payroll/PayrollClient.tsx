@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import BonusSchedule from "./BonusSchedule";
 import type { BonusEntry } from "@/lib/payroll-bonus";
-import { Calculator, CheckCircle2, HandCoins, Landmark, Loader2, Play, Settings2, ShieldCheck, Wallet } from "lucide-react";
+import { CalendarClock, Calculator, CheckCircle2, ChevronRight, HandCoins, Landmark, Loader2, Percent, Play, Receipt, Settings2, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,12 +80,21 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
   );
 }
 
+// Bagian tab Pengaturan Payroll (menu kiri).
+const SETTING_SECTIONS = [
+  { key: "payroll", label: "Pengaturan Payroll", Icon: Settings2 },
+  { key: "thr", label: "Jadwal THR / Bonus", Icon: CalendarClock },
+  { key: "pph", label: "Pengaturan PPh 21", Icon: Receipt },
+  { key: "ter", label: "Tarif TER PPh 21", Icon: Percent },
+] as const;
+
 export default function PayrollClient({ components, settings, runs, employees, nonRoutine, bonus, taxSettings, terSettings }: {
   components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[]; bonus: BonusEntry[];
   taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[];
 }) {
   const t = useT();
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "kalkulator">("komponen");
+  const [setting, setSetting] = useState<(typeof SETTING_SECTIONS)[number]["key"]>("payroll");
   const active = components.filter((c) => c.isActive);
   const bpjsEmployer = active.filter((c) => c.kind === "BENEFIT" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
   const bpjsEmployee = active.filter((c) => c.kind === "POTONGAN" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
@@ -124,7 +133,30 @@ export default function PayrollClient({ components, settings, runs, employees, n
         {tab === "proses" && <RunTab runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay} />}
         {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={6} />}
         {tab === "kalkulator" && <DeductionCalculator />}
-        {tab === "pengaturan" && <><SettingsTab settings={settings} /><BonusSchedule entries={bonus} components={nonRoutine} /><TaxSettings all={taxSettings} /><TerSettings versions={terSettings} /></>}
+        {tab === "pengaturan" && (
+          // Menu di kiri, isi pengaturan terpilih di kanan (seperti halaman Organisasi / Notifikasi).
+          <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
+            <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              {SETTING_SECTIONS.map(({ key, label, Icon }) => {
+                const on = key === setting;
+                return (
+                  <button key={key} type="button" onClick={() => setSetting(key)}
+                    className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 ${on ? "bg-brand/10" : "hover:bg-gray-50"}`}>
+                    <Icon size={18} className={on ? "text-brand" : "text-gray-400"} />
+                    <span className={`flex-1 text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}><T>{label}</T></span>
+                    <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="min-w-0">
+              {setting === "payroll" && <SettingsTab settings={settings} />}
+              {setting === "thr" && <BonusSchedule entries={bonus} components={nonRoutine} />}
+              {setting === "pph" && <TaxSettings all={taxSettings} />}
+              {setting === "ter" && <TerSettings versions={terSettings} />}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
