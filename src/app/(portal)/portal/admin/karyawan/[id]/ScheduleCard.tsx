@@ -20,9 +20,10 @@ const label = (s: ScheduleRow) => (s.type === "MANUAL" ? "Jadwal Manual" : s.pat
 
 // Jadwal kerja karyawan: jadwal yang berlaku sekarang, riwayatnya, dan form untuk mengganti.
 export default function ScheduleCard({
-  userId, schedules, patterns, canEdit,
+  userId, schedules, patterns, canEdit, placing = false, onPlace,
 }: {
   userId: string; schedules: ScheduleRow[]; patterns: PatternOption[]; canEdit: boolean;
+  placing?: boolean; onPlace?: () => void; // Jadwal Manual: aktifkan kartu shift di Kalender Kehadiran
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -39,7 +40,7 @@ export default function ScheduleCard({
     start(async () => {
       const r = await assignSchedule([userId], form);
       if (r.error) setError(r.error);
-      else setOpen(false);
+      else { setOpen(false); if (form.type === "MANUAL") onPlace?.(); }
     });
   }
 
@@ -63,6 +64,13 @@ export default function ScheduleCard({
             <span className="truncate">{current ? <T>{label(current)}</T> : <T>Belum berlaku</T>}</span>
           </p>
           {current && <p className="mt-0.5 text-xs text-gray-500"><T>sejak</T> {formatDate(current.effectiveDate)}</p>}
+          {canEdit && current?.type === "MANUAL" && !placing && (
+            <button type="button" onClick={onPlace}
+              className="mt-3 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-brand/40 bg-brand/5 px-3 text-xs font-semibold text-brand hover:bg-brand/10">
+              <CalendarClock size={13} /> <T>Tempatkan shift di kalender</T>
+            </button>
+          )}
+          {placing && <p className="mt-3 rounded-xl bg-brand/5 px-3 py-2 text-xs text-brand"><T>Kartu shift aktif di Kalender Kehadiran.</T></p>}
           <button type="button" onClick={() => setShowHistory((v) => !v)}
             className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900">
             <T>Riwayat</T> ({schedules.length})

@@ -710,6 +710,8 @@ export default function KaryawanDetailClient({
   const canEditMenu = useCanEdit("karyawan");
   const canEditPay = useCanEdit("gaji");
   const canEditSchedule = useCanApply("absensi"); // tempel jadwal cukup hak lihat Absensi
+  // Kartu shift di Kalender Kehadiran hanya aktif setelah dipicu dari kartu Jadwal Kerja (Jadwal Manual).
+  const [placing, setPlacing] = useState(false);
   const canEdit = canEditTarget && canEditMenu;
   // Hak "Ajukan": boleh membuka Edit data (Ubah Data saja); simpanan menjadi pengajuan ke atasan langsung si Admin.
   const canPropose = useCanPropose("karyawan");
@@ -1168,8 +1170,8 @@ export default function KaryawanDetailClient({
 
         {tab === "absensi" && (
           <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
-            shiftEdit={canEditTarget && canEditSchedule ? { userId: emp.id, shifts: shiftOptions } : undefined}
-            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} />} />
+            shiftEdit={canEditTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
+            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} />} />
         )}
 
         {tab === "absensi" && (

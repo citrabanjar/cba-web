@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Eraser, Loader2, LogIn, LogOut, MapPin } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Loader2, LogIn, LogOut, MapPin } from "lucide-react";
 import { saveShiftDays } from "../../schedule/actions";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
@@ -64,7 +64,8 @@ export default function AttendanceCalendar({
   attendances, leaves, trips, shiftDays = {}, side, editUserId, overtimes = [], shiftEdit,
 }: {
   // Jadwal Manual: palet shift yang diseret ke tanggal (atau dipilih lalu klik / sapu tanggal), lalu Simpan.
-  shiftEdit?: { userId: string; shifts: { id: string; code: string; name: string; color: string }[] };
+  // Tanggal yang sudah berisi shift (tersimpan) dikunci; koreksi melalui Jadwal → Jadwal Bulanan.
+  shiftEdit?: { userId: string; shifts: { id: string; code: string; name: string; color: string }[]; onDone?: () => void };
   attendances: Attendance[]; leaves: Leave[]; trips: Trip[]; shiftDays?: Record<string, DayShift>;
   overtimes?: { date: string; start: string; end: string; status: string }[]; // lembur (SPL bersedia / pengajuan); tertempel di jadwal
   editUserId?: string; // Super Admin (masa testing): boleh ubah/tambah absen sampai hari ini
@@ -85,16 +86,19 @@ export default function AttendanceCalendar({
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const painting = useRef(false);
   const shiftById = useMemo(() => new Map((shiftEdit?.shifts ?? []).map((s) => [s.id, s])), [shiftEdit]);
-  const paint = (k: string) => { if (brush !== null) setEdits((x) => ({ ...x, [k]: brush || null })); };
+  const locked = (k: string) => !!shiftDays[k]?.override; // sudah berisi shift tersimpan
+  const paint = (k: string) => { if (brush !== null && !locked(k)) setEdits((x) => ({ ...x, [k]: brush || null })); };
   const cellAt = (x: number, y: number) => (document.elementFromPoint(x, y)?.closest("[data-date]") as HTMLElement | null)?.dataset.date ?? null;
   const editCount = Object.keys(edits).length;
   function saveEdits() {
     if (!shiftEdit || !editCount) return;
+    if (!window.confirm(t("Pastikan jadwal yang Anda simpan sudah benar. Revisi / koreksi jadwal yang sudah tersimpan hanya dapat dilakukan melalui menu Jadwal → Jadwal Bulanan. Simpan sekarang?"))) return;
     setSaveErr(null);
     startSave(async () => {
       const r = await saveShiftDays(Object.entries(edits).map(([date, shiftId]) => ({ userId: shiftEdit.userId, date, shiftId })));
       if (r.error) { setSaveErr(r.error); return; }
       setEdits({}); setBrush(null);
+      shiftEdit.onDone?.();
       router.refresh();
     });
   }
@@ -198,21 +202,17 @@ export default function AttendanceCalendar({
                     {s.code} <span className="font-medium opacity-90">{s.name}</span>
                   </button>
                 ))}
-                <button type="button" draggable onDragStart={(e) => { e.dataTransfer.setData("text/plain", "CLEAR"); setBrush(""); }}
-                  onClick={() => setBrush(brush === "" ? null : "")}
-                  className={`inline-flex h-9 items-center gap-1.5 rounded-xl border border-dashed border-gray-300 bg-white px-3 text-xs font-semibold text-gray-600 ${brush === "" ? "ring-2 ring-ink ring-offset-2" : ""}`}>
-                  <Eraser size={14} /> <T>Hapus isian</T>
-                </button>
-                {editCount > 0 && (
+                {(
                   <span className="ml-auto flex items-center gap-1.5">
-                    <button type="button" disabled={saving} onClick={() => setEdits({})} className="h-9 rounded-full border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Batal</T></button>
-                    <button type="button" disabled={saving} onClick={saveEdits} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60">
+                    <button type="button" disabled={saving} onClick={() => { setEdits({}); setBrush(null); shiftEdit.onDone?.(); }} className="h-9 rounded-full border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Tutup</T></button>
+                    <button type="button" disabled={saving || editCount === 0} onClick={saveEdits} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60">
                       {saving && <Loader2 size={13} className="animate-spin" />} <T>Simpan</T> ({editCount})
                     </button>
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-gray-500"><T>Pilih kartu, lalu klik atau tahan-dan-geser di kotak tanggal. Kartu juga bisa diseret ke kotak.</T> <T>Isian per tanggal menggantikan pola kerja di tanggal itu; Hapus isian mengembalikannya ke pola kerja.</T></p>
+              <p className="text-[11px] text-gray-500"><T>Pilih kartu, lalu klik atau tahan-dan-geser di kotak tanggal. Kartu juga bisa diseret ke kotak.</T> <T>Tanggal yang sudah berisi shift dikunci; revisi / koreksi melalui</T>{" "}
+                <a href={`/portal/admin/schedule?tab=jadwal&bulan=${month.y}-${String(month.m + 1).padStart(2, "0")}`} className="font-semibold text-brand underline"><T>Jadwal → Jadwal Bulanan</T></a>.</p>
               {saveErr && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700"><T>{saveErr}</T></p>}
             </div>
           )}
@@ -243,13 +243,13 @@ export default function AttendanceCalendar({
                   data-date={k}
                   onClick={() => { if (!(shiftEdit && brush !== null)) setSelected(k); }}
                   onDragOver={shiftEdit ? (e) => e.preventDefault() : undefined}
-                  onDrop={shiftEdit ? (e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); setEdits((x) => ({ ...x, [k]: id === "CLEAR" ? null : id })); } : undefined}
+                  onDrop={shiftEdit ? (e) => { e.preventDefault(); if (locked(k)) return; const id = e.dataTransfer.getData("text/plain"); setEdits((x) => ({ ...x, [k]: id === "CLEAR" ? null : id })); } : undefined}
                   className={[
                     "flex min-h-16 flex-col items-start rounded-xl border p-1.5 text-left transition-shadow sm:min-h-20 sm:p-2",
                     style ? style.cell : sunday ? "border-rose-100 bg-rose-50/40 text-rose-400" : "border-gray-100 bg-gray-50/60 text-gray-700",
                     isSel ? "ring-2 ring-ink ring-offset-1" : "hover:shadow-md",
                     edited ? "!border-brand border-2" : "",
-                    shiftEdit && brush !== null ? "cursor-cell" : "",
+                    shiftEdit && brush !== null ? (locked(k) ? "cursor-not-allowed" : "cursor-cell") : "",
                   ].join(" ")}
                 >
                   <span className="flex w-full items-center justify-between gap-1">
