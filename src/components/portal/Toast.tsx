@@ -1,10 +1,12 @@
 "use client";
 
-// Pop-up singkat (toast) untuk info / peringatan: muncul di tengah layar ±3 detik lalu hilang sendiri.
+// Pop-up singkat (toast) untuk info rutin (mis. "Tersimpan"): muncul di tengah layar ±3 detik lalu hilang sendiri.
+// toast(teks, "warn" | "error") diteruskan ke dialog dengan tombol OK (lihat Confirm.tsx).
 // Panggil toast("teks", "info" | "ok" | "warn" | "error") dari komponen klien mana pun; <Toaster /> dipasang sekali di PortalShell.
 import { useEffect, useState } from "react";
 import { CheckCircle2, Info, TriangleAlert, XCircle, X } from "lucide-react";
 import { useT } from "@/components/i18n";
+import { showNotice } from "@/components/portal/Confirm";
 
 export type ToastTone = "info" | "ok" | "warn" | "error";
 type Item = { id: number; text: string; tone: ToastTone };
@@ -22,6 +24,8 @@ export function toast(text: string, tone: ToastTone = "info") {
   const now = Date.now();
   if (last.text === text && now - last.at < 1500) return;
   last = { text, at: now };
+  // Peringatan & galat penting dibaca: tampil sebagai dialog dengan tombol OK. Info rutin tetap hilang sendiri.
+  if (tone === "warn" || tone === "error") { void showNotice(text, tone); return; }
   const item = { id: ++seq, text, tone };
   if (!ready) { queue.push(item); return; }
   window.dispatchEvent(new CustomEvent<Item>(EVENT, { detail: item }));
