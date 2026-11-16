@@ -5,10 +5,11 @@
 // 3. Admin mengirim hasil pemeriksaan → pimpinan puncak menyetujui / menolak. Disetujui = tabel angsuran dibuat (menunggu pencairan).
 import type { EmployeeLoan } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { formatRupiah } from "@/lib/utils";
 import { canEditMenu } from "@/lib/roles";
 import { buildSchedule, buildScheduleByAmount, isPeriod, unpaidTotal, type LoanPlan } from "@/lib/loans";
 
-const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+const rp = (n: number) => formatRupiah(Math.round(n));
 
 // Atasan langsung yang aktif.
 export async function activeManager(userId: string) {

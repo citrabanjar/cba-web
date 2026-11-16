@@ -10,7 +10,7 @@ import { T, useT, useLang } from "@/components/i18n";
 import { adminTitleEn } from "@/lib/notif-en";
 import { formatDate, formatRupiah } from "@/lib/utils";
 import { LOAN_STAGE, LOAN_STATUS, periodShort, type LoanFlow } from "@/lib/loans";
-import { LoanTrail } from "@/components/portal/LoanCard";
+import { LoanRequestSummary, LoanTrail } from "@/components/portal/LoanCard";
 import { halfDayLabel } from "@/lib/leave";
 import { decideLeave, decideLoan, decideOvertime, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
@@ -469,6 +469,7 @@ export function LoanApprovalCard({ item: l }: { item: LoanItem }) {
           <p className="mt-0.5 text-sm text-gray-800"><T>Pengajuan pinjaman</T> <b>{formatRupiah(l.principal)}</b></p>
           <p className="text-xs text-gray-500">{l.tenor} <T>kali angsuran</T> · <T>mulai</T> {periodShort(l.startPeriod)} · <T>Diajukan</T> {formatDate(new Date(l.createdAt))}</p>
           {l.purpose && <p className="mt-1.5 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">{l.purpose}</p>}
+          {l.flow.request && !plan && <LoanRequestSummary plan={l.flow.request} />}
           <LoanTrail flow={l.flow} status={l.status} stage={l.stage} />
           {l.flow.managerNote && <p className="mt-1 text-[11px] text-gray-500"><T>Catatan atasan</T>: {l.flow.managerNote}</p>}
           {plan && (

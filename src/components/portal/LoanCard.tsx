@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
-import { LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort, type LoanFlow } from "@/lib/loans";
+import { LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort, type LoanFlow, type LoanPlan } from "@/lib/loans";
 
 export type LoanView = {
   id: string; seqNo: number; disbursedAt: string | null; principal: number; tenor: number; startPeriod: string; purpose: string | null; status: string;
@@ -40,6 +40,7 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
           </p>
           {loan.purpose && <p className="mt-1 text-sm text-gray-700">{loan.purpose}</p>}
           {loan.note && <p className="mt-1 text-xs text-gray-500"><T>Catatan</T>: {loan.note}</p>}
+          {loan.status === "PENDING" && loan.flow?.request && <LoanRequestSummary plan={loan.flow.request} />}
           {(loan.flow?.managerName || loan.flow?.workflow) && <LoanTrail flow={loan.flow} status={loan.status} stage={stage} />}
         </div>
         {actions}
@@ -116,5 +117,24 @@ export function LoanTrail({ flow: f, status, stage }: { flow: LoanFlow; status: 
         </span>
       ))}
     </p>
+  );
+}
+
+// Permohonan karyawan saat masih ada pinjaman berjalan: hitung ulang angsuran (digabung) atau tambahan potongan per bulan.
+export function LoanRequestSummary({ plan: p }: { plan: LoanPlan }) {
+  const merged = p.mergeIds.length > 0;
+  return (
+    <div className="mt-2 space-y-1 rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2 text-xs text-gray-700">
+      <p className="font-semibold text-indigo-900"><T>{merged ? "Permohonan hitung ulang angsuran" : "Masih ada pinjaman berjalan"}</T></p>
+      {merged && (
+        <>
+          <p className="text-[11px] text-gray-500"><T>Digabung</T>: {p.merged.join(", ")} + <T>pinjaman baru</T> {formatRupiah(p.principal)}</p>
+          <p className="flex justify-between gap-2"><span><T>Total pinjaman gabungan</T></span><b>{formatRupiah(p.total)}</b></p>
+          <p className="flex justify-between gap-2"><span><T>Angsuran yang diminta</T></span><span><b>{formatRupiah(p.first)}</b><T>/bulan</T> x {p.count} · {periodShort(p.startPeriod)} – {periodShort(p.endPeriod)}</span></p>
+          {p.last !== p.first && <p className="text-right text-[11px] text-gray-500"><T>terakhir</T> {formatRupiah(p.last)}</p>}
+        </>
+      )}
+      <p className="flex justify-between gap-2 rounded-md bg-amber-50 px-2 py-1 text-amber-900"><span><T>Total potongan pinjaman per bulan</T></span><span>{formatRupiah(p.before)} → <b>{formatRupiah(p.after)}</b></span></p>
+    </div>
   );
 }

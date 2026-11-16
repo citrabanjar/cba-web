@@ -44,7 +44,9 @@ export async function submitLoanReview(id: string, input: PlanInput & { note: st
   const access = await requireAdmin();
   const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { user: { select: { name: true } } } });
   if (!loan || loan.status !== "PENDING" || (loan.stage && loan.stage !== "ADMIN")) return { error: "Pengajuan ini tidak sedang dalam pemeriksaan Admin." };
-  const p = await planLoan(loan, input, isSuperAdmin(access.role));
+  // Menggabungkan saldo awal migrasi lewat pengajuan karyawan (hitung ulang angsuran) boleh oleh Admin;
+  // mengubah / membatalkan saldo awal secara langsung tetap khusus Super Admin.
+  const p = await planLoan(loan, input, true);
   if ("error" in p) return { error: p.error };
   const flow = readLoanFlow(loan.flow);
   // Pengajuan lama (sebelum alur baru) belum punya pimpinan puncak.

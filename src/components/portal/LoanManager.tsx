@@ -35,14 +35,16 @@ const ErrorBox = ({ error }: { error: string | null }) => (error ? <p className=
 // dengan potongan per bulan atau jumlah angsuran sesuai permintaan.
 function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: LoanView[]; onClose: () => void }) {
   const t = useT();
-  const [principal, setPrincipal] = useState(String(loan.principal));
-  const [tenor, setTenor] = useState(String(loan.tenor));
+  // Permohonan hitung ulang dari karyawan menjadi isian awal; Admin boleh menyesuaikan.
+  const req = loan.flow?.request?.mergeIds.length ? loan.flow.request : null;
+  const [principal, setPrincipal] = useState(String(req?.principal ?? loan.principal));
+  const [tenor, setTenor] = useState(String(req?.tenor ?? loan.tenor));
   const [start, setStart] = useState(loan.startPeriod);
   const [note, setNote] = useState("");
-  const [merge, setMerge] = useState(false);
-  const [picked, setPicked] = useState<string[]>(() => running.map((l) => l.id));
-  const [mode, setMode] = useState<"amount" | "count">("amount");
-  const [amount, setAmount] = useState("");
+  const [merge, setMerge] = useState(!!req && running.some((l) => req.mergeIds.includes(l.id)));
+  const [picked, setPicked] = useState<string[]>(() => (req ? running.filter((l) => req.mergeIds.includes(l.id)) : running).map((l) => l.id));
+  const [mode, setMode] = useState<"amount" | "count">(req && !req.installment ? "count" : "amount");
+  const [amount, setAmount] = useState(req?.installment ? String(req.installment) : "");
   const { error, pending, act } = useAct();
   const unpaidOf = (l: LoanView) => l.installments.filter((i) => i.status !== "LUNAS").sort((a, b) => a.period.localeCompare(b.period));
   const restOf = (l: LoanView) => unpaidOf(l).reduce((a, i) => a + i.amount, 0);

@@ -33,6 +33,7 @@ export type LoanFlow = {
   managerId?: string; managerName?: string; managerAt?: string; managerNote?: string;
   topId?: string; topName?: string; topAt?: string; topNote?: string; topBy?: string;
   adminId?: string; adminName?: string; adminAt?: string; adminNote?: string; plan?: LoanPlan;
+  request?: LoanPlan; // permohonan karyawan saat masih ada pinjaman berjalan (hitung ulang angsuran bila mergeIds terisi)
 };
 export const readLoanFlow = (raw: unknown): LoanFlow => (raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as LoanFlow) : {});
 // Penyetuju level sebelum pemeriksaan Admin yang sedang mendapat giliran.
