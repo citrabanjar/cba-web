@@ -35,9 +35,12 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
   const merged = recalc ? running.filter((l) => picked.includes(l.id)) : [];
   const total = (Number(amount) || 0) + merged.reduce((a, l) => a + restOf(l), 0);
   const byAmount = merged.length > 0 && mode === "amount";
-  const preview = total > 0
-    ? byAmount ? (Number(each) > 0 ? buildScheduleByAmount(total, Number(each), start) : []) : Number(tenor) > 0 ? buildSchedule(total, Number(tenor), start) : []
-    : [];
+  // Jadwal baru dihitung saat tombol Simulasi diklik (bukan setiap ketikan). Isian berubah = simulasi harus diulang sebelum Ajukan.
+  const inputKey = JSON.stringify([amount, tenor, start, merged.map((l) => l.id), byAmount, each]);
+  const [simKey, setSimKey] = useState<string | null>(null);
+  const simulated = simKey === inputKey;
+  const preview = !simulated || total <= 0 ? []
+    : byAmount ? (Number(each) > 0 ? buildScheduleByAmount(total, Number(each), start) : []) : Number(tenor) > 0 ? buildSchedule(total, Number(tenor), start) : [];
   const after = preview.length ? preview[0].amount + running.filter((l) => !merged.includes(l)).reduce((a, l) => a + monthlyOf(l), 0) : 0;
   const hasPending = loans.some((l) => l.status === "PENDING");
 
@@ -49,7 +52,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
         ...(merged.length ? { recalc: { mergeIds: merged.map((l) => l.id), installment: byAmount ? Number(each) : undefined } } : {}),
       });
       if (r.error) setMsg({ ok: false, text: r.error });
-      else { setMsg({ ok: true, text: "Pengajuan terkirim. Menunggu persetujuan." }); setAmount(""); setPurpose(""); setRecalc(false); setEach(""); }
+      else { setMsg({ ok: true, text: "Pengajuan terkirim. Menunggu persetujuan." }); setAmount(""); setPurpose(""); setRecalc(false); setEach(""); setSimKey(null); }
     });
   }
 
@@ -163,8 +166,10 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
               );
             })()}
             {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
-            <div className="flex justify-end">
-              <Button onClick={submit} disabled={pending || preview.length > 120} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Ajukan</T></Button>
+            {!simulated && <p className="text-xs text-gray-500"><T>Klik Simulasi Angsuran untuk melihat jadwal angsuran sebelum mengajukan.</T></p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" disabled={pending || total <= 0} onClick={() => setSimKey(inputKey)}><T>Simulasi Angsuran</T></Button>
+              <Button onClick={submit} disabled={pending || !simulated || preview.length === 0 || preview.length > 120} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Ajukan</T></Button>
             </div>
           </div>
         )}

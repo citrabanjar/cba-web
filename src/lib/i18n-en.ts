@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Klik Simulasi Angsuran untuk melihat jadwal angsuran sebelum mengajukan.": "Click Installment Simulation to see the installment schedule before submitting.",
+  "Simulasi Angsuran": "Installment Simulation",
   "Jangka waktu (bulan)": "Term (months)",
   "Berdasarkan angsuran": "By installment",
   "Berdasarkan jangka waktu": "By term",
