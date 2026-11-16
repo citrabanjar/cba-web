@@ -15,7 +15,8 @@ export default async function PinjamanPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/portal");
   const loans = await prisma.employeeLoan.findMany({
-    where: { userId: session.user.id }, orderBy: { createdAt: "desc" }, include: { installments: true },
+    // Pengajuan yang ditolak / dibatalkan tidak ditampilkan; kabarnya cukup lewat notifikasi.
+    where: { userId: session.user.id, status: { notIn: ["DITOLAK", "BATAL"] } }, orderBy: { createdAt: "desc" }, include: { installments: true },
   });
   return (
     <div className="bg-gray-50 min-h-full">
