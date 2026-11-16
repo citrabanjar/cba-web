@@ -26,7 +26,7 @@ import { BANK_OPTIONS } from "@/lib/personal-info";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit } from "@/components/portal/edit-access";
+import { useCanEdit, useCanPropose } from "@/components/portal/edit-access";
 import PhotoUpload from "./PhotoUpload";
 import { askConfirm } from "@/components/portal/Confirm";
 
@@ -92,6 +92,9 @@ export default function KaryawanClient({
   const t = useT();
   const router = useRouter();
   const canEdit = useCanEdit("karyawan"); // hak lihat saja: tombol ubah data disembunyikan
+  // Upload foto: juga untuk Admin ber-hak "Ajukan perubahan" (peran dengan approval); foto langsung berlaku.
+  const canPropose = useCanPropose("karyawan");
+  const canPhoto = canEdit || canPropose;
   const [employees, setEmployees] = useState(initial);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"none" | "add" | "edit" | "upload" | "photo">("none");
@@ -182,7 +185,7 @@ export default function KaryawanClient({
           <p className="text-xs text-gray-400 mt-0.5">{employees.length} <T>karyawan terdaftar</T></p>
         </div>
         {/* Karyawan baru lewat Pra-Karyawan / Pengaturan -> Import Data. Upload foto di sini. */}
-        {canEdit && (
+        {canPhoto && (
           <Button variant="outline" size="sm" onClick={() => setModal("photo")} className="h-9 gap-1.5 self-start rounded-full px-4 lg:self-auto">
             <ImageUp size={15} /> <T>Upload Foto</T>
           </Button>

@@ -443,8 +443,10 @@ export async function addJobChange(id: string, input: JobChangeInput, data: Empl
 const MAX_PHOTO_BYTES = 200_000;
 
 // Pesan dikembalikan karena pesan error server action disamarkan di production.
+// Foto boleh diunggah Admin ber-hak Edit maupun "Ajukan perubahan" (peran dengan approval) dan langsung berlaku tanpa approval.
 export async function uploadEmployeePhoto(id: string, form: FormData) {
-  const actor = await requireMenu("karyawan");
+  const actor = await getAccess();
+  if (!actor || !(canEditMenu(actor, "karyawan") || canProposeMenu(actor, "karyawan"))) return { error: "Anda tidak punya hak mengunggah foto karyawan." };
   const file = form.get("photo");
   if (!(file instanceof File) || file.size === 0) return { error: "File foto kosong." };
   if (file.size > MAX_PHOTO_BYTES) return { error: "Ukuran foto terlalu besar." };
