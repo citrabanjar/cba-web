@@ -548,6 +548,17 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
   const t = useT();
   const [form, setForm] = useState({ date: "", name: "", type: "NASIONAL" });
   const [editId, setEditId] = useState<string | null>(null);
+  // Ubah hari libur langsung di barisnya (form atas hanya untuk menambah).
+  const [edit, setEdit] = useState({ date: "", name: "", type: "NASIONAL" });
+  function saveEdit() {
+    if (!editId) return;
+    setError(null);
+    start(async () => {
+      const r = await saveHoliday(editId, edit);
+      if (r.error) setError(r.error);
+      else { if (r.proposed) window.alert(proposedText(r.proposed)); setEditId(null); }
+    });
+  }
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const years = [...new Set(holidays.map((h) => h.date.slice(0, 4)))].sort();
@@ -556,9 +567,9 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
   function save() {
     setError(null);
     start(async () => {
-      const r = await saveHoliday(editId, form);
+      const r = await saveHoliday(null, form);
       if (r.error) setError(r.error);
-      else { if (r.proposed) window.alert(proposedText(r.proposed));  setForm({ date: "", name: "", type: "NASIONAL" }); setEditId(null); }
+      else { if (r.proposed) window.alert(proposedText(r.proposed));  setForm({ date: "", name: "", type: "NASIONAL" }); }
     });
   }
 
@@ -574,13 +585,8 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
         </select>
         <div className="flex gap-2">
           <Button size="sm" onClick={save} disabled={pending || !form.date || !form.name.trim()} className="gap-1.5 rounded-full px-4">
-            {editId ? <T>Simpan</T> : <><Plus size={14} /> <T>Tambah</T></>}
+            <Plus size={14} /> <T>Tambah</T>
           </Button>
-          {editId && (
-            <Button size="sm" variant="outline" className="rounded-full" onClick={() => { setEditId(null); setForm({ date: "", name: "", type: "NASIONAL" }); }}>
-              <T>Batal</T>
-            </Button>
-          )}
         </div>
       </div>
       )}
@@ -595,6 +601,19 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{y}</p>
               <ul className="space-y-2">
                 {holidays.filter((h) => h.date.startsWith(y)).map((h) => (
+                  editId === h.id ? (
+                  <li key={h.id} className="grid gap-2 rounded-xl border border-brand/40 bg-white px-3 py-2.5 sm:grid-cols-[170px_1fr_170px_auto]">
+                    <Input type="date" value={edit.date} aria-label={t("Tanggal")} onChange={(e) => setEdit({ ...edit, date: e.target.value })} />
+                    <Input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+                    <select value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value })} className="h-8 rounded-lg border border-input bg-white px-2 text-sm">
+                      {Object.entries(HOLIDAY_TYPE).map(([k, v]) => <option key={k} value={k}>{t(v.label)}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={saveEdit} disabled={pending || !edit.date || !edit.name.trim()} className="rounded-full px-4"><T>Simpan</T></Button>
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => setEditId(null)}><T>Batal</T></Button>
+                    </div>
+                  </li>
+                  ) : (
                   <li key={h.id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2.5">
                     <span className="w-28 shrink-0 text-sm font-semibold tabular-nums text-gray-900">
                       {formatDate(new Date(`${h.date}T00:00:00Z`))}
@@ -604,7 +623,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
                       <T>{HOLIDAY_TYPE[h.type]?.label ?? h.type}</T>
                     </span>
                     {canEdit && (<>
-                    <button type="button" onClick={() => { setEditId(h.id); setForm({ date: h.date, name: h.name, type: h.type }); }}
+                    <button type="button" onClick={() => { setEditId(h.id); setEdit({ date: h.date, name: h.name, type: h.type }); }}
                       aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand">
                       <Pencil size={14} />
                     </button>
@@ -615,6 +634,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
                     </button>
                     </>)}
                   </li>
+                  )
                 ))}
               </ul>
             </div>
