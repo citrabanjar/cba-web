@@ -109,7 +109,7 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Wallet size={17} /></span>
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-gray-900"><T>Komponen Gaji & Benefit</T></h3>
-          <p className="text-xs text-gray-400"><T>Setiap komponen menjadi bagian dari hasil Proses Gaji. Nilai komponen ditetapkan melalui Input atau Rumus, kemudian ditempelkan kepada karyawan yang berhak menerimanya.</T></p>
+          <p className="text-xs text-gray-400"><T>Setiap komponen menjadi bagian dari hasil Proses Gaji. Nilai komponen ditetapkan melalui Input atau Rumus.</T></p>
         </div>
         {canEdit && (
           <button type="button" onClick={() => setEditing("new")}

@@ -1754,7 +1754,7 @@ export const en: Record<string, string> = {
   "Hanya karyawan yang dicentang yang mendapat komponen ini saat Proses Gaji.": "Only checked employees get this component in the Payroll Run.",
   "Cari nama / ID": "Search name / ID",
   "Belum ditempel": "Not assigned",
-  "Setiap komponen menjadi bagian dari hasil Proses Gaji. Nilai komponen ditetapkan melalui Input atau Rumus, kemudian ditempelkan kepada karyawan yang berhak menerimanya.": "Each component becomes part of the Payroll Processing result. Its value is set via Input or Formula, then attached to the employees entitled to it.",
+  "Setiap komponen menjadi bagian dari hasil Proses Gaji. Nilai komponen ditetapkan melalui Input atau Rumus.": "Each component becomes part of the Payroll Processing result. Its value is set via Input or Formula.",
   "Dinas (hari / kali)": "Trips (days / times)",
   "Jam per pengajuan, pisahkan dengan koma": "Hours per request, separated by commas",
   "Jam lembur hari kerja (per pengajuan)": "Workday overtime hours (per request)",
