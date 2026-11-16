@@ -119,7 +119,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
           ))}
         </div>
         <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
-          {([["komponen", "Komponen", Wallet], ["pengaturan", "Pengaturan", Settings2], ["kalkulator", "Kalkulator Potongan", Calculator], ["proses", "Proses Gaji", Play]] as const).map(([k, label, Icon]) => (
+          {([["pengaturan", "Pengaturan", Settings2], ["komponen", "Komponen", Wallet], ["kalkulator", "Kalkulator Potongan", Calculator], ["proses", "Proses Gaji", Play]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
               className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               <Icon size={15} /> <T>{label}</T>
