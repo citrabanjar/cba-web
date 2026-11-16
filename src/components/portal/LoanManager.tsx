@@ -44,7 +44,10 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
   const [mode, setMode] = useState<"amount" | "count">("amount");
   const [amount, setAmount] = useState("");
   const { error, pending, act } = useAct();
-  const restOf = (l: LoanView) => l.installments.filter((i) => i.status !== "LUNAS").reduce((a, i) => a + i.amount, 0);
+  const unpaidOf = (l: LoanView) => l.installments.filter((i) => i.status !== "LUNAS").sort((a, b) => a.period.localeCompare(b.period));
+  const restOf = (l: LoanView) => unpaidOf(l).reduce((a, i) => a + i.amount, 0);
+  const monthlyOf = (l: LoanView) => unpaidOf(l)[0]?.amount ?? 0;
+  const oldMonthly = running.reduce((a, l) => a + monthlyOf(l), 0);
   const merged = merge ? running.filter((l) => picked.includes(l.id)) : [];
   const cash = Number(principal) || 0;
   const total = cash + merged.reduce((a, l) => a + restOf(l), 0);
@@ -66,23 +69,36 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
           <div className="space-y-1.5"><Label className="text-xs"><T>Mulai dipotong</T></Label><Input type="month" value={start} onChange={(e) => setStart(e.target.value)} /></div>
         </div>
 
+        {/* Pinjaman yang masih berjalan selalu ditampilkan sebagai bahan pertimbangan; bisa digabung ke pinjaman ini. */}
         {running.length > 0 && (
           <div className="space-y-2 rounded-xl border border-gray-200 p-3">
-            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800">
+            <p className="text-xs font-semibold text-gray-600"><T>Pinjaman yang sedang berjalan</T></p>
+            <div className="space-y-1">
+              {running.map((l) => {
+                const unpaid = unpaidOf(l);
+                const on = merge && picked.includes(l.id);
+                return (
+                  <label key={l.id} className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${on ? "bg-indigo-50" : "bg-gray-50"} ${merge ? "cursor-pointer" : ""}`}>
+                    {merge && <input type="checkbox" checked={picked.includes(l.id)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand)]"
+                      onChange={(e) => setPicked((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} />}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex justify-between gap-2 text-gray-800"><span><T>Pinjaman ke-</T>{l.seqNo}</span><span><T>sisa</T> <b>{formatRupiah(restOf(l))}</b></span></span>
+                      <span className="block text-[11px] text-gray-500">
+                        {formatRupiah(monthlyOf(l))}<T>/bulan</T> · {unpaid.length}x <T>lagi</T>
+                        {unpaid.length > 0 && <> · <T>s/d</T> {periodShort(unpaid[unpaid.length - 1].period)}</>}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="flex justify-between text-xs text-gray-600"><T>Potongan pinjaman saat ini per bulan</T> <b>{formatRupiah(oldMonthly)}</b></p>
+            <label className="flex cursor-pointer items-center gap-2 border-t border-gray-100 pt-2 text-sm font-medium text-gray-800">
               <input type="checkbox" checked={merge} onChange={(e) => { setMerge(e.target.checked); if (e.target.checked) setMode("amount"); }} className="h-4 w-4 accent-[var(--color-brand)]" />
               <T>Gabungkan dengan pinjaman yang masih berjalan</T>
             </label>
             {merge && (
               <>
-                <div className="space-y-1">
-                  {running.map((l) => (
-                    <label key={l.id} className="flex cursor-pointer items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
-                      <input type="checkbox" checked={picked.includes(l.id)} className="h-4 w-4 accent-[var(--color-brand)]"
-                        onChange={(e) => setPicked((p) => (e.target.checked ? [...p, l.id] : p.filter((x) => x !== l.id)))} />
-                      <T>Pinjaman ke-</T>{l.seqNo} · <T>sisa</T> <b>{formatRupiah(restOf(l))}</b>
-                    </label>
-                  ))}
-                </div>
                 <p className="flex justify-between rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-900"><T>Total pinjaman gabungan</T> <b>{formatRupiah(total)}</b></p>
                 <p className="text-[11px] text-gray-400"><T>Pinjaman lama ditutup (Digabung); sisa angsurannya pindah ke pinjaman ini. Potongan baru berjalan setelah ditandai Dicairkan.</T></p>
               </>
@@ -101,12 +117,46 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
             ? <Input type="number" value={amount} placeholder={t("Contoh: 1000000")} onChange={(e) => setAmount(e.target.value)} />
             : <Input type="number" value={tenor} onChange={(e) => setTenor(e.target.value)} />}
         </div>
-        {preview.length > 0 && (
-          <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
-            {formatRupiah(preview[0].amount)} x {preview.length} · {periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}
-            {preview[preview.length - 1].amount !== preview[0].amount && <> · <T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)}</>}
-          </p>
-        )}
+        {preview.length > 0 && (() => {
+          // Potongan per bulan sesudah disetujui: digabung = angsuran baru menggantikan angsuran pinjaman yang digabung;
+          // tidak digabung = angsuran baru ditambah angsuran pinjaman lama yang tetap berjalan.
+          const keep = running.filter((l) => !merged.includes(l)).reduce((a, l) => a + monthlyOf(l), 0);
+          const after = preview[0].amount + keep;
+          let left = total;
+          return (
+            <div className="space-y-2 rounded-xl border border-gray-200 p-3">
+              <p className="text-xs font-semibold text-gray-600"><T>Angsuran baru</T></p>
+              <p className="text-sm text-gray-800">
+                <b>{formatRupiah(preview[0].amount)}</b><T>/bulan</T> x {preview.length} · {periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}
+                {preview[preview.length - 1].amount !== preview[0].amount && <span className="text-gray-500"> · <T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)}</span>}
+              </p>
+              {running.length > 0 && (
+                <p className="flex justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <span><T>Total potongan pinjaman per bulan</T>: {formatRupiah(oldMonthly)} → </span><b>{formatRupiah(after)}</b>
+                </p>
+              )}
+              <p className="text-[11px] font-semibold text-gray-500"><T>Jadwal angsuran baru</T></p>
+              <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-100">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 text-[10px] uppercase text-gray-400">
+                    <tr><th className="px-2 py-1 text-left"><T>Ke-</T></th><th className="px-2 py-1 text-left"><T>Periode</T></th><th className="px-2 py-1 text-right"><T>Nominal</T></th><th className="px-2 py-1 text-right"><T>Sisa</T></th></tr>
+                  </thead>
+                  <tbody>
+                    {preview.map((x, i) => {
+                      left -= x.amount;
+                      return (
+                        <tr key={i} className="border-t border-gray-50 text-gray-700">
+                          <td className="px-2 py-1">{i + 1}</td><td className="px-2 py-1">{periodShort(x.period)}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{formatRupiah(x.amount)}</td><td className="px-2 py-1 text-right tabular-nums text-gray-400">{formatRupiah(Math.max(0, left))}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
         <p className="text-[11px] text-gray-400"><T>Setelah disetujui, tandai Dicairkan saat uang sudah diberikan; angsuran baru dipotong setelah dicairkan.</T></p>
         <div className="space-y-1.5"><Label className="text-xs"><T>Catatan</T></Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
         <ErrorBox error={error} />
