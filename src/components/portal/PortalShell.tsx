@@ -1,5 +1,6 @@
 "use client";
 
+import { Toaster } from "@/components/portal/Toast";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -416,6 +417,7 @@ export default function PortalShell({ user, storage, approvals = null, unread = 
           {children}
         </EditAccessProvider>
       </main>
+      <Toaster />
     </div>
   );
 }

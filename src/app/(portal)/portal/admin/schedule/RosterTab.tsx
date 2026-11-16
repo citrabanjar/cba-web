@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarRange, ChevronLeft, ChevronRight, Copy, Eraser, Loader2, RotateCcw, Save, TriangleAlert } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, Copy, Eraser, Loader2, RotateCcw, Save } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { useCanApply } from "@/components/portal/edit-access";
 import type { DayShift } from "@/lib/schedule";
 import { saveShiftDays } from "./actions";
+import { toast } from "@/components/portal/Toast";
 
 type Shift = { id: string; code: string; name: string; color: string; isOff: boolean; startTime: string | null; endTime: string | null };
 type Row = { id: string; name: string; employeeId: string; department: string | null; days: Record<string, DayShift>; unscheduled: number };
@@ -34,7 +35,6 @@ export default function RosterTab({
   const [brush, setBrush] = useState<string>(shifts.find((s) => !s.isOff)?.id ?? ERASE);
   const [changes, setChanges] = useState<Record<string, string>>({}); // "userId|date" → shiftId atau ERASE
   const [painting, setPainting] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
   const canEdit = useCanApply(); // mengisi jadwal bulanan = menempel shift ke karyawan: cukup hak lihat
@@ -88,21 +88,20 @@ export default function RosterTab({
       }
     }
     setChanges(next);
-    setMsg({ ok: true, text: filled ? `${filled} kotak diisi dari minggu sebelumnya. Klik Simpan.` : "Tidak ada kotak kosong yang bisa diisi." });
+    toast(filled ? `${filled} kotak diisi dari minggu sebelumnya. Klik Simpan.` : "Tidak ada kotak kosong yang bisa diisi.", filled ? "info" : "warn");
   }
 
   function save() {
-    setMsg(null);
     const list = Object.entries(changes).map(([k, v]) => {
       const [userId, date] = k.split("|");
       return { userId, date, shiftId: v === ERASE ? null : v };
     });
     start(async () => {
       const r = await saveShiftDays(list);
-      if (r.error) setMsg({ ok: false, text: r.error });
+      if (r.error) toast(r.error, "error");
       else {
         setChanges({});
-        setMsg({ ok: true, text: `${r.count} perubahan tersimpan.${r.marked ? ` ${r.marked} karyawan otomatis ditandai Jadwal Manual.` : ""}` });
+        toast(`${r.count} perubahan tersimpan.${r.marked ? ` ${r.marked} karyawan otomatis ditandai Jadwal Manual.` : ""}`, "ok");
         router.refresh();
       }
     });
@@ -117,6 +116,11 @@ export default function RosterTab({
   const emptyByRow = shown.map((r) => dates.filter((d) => isEmpty(r, d)).length);
   const emptyCount = emptyByRow.reduce((a, b) => a + b, 0);
   const emptyPeople = emptyByRow.filter((n) => n > 0).length;
+  // Info hari kerja yang belum ada shift: pop-up sekali saat bulan dibuka (bukan kotak tetap).
+  useEffect(() => {
+    if (emptyCount > 0) toast(`${emptyCount} hari kerja dari ${emptyPeople} karyawan belum memiliki shift (kotak bergaris).`, "warn");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, month]);
 
   return (
     <div className="space-y-4">
@@ -146,7 +150,7 @@ export default function RosterTab({
               <Copy size={14} /> <T>Isi dari minggu sebelumnya</T>
             </button>
             {pendingCount > 0 && (
-              <button type="button" onClick={() => { setChanges({}); setMsg(null); }}
+              <button type="button" onClick={() => setChanges({})}
                 className="inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-50">
                 <RotateCcw size={14} /> <T>Batalkan</T>
               </button>
@@ -185,16 +189,6 @@ export default function RosterTab({
         </div>
         )}
 
-        {msg && <p className={`rounded-xl px-4 py-2.5 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
-        {emptyCount > 0 && (
-          <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-            <TriangleAlert size={15} className="mt-0.5 shrink-0" />
-            <span>
-              <b>{emptyCount} <T>hari kerja dari</T> {emptyPeople} <T>karyawan belum memiliki shift</T></b> <T>(kotak bergaris).</T>{" "}
-              <T>Isi shift-nya di sini. Karyawan tanpa jadwal otomatis ditandai Jadwal Manual setelah disimpan; untuk karyawan kantor, tempel pola kerja di tab Pola Kerja.</T>
-            </span>
-          </p>
-        )}
 
         {shown.length === 0 ? (
           <div className="rounded-2xl border border-gray-200 bg-white py-14 text-center">
