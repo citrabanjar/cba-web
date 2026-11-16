@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type React from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, LogIn, LogOut, MapPin } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Loader2, LogIn, LogOut, MapPin } from "lucide-react";
+import { saveShiftDays } from "../../schedule/actions";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import type { DayShift } from "@/lib/schedule";
@@ -59,8 +61,10 @@ function coveredDays(ranges: Range[], status: string, map: Map<string, string>, 
 }
 
 export default function AttendanceCalendar({
-  attendances, leaves, trips, shiftDays = {}, side, editUserId, overtimes = [],
+  attendances, leaves, trips, shiftDays = {}, side, editUserId, overtimes = [], shiftEdit,
 }: {
+  // Jadwal Manual: palet shift yang diseret ke tanggal (atau dipilih lalu klik / sapu tanggal), lalu Simpan.
+  shiftEdit?: { userId: string; shifts: { id: string; code: string; name: string; color: string }[] };
   attendances: Attendance[]; leaves: Leave[]; trips: Trip[]; shiftDays?: Record<string, DayShift>;
   overtimes?: { date: string; start: string; end: string; status: string }[]; // lembur (SPL bersedia / pengajuan); tertempel di jadwal
   editUserId?: string; // Super Admin (masa testing): boleh ubah/tambah absen sampai hari ini
@@ -74,6 +78,26 @@ export default function AttendanceCalendar({
   const monthEndKey = new Date(Date.UTC(nowJakarta.getUTCFullYear(), nowJakarta.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
   const [month, setMonth] = useState({ y: nowJakarta.getUTCFullYear(), m: nowJakarta.getUTCMonth() });
   const [selected, setSelected] = useState<string | null>(todayKey);
+  const router = useRouter();
+  const [edits, setEdits] = useState<Record<string, string | null>>({});
+  const [brush, setBrush] = useState<string | null>(null); // shift terpilih untuk klik / sapu ("" = kosongkan)
+  const [saving, startSave] = useTransition();
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const painting = useRef(false);
+  const shiftById = useMemo(() => new Map((shiftEdit?.shifts ?? []).map((s) => [s.id, s])), [shiftEdit]);
+  const paint = (k: string) => { if (brush !== null) setEdits((x) => ({ ...x, [k]: brush || null })); };
+  const cellAt = (x: number, y: number) => (document.elementFromPoint(x, y)?.closest("[data-date]") as HTMLElement | null)?.dataset.date ?? null;
+  const editCount = Object.keys(edits).length;
+  function saveEdits() {
+    if (!shiftEdit || !editCount) return;
+    setSaveErr(null);
+    startSave(async () => {
+      const r = await saveShiftDays(Object.entries(edits).map(([date, shiftId]) => ({ userId: shiftEdit.userId, date, shiftId })));
+      if (r.error) { setSaveErr(r.error); return; }
+      setEdits({}); setBrush(null);
+      router.refresh();
+    });
+  }
 
   const byDay = useMemo(() => new Map(attendances.map((a) => [dayKey(a.date), a])), [attendances]);
   const otByDay = useMemo(() => new Map(overtimes.map((o) => [o.date, o])), [overtimes]);
@@ -160,7 +184,41 @@ export default function AttendanceCalendar({
         </div>
 
         <div className="p-4 sm:p-5">
-          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          {shiftEdit && (
+            <div className="mb-4 space-y-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs font-semibold text-gray-500"><T>Shift</T>:</span>
+                {shiftEdit.shifts.length === 0 && <span className="text-xs text-amber-700"><T>Belum ada shift aktif. Buat dulu di Jadwal → Shift.</T></span>}
+                {shiftEdit.shifts.map((s) => (
+                  <button key={s.id} type="button" draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", s.id)}
+                    onClick={() => setBrush(brush === s.id ? null : s.id)} title={s.name}
+                    className={`inline-flex cursor-grab items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold active:cursor-grabbing ${brush === s.id ? "ring-2 ring-offset-1" : ""}`}
+                    style={{ borderColor: s.color, color: s.color, background: `${s.color}1a`, ...(brush === s.id ? { ["--tw-ring-color" as string]: s.color } : {}) }}>
+                    {s.code} <span className="font-normal text-gray-500">{s.name}</span>
+                  </button>
+                ))}
+                <button type="button" draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "CLEAR")}
+                  onClick={() => setBrush(brush === "" ? null : "")}
+                  className={`inline-flex items-center rounded-full border border-dashed border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-500 ${brush === "" ? "ring-2 ring-gray-400 ring-offset-1" : ""}`}>
+                  <T>Kosongkan</T>
+                </button>
+                {editCount > 0 && (
+                  <span className="ml-auto flex items-center gap-1.5">
+                    <button type="button" disabled={saving} onClick={() => setEdits({})} className="h-8 rounded-full border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Batal</T></button>
+                    <button type="button" disabled={saving} onClick={saveEdits} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-brand px-3 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60">
+                      {saving && <Loader2 size={13} className="animate-spin" />} <T>Simpan</T> ({editCount})
+                    </button>
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-500"><T>Seret shift ke tanggal, atau klik shift lalu klik / sapu tanggal-tanggalnya. Tanggal yang diubah bergaris merah sampai disimpan.</T></p>
+              {saveErr && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700"><T>{saveErr}</T></p>}
+            </div>
+          )}
+          <div className={`grid grid-cols-7 gap-1.5 sm:gap-2 ${shiftEdit && brush !== null ? "touch-none select-none" : ""}`}
+            onPointerDown={(e) => { if (!shiftEdit || brush === null) return; const k = cellAt(e.clientX, e.clientY); if (!k) return; e.preventDefault(); painting.current = true; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* tanpa capture tetap bisa */ } paint(k); }}
+            onPointerMove={(e) => { if (painting.current) { const k = cellAt(e.clientX, e.clientY); if (k) paint(k); } }}
+            onPointerUp={() => { painting.current = false; }} onPointerCancel={() => { painting.current = false; }}>
             {DAYS.map((d, i) => (
               <div key={d} className={`pb-1 text-center text-[11px] font-semibold uppercase tracking-wider ${i === 6 ? "text-rose-400" : "text-gray-400"}`}>
                 <T>{d}</T>
@@ -175,22 +233,33 @@ export default function AttendanceCalendar({
               const sunday = i % 7 === 6;
               const isToday = k === todayKey;
               const isSel = k === selected;
+              const edited = k in edits;
+              const es = edited && edits[k] ? shiftById.get(edits[k]!) : undefined; // shift hasil seret (belum disimpan)
               return (
                 <button
                   key={k}
                   type="button"
-                  onClick={() => setSelected(k)}
+                  data-date={k}
+                  onClick={() => { if (!(shiftEdit && brush !== null)) setSelected(k); }}
+                  onDragOver={shiftEdit ? (e) => e.preventDefault() : undefined}
+                  onDrop={shiftEdit ? (e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); setEdits((x) => ({ ...x, [k]: id === "CLEAR" ? null : id })); } : undefined}
                   className={[
                     "flex min-h-16 flex-col items-start rounded-xl border p-1.5 text-left transition-shadow sm:min-h-20 sm:p-2",
                     style ? style.cell : sunday ? "border-rose-100 bg-rose-50/40 text-rose-400" : "border-gray-100 bg-gray-50/60 text-gray-700",
                     isSel ? "ring-2 ring-ink ring-offset-1" : "hover:shadow-md",
+                    edited ? "!border-brand border-2" : "",
+                    shiftEdit && brush !== null ? "cursor-cell" : "",
                   ].join(" ")}
                 >
                   <span className="flex w-full items-center justify-between gap-1">
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? "bg-brand text-white" : ""}`}>
                       {day}
                     </span>
-                    {shiftDays[k]?.manual ? (
+                    {edited ? (
+                      es ? (
+                        <span title={es.name} className="pointer-events-none rounded-md px-1 py-px text-[9px] font-bold leading-tight text-white sm:text-[10px]" style={{ background: es.color }}>{es.code}</span>
+                      ) : <span title={t("Kosongkan")} className="pointer-events-none h-4 w-5 rounded-md border border-dashed border-gray-300 bg-white" />
+                    ) : shiftDays[k]?.manual ? (
                       <span title={t("Belum diisi")} className="h-4 w-5 rounded-md border border-dashed border-amber-300 bg-amber-50" />
                     ) : shiftDays[k] && (
                       <span title={shiftDays[k].holiday ?? shiftDays[k].name}

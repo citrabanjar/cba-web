@@ -368,28 +368,6 @@ export async function deleteEmployeeSchedule(id: string): Promise<Result> {
 
 // ─── Jadwal bulanan (shift per tanggal) ─────────────────────────────────────
 
-// Data isian shift sebulan untuk satu karyawan (dialog Atur → Jadwal Manual di profil karyawan).
-export async function loadShiftMonth(userId: string, month: string): Promise<{
-  error?: string; shifts?: { id: string; code: string; name: string; color: string; isOff: boolean }[];
-  days?: Record<string, string>; holidays?: Record<string, string>;
-}> {
-  await requireMenuApply("absensi");
-  if (!/^\d{4}-\d{2}$/.test(month)) return { error: "Bulan tidak valid." };
-  const [y, m] = month.split("-").map(Number);
-  const from = new Date(Date.UTC(y, m - 1, 1)), to = new Date(Date.UTC(y, m, 0));
-  const [shifts, days, holidays] = await Promise.all([
-    prisma.workShift.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }], select: { id: true, code: true, name: true, color: true, isOff: true } }),
-    prisma.employeeShiftDay.findMany({ where: { userId, date: { gte: from, lte: to } }, select: { date: true, shiftId: true } }),
-    prisma.holiday.findMany({ where: { date: { gte: from, lte: to } }, select: { date: true, name: true } }),
-  ]);
-  const key = (d: Date) => d.toISOString().slice(0, 10);
-  return {
-    shifts,
-    days: Object.fromEntries(days.map((d) => [key(d.date), d.shiftId])),
-    holidays: Object.fromEntries(holidays.map((h) => [key(h.date), h.name])),
-  };
-}
-
 export type ShiftDayChange = { userId: string; date: string; shiftId: string | null };
 
 // Simpan isian Jadwal Bulanan. shiftId null berarti isian tanggal itu dihapus

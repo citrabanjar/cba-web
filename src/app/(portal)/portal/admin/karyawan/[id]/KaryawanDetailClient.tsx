@@ -682,7 +682,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, initialTab, canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
-  schedules, patterns, shiftDays, overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
+  schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
 }: {
   employee: Employee;
   tenure: string | null;
@@ -698,6 +698,7 @@ export default function KaryawanDetailClient({
   schedules: ScheduleRow[];
   patterns: { id: string; name: string; cycleDays: number }[];
   shiftDays: Record<string, DayShift>;
+  shiftOptions?: { id: string; code: string; name: string; color: string }[]; // palet shift Jadwal Manual
   overtimes?: { date: string; start: string; end: string; status: string }[];
   leaveBalances: BalanceRow[];
   payOptions: PayOption[];
@@ -709,6 +710,8 @@ export default function KaryawanDetailClient({
   const canEditMenu = useCanEdit("karyawan");
   const canEditPay = useCanEdit("gaji");
   const canEditSchedule = useCanApply("absensi"); // tempel jadwal cukup hak lihat Absensi
+  // Jadwal Manual yang berlaku (atau terakhir ditempel): shift diisi dengan menyeret palet ke Kalender Kehadiran.
+  const manualNow = schedules[0]?.type === "MANUAL";
   const canEdit = canEditTarget && canEditMenu;
   // Hak "Ajukan": boleh membuka Edit data (Ubah Data saja); simpanan menjadi pengajuan ke atasan langsung si Admin.
   const canPropose = useCanPropose("karyawan");
@@ -1167,6 +1170,7 @@ export default function KaryawanDetailClient({
 
         {tab === "absensi" && (
           <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
+            shiftEdit={canEditTarget && canEditSchedule && manualNow ? { userId: emp.id, shifts: shiftOptions } : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} />} />
         )}
 
