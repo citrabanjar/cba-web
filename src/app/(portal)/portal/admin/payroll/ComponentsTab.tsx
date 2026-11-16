@@ -12,6 +12,7 @@ import { deletePayComponent, setComponentAssignments } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import ComponentDialog from "./ComponentDialog";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type Component = Omit<PayComponentInput, "legalBasis" | "note"> & {
   id: string; legalBasis: string | null; note: string | null; sortOrder: number; updatedBy: string | null; employeeIds: string[];
@@ -95,8 +96,8 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
   const [assigning, setAssigning] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const assignComp = components.find((c) => c.id === assigning);
-  function remove(c: Component) {
-    if (!window.confirm(t("Hapus komponen ini?"))) return;
+  async function remove(c: Component) {
+    if (!await askConfirm(t("Hapus komponen ini?"))) return;
     start(async () => {
       const r = await deletePayComponent(c.id);
       if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info");

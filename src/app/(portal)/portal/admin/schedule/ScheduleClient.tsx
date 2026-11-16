@@ -21,6 +21,7 @@ import {
   deleteHoliday, deletePattern, deleteShift, saveHoliday, savePattern, saveRule, saveShift,
   type BreakTime, type PatternInput, type RuleInput, type ShiftInput, reorderShifts } from "./actions";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 type Shift = Omit<ShiftInput, "startTime" | "endTime"> & {
   id: string; used: number; startTime: string | null; endTime: string | null;
@@ -295,8 +296,8 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
     });
   }
 
-  function remove(s: Shift) {
-    if (!window.confirm(t("Hapus shift ini?"))) return;
+  async function remove(s: Shift) {
+    if (!await askConfirm(t("Hapus shift ini?"))) return;
     setError(null);
     start(async () => {
       const r = await deleteShift(s.id);
@@ -514,7 +515,7 @@ function PatternTab({ patterns, shifts, employees }: { patterns: Pattern[]; shif
                       <Pencil size={14} />
                     </button>
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus pola kerja ini?"))) start(async () => { setError(null); const r = await deletePattern(p.id); if (r.error) setError(r.error); else if (r.proposed) toast(proposedText(r.proposed), "info"); }); }}
+                      onClick={async () => { if (await askConfirm(t("Hapus pola kerja ini?"))) start(async () => { setError(null); const r = await deletePattern(p.id); if (r.error) setError(r.error); else if (r.proposed) toast(proposedText(r.proposed), "info"); }); }}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>
@@ -629,7 +630,7 @@ function HolidayTab({ holidays }: { holidays: Holiday[] }) {
                       <Pencil size={14} />
                     </button>
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => { if (window.confirm(t("Hapus hari libur ini?"))) start(async () => { const r = await deleteHoliday(h.id); if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info"); }); }}
+                      onClick={async () => { if (await askConfirm(t("Hapus hari libur ini?"))) start(async () => { const r = await deleteHoliday(h.id); if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info"); }); }}
                       className="rounded-full p-1.5 text-gray-400 hover:bg-white hover:text-brand disabled:opacity-30">
                       <Trash2 size={14} />
                     </button>

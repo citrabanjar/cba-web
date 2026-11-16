@@ -10,6 +10,7 @@ import type { BonusEntry } from "@/lib/payroll-bonus";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
 import { deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
 import { proposedText } from "@/lib/approval-text";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type RunLine = {
   id: string; userId: string; name: string; employeeId: string; department: string | null;
@@ -150,12 +151,12 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
           {canEdit && run && !final && (
             <>
               <button type="button" disabled={pending || lines.length === 0}
-                onClick={() => { if (window.confirm(t("Finalkan periode ini? Angka dikunci dan slip gaji terbit untuk karyawan."))) act(() => finalizePayroll(run.id), "Final. {n} slip gaji terbit."); }}
+                onClick={async () => { if (await askConfirm(t("Finalkan periode ini? Angka dikunci dan slip gaji terbit untuk karyawan."))) act(() => finalizePayroll(run.id), "Final. {n} slip gaji terbit."); }}
                 className="inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
                 <Lock size={14} /> <T>Finalkan & Terbitkan Slip</T>
               </button>
               <button type="button" disabled={pending}
-                onClick={() => { if (window.confirm(t("Hapus draft periode ini?"))) act(() => deletePayrollDraft(run.id), "Draft dihapus."); }}
+                onClick={async () => { if (await askConfirm(t("Hapus draft periode ini?"))) act(() => deletePayrollDraft(run.id), "Draft dihapus."); }}
                 className="inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 px-4 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">
                 <Trash2 size={14} /> <T>Hapus Draft</T>
               </button>

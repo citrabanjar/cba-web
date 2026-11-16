@@ -13,6 +13,7 @@ import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
 import { approveLoan, cancelLoan, deleteLoan, markDisbursed, rejectLoan, saveSchedule } from "@/app/(portal)/portal/admin/pinjaman/actions";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -110,7 +111,7 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
         <ErrorBox error={error} />
         <DialogFooter className="gap-2 sm:justify-between">
           <Button variant="outline" disabled={pending} className="text-rose-600"
-            onClick={() => { if (window.confirm(t("Tolak pengajuan ini?"))) act(() => rejectLoan(loan.id, note), onClose); }}><T>Tolak</T></Button>
+            onClick={async () => { if (await askConfirm(t("Tolak pengajuan ini?"))) act(() => rejectLoan(loan.id, note), onClose); }}><T>Tolak</T></Button>
           <Button disabled={pending || (merge && merged.length === 0)} className="gap-1.5" onClick={approve}>
             {pending && <Loader2 size={15} className="animate-spin" />} <T>Setujui</T>
           </Button>
@@ -243,7 +244,7 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
       {["DISETUJUI", "BERJALAN"].includes(loan.status) && <Button size="sm" variant="outline" onClick={() => onOpen("schedule")}><T>Ubah Sisa Angsuran</T></Button>}
       {canCancel && (
         <Button size="sm" variant="outline" disabled={pending} className="text-rose-600"
-          onClick={() => { if (window.confirm(t("Batalkan pinjaman ini?"))) start(async () => { const r = await cancelLoan(loan.id); if (r.error) toast(r.error, "error"); }); }}>
+          onClick={async () => { if (await askConfirm(t("Batalkan pinjaman ini?"))) start(async () => { const r = await cancelLoan(loan.id); if (r.error) toast(r.error, "error"); }); }}>
           <T>Batalkan</T>
         </Button>
       )}
@@ -260,8 +261,8 @@ export function DeleteLoanButton({ loan }: { loan: { id: string; status: string;
   if (!canEdit || !["BATAL", "DITOLAK"].includes(loan.status)) return null;
   return (
     <Button size="sm" variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
-      onClick={() => {
-        if (!window.confirm(`${t("Hapus permanen Pinjaman ke-")}${loan.seqNo}? ${t("Data yang dihapus tidak bisa dikembalikan.")}`)) return;
+      onClick={async () => {
+        if (!await askConfirm(`${t("Hapus permanen Pinjaman ke-")}${loan.seqNo}? ${t("Data yang dihapus tidak bisa dikembalikan.")}`)) return;
         start(async () => { const r = await deleteLoan(loan.id); if (r.error) toast(r.error, "error"); });
       }}>
       {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} <T>Hapus</T>

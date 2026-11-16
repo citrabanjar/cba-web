@@ -17,6 +17,7 @@ import { InterviewDecision, InterviewSummary, OfferForm } from "@/components/por
 import ReviewerBox, { emptyReviewers, type PersonOption } from "./ReviewerBox";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { approveCandidate, deleteCandidate, inviteCandidate, registerCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, saveInterview, submitForApproval, submitInterview } from "./actions";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type CandidateRow = {
   id: string; name: string; email: string; phone: string; status: string; note: string | null;
@@ -242,14 +243,14 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
           <div className="flex flex-wrap gap-2">
             {!closed && canEdit && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
-                onClick={() => { if (window.confirm(t("Hapus calon karyawan ini?"))) run(() => deleteCandidate(row.id), "Calon dihapus.", onClose, "hapus"); }}>{spin("hapus") ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} <T>Hapus</T></Button>
+                onClick={async () => { if (await askConfirm(t("Hapus calon karyawan ini?"))) run(() => deleteCandidate(row.id), "Calon dihapus.", onClose, "hapus"); }}>{spin("hapus") ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} <T>Hapus</T></Button>
             )}
             {canEdit && (row.status === "DIKIRIM" || row.status === "MENUNGGU_APPROVAL") && (
               <Button variant="outline" disabled={pending} className="gap-1.5" onClick={() => run(() => returnToCandidate(row.id, note), "Dikembalikan ke calon dan diberi tahu lewat email.", onClose, "kembali")}>{spin("kembali") ? <Loader2 size={14} className="animate-spin" /> : <Undo2 size={14} />} <T>Kembalikan ke Calon</T></Button>
             )}
             {canApprove && (legacyApproval || row.status === "WAWANCARA") && (
               <Button variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
-                onClick={() => { if (window.confirm(t("Tolak calon karyawan ini?"))) run(() => rejectCandidate(row.id, note), "Calon ditolak.", onClose, "tolak"); }}>{spin("tolak") ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} <T>Tolak</T></Button>
+                onClick={async () => { if (await askConfirm(t("Tolak calon karyawan ini?"))) run(() => rejectCandidate(row.id, note), "Calon ditolak.", onClose, "tolak"); }}>{spin("tolak") ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} <T>Tolak</T></Button>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -267,8 +268,8 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
               <Button variant="outline" disabled={pending} onClick={() => run(() => saveCandidateReview(row.id, data, job), "Tersimpan.")}><T>Simpan</T></Button>
             )}
             {canEdit && ready && !password && (
-              <Button disabled={pending} className="gap-1.5" onClick={() => {
-                if (!window.confirm(t("Daftarkan sebagai karyawan? Data langsung masuk database."))) return;
+              <Button disabled={pending} className="gap-1.5" onClick={async () => {
+                if (!await askConfirm(t("Daftarkan sebagai karyawan? Data langsung masuk database."))) return;
                 setMsg(null); setAct("daftar");
                 start(async () => {
                   const r = await registerCandidate(row.id, data, job);
@@ -282,8 +283,8 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
                 {spin("kirim") ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Data Cocok, Kirim ke Reviewer</T></Button>
             )}
             {canApprove && legacyApproval && !password && (
-              <Button disabled={pending} className="gap-1.5" onClick={() => {
-                if (!window.confirm(t("Setujui dan jadikan karyawan?"))) return;
+              <Button disabled={pending} className="gap-1.5" onClick={async () => {
+                if (!await askConfirm(t("Setujui dan jadikan karyawan?"))) return;
                 setMsg(null); setAct("setujui");
                 start(async () => {
                   const r = await saveCandidateReview(row.id, data, job);

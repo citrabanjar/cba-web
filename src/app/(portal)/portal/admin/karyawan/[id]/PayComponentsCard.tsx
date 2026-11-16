@@ -11,6 +11,7 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { removePayAssignment, savePayAssignment } from "../actions";
 import { proposedText } from "@/lib/approval-text";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type PayComponentRow = {
   componentId: string; code: string; name: string; kind: string; method: string; formula: string;
@@ -77,7 +78,7 @@ function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row:
         <DialogFooter className="gap-2 sm:justify-between">
           {row.assigned ? (
             <Button variant="outline" disabled={pending} className="text-rose-600"
-              onClick={() => { if (window.confirm(t("Lepas komponen ini dari karyawan? Riwayat masa berlakunya ikut terhapus. Untuk demosi, cukup isi tanggal Sampai."))) act(() => removePayAssignment(userId, row.componentId)); }}>
+              onClick={async () => { if (await askConfirm(t("Lepas komponen ini dari karyawan? Riwayat masa berlakunya ikut terhapus. Untuk demosi, cukup isi tanggal Sampai."))) act(() => removePayAssignment(userId, row.componentId)); }}>
               <T>Lepas</T>
             </Button>
           ) : <span />}

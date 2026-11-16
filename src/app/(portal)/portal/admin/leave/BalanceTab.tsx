@@ -14,6 +14,7 @@ import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { adjustLeaveBalance, importLeaveBalances, setLeaveBalanceActive, type BalanceImportRow } from "./actions";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 const HEADERS = ["Employee ID", "Nama", "Kode Cuti", "Saldo (hari)", "Per Tanggal (YYYY-MM-DD)", "Keterangan"];
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
@@ -161,11 +162,11 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: Import & Koreksi Saldo disembunyikan
   const [switching, startSwitch] = useTransition();
-  const toggle = (on: boolean) => {
+  const toggle = async (on: boolean) => {
     const ask = on
       ? "Aktifkan saldo cuti? Saldo di tabel ini akan tampil di profil karyawan dan halaman Cuti karyawan."
       : "Nonaktifkan saldo cuti? Saldo di profil dan halaman Cuti karyawan kembali menjadi 0.";
-    if (!window.confirm(t(ask))) return;
+    if (!await askConfirm(t(ask))) return;
     startSwitch(async () => { const r = await setLeaveBalanceActive(on); if (r.error) toast(r.error, "error"); });
   };
   const [q, setQ] = useState("");

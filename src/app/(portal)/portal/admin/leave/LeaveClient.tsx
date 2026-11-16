@@ -18,6 +18,7 @@ import BalanceTab from "./BalanceTab";
 import { useCanEdit } from "@/components/portal/edit-access";
 import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type Policy = Omit<LeavePolicyInput, "payNote" | "attachmentNote" | "legalBasis" | "note" | "carryOverExpiry"> & {
   id: string; payNote: string | null; attachmentNote: string | null; legalBasis: string | null; note: string | null; carryOverExpiry: string | null;
@@ -287,8 +288,8 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
   const usedCategories = LEAVE_CATEGORIES.filter((c) => policies.some((p) => p.category === c.key));
   const shown = filter === "ALL" ? policies : policies.filter((p) => p.category === filter);
 
-  function remove(p: Policy) {
-    if (!window.confirm(t("Hapus jenis cuti ini?"))) return;
+  async function remove(p: Policy) {
+    if (!await askConfirm(t("Hapus jenis cuti ini?"))) return;
     start(async () => { const r = await deleteLeavePolicy(p.id); if (r.error) toast(r.error, "error"); else if (r.proposed) toast(proposedText(r.proposed), "info"); });
   }
 

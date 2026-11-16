@@ -10,6 +10,7 @@ import { formatRupiah } from "@/lib/utils";
 import { addMonths, buildSchedule, periodShort } from "@/lib/loans";
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { cancelLoanRequest, requestLoan } from "./actions";
+import { askConfirm } from "@/components/portal/Confirm";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 
@@ -77,7 +78,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
         {loans.map((l) => (
           <LoanCard key={l.id} loan={l} actions={l.status === "PENDING" ? (
             <Button variant="outline" size="sm" disabled={pending}
-              onClick={() => { if (window.confirm(t("Batalkan pengajuan ini?"))) run(async () => { await cancelLoanRequest(l.id); }); }}>
+              onClick={async () => { if (await askConfirm(t("Batalkan pengajuan ini?"))) run(async () => { await cancelLoanRequest(l.id); }); }}>
               <T>Batalkan</T>
             </Button>
           ) : undefined} />

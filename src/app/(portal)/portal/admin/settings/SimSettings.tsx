@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/i18n";
 import { clearSim, runSimNow, setSimEnabled } from "./sim-actions";
+import { askConfirm } from "@/components/portal/Confirm";
 
 // Pengaturan → Fitur (Super Admin): absen uji untuk masa testing.
 export default function SimSettings({ enabled: initial, count }: { enabled: boolean; count: number }) {
@@ -61,7 +62,7 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
           <span className="text-gray-600"><T>Absen uji tersimpan</T>: <b>{count}</b></span>
           <Button size="sm" variant="outline" className="gap-1.5 text-rose-600" disabled={busy !== null || count === 0}
-            onClick={() => { if (window.confirm("Hapus semua absen uji dan lembur uji? Absen dan lembur asli tidak ikut terhapus.")) act("clear", async () => { const r = await clearSim(); return `${r.deleted ?? 0} absen uji dihapus.`; }); }}>
+            onClick={async () => { if (await askConfirm("Hapus semua absen uji dan lembur uji? Absen dan lembur asli tidak ikut terhapus.")) act("clear", async () => { const r = await clearSim(); return `${r.deleted ?? 0} absen uji dihapus.`; }); }}>
             {busy === "clear" ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} <T>Hapus Semua Absen Uji</T>
           </Button>
         </div>

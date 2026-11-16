@@ -10,6 +10,7 @@ import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { AI_INTERVALS, AI_MODEL_LABEL, USD_TO_IDR, estimateCostUsd, type AiSettings as Settings } from "@/lib/ai-checker-settings";
 import { collectAiNow, decideAiRule, deleteAiNote, runAiNow, saveAiNote, saveAiSettings } from "./ai-actions";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type AiNoteView = { id: string; kind: string; title: string; content: string; status: string; source: string; createdBy: string | null; approvedBy: string | null; createdAt: string };
 export type AiRunView = {
@@ -93,7 +94,7 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
           {canEdit && <div className="flex flex-wrap justify-end gap-2">
             <Button size="sm" variant="outline" disabled={pending || !waiting} className="gap-1.5" onClick={() => act(collectAiNow)}><RefreshCw size={14} /> <T>Ambil hasil</T></Button>
             <Button size="sm" variant="outline" disabled={pending || waiting || !hasKey} className="gap-1.5"
-              onClick={() => { if (window.confirm(t("Jalankan pemeriksaan AI sekarang? Biaya dihitung per pemeriksaan."))) act(runAiNow); }}>
+              onClick={async () => { if (await askConfirm(t("Jalankan pemeriksaan AI sekarang? Biaya dihitung per pemeriksaan."))) act(runAiNow); }}>
               <Play size={14} /> <T>Jalankan sekarang</T>
             </Button>
             <Button size="sm" disabled={pending} className="gap-1.5" onClick={() => act(() => saveAiSettings(form), "Pengaturan AI tersimpan.")}>
@@ -117,7 +118,7 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
                 {canEdit && <>
                   <button type="button" aria-label={t("Ubah")} className="rounded p-1 text-gray-400 hover:text-gray-700" onClick={() => setEditing({ id: n.id, title: n.title, content: n.content })}><Pencil size={14} /></button>
                   <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
-                    onClick={() => { if (window.confirm(t("Hapus SOP ini?"))) act(() => deleteAiNote(n.id), "SOP dihapus."); }}><Trash2 size={14} /></button>
+                    onClick={async () => { if (await askConfirm(t("Hapus SOP ini?"))) act(() => deleteAiNote(n.id), "SOP dihapus."); }}><Trash2 size={14} /></button>
                 </>}
               </div>
               <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs text-gray-500">{n.content}</p>
@@ -155,11 +156,11 @@ export default function AiSettings({ settings, hasKey, hasCron, notes, runs }: {
           )} />
           <NoteList title="Aturan aktif" empty="Belum ada aturan tambahan." list={rules} actions={(n) => canEdit && (
             <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
-              onClick={() => { if (window.confirm(t("Hapus aturan ini?"))) act(() => deleteAiNote(n.id), "Aturan dihapus."); }}><Trash2 size={14} /></button>
+              onClick={async () => { if (await askConfirm(t("Hapus aturan ini?"))) act(() => deleteAiNote(n.id), "Aturan dihapus."); }}><Trash2 size={14} /></button>
           )} />
           <NoteList title="Catatan Bukan masalah" empty="Belum ada catatan." list={dismissed} actions={(n) => canEdit && (
             <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
-              onClick={() => { if (window.confirm(t("Hapus catatan ini? AI boleh melaporkan hal ini lagi."))) act(() => deleteAiNote(n.id), "Catatan dihapus."); }}><Trash2 size={14} /></button>
+              onClick={async () => { if (await askConfirm(t("Hapus catatan ini? AI boleh melaporkan hal ini lagi."))) act(() => deleteAiNote(n.id), "Catatan dihapus."); }}><Trash2 size={14} /></button>
           )} />
         </CardContent>
       </Card>

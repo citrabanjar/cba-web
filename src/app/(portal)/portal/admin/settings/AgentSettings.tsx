@@ -10,6 +10,7 @@ import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { MONITOR_CHECKS, type AgentSettings as Settings, type SopReminder } from "@/lib/agent-hrd";
 import { deleteReminder, saveAgentRules, saveReminder } from "./agent-actions";
+import { askConfirm } from "@/components/portal/Confirm";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const EMPTY: SopReminder = { id: "", title: "", note: "", freq: "MONTHLY", day: 25, month: 1, date: "", leadDays: 3 };
@@ -91,7 +92,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
                 {canEdit && <>
                   <button type="button" aria-label={t("Ubah")} className="rounded p-1 text-gray-400 hover:text-brand" onClick={() => setEditing({ ...r })}><Pencil size={14} /></button>
                   <button type="button" aria-label={t("Hapus")} className="rounded p-1 text-gray-400 hover:text-rose-600"
-                    onClick={() => { if (window.confirm(t("Hapus pengingat ini?"))) run(() => deleteReminder(r.id), "Pengingat dihapus."); }}><Trash2 size={14} /></button>
+                    onClick={async () => { if (await askConfirm(t("Hapus pengingat ini?"))) run(() => deleteReminder(r.id), "Pengingat dihapus."); }}><Trash2 size={14} /></button>
                 </>}
               </li>
             ))}

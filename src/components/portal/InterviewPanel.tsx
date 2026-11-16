@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
 import { actionableApprovers, missingReview, RECOMMENDATIONS, rupiah, SCORES, type Interview, type Offer, type Review } from "@/lib/onboarding-interview";
 import { decideInterview, saveReview } from "@/app/(portal)/portal/admin/onboarding/actions";
+import { askConfirm } from "@/components/portal/Confirm";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm disabled:bg-gray-50";
 const fmtDate = (s: string) => (s ? new Date(s.length === 10 ? `${s}T00:00:00` : s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—");
@@ -64,8 +65,8 @@ export function ReviewForm({ candidateId, review, offer: initialOffer, master, o
   const [msg, setMsg] = useState<{ ok: boolean; text: string; list?: string[] } | null>(null);
   const [pending, start] = useTransition();
   const set = (patch: Partial<Review>) => { setMsg(null); setR((x) => ({ ...x, ...patch })); };
-  const save = (submit: boolean) => {
-    if (submit && !window.confirm(t("Kirim penilaian? Setelah dikirim tidak bisa diubah."))) return;
+  const save = async (submit: boolean) => {
+    if (submit && !await askConfirm(t("Kirim penilaian? Setelah dikirim tidak bisa diubah."))) return;
     setMsg(null);
     start(async () => {
       const res = await saveReview(candidateId, r, offer, submit);
@@ -314,8 +315,8 @@ export function InterviewDecision({ candidateId, finalOffer, master, onDone }: {
   const [offer, setOffer] = useState<Offer | null>(finalOffer ?? null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string; list?: string[] } | null>(null);
   const [pending, start] = useTransition();
-  const decide = (d: "SETUJU" | "TOLAK") => {
-    if (d === "TOLAK" && !window.confirm(t("Tolak calon karyawan ini?"))) return;
+  const decide = async (d: "SETUJU" | "TOLAK") => {
+    if (d === "TOLAK" && !await askConfirm(t("Tolak calon karyawan ini?"))) return;
     setMsg(null);
     start(async () => {
       const r = await decideInterview(candidateId, d, note, d === "SETUJU" ? offer : null);

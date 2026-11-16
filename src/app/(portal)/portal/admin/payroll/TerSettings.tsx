@@ -11,6 +11,7 @@ import { rupiah } from "@/lib/payroll";
 import { DEFAULT_TER, type TerRow, type TerVersion } from "@/lib/pph21";
 import { deleteTerVersion, saveTerVersion } from "./actions";
 import { proposedText } from "@/lib/approval-text";
+import { askConfirm } from "@/components/portal/Confirm";
 
 const TABLES = [
   { key: "A", label: "Kategori A", hint: "TK/0, TK/1, K/0" },
@@ -57,8 +58,8 @@ export default function TerSettings({ versions }: { versions: TerVersion[] }) {
       else { setSelected(form.effectiveDate); setMsg({ ok: true, text: "Tarif TER tersimpan." }); }
     });
   }
-  function remove() {
-    if (!selected || !window.confirm(t("Hapus versi tarif TER ini?"))) return;
+  async function remove() {
+    if (!selected || !await askConfirm(t("Hapus versi tarif TER ini?"))) return;
     start(async () => {
       const r = await deleteTerVersion(selected);
       if (r.proposed) { setMsg({ ok: true, text: proposedText(r.proposed) }); return; }

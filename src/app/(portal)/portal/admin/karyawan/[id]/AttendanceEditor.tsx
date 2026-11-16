@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { deleteAttendanceBySuper, saveAttendanceBySuper } from "../attendance-actions";
+import { askConfirm } from "@/components/portal/Confirm";
 
 const STATUSES = [["HADIR", "Hadir"], ["IZIN", "Izin"], ["SAKIT", "Sakit"], ["ALPHA", "Alpha"], ["CUTI", "Cuti"], ["DINAS", "Dinas"]] as const;
 const hhmm = (d: Date | null | undefined) =>
@@ -57,7 +58,7 @@ export default function AttendanceEditor({ userId, date, current }: {
       {error && <p className="text-xs text-rose-600"><T>{error}</T></p>}
       <div className="flex items-center gap-2">
         {current && (
-          <button type="button" disabled={pending} onClick={() => { if (window.confirm(t("Hapus absen tanggal ini?"))) run(() => deleteAttendanceBySuper(userId, date)); }}
+          <button type="button" disabled={pending} onClick={async () => { if (await askConfirm(t("Hapus absen tanggal ini?"))) run(() => deleteAttendanceBySuper(userId, date)); }}
             className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50"><Trash2 size={12} /> <T>Hapus</T></button>
         )}
         <button type="button" disabled={pending} onClick={() => setOpen(false)} className="ml-auto rounded-full px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"><T>Batal</T></button>

@@ -38,6 +38,7 @@ import ProfileLoans from "@/components/portal/LoanManager";
 import type { LoanView } from "@/components/portal/LoanCard";
 import RegionSelect from "@/components/RegionSelect";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 type Salary = {
   id: string; effectiveDate: Date; basicSalary: number; dailyWage: number | null; monthlyFactor: number | null; bpjsTkBase: number | null;
@@ -884,8 +885,8 @@ export default function KaryawanDetailClient({
     });
   }
 
-  function handleReactivate() {
-    if (!window.confirm(t("Aktifkan kembali karyawan ini?"))) return;
+  async function handleReactivate() {
+    if (!await askConfirm(t("Aktifkan kembali karyawan ini?"))) return;
     startTransition(async () => {
       await reactivateEmployee(emp.id);
     });

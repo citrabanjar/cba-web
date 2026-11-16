@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 import type { DayShift } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import AttendanceEditor from "./AttendanceEditor";
+import { askConfirm } from "@/components/portal/Confirm";
 
 type Attendance = {
   id: string; date: Date; checkIn: Date | null; checkOut: Date | null;
@@ -90,9 +91,9 @@ export default function AttendanceCalendar({
   const paint = (k: string) => { if (brush !== null && !locked(k)) setEdits((x) => ({ ...x, [k]: brush || null })); };
   const cellAt = (x: number, y: number) => (document.elementFromPoint(x, y)?.closest("[data-date]") as HTMLElement | null)?.dataset.date ?? null;
   const editCount = Object.keys(edits).length;
-  function saveEdits() {
+  async function saveEdits() {
     if (!shiftEdit || !editCount) return;
-    if (!window.confirm(t("Pastikan jadwal yang Anda simpan sudah benar. Revisi / koreksi jadwal yang sudah tersimpan hanya dapat dilakukan melalui menu Jadwal → Jadwal Bulanan. Simpan sekarang?"))) return;
+    if (!await askConfirm(t("Pastikan jadwal yang Anda simpan sudah benar. Revisi / koreksi jadwal yang sudah tersimpan hanya dapat dilakukan melalui menu Jadwal → Jadwal Bulanan. Simpan sekarang?"))) return;
     setSaveErr(null);
     startSave(async () => {
       const r = await saveShiftDays(Object.entries(edits).map(([date, shiftId]) => ({ userId: shiftEdit.userId, date, shiftId })));

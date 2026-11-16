@@ -28,6 +28,7 @@ import ActionMenu, { QUICK_ACTIONS } from "@/components/portal/ActionMenu";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import PhotoUpload from "./PhotoUpload";
+import { askConfirm } from "@/components/portal/Confirm";
 
 type Dept = { id: string; name: string };
 type Employee = {
@@ -163,8 +164,8 @@ export default function KaryawanClient({
     });
   }
 
-  function handleReactivate(emp: Employee) {
-    if (!window.confirm(t("Aktifkan kembali karyawan ini?"))) return;
+  async function handleReactivate(emp: Employee) {
+    if (!await askConfirm(t("Aktifkan kembali karyawan ini?"))) return;
     startTransition(async () => {
       await reactivateEmployee(emp.id);
       setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, isActive: true } : e));

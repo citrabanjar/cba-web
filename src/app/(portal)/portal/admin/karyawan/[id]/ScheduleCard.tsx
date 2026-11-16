@@ -10,6 +10,7 @@ import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { assignSchedule, deleteEmployeeSchedule } from "../../schedule/actions";
 import { toast } from "@/components/portal/Toast";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type ScheduleRow = {
   id: string; type: string; effectiveDate: Date; note: string | null; createdBy: string | null;
@@ -90,11 +91,11 @@ export default function ScheduleCard({
                   </span>
                   {canEdit && (
                     <button type="button" disabled={pending} aria-label={t("Hapus")}
-                      onClick={() => {
+                      onClick={async () => {
                         const ask = s.type === "MANUAL"
                           ? t("Hapus Jadwal Manual ini? Semua shift yang sudah ditempatkan sejak tanggal berlakunya ikut terhapus.")
                           : t("Hapus jadwal ini?");
-                        if (!window.confirm(ask)) return;
+                        if (!await askConfirm(ask)) return;
                         start(async () => {
                           const r = await deleteEmployeeSchedule(s.id);
                           if (r.error) toast(r.error, "error");
