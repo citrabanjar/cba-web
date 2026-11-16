@@ -10,7 +10,8 @@ import { formatRupiah } from "@/lib/utils";
 import { addMonths, buildSchedule, buildScheduleByAmount, periodShort } from "@/lib/loans";
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { cancelLoanRequest, requestLoan } from "./actions";
-import { askConfirm } from "@/components/portal/Confirm";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
+import { toast } from "@/components/portal/Toast";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 
@@ -20,7 +21,6 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
   const [tenor, setTenor] = useState("6");
   const [start, setStart] = useState(() => addMonths(thisMonth(), 1));
   const [purpose, setPurpose] = useState("");
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, run] = useTransition();
   // Pinjaman yang masih berjalan: karyawan bisa memohon hitung ulang angsuran (pinjaman baru digabung dengan sisanya).
   const running = loans.filter((l) => l.status === "BERJALAN");
@@ -45,14 +45,14 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
   const hasPending = loans.some((l) => l.status === "PENDING");
 
   function submit() {
-    setMsg(null);
     run(async () => {
       const r = await requestLoan({
         amount: Number(amount), tenor: Number(tenor), startPeriod: start, purpose,
         ...(merged.length ? { recalc: { mergeIds: merged.map((l) => l.id), installment: byAmount ? Number(each) : undefined } } : {}),
       });
-      if (r.error) setMsg({ ok: false, text: r.error });
-      else { setMsg({ ok: true, text: "Pengajuan terkirim. Menunggu persetujuan." }); setAmount(""); setPurpose(""); setRecalc(false); setEach(""); setSimKey(null); }
+      // Info = pop-up: berhasil → toast; gagal → dialog OK.
+      if (r.error) showNotice(t(r.error), "error");
+      else { toast(t("Pengajuan terkirim. Menunggu persetujuan."), "ok"); setAmount(""); setPurpose(""); setRecalc(false); setEach(""); setSimKey(null); }
     });
   }
 
@@ -65,7 +65,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
             <p className="text-xs text-gray-400"><T>Tanpa bunga. Pengajuan disetujui atasan langsung, diperiksa Admin, lalu diputus pimpinan. Angsuran dipotong dari gaji setiap bulan setelah pinjaman dicairkan.</T></p></div>
         </div>
         {hasPending ? (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"><T>Masih ada pengajuan yang menunggu persetujuan.</T></p>
+          <p className="text-xs text-gray-500"><T>Pengajuan baru dapat dibuat setelah pengajuan sebelumnya selesai diproses.</T></p>
         ) : (
           <div className="space-y-3">
             {/* Hitung ulang: isian jangka waktu / angsuran pindah ke kotak pinjaman berjalan. */}
@@ -147,7 +147,6 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
                   {preview.length > 120 && <p className="text-rose-600"><T>Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan.</T></p>}
                 </div>
             )}
-            {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
             {!simulated && <p className="text-xs text-gray-500"><T>Klik Simulasi Angsuran untuk melihat ringkasan angsuran sebelum mengajukan.</T></p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" disabled={pending || total <= 0} onClick={() => setSimKey(inputKey)}><T>Simulasi Angsuran</T></Button>
@@ -155,7 +154,6 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
             </div>
           </div>
         )}
-        {hasPending && msg && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700"><T>{msg.text}</T></p>}
       </section>
 
       <section className="space-y-3">
