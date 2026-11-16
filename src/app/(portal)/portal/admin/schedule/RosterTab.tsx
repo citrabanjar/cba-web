@@ -118,7 +118,7 @@ export default function RosterTab({
   const emptyPeople = emptyByRow.filter((n) => n > 0).length;
   // Info hari kerja yang belum ada shift: pop-up sekali saat bulan dibuka (bukan kotak tetap).
   useEffect(() => {
-    if (emptyCount > 0) toast(`${emptyCount} hari kerja dari ${emptyPeople} karyawan belum memiliki shift (kotak bergaris).`, "warn");
+    if (emptyCount > 0) toast(`${emptyCount} hari kerja dari ${emptyPeople} karyawan belum memiliki shift.`, "warn");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
 
