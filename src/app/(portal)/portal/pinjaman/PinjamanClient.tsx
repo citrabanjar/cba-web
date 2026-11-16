@@ -65,14 +65,12 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"><T>Masih ada pengajuan yang menunggu persetujuan.</T></p>
         ) : (
           <div className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-3">
+            {/* Hitung ulang: isian jangka waktu / angsuran pindah ke kotak pinjaman berjalan. */}
+            <div className={`grid gap-3 ${merged.length ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
               <div className="space-y-1.5"><Label className="text-xs"><T>Jumlah pinjaman (Rp)</T></Label>
                 <Input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-              {byAmount ? (
-                <div className="space-y-1.5"><Label className="text-xs"><T>Potongan per bulan (Rp)</T></Label>
-                  <Input type="number" min={0} value={each} onChange={(e) => setEach(e.target.value)} placeholder={t("Contoh: 1000000")} /></div>
-              ) : (
-                <div className="space-y-1.5"><Label className="text-xs"><T>Jumlah angsuran (bulan)</T></Label>
+              {!merged.length && (
+                <div className="space-y-1.5"><Label className="text-xs"><T>Jangka waktu (bulan)</T></Label>
                   <Input type="number" min={1} max={120} value={tenor} onChange={(e) => setTenor(e.target.value)} /></div>
               )}
               <div className="space-y-1.5"><Label className="text-xs"><T>Mulai dipotong</T></Label>
@@ -106,29 +104,64 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
                     <span className="block text-[11px] font-normal text-gray-500"><T>Pinjaman baru digabung dengan sisa pinjaman yang dipilih, lalu angsurannya dihitung ulang.</T></span></span>
                 </label>
                 {recalc && (
-                  <div className="flex gap-1 rounded-full bg-gray-100 p-1">
-                    {([["amount", "Potongan per bulan"], ["count", "Jumlah angsuran"]] as const).map(([k, label]) => (
-                      <button key={k} type="button" onClick={() => setMode(k)}
-                        className={`h-8 flex-1 rounded-full text-xs ${mode === k ? "bg-ink font-semibold text-white" : "text-gray-500"}`}><T>{label}</T></button>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="flex gap-1 rounded-full bg-gray-100 p-1">
+                      {([["amount", "Berdasarkan angsuran"], ["count", "Berdasarkan jangka waktu"]] as const).map(([k, label]) => (
+                        <button key={k} type="button" onClick={() => setMode(k)}
+                          className={`h-8 flex-1 rounded-full text-xs ${mode === k ? "bg-ink font-semibold text-white" : "text-gray-500"}`}><T>{label}</T></button>
+                      ))}
+                    </div>
+                    {mode === "amount" ? (
+                      <div className="space-y-1.5"><Label className="text-xs"><T>Angsuran per bulan yang diinginkan (Rp)</T></Label>
+                        <Input type="number" min={0} value={each} onChange={(e) => setEach(e.target.value)} placeholder={t("Contoh: 1000000")} /></div>
+                    ) : (
+                      <div className="space-y-1.5"><Label className="text-xs"><T>Jangka waktu yang diinginkan (bulan)</T></Label>
+                        <Input type="number" min={1} max={120} value={tenor} onChange={(e) => setTenor(e.target.value)} /></div>
+                    )}
+                    {!merged.length && <p className="text-[11px] text-rose-600"><T>Pilih minimal satu pinjaman berjalan untuk digabung.</T></p>}
                   </div>
                 )}
               </div>
             )}
-            {preview.length > 0 && (
-              <div className="space-y-1 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                {merged.length > 0 && <p className="flex justify-between gap-2"><span><T>Total pinjaman gabungan</T></span><b>{formatRupiah(total)}</b></p>}
-                <p>
-                  <T>Perkiraan angsuran</T>: <b>{formatRupiah(preview[0].amount)}</b> x {preview.length} <T>bulan</T>
-                  {preview[preview.length - 1].amount !== preview[0].amount && <> (<T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)})</>}
-                  {" · "}{periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}
-                </p>
-                {running.length > 0 && (
-                  <p className="flex justify-between gap-2 rounded-md bg-amber-50 px-2 py-1 text-amber-900"><span><T>Total potongan pinjaman per bulan</T></span><span>{formatRupiah(oldMonthly)} → <b>{formatRupiah(after)}</b></span></p>
-                )}
-                {preview.length > 120 && <p className="text-rose-600"><T>Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan.</T></p>}
-              </div>
-            )}
+            {preview.length > 0 && (() => {
+              let left = total;
+              return (
+                <div className="space-y-2 rounded-xl border border-gray-200 p-3 text-xs text-gray-600">
+                  <p className="font-semibold text-gray-700"><T>{merged.length ? "Jadwal angsuran baru (hasil hitung ulang)" : "Jadwal angsuran pinjaman baru"}</T></p>
+                  {merged.length > 0 && <p className="flex justify-between gap-2"><span><T>Total pinjaman gabungan</T></span><b>{formatRupiah(total)}</b></p>}
+                  <p>
+                    <b>{formatRupiah(preview[0].amount)}</b><T>/bulan</T> x {preview.length}
+                    {preview[preview.length - 1].amount !== preview[0].amount && <> (<T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)})</>}
+                    {" · "}{periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}
+                  </p>
+                  {running.length > 0 && (
+                    <>
+                      <p className="flex justify-between gap-2 rounded-md bg-amber-50 px-2 py-1 text-amber-900"><span><T>Total potongan pinjaman per bulan</T></span><span>{formatRupiah(oldMonthly)} → <b>{formatRupiah(after)}</b></span></p>
+                      {!merged.length && <p className="text-[11px] text-gray-500"><T>Jika disetujui, angsuran pinjaman baru ditambahkan ke potongan pinjaman yang sudah berjalan.</T></p>}
+                    </>
+                  )}
+                  {preview.length > 120 && <p className="text-rose-600"><T>Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan.</T></p>}
+                  <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-100">
+                    <table className="w-full">
+                      <thead className="sticky top-0 bg-gray-50 text-[10px] uppercase text-gray-400">
+                        <tr><th className="px-2 py-1 text-left"><T>Ke-</T></th><th className="px-2 py-1 text-left"><T>Periode</T></th><th className="px-2 py-1 text-right"><T>Nominal</T></th><th className="px-2 py-1 text-right"><T>Sisa</T></th></tr>
+                      </thead>
+                      <tbody>
+                        {preview.map((x, n) => {
+                          left -= x.amount;
+                          return (
+                            <tr key={n} className="border-t border-gray-50 text-gray-700">
+                              <td className="px-2 py-1">{n + 1}</td><td className="px-2 py-1">{periodShort(x.period)}</td>
+                              <td className="px-2 py-1 text-right tabular-nums">{formatRupiah(x.amount)}</td><td className="px-2 py-1 text-right tabular-nums text-gray-400">{formatRupiah(Math.max(0, left))}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
             {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
             <div className="flex justify-end">
               <Button onClick={submit} disabled={pending} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Ajukan</T></Button>
