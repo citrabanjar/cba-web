@@ -115,7 +115,8 @@ export default function ComponentForm({ comp, all, workDaysPerWeek, onClose, onC
     setError(null);
     start(async () => {
       const r = await savePayComponent(comp === "new" ? null : comp.id, form);
-      if (r.error) setError(r.error);
+      // Galat juga tampil sebagai dialog: tombol Simpan di atas, kotak galat di bawah formulir bisa tidak terlihat.
+      if (r.error) { setError(r.error); toast(r.error, "error"); }
       else if (r.proposed) { showNotice(proposedText(r.proposed)); if (comp === "new") onClose(); else setForm(initial); }
       else {
         toast(t("Tersimpan"), "ok");
@@ -134,6 +135,11 @@ export default function ComponentForm({ comp, all, workDaysPerWeek, onClose, onC
   );
   return (
     <div>
+        {/* Tombol simpan di atas formulir supaya tidak perlu menggulir ke bawah. */}
+        <div className="mb-4 flex justify-end gap-2">
+          <Button variant="outline" disabled={pending || !dirty} onClick={() => { setError(null); if (comp === "new") onClose(); else setForm(initial); }}><T>Batal</T></Button>
+          <Button onClick={save} disabled={pending || !dirty} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T></Button>
+        </div>
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
             <div className="space-y-1.5"><Label className="text-xs"><T>Kode</T></Label>
@@ -309,10 +315,6 @@ export default function ComponentForm({ comp, all, workDaysPerWeek, onClose, onC
             {check(form.isActive, (v) => set("isActive", v), "Aktif", "Komponen nonaktif tidak diperhitungkan dalam proses penggajian.")}
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
-        </div>
-        <div className="mt-4 flex justify-end gap-2 border-t border-gray-100 pt-4">
-          <Button variant="outline" disabled={pending || !dirty} onClick={() => { setError(null); if (comp === "new") onClose(); else setForm(initial); }}><T>Batal</T></Button>
-          <Button onClick={save} disabled={pending || !dirty} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T></Button>
         </div>
     </div>
   );
