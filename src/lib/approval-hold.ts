@@ -51,6 +51,18 @@ export async function holdForApproval(o: { kind: string; args: unknown[]; title:
   if (!access || access.role !== "ADMIN") return null;
   const levels = await roleApprovalLevels(access.id);
   if (levels < 1) return null;
+  // Satu data (mis. hari libur / shift yang sama) hanya boleh punya satu pengajuan yang menunggu, supaya pengajuan
+  // ubah tidak bertabrakan dengan pengajuan hapus atas data yang sama.
+  const recordId = typeof o.args[0] === "string" && o.args[0] ? o.args[0] : null;
+  if (recordId && o.kind.includes(".")) {
+    const family = o.kind.split(".")[0];
+    const open = await prisma.employeeEditRequest.findFirst({
+      where: { status: "PENDING", data: { path: ["__args", "0"], equals: recordId } },
+      select: { data: true },
+    });
+    const openKind = String((open?.data as { __kind?: unknown } | null)?.__kind ?? "");
+    if (open && openKind.startsWith(`${family}.`)) return { error: "Data ini masih memiliki pengajuan yang menunggu persetujuan. Tunggu sampai pengajuan tersebut diputus." };
+  }
   const ups = await bossChain(o.targetUserId ?? access.id, levels, new Set([access.id]));
   const boss = ups[ups.length - 1];
   if (!boss) return { error: o.targetUserId ? "Karyawan ini belum punya atasan aktif di bagan (selain Anda), jadi perubahan belum bisa diajukan." : "Atasan Anda belum diatur di bagan, jadi perubahan belum bisa diajukan untuk approval. Hubungi Super Admin." };
@@ -109,7 +121,9 @@ export async function runApproved(requesterId: string, kind: string, args: unkno
     const r = (await approvedRun.run({ requesterId }, () => (fn as (...a: unknown[]) => Promise<unknown>)(...args))) as { error?: string } | undefined;
     return r?.error ? { error: r.error } : {};
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Gagal menerapkan perubahan." };
+    // P2025: data yang mau diubah / dihapus sudah tidak ada (mis. sudah dihapus lewat pengajuan lain yang disetujui lebih dulu).
+    if ((e as { code?: string })?.code === "P2025") return { error: "data yang akan diubah sudah tidak ada (kemungkinan sudah dihapus lewat pengajuan lain)" };
+    return { error: e instanceof Error ? e.message.split("\n").pop()!.trim() || "gagal menerapkan perubahan" : "gagal menerapkan perubahan" };
   }
 }
 
