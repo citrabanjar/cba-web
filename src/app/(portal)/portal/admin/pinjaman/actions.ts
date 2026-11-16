@@ -136,11 +136,7 @@ export async function deleteLoan(id: string): Promise<Result> {
   if (!loan || !["BATAL", "DITOLAK"].includes(loan.status)) return { error: "Hanya pinjaman yang dibatalkan atau ditolak yang bisa dihapus." };
   if (loan.isOpening && !isSuperAdmin(access.role)) return { error: "Saldo awal migrasi hanya bisa diubah Super Admin." };
   if (loan.installments.some((i) => i.status === "LUNAS")) return { error: "Pinjaman ini punya angsuran terpotong, tidak bisa dihapus." };
-  const held = await holdForApproval({
-    kind: "pinjaman.deleteLoan", args: [id], targetUserId: loan.userId, title: `Pinjaman: hapus ${loanLabel(loan)}`,
-    details: [{ field: "Pinjaman", oldValue: loanLabel(loan), newValue: "(dihapus)" }],
-  });
-  if (held) return held;
+  // Menghapus pengajuan ditolak / dibatalkan hanya merapikan daftar (tidak ada uang atau angsuran): langsung, tanpa approval.
   await prisma.employeeLoan.delete({ where: { id } });
   refresh(loan.userId);
   return {};
