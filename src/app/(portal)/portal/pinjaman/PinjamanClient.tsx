@@ -126,17 +126,18 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
                 )}
               </div>
             )}
-            {preview.length > 0 && (() => {
-              let left = total;
-              return (
+            {preview.length > 0 && (
                 <div className="space-y-2 rounded-xl border border-gray-200 p-3 text-xs text-gray-600">
-                  <p className="font-semibold text-gray-700"><T>{merged.length ? "Jadwal angsuran baru (hasil hitung ulang)" : "Jadwal angsuran pinjaman baru"}</T></p>
+                  <p className="font-semibold text-gray-700"><T>{merged.length ? "Simulasi angsuran baru (hasil hitung ulang)" : "Simulasi angsuran pinjaman baru"}</T></p>
                   {merged.length > 0 && <p className="flex justify-between gap-2"><span><T>Total pinjaman gabungan</T></span><b>{formatRupiah(total)}</b></p>}
-                  <p>
-                    <b>{formatRupiah(preview[0].amount)}</b><T>/bulan</T> x {preview.length}
-                    {preview[preview.length - 1].amount !== preview[0].amount && <> (<T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)})</>}
-                    {" · "}{periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}
-                  </p>
+                  {preview.length <= 120 && (
+                    <>
+                      <p className="flex justify-between gap-2"><span><T>Angsuran per bulan</T></span><span><b>{formatRupiah(preview[0].amount)}</b>
+                        {preview[preview.length - 1].amount !== preview[0].amount && <> (<T>terakhir</T> {formatRupiah(preview[preview.length - 1].amount)})</>}</span></p>
+                      <p className="flex justify-between gap-2"><span><T>Jangka waktu</T></span><b>{preview.length} <T>bulan</T></b></p>
+                      <p className="flex justify-between gap-2"><span><T>Periode potongan</T></span><b>{periodShort(preview[0].period)} – {periodShort(preview[preview.length - 1].period)}</b></p>
+                    </>
+                  )}
                   {running.length > 0 && (
                     <>
                       <p className="flex justify-between gap-2 rounded-md bg-amber-50 px-2 py-1 text-amber-900"><span><T>Total potongan pinjaman per bulan</T></span><span>{formatRupiah(oldMonthly)} → <b>{formatRupiah(after)}</b></span></p>
@@ -144,29 +145,10 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
                     </>
                   )}
                   {preview.length > 120 && <p className="text-rose-600"><T>Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan.</T></p>}
-                  {preview.length <= 120 && <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-100">
-                    <table className="w-full">
-                      <thead className="sticky top-0 bg-gray-50 text-[10px] uppercase text-gray-400">
-                        <tr><th className="px-2 py-1 text-left"><T>Ke-</T></th><th className="px-2 py-1 text-left"><T>Periode</T></th><th className="px-2 py-1 text-right"><T>Nominal</T></th><th className="px-2 py-1 text-right"><T>Sisa</T></th></tr>
-                      </thead>
-                      <tbody>
-                        {preview.map((x, n) => {
-                          left -= x.amount;
-                          return (
-                            <tr key={n} className="border-t border-gray-50 text-gray-700">
-                              <td className="px-2 py-1">{n + 1}</td><td className="px-2 py-1">{periodShort(x.period)}</td>
-                              <td className="px-2 py-1 text-right tabular-nums">{formatRupiah(x.amount)}</td><td className="px-2 py-1 text-right tabular-nums text-gray-400">{formatRupiah(Math.max(0, left))}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>}
                 </div>
-              );
-            })()}
+            )}
             {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
-            {!simulated && <p className="text-xs text-gray-500"><T>Klik Simulasi Angsuran untuk melihat jadwal angsuran sebelum mengajukan.</T></p>}
+            {!simulated && <p className="text-xs text-gray-500"><T>Klik Simulasi Angsuran untuk melihat ringkasan angsuran sebelum mengajukan.</T></p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" disabled={pending || total <= 0} onClick={() => setSimKey(inputKey)}><T>Simulasi Angsuran</T></Button>
               <Button onClick={submit} disabled={pending || !simulated || preview.length === 0 || preview.length > 120} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Ajukan</T></Button>
