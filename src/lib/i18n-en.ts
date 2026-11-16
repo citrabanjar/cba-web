@@ -1079,7 +1079,7 @@ export const en: Record<string, string> = {
   "Akun": "Account",
   "Kehadiran": "Attendance",
   "• Nama berkas foto wajib sesuai dengan ID Karyawan, misalnya P023.jpg.": "• The photo file name must match the Employee ID, e.g. P023.jpg.",
-  "• Beberapa foto dapat diunggah sekaligus. Foto yang telah ada akan digantikan dengan foto baru.": "• Several photos can be uploaded at once. Existing photos will be replaced with the new ones.",
+  "• Beberapa foto dapat diunggah sekaligus.": "• Several photos can be uploaded at once.",
   "• Foto akan dipotong secara otomatis menjadi persegi dengan posisi wajah di tengah.": "• Photos are automatically cropped to a square with the face centered.",
   "Satu atau beberapa foto (tekan Ctrl+A untuk memilih seluruh foto dalam folder)": "One or more photos (press Ctrl+A to select all photos in a folder)",
   "Tampilkan pengaturan": "Show settings",

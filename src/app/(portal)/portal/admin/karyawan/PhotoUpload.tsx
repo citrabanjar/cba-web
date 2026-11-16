@@ -133,7 +133,7 @@ export default function PhotoUpload({
         <div className="space-y-4 py-1">
           <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 space-y-1">
             <p><T>• Nama berkas foto wajib sesuai dengan ID Karyawan, misalnya P023.jpg.</T></p>
-            <p><T>• Beberapa foto dapat diunggah sekaligus. Foto yang telah ada akan digantikan dengan foto baru.</T></p>
+            <p><T>• Beberapa foto dapat diunggah sekaligus.</T></p>
             <p><T>• Foto akan dipotong secara otomatis menjadi persegi dengan posisi wajah di tengah.</T></p>
           </div>
 
