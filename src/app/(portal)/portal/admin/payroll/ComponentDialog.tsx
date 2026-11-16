@@ -148,7 +148,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
               <select value={form.category} disabled={system} onChange={(e) => set("category", e.target.value)} className={select}>
                 {PAY_CATEGORIES.map((k) => <option key={k.key} value={k.key}>{t(k.label)}</option>)}
               </select>
-              {category && <p className="text-[11px] text-gray-400"><T>{category.hint}</T> {isTaxableCategory(category.key) ? t("Objek PPh 21.") : t("Bukan penambah bruto PPh 21.")}</p>}</div>
+              {category && <p className="text-[11px] text-gray-400"><T>{category.hint}</T> {isTaxableCategory(category.key) ? t("Merupakan objek PPh 21.") : t("Tidak menambah penghasilan bruto PPh 21.")}</p>}</div>
           </div>
 
           {system ? (

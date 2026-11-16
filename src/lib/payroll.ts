@@ -13,16 +13,16 @@ export const PAY_KINDS = [
 
 // Kategori mengikuti baris bukti potong PPh 21 (formulir 1721-A1). Kategori juga menentukan objek pajak.
 export const PAY_CATEGORIES = [
-  { key: "GAJI", label: "Gaji", hint: "1721-A1 baris 1. Potongan berkategori Gaji (mis. potongan mangkir) mengurangi bruto.", taxable: true },
-  { key: "TUNJANGAN_PPH", label: "Tunjangan PPh", hint: "1721-A1 baris 2.", taxable: true },
-  { key: "TUNJANGAN_LAIN", label: "Tunjangan lainnya, uang lembur, dsb.", hint: "1721-A1 baris 3: tunjangan jabatan, makan, transport, lembur, uang saku dinas.", taxable: true },
-  { key: "HONORARIUM", label: "Honorarium dan imbalan sejenis", hint: "1721-A1 baris 4.", taxable: true },
-  { key: "PREMI_ASURANSI", label: "Premi asuransi dibayar perusahaan", hint: "1721-A1 baris 5: JKK, JKM, BPJS Kesehatan bagian perusahaan.", taxable: true },
-  { key: "NATURA", label: "Natura dan kenikmatan", hint: "1721-A1 baris 6.", taxable: true },
-  { key: "BONUS_THR", label: "Tantiem, bonus, gratifikasi, THR", hint: "1721-A1 baris 7.", taxable: true },
-  { key: "IURAN_PENSIUN", label: "Iuran pensiun / JHT dibayar karyawan", hint: "1721-A1 baris 10: pengurang penghasilan bruto (JHT & JP karyawan).", taxable: false },
-  { key: "PPH21", label: "PPh 21", hint: "Pajak yang dipotong.", taxable: false },
-  { key: "BUKAN_OBJEK", label: "Bukan objek pajak", hint: "Tidak masuk perhitungan PPh 21 (mis. JHT/JP bagian perusahaan, BPJS Kesehatan karyawan, kasbon).", taxable: false },
+  { key: "GAJI", label: "Gaji", hint: "Dilaporkan pada formulir 1721-A1 baris 1. Potongan dengan kategori Gaji (misalnya potongan mangkir) mengurangi penghasilan bruto.", taxable: true },
+  { key: "TUNJANGAN_PPH", label: "Tunjangan PPh", hint: "Dilaporkan pada formulir 1721-A1 baris 2.", taxable: true },
+  { key: "TUNJANGAN_LAIN", label: "Tunjangan lainnya, uang lembur, dsb.", hint: "Dilaporkan pada formulir 1721-A1 baris 3, meliputi tunjangan jabatan, makan, transportasi, upah lembur, dan uang saku dinas.", taxable: true },
+  { key: "HONORARIUM", label: "Honorarium dan imbalan sejenis", hint: "Dilaporkan pada formulir 1721-A1 baris 4.", taxable: true },
+  { key: "PREMI_ASURANSI", label: "Premi asuransi dibayar perusahaan", hint: "Dilaporkan pada formulir 1721-A1 baris 5, meliputi iuran JKK, JKM, dan BPJS Kesehatan yang ditanggung perusahaan.", taxable: true },
+  { key: "NATURA", label: "Natura dan kenikmatan", hint: "Dilaporkan pada formulir 1721-A1 baris 6.", taxable: true },
+  { key: "BONUS_THR", label: "Tantiem, bonus, gratifikasi, THR", hint: "Dilaporkan pada formulir 1721-A1 baris 7.", taxable: true },
+  { key: "IURAN_PENSIUN", label: "Iuran pensiun / JHT dibayar karyawan", hint: "Dilaporkan pada formulir 1721-A1 baris 10 sebagai pengurang penghasilan bruto (iuran JHT dan JP yang dibayar karyawan).", taxable: false },
+  { key: "PPH21", label: "PPh 21", hint: "Pajak penghasilan yang dipotong dari karyawan.", taxable: false },
+  { key: "BUKAN_OBJEK", label: "Bukan objek pajak", hint: "Tidak diperhitungkan dalam PPh 21 (misalnya iuran JHT/JP bagian perusahaan, BPJS Kesehatan bagian karyawan, dan kasbon).", taxable: false },
 ] as const;
 export const isTaxableCategory = (k: string) => PAY_CATEGORIES.find((c) => c.key === k)?.taxable ?? false;
 
