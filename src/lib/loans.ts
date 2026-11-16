@@ -71,8 +71,10 @@ export const periodShort = (period: string) => {
 };
 
 // Angsuran rata dibulatkan ke bawah ribuan; selisihnya masuk angsuran terakhir supaya total = pokok.
+// Jadwal angsuran paling banyak 120 kali; di atas itu cukup dibuat 121 baris supaya pemanggil menolak tanpa membuat jutaan baris.
+const MAX_ROWS = 120;
 export function buildSchedule(principal: number, tenor: number, startPeriod: string): ScheduleRow[] {
-  const n = Math.max(1, Math.round(tenor));
+  const n = Math.min(MAX_ROWS + 1, Math.max(1, Math.round(tenor)));
   const each = Math.floor(principal / n / 1000) * 1000 || Math.floor(principal / n);
   return Array.from({ length: n }, (_, i) => ({
     seq: i + 1, period: addMonths(startPeriod, i), status: "BELUM",
@@ -84,6 +86,9 @@ export function buildSchedule(principal: number, tenor: number, startPeriod: str
 export function buildScheduleByAmount(principal: number, amount: number, startPeriod: string): ScheduleRow[] {
   const each = Math.max(1, Math.round(amount));
   const n = Math.max(1, Math.ceil(principal / each - 1e-9));
+  // Batas 121 baris: lebih dari 120 kali sudah pasti ditolak, dan nominal kecil (mis. saat baru mengetik "1")
+  // tidak boleh membuat jutaan baris yang membuat browser macet.
+  if (n > MAX_ROWS) return Array.from({ length: MAX_ROWS + 1 }, (_, i) => ({ seq: i + 1, period: addMonths(startPeriod, i), status: "BELUM", amount: each }));
   return Array.from({ length: n }, (_, i) => ({
     seq: i + 1, period: addMonths(startPeriod, i), status: "BELUM",
     amount: i === n - 1 ? principal - each * (n - 1) : each,

@@ -137,6 +137,7 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
                   <span><T>Total potongan pinjaman per bulan</T>: {formatRupiah(oldMonthly)} → </span><b>{formatRupiah(after)}</b>
                 </p>
               )}
+              {preview.length > 120 && <p className="text-xs text-rose-600"><T>Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan.</T></p>}
               <p className="text-[11px] font-semibold text-gray-500"><T>Jadwal angsuran baru</T></p>
               <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-100">
                 <table className="w-full text-xs">
@@ -164,7 +165,7 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
         <ErrorBox error={error} />
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={pending} onClick={onClose}><T>Batal</T></Button>
-          <Button disabled={pending || (merge && merged.length === 0)} className="gap-1.5" onClick={approve}>
+          <Button disabled={pending || (merge && merged.length === 0) || preview.length > 120} className="gap-1.5" onClick={approve}>
             {pending && <Loader2 size={15} className="animate-spin" />} <T>Kirim ke Pimpinan</T>
           </Button>
         </DialogFooter>

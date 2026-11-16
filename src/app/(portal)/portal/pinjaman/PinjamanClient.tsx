@@ -141,7 +141,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
                     </>
                   )}
                   {preview.length > 120 && <p className="text-rose-600"><T>Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan.</T></p>}
-                  <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-100">
+                  {preview.length <= 120 && <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-100">
                     <table className="w-full">
                       <thead className="sticky top-0 bg-gray-50 text-[10px] uppercase text-gray-400">
                         <tr><th className="px-2 py-1 text-left"><T>Ke-</T></th><th className="px-2 py-1 text-left"><T>Periode</T></th><th className="px-2 py-1 text-right"><T>Nominal</T></th><th className="px-2 py-1 text-right"><T>Sisa</T></th></tr>
@@ -158,13 +158,13 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
                         })}
                       </tbody>
                     </table>
-                  </div>
+                  </div>}
                 </div>
               );
             })()}
             {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
             <div className="flex justify-end">
-              <Button onClick={submit} disabled={pending} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Ajukan</T></Button>
+              <Button onClick={submit} disabled={pending || preview.length > 120} className="gap-1.5">{pending && <Loader2 size={15} className="animate-spin" />} <T>Ajukan</T></Button>
             </div>
           </div>
         )}
