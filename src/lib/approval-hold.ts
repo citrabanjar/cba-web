@@ -110,6 +110,11 @@ const REGISTRY: Record<string, () => Promise<Fn>> = {
   "cuti.deleteLeavePolicy": async () => (await import("@/app/(portal)/portal/admin/leave/actions")).deleteLeavePolicy as Fn,
   "cuti.importLeaveBalances": async () => (await import("@/app/(portal)/portal/admin/leave/actions")).importLeaveBalances as Fn,
   "cuti.adjustLeaveBalance": async () => (await import("@/app/(portal)/portal/admin/leave/actions")).adjustLeaveBalance as Fn,
+  // Pinjaman: setujui / tolak pengajuan karyawan dan tandai dicairkan tidak ditahan (sudah merupakan keputusan / pencatatan).
+  "pinjaman.saveSchedule": async () => (await import("@/app/(portal)/portal/admin/pinjaman/actions")).saveSchedule as Fn,
+  "pinjaman.cancelLoan": async () => (await import("@/app/(portal)/portal/admin/pinjaman/actions")).cancelLoan as Fn,
+  "pinjaman.deleteLoan": async () => (await import("@/app/(portal)/portal/admin/pinjaman/actions")).deleteLoan as Fn,
+  "pinjaman.importOpeningLoans": async () => (await import("@/app/(portal)/portal/admin/pinjaman/actions")).importOpeningLoans as Fn,
 };
 
 // Jalankan pengajuan yang sudah disetujui atas nama Admin pengaju. Kembalian error = gagal diterapkan.

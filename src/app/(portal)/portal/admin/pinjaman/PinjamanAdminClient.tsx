@@ -13,6 +13,8 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, LOAN_STATUS, addMonths, isPeriod, loanSummary, periodShort } from "@/lib/loans";
+import { showNotice } from "@/components/portal/Confirm";
+import { proposedText } from "@/lib/approval-text";
 import { importOpeningLoans, type OpeningRow } from "./actions";
 
 export type AdminLoan = LoanView & { userId: string; name: string; employeeId: string; department: string | null };
@@ -100,6 +102,7 @@ export function OpeningLoanImportDialog({ employees, onClose }: { employees: Loa
     start(async () => {
       const r = await importOpeningLoans(rows.map((x) => ({ employeeId: x.employeeId, remaining: x.remaining, tenor: x.tenor, installment: x.installment, startPeriod: x.startPeriod, original: x.original, note: x.note })));
       if (r.error) setMsg({ ok: false, text: r.error, list: r.errors });
+      else if (r.proposed) { showNotice(proposedText(r.proposed)); setRows([]); onClose(); }
       else { setMsg({ ok: true, text: `${r.count} ${t("pinjaman saldo awal tersimpan.")}` }); setRows([]); }
     });
   }

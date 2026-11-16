@@ -8,9 +8,14 @@ import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
 import { buildSchedule, buildScheduleByAmount, isPeriod, unpaidTotal } from "@/lib/loans";
 import { nextLoanNo } from "@/lib/loan-view";
+import { holdForApproval } from "@/lib/approval-hold";
 
 const PATH = "/portal/admin/pinjaman";
-type Result = { error?: string };
+// proposed = perubahan ditahan untuk approval (aturan Peran Admin): berisi nama approver.
+type Result = { error?: string; proposed?: string };
+const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+const loanLabel = (l: { seqNo?: number | null; principal: number; user?: { name: string } | null }) =>
+  `${l.user?.name ?? ""} · pinjaman${l.seqNo ? ` #${l.seqNo}` : ""} ${rp(l.principal)}`;
 
 // Pinjaman dikelola Admin dan Super Admin; upload saldo awal migrasi hanya Super Admin.
 async function requireAdmin() {
@@ -125,7 +130,7 @@ export async function markDisbursed(id: string, date: string): Promise<Result> {
 // total sisa angsuran harus sama dengan sisa pinjaman.
 export async function saveSchedule(loanId: string, rows: { period: string; amount: number }[]): Promise<Result> {
   await requireAdmin();
-  const loan = await prisma.employeeLoan.findUnique({ where: { id: loanId }, include: { installments: true } });
+  const loan = await prisma.employeeLoan.findUnique({ where: { id: loanId }, include: { installments: true, user: { select: { name: true } } } });
   if (!loan || !["DISETUJUI", "BERJALAN"].includes(loan.status)) return { error: "Hanya pinjaman disetujui atau berjalan yang bisa diubah." };
   const paid = loan.installments.filter((i) => i.status === "LUNAS");
   const remaining = loan.principal - paid.reduce((a, i) => a + i.amount, 0);
@@ -136,6 +141,13 @@ export async function saveSchedule(loanId: string, rows: { period: string; amoun
     return { error: `Total angsuran (Rp${total.toLocaleString("id-ID")}) harus sama dengan sisa pinjaman (Rp${Math.round(remaining).toLocaleString("id-ID")}).` };
   }
   const sorted = [...clean].sort((a, b) => a.period.localeCompare(b.period));
+  const unpaid = loan.installments.filter((i) => i.status !== "LUNAS").sort((a, b) => a.period.localeCompare(b.period));
+  const sched = (list: { period: string; amount: number }[]) => list.map((r) => `${r.period} ${rp(r.amount)}`).join(", ") || "-";
+  const held = await holdForApproval({
+    kind: "pinjaman.saveSchedule", args: [loanId, rows], targetUserId: loan.userId, title: `Pinjaman: ubah angsuran ${loanLabel(loan)}`,
+    details: [{ field: "Sisa angsuran", oldValue: sched(unpaid), newValue: sched(sorted) }],
+  });
+  if (held) return held;
   const lastSeq = paid.reduce((m, i) => Math.max(m, i.seq), 0);
   await prisma.$transaction([
     prisma.loanInstallment.deleteMany({ where: { loanId, status: { not: "LUNAS" } } }),
@@ -149,10 +161,15 @@ export async function saveSchedule(loanId: string, rows: { period: string; amoun
 // Batalkan pinjaman yang belum ada angsuran terpotong. Saldo awal migrasi hanya bisa dibatalkan Super Admin.
 export async function cancelLoan(id: string): Promise<Result> {
   const access = await requireAdmin();
-  const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { installments: true } });
+  const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { installments: true, user: { select: { name: true } } } });
   if (!loan || !["DISETUJUI", "BERJALAN"].includes(loan.status)) return { error: "Pinjaman tidak bisa dibatalkan." };
   if (loan.isOpening && !isSuperAdmin(access.role)) return { error: "Saldo awal migrasi hanya bisa diubah Super Admin." };
   if (loan.installments.some((i) => i.status === "LUNAS")) return { error: "Sudah ada angsuran terpotong; ubah sisa angsuran saja." };
+  const held = await holdForApproval({
+    kind: "pinjaman.cancelLoan", args: [id], targetUserId: loan.userId, title: `Pinjaman: batalkan ${loanLabel(loan)}`,
+    details: [{ field: "Status pinjaman", oldValue: loan.status === "BERJALAN" ? "Berjalan" : "Disetujui", newValue: "Batal" }],
+  });
+  if (held) return held;
   await prisma.employeeLoan.update({ where: { id }, data: { status: "BATAL" } });
   refresh(loan.userId);
   return {};
@@ -162,10 +179,15 @@ export async function cancelLoan(id: string): Promise<Result> {
 // Saldo awal migrasi hanya bisa dihapus Super Admin.
 export async function deleteLoan(id: string): Promise<Result> {
   const access = await requireAdmin();
-  const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { installments: true } });
+  const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { installments: true, user: { select: { name: true } } } });
   if (!loan || !["BATAL", "DITOLAK"].includes(loan.status)) return { error: "Hanya pinjaman yang dibatalkan atau ditolak yang bisa dihapus." };
   if (loan.isOpening && !isSuperAdmin(access.role)) return { error: "Saldo awal migrasi hanya bisa diubah Super Admin." };
   if (loan.installments.some((i) => i.status === "LUNAS")) return { error: "Pinjaman ini punya angsuran terpotong, tidak bisa dihapus." };
+  const held = await holdForApproval({
+    kind: "pinjaman.deleteLoan", args: [id], targetUserId: loan.userId, title: `Pinjaman: hapus ${loanLabel(loan)}`,
+    details: [{ field: "Pinjaman", oldValue: loanLabel(loan), newValue: "(dihapus)" }],
+  });
+  if (held) return held;
   await prisma.employeeLoan.delete({ where: { id } });
   refresh(loan.userId);
   return {};
@@ -192,6 +214,14 @@ export async function importOpeningLoans(rows: OpeningRow[]): Promise<Result & {
     else ready.push({ userId, p: tm.p, r, schedule: each > 0 ? buildScheduleByAmount(tm.p, each, r.startPeriod) : buildSchedule(tm.p, tm.n, r.startPeriod) });
   });
   if (errors.length) return { error: "Ada baris yang belum benar; tidak ada yang disimpan.", errors };
+  const held = await holdForApproval({
+    kind: "pinjaman.importOpeningLoans", args: [rows], title: `Pinjaman: upload saldo awal pinjaman (${ready.length} pinjaman)`,
+    details: [
+      { field: "Saldo awal pinjaman", oldValue: null, newValue: `${ready.length} pinjaman, ${new Set(ready.map((x) => x.userId)).size} karyawan` },
+      { field: "Total sisa pinjaman", oldValue: null, newValue: rp(ready.reduce((a, x) => a + x.p, 0)) },
+    ],
+  });
+  if (held) return held;
   for (const x of ready) {
     await prisma.employeeLoan.create({
       data: {

@@ -4,7 +4,7 @@ export const NOTIF_MODULES = [
   { key: "lembur", label: "Lembur", paths: ["/portal/lembur", "/portal/admin/lembur"] },
   { key: "cuti", label: "Cuti", paths: ["/portal/cuti", "/portal/admin/leave"] },
   { key: "dinas", label: "Dinas", paths: ["/portal/dinas"] },
-  { key: "pinjaman", label: "Pinjaman", paths: ["/portal/pinjaman"] },
+  { key: "pinjaman", label: "Pinjaman", paths: ["/portal/pinjaman", "/portal/admin/pinjaman"] },
   { key: "profil", label: "Data Diri", paths: ["/portal/profil"] },
   { key: "payroll", label: "Payroll & Benefit", paths: ["/portal/admin/payroll"] },
   { key: "karyawan", label: "Data Karyawan", paths: ["/portal/admin/karyawan"] },
@@ -24,6 +24,7 @@ export function moduleOf(href: string | null, title = ""): NotifModule {
     const rest = title.replace(ADMIN_DECISION, "");
     if (rest.startsWith("Absensi:")) return "kehadiran";
     if (rest.startsWith("Cuti:")) return "cuti";
+    if (rest.startsWith("Pinjaman:")) return "pinjaman";
     return PAYROLL_TITLE.test(rest) ? "payroll" : "karyawan";
   }
   const path = (href ?? "").split("?")[0];

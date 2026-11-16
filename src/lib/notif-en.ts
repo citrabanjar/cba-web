@@ -7,7 +7,7 @@ const ok = (w: string) => (w === "disetujui" ? "approved" : "rejected");
 
 // Judul pengajuan Admin (Absensi / Cuti / Payroll / data karyawan).
 const ADMIN_WORDS: [RegExp, string][] = [
-  [/^Absensi: /, "Attendance: "], [/^Cuti: /, "Leave: "], [/^Payroll: /, "Payroll: "],
+  [/^Absensi: /, "Attendance: "], [/^Cuti: /, "Leave: "], [/^Pinjaman: /, "Loan: "], [/^Payroll: /, "Payroll: "],
   [/\btambah\b/, "add"], [/\bubah\b/, "edit"], [/\bhapus\b/, "delete"],
   [/\bpola kerja\b/, "work pattern"], [/\bhari libur\b/, "holiday"], [/\blokasi absen\b/, "attendance location"],
   [/\baturan kehadiran\b/, "attendance rules"], [/\bjenis cuti\b/, "leave type"],

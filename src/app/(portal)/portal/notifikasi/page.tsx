@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Notifikasi" };
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
 // Modul pengajuan Admin menurut jenisnya (gaji.* → Payroll, absensi.* → Kehadiran, cuti.* → Cuti, lainnya → Data Karyawan).
 const editModule = (kind?: string): NotifModule =>
-  kind?.startsWith("gaji.") ? "payroll" : kind?.startsWith("absensi.") ? "kehadiran" : kind?.startsWith("cuti.") ? "cuti" : "karyawan";
+  kind?.startsWith("gaji.") ? "payroll" : kind?.startsWith("absensi.") ? "kehadiran" : kind?.startsWith("cuti.") ? "cuti" : kind?.startsWith("pinjaman.") ? "pinjaman" : "karyawan";
 
 // Halaman Notifikasi (dibuka dari lonceng): modul bersusun di kiri, riwayat lengkap modul terpilih di kanan.
 // Pengajuan yang menunggu keputusan saya (atasan langsung / approver) tampil di modulnya dengan tombol Setujui / Tolak,

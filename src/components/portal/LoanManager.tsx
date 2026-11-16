@@ -13,7 +13,8 @@ import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
 import { approveLoan, cancelLoan, deleteLoan, markDisbursed, rejectLoan, saveSchedule } from "@/app/(portal)/portal/admin/pinjaman/actions";
 import { toast } from "@/components/portal/Toast";
-import { askConfirm } from "@/components/portal/Confirm";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
+import { proposedText } from "@/lib/approval-text";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -21,9 +22,9 @@ const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" 
 function useAct() {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const act = (fn: () => Promise<{ error?: string }>, done: () => void) => {
+  const act = (fn: () => Promise<{ error?: string; proposed?: string }>, done: () => void) => {
     setError(null);
-    start(async () => { const r = await fn(); if (r.error) setError(r.error); else done(); });
+    start(async () => { const r = await fn(); if (r.error) setError(r.error); else { if (r.proposed) showNotice(proposedText(r.proposed)); done(); } });
   };
   return { error, pending, act };
 }
@@ -244,7 +245,7 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
       {["DISETUJUI", "BERJALAN"].includes(loan.status) && <Button size="sm" variant="outline" onClick={() => onOpen("schedule")}><T>Ubah Sisa Angsuran</T></Button>}
       {canCancel && (
         <Button size="sm" variant="outline" disabled={pending} className="text-rose-600"
-          onClick={async () => { if (await askConfirm(t("Batalkan pinjaman ini?"))) start(async () => { const r = await cancelLoan(loan.id); if (r.error) toast(r.error, "error"); }); }}>
+          onClick={async () => { if (await askConfirm(t("Batalkan pinjaman ini?"))) start(async () => { const r = await cancelLoan(loan.id); if (r.error) toast(r.error, "error"); else if (r.proposed) showNotice(proposedText(r.proposed)); }); }}>
           <T>Batalkan</T>
         </Button>
       )}
@@ -263,7 +264,7 @@ export function DeleteLoanButton({ loan }: { loan: { id: string; status: string;
     <Button size="sm" variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
       onClick={async () => {
         if (!await askConfirm(`${t("Hapus permanen Pinjaman ke-")}${loan.seqNo}? ${t("Data yang dihapus tidak bisa dikembalikan.")}`)) return;
-        start(async () => { const r = await deleteLoan(loan.id); if (r.error) toast(r.error, "error"); });
+        start(async () => { const r = await deleteLoan(loan.id); if (r.error) toast(r.error, "error"); else if (r.proposed) showNotice(proposedText(r.proposed)); });
       }}>
       {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} <T>Hapus</T>
     </Button>
