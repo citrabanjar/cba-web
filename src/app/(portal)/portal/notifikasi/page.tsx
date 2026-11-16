@@ -62,11 +62,16 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     })),
     ...(data?.profiles ?? []).filter((p) => p.status === "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `profile-${p.id}`, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `iv-${i.id}`, card: { type: "interview" as const, item: i } })),
+    ...(data?.loans ?? []).filter((l) => l.mine).map((l) => ({ module: "pinjaman" as NotifModule, key: `loan-${l.id}`, card: { type: "loan" as const, item: l } })),
   ];
   // Perubahan data yang masih menunggu keputusan orang lain (dipantau Super Admin & Admin Data Karyawan).
-  const watching: PendingCard[] = (data?.edits ?? []).filter((e) => e.status === "PENDING" && !e.mine).map((e) => ({
-    module: editModule(e.kind), key: `w-edit-${e.id}`, card: { type: "edit" as const, item: e },
-  }));
+  const watching: PendingCard[] = [
+    ...(data?.edits ?? []).filter((e) => e.status === "PENDING" && !e.mine).map((e) => ({
+      module: editModule(e.kind), key: `w-edit-${e.id}`, card: { type: "edit" as const, item: e },
+    })),
+    // Pinjaman yang masih berproses (mis. pimpinan puncak memantau selama pemeriksaan Admin).
+    ...(data?.loans ?? []).filter((l) => l.status === "PENDING" && !l.mine).map((l) => ({ module: "pinjaman" as NotifModule, key: `w-loan-${l.id}`, card: { type: "loan" as const, item: l } })),
+  ];
   // Riwayat persetujuan (sudah diputus / bukan giliran saya), 60 hari terakhir.
   const history: PendingCard[] = [
     ...(data?.items ?? []).filter((i) => !(i.status === "PENDING" && i.mine))
@@ -79,6 +84,7 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     })),
     ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, at: p.decidedAt ?? p.createdAt, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => !i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `h-iv-${i.id}`, card: { type: "interview" as const, item: i } })),
+    ...(data?.loans ?? []).filter((l) => l.status !== "PENDING").map((l) => ({ module: "pinjaman" as NotifModule, key: `h-loan-${l.id}`, at: l.decidedAt ?? l.createdAt, card: { type: "loan" as const, item: l } })),
   ];
 
   // Modul utama selalu tampil; Data Diri, Payroll & Benefit, Data Karyawan, Lainnya hanya bila ada isinya.

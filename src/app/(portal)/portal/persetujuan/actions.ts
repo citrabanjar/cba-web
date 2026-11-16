@@ -9,6 +9,9 @@ import { assessAttendance } from "@/lib/attendance-assess";
 import { decideStep } from "@/lib/workflow-settings";
 import { readApproval } from "@/lib/onboarding-interview";
 import { dateRange, decisionText, notify } from "@/lib/notify";
+import { loanPreStep, loanStepIds, loanTopIds, loanTurn, readLoanFlow } from "@/lib/loans";
+import { applyPlan, loanAdmins, planLoan } from "@/lib/loan-flow";
+import { formatRupiah } from "@/lib/utils";
 
 // Keputusan per level menu Workflow. Hasil null = bukan jalur workflow (pakai atasan langsung).
 function workflowDecision(raw: unknown, userId: string, approve: boolean, note: string, name: string | null) {
@@ -106,4 +109,74 @@ export async function decideOvertime(id: string, approve: boolean, note: string)
   refresh();
   revalidatePath("/portal/lembur");
   return {};
+}
+
+// Pengajuan pinjaman karyawan (lib/loan-flow.ts): atasan langsung memutus di tahap ATASAN, pimpinan puncak di tahap PIMPINAN
+// (setelah Admin selesai memeriksa dokumen fisik). Alasan wajib saat menolak.
+export async function decideLoan(id: string, approve: boolean, note: string): Promise<Result> {
+  const a = await approver();
+  const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { user: { select: { name: true } } } });
+  if (!loan || loan.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
+  if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const flow = readLoanFlow(loan.flow);
+  const now = new Date().toISOString();
+  const amount = formatRupiah(loan.principal);
+  const done = () => {
+    refresh();
+    for (const p of ["/portal/pinjaman", "/portal/admin/pinjaman", `/portal/admin/karyawan/${loan.userId}`]) revalidatePath(p);
+    return {};
+  };
+
+  if (loan.stage === "ATASAN") {
+    if (!loanTurn(loan.status, loan.stage, flow, a.id)) return { error: "Belum giliran Anda memutus, atau Anda bukan penyetuju pengajuan ini." };
+    // Jejak keputusan: level Workflow (pre) atau atasan langsung.
+    const step = loanPreStep(flow);
+    const next: typeof flow = step
+      ? { ...flow, pre: flow.pre!.map((x) => (x === step ? { ...x, decision: approve ? "SETUJU" : "TOLAK", at: now, note: note.trim(), by: a.name ?? "", ...(x.ids?.length ? { id: a.id } : {}) } : x)) }
+      : { ...flow, managerAt: now, managerNote: note.trim() };
+    if (!approve) {
+      await prisma.employeeLoan.update({ where: { id }, data: { status: "DITOLAK", stage: null, note: note.trim(), approvedBy: a.name, approvedAt: new Date(), flow: next } });
+      await notify(loan.userId, "Pengajuan pinjaman ditolak", `${amount} · ${decisionText(false, a.name, note)}`, "/portal/pinjaman");
+      return done();
+    }
+    const following = loanPreStep(next);
+    if (following) {
+      // Level Workflow berikutnya (sebelum pemeriksaan Admin).
+      await prisma.employeeLoan.update({ where: { id }, data: { flow: next } });
+      await notify(loanStepIds(following), "Pengajuan pinjaman baru", `${loan.user.name} · ${amount} · ${loan.tenor} kali angsuran. Menunggu persetujuan Anda.`, "/portal/notifikasi?modul=pinjaman");
+      return done();
+    }
+    await prisma.employeeLoan.update({ where: { id }, data: { stage: "ADMIN", flow: next } });
+    await notify(loan.userId, "Pengajuan pinjaman disetujui atasan", `${amount} · Disetujui oleh ${a.name ?? "atasan"}. Siapkan dokumen fisik untuk diperiksa Admin.`, "/portal/pinjaman");
+    await notify(await loanAdmins(), "Pengajuan pinjaman perlu diperiksa",
+      `${loan.user.name} · ${amount} · ${loan.tenor} kali angsuran. Disetujui ${a.name ?? "atasan"}; periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
+    const tops = loanTopIds(flow).filter((x) => x !== a.id);
+    if (tops.length) {
+      await notify(tops, "Pengajuan pinjaman dalam pemeriksaan Admin",
+        `${loan.user.name} · ${amount} · ${loan.tenor} kali angsuran. Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");
+    }
+    return done();
+  }
+
+  if (loan.stage === "PIMPINAN") {
+    if (!loanTurn(loan.status, loan.stage, flow, a.id)) return { error: "Anda bukan penyetuju pengajuan ini." };
+    const admins = [flow.adminId, ...(await loanAdmins())];
+    if (!approve) {
+      await prisma.employeeLoan.update({
+        where: { id }, data: { status: "DITOLAK", stage: null, note: note.trim(), approvedBy: a.name, approvedAt: new Date(), flow: { ...flow, topAt: now, topNote: note.trim(), topBy: a.name ?? "" } },
+      });
+      await notify(loan.userId, "Pengajuan pinjaman ditolak", `${amount} · ${decisionText(false, a.name, note)}`, "/portal/pinjaman");
+      await notify(admins, "Pengajuan pinjaman ditolak pimpinan", `${loan.user.name} · ${amount} · ${decisionText(false, a.name, note)}`, "/portal/admin/pinjaman");
+      return done();
+    }
+    if (!flow.plan) return { error: "Rencana angsuran dari Admin tidak ditemukan." };
+    const p = await planLoan(loan, flow.plan, true);
+    if ("error" in p) return { error: p.error };
+    await applyPlan(loan, p, a.name, { flow: { ...flow, topAt: now, topNote: note.trim(), topBy: a.name ?? "" } }, flow.adminNote ?? "");
+    await notify(loan.userId, "Pengajuan pinjaman disetujui",
+      `${formatRupiah(p.total)} · ${p.rows.length} kali angsuran mulai ${p.plan.startPeriod} · Disetujui oleh ${a.name ?? "pimpinan"}. Menunggu pencairan.`, "/portal/pinjaman");
+    await notify(admins, "Pengajuan pinjaman disetujui pimpinan", `${loan.user.name} · ${formatRupiah(p.total)} · Silakan cairkan lalu tandai Dicairkan.`, "/portal/admin/pinjaman");
+    return done();
+  }
+  return { error: "Pengajuan ini sedang diperiksa Admin; keputusan dapat diberikan setelah pemeriksaan selesai." };
 }

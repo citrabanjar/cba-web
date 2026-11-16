@@ -30,6 +30,13 @@ const TITLES: [RegExp, (...m: string[]) => string][] = [
   [/^Pengajuan perubahan data (disetujui|ditolak)$/, (_, w) => `Data change request ${ok(w)}`],
   [/^Pengajuan lembur (disetujui|ditolak)$/, (_, w) => `Overtime request ${ok(w)}`],
   [/^Pengajuan pinjaman (disetujui|ditolak)$/, (_, w) => `Loan request ${ok(w)}`],
+  [/^Pengajuan pinjaman baru$/, () => "New loan request"],
+  [/^Pengajuan pinjaman disetujui atasan$/, () => "Loan request approved by supervisor"],
+  [/^Pengajuan pinjaman perlu diperiksa$/, () => "Loan request needs review"],
+  [/^Pengajuan pinjaman dalam pemeriksaan Admin$/, () => "Loan request under Admin review"],
+  [/^Pengajuan pinjaman menunggu keputusan Anda$/, () => "Loan request awaiting your decision"],
+  [/^Pengajuan pinjaman sudah diperiksa Admin$/, () => "Loan request reviewed by Admin"],
+  [/^Pengajuan pinjaman (disetujui|ditolak) pimpinan$/, (_, w) => `Loan request ${ok(w)} by top management`],
   [/^Pinjaman sudah dicairkan$/, () => "Loan disbursed"],
   [/^Pengajuan (.+) (disetujui|ditolak)$/, (_, n, w) => `${translate("en", n)} request ${ok(w)}`],
   [/^Dinas luar (.+) (disetujui|ditolak)$/, (_, d, w) => `Business trip to ${d} ${ok(w)}`],
@@ -48,6 +55,11 @@ const BODY: [RegExp, string][] = [
   [/Pilih Bersedia atau Tidak bersedia\./g, "Choose Willing or Not willing."],
   [/lembur tetap dihitung sampai /g, "overtime still counted until "], [/lembur dihitung sampai /g, "overtime counted until "],
   [/Shift sudah ditukar\./g, "Shifts have been swapped."],
+  [/ kali angsuran\. Menunggu persetujuan Anda\./g, " installments. Awaiting your approval."],
+  [/Siapkan dokumen fisik untuk diperiksa Admin\./g, "Prepare the physical documents for Admin review."],
+  [/Menunggu keputusan pimpinan\./g, "Awaiting top management decision."],
+  [/Keputusan dapat diberikan setelah Admin selesai memeriksa\./g, "A decision can be made once Admin has finished the review."],
+  [/Silakan cairkan lalu tandai Dicairkan\./g, "Please disburse it, then mark it as Disbursed."],
 ];
 const MONTHS: Record<string, string> = { Mei: "May", Agu: "Aug", Okt: "Oct", Des: "Dec" };
 const dates = (s: string) => s.replace(/\b(\d{1,2})-(Mei|Agu|Okt|Des)-(\d{4})\b/g, (_, d, m, y) => `${d}-${MONTHS[m]}-${y}`);

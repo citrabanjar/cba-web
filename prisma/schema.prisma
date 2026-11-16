@@ -744,6 +744,8 @@ model EmployeeLoan {
   createdBy      String?
   approvedBy     String?
   approvedAt     DateTime?
+  stage          String? // tahap pengajuan PENDING: ATASAN | ADMIN (pemeriksaan dokumen) | PIMPINAN (keputusan pimpinan puncak); null = pengajuan lama → ADMIN
+  flow           Json? // jejak approval: atasan langsung, pemeriksaan Admin (rencana angsuran), pimpinan puncak
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

@@ -6,7 +6,8 @@ import { formatRupiah } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
-import { buildSchedule, buildScheduleByAmount, isPeriod, unpaidTotal } from "@/lib/loans";
+import { buildSchedule, buildScheduleByAmount, isPeriod, loanTopIds, readLoanFlow } from "@/lib/loans";
+import { planLoan, topLeaderOf, type PlanInput } from "@/lib/loan-flow";
 import { nextLoanNo } from "@/lib/loan-view";
 import { holdForApproval } from "@/lib/approval-hold";
 
@@ -37,78 +38,30 @@ const terms = (principal: number, tenor: number, startPeriod: string) => {
   return { p, n } as const;
 };
 
-// Setujui pengajuan (jumlah, tenor, periode mulai boleh disesuaikan) dan susun tabel angsuran.
-// Angsuran baru dipotong setelah pinjaman ditandai dicairkan.
-// Opsi gabung: sisa pinjaman yang masih berjalan (dipilih) ditambahkan ke pinjaman baru menjadi satu pinjaman,
-// dengan potongan per bulan (installment) atau jumlah angsuran (tenor) sesuai permintaan. Pinjaman lama ditutup
-// berstatus DIGABUNG (angsuran yang sudah terpotong tetap tercatat); dana baru tercatat di originalAmount.
-export async function approveLoan(id: string, input: {
-  principal: number; tenor: number; startPeriod: string; note: string; installment?: number; mergeIds?: string[];
-}): Promise<Result> {
+// Pemeriksaan Admin: setelah dokumen fisik dicek, Admin menyusun angsuran (jumlah, tenor, periode mulai boleh disesuaikan,
+// boleh digabung dengan pinjaman berjalan) lalu mengirimnya ke pimpinan puncak. Keputusan setuju / tolak ada di pimpinan puncak.
+export async function submitLoanReview(id: string, input: PlanInput & { note: string }): Promise<Result> {
   const access = await requireAdmin();
-  const loan = await prisma.employeeLoan.findUnique({ where: { id } });
-  if (!loan || loan.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
-  const cash = Math.round(Number(input.principal) || 0);
-  if (cash < 1000) return { error: "Jumlah pinjaman wajib diisi." };
-  if (!isPeriod(input.startPeriod)) return { error: "Periode potongan pertama tidak valid." };
-
-  const mergeIds = [...new Set(input.mergeIds ?? [])];
-  const olds = mergeIds.length
-    ? await prisma.employeeLoan.findMany({ where: { id: { in: mergeIds } }, include: { installments: true }, orderBy: { seqNo: "asc" } })
-    : [];
-  if (olds.length !== mergeIds.length || olds.some((o) => o.userId !== loan.userId || o.status !== "BERJALAN")) {
-    return { error: "Pinjaman yang digabung harus pinjaman berjalan milik karyawan yang sama." };
-  }
-  if (olds.some((o) => o.isOpening) && !isSuperAdmin(access.role)) return { error: "Saldo awal migrasi hanya bisa diubah Super Admin." };
-  const moved = olds.map((o) => ({ o, rest: unpaidTotal(o.installments) }));
-  const total = cash + moved.reduce((a, m) => a + m.rest, 0);
-
-  const each = Math.round(Number(input.installment) || 0);
-  let rows;
-  if (each > 0) {
-    if (each < 1000) return { error: "Potongan per bulan minimal Rp1.000." };
-    rows = buildScheduleByAmount(total, each, input.startPeriod);
-  } else {
-    const n = Math.round(Number(input.tenor) || 0);
-    if (n < 1) return { error: "Isi potongan per bulan atau jumlah angsuran." };
-    rows = buildSchedule(total, n, input.startPeriod);
-  }
-  if (rows.length > 120) return { error: "Jumlah angsuran paling banyak 120 kali; naikkan potongan per bulan." };
-
-  const fmt = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
-  const mergeNote = moved.length
-    ? `Gabungan: ${moved.map((m) => `Pinjaman ke-${m.o.seqNo} sisa ${fmt(m.rest)}`).join(", ")} + dana baru ${fmt(cash)}.`
-    : "";
-  const note = [mergeNote, input.note.trim()].filter(Boolean).join(" ") || null;
-  await prisma.$transaction([
-    ...moved.flatMap((m) => [
-      prisma.loanInstallment.deleteMany({ where: { loanId: m.o.id, status: { not: "LUNAS" } } }),
-      prisma.employeeLoan.update({
-        where: { id: m.o.id },
-        data: { status: "DIGABUNG", note: [m.o.note, `Sisa ${fmt(m.rest)} digabung ke Pinjaman ke-${loan.seqNo}.`].filter(Boolean).join(" ") },
-      }),
-    ]),
-    prisma.employeeLoan.update({
-      where: { id },
-      data: {
-        principal: total, tenor: rows.length, startPeriod: input.startPeriod, status: "DISETUJUI", note,
-        originalAmount: moved.length ? cash : null, approvedBy: access.name ?? null, approvedAt: new Date(),
-      },
-    }),
-    prisma.loanInstallment.createMany({ data: rows.map((r) => ({ ...r, loanId: id })) }),
-  ]);
-  await notify(loan.userId, "Pengajuan pinjaman disetujui", `${formatRupiah(total)} · ${rows.length} kali angsuran mulai ${input.startPeriod} · Disetujui oleh ${access.name ?? "Admin"}. Menunggu pencairan.`, "/portal/pinjaman");
+  const loan = await prisma.employeeLoan.findUnique({ where: { id }, include: { user: { select: { name: true } } } });
+  if (!loan || loan.status !== "PENDING" || (loan.stage && loan.stage !== "ADMIN")) return { error: "Pengajuan ini tidak sedang dalam pemeriksaan Admin." };
+  const p = await planLoan(loan, input, isSuperAdmin(access.role));
+  if ("error" in p) return { error: p.error };
+  const flow = readLoanFlow(loan.flow);
+  // Pengajuan lama (sebelum alur baru) belum punya pimpinan puncak.
+  const top = flow.topId ? { id: flow.topId, name: flow.topName ?? "" } : await topLeaderOf(loan.userId);
+  if (!top) return { error: "Pimpinan puncak karyawan ini tidak ditemukan. Lengkapi atasan langsung di data karyawan." };
+  await prisma.employeeLoan.update({
+    where: { id },
+    data: {
+      stage: "PIMPINAN",
+      flow: { ...flow, topId: top.id, topName: top.name, adminId: access.id, adminName: access.name ?? "Admin", adminAt: new Date().toISOString(), adminNote: input.note.trim(), plan: p.plan },
+    },
+  });
+  await notify(flow.workflow ? loanTopIds(flow) : [top.id], "Pengajuan pinjaman menunggu keputusan Anda",
+    `${loan.user.name} · ${formatRupiah(p.total)} · ${p.rows.length} kali angsuran. Dokumen sudah diperiksa ${access.name ?? "Admin"}.`, "/portal/notifikasi?modul=pinjaman");
+  await notify(loan.userId, "Pengajuan pinjaman sudah diperiksa Admin", `${formatRupiah(loan.principal)} · Menunggu keputusan pimpinan.`, "/portal/pinjaman");
   refresh(loan.userId);
-  return {};
-}
-
-export async function rejectLoan(id: string, note: string): Promise<Result> {
-  const access = await requireAdmin();
-  const loan = await prisma.employeeLoan.findUnique({ where: { id } });
-  if (!loan || loan.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
-  await prisma.employeeLoan.update({ where: { id }, data: { status: "DITOLAK", note: note.trim() || null, approvedBy: access.name ?? null, approvedAt: new Date() } });
-  await notify(loan.userId, "Pengajuan pinjaman ditolak", `${formatRupiah(loan.principal)} · Ditolak oleh ${access.name ?? "Admin"}${note.trim() ? `: ${note.trim()}` : ""}.`, "/portal/pinjaman");
-  refresh(loan.userId);
+  revalidatePath("/portal/notifikasi");
   return {};
 }
 

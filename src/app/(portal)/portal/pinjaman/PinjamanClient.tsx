@@ -30,7 +30,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
     run(async () => {
       const r = await requestLoan({ amount: Number(amount), tenor: Number(tenor), startPeriod: start, purpose });
       if (r.error) setMsg({ ok: false, text: r.error });
-      else { setMsg({ ok: true, text: "Pengajuan terkirim. Menunggu persetujuan admin." }); setAmount(""); setPurpose(""); }
+      else { setMsg({ ok: true, text: "Pengajuan terkirim. Menunggu persetujuan." }); setAmount(""); setPurpose(""); }
     });
   }
 
@@ -40,7 +40,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
         <div className="mb-4 flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-400 text-white"><HandCoins size={17} /></span>
           <div><h3 className="font-semibold text-gray-900"><T>Ajukan Pinjaman</T></h3>
-            <p className="text-xs text-gray-400"><T>Tanpa bunga. Angsuran dipotong dari gaji setiap bulan setelah disetujui admin.</T></p></div>
+            <p className="text-xs text-gray-400"><T>Tanpa bunga. Pengajuan disetujui atasan langsung, diperiksa Admin, lalu diputus pimpinan. Angsuran dipotong dari gaji setiap bulan setelah pinjaman dicairkan.</T></p></div>
         </div>
         {hasPending ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"><T>Masih ada pengajuan yang menunggu persetujuan.</T></p>

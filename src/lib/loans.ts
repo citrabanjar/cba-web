@@ -11,6 +11,44 @@ export const LOAN_STATUS: Record<string, { label: string; tone: string }> = {
   DIGABUNG: { label: "Digabung", tone: "bg-indigo-50 text-indigo-700" },
 };
 export const loanStatusLabel = (s: string) => LOAN_STATUS[s]?.label ?? s;
+
+// Alur pengajuan pinjaman karyawan: atasan langsung → pemeriksaan dokumen fisik oleh Admin → keputusan pimpinan puncak.
+// stage hanya berlaku saat status PENDING; null = pengajuan lama (langsung ke pemeriksaan Admin).
+export const LOAN_STAGE: Record<string, string> = {
+  ATASAN: "Menunggu persetujuan atasan",
+  ADMIN: "Dalam pemeriksaan Admin",
+  PIMPINAN: "Menunggu keputusan pimpinan",
+};
+export const loanStageOf = (status: string, stage: string | null | undefined) => (status === "PENDING" ? stage || "ADMIN" : null);
+// Rencana angsuran hasil pemeriksaan Admin (dijalankan saat pimpinan puncak menyetujui) + ringkasannya untuk pimpinan.
+export type LoanPlan = {
+  principal: number; tenor: number; startPeriod: string; installment?: number; mergeIds: string[];
+  total: number; count: number; first: number; last: number; endPeriod: string; merged: string[]; before: number; after: number;
+};
+// Satu level menu Workflow (pre = level sebelum pemeriksaan Admin; level terakhir disimpan sebagai top*).
+export type LoanStep = { id: string; ids?: string[]; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; by?: string };
+export const loanStepIds = (s: { id: string; ids?: string[] }) => (s.ids?.length ? s.ids : [s.id]);
+export type LoanFlow = {
+  workflow?: boolean; pre?: LoanStep[]; topIds?: string[]; who?: string[]; // jalur menu Workflow; who = semua penyetuju (untuk pencarian)
+  managerId?: string; managerName?: string; managerAt?: string; managerNote?: string;
+  topId?: string; topName?: string; topAt?: string; topNote?: string; topBy?: string;
+  adminId?: string; adminName?: string; adminAt?: string; adminNote?: string; plan?: LoanPlan;
+};
+export const readLoanFlow = (raw: unknown): LoanFlow => (raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as LoanFlow) : {});
+// Penyetuju level sebelum pemeriksaan Admin yang sedang mendapat giliran.
+export const loanPreStep = (f: LoanFlow) => f.pre?.find((x) => !x.decision) ?? null;
+export const loanTopIds = (f: LoanFlow) => (f.topIds?.length ? f.topIds : f.topId ? [f.topId] : []);
+// Giliran user ini memutus: tahap ATASAN (atasan langsung / level Workflow sebelum Admin) atau PIMPINAN (pimpinan puncak / level terakhir).
+export function loanTurn(status: string, stage: string | null | undefined, f: LoanFlow, userId: string) {
+  if (status !== "PENDING") return false;
+  if (stage === "ATASAN") {
+    if (f.pre) { const st = loanPreStep(f); return !!st && loanStepIds(st).includes(userId); }
+    return f.managerId === userId;
+  }
+  return stage === "PIMPINAN" && loanTopIds(f).includes(userId);
+}
+// Penyetuju sebelum pemeriksaan Admin (selalu melihat pengajuannya).
+export const loanEarlyApprover = (f: LoanFlow, userId: string) => f.managerId === userId || !!f.pre?.some((x) => loanStepIds(x).includes(userId));
 export const LOAN_GROUPS = [
   { key: "menunggu", label: "Menunggu", statuses: ["PENDING", "DISETUJUI"] },
   { key: "berjalan", label: "Berjalan", statuses: ["BERJALAN"] },

@@ -10,8 +10,8 @@ import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { formatRupiah } from "@/lib/utils";
-import { LOAN_GROUPS, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
-import { approveLoan, cancelLoan, deleteLoan, markDisbursed, rejectLoan, saveSchedule } from "@/app/(portal)/portal/admin/pinjaman/actions";
+import { LOAN_GROUPS, loanStageOf, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
+import { cancelLoan, deleteLoan, markDisbursed, saveSchedule, submitLoanReview } from "@/app/(portal)/portal/admin/pinjaman/actions";
 import { toast } from "@/components/portal/Toast";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 import { proposedText } from "@/lib/approval-text";
@@ -55,14 +55,14 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
   const preview = total > 0
     ? byAmount ? buildScheduleByAmount(total, Number(amount), start) : Number(tenor) > 0 ? buildSchedule(total, Number(tenor), start) : []
     : [];
-  const approve = () => act(() => approveLoan(loan.id, {
+  const approve = () => act(() => submitLoanReview(loan.id, {
     principal: cash, tenor: Number(tenor), startPeriod: start, note,
     installment: byAmount ? Number(amount) : undefined, mergeIds: merged.map((l) => l.id),
-  }), onClose);
+  }), () => { toast(t("Terkirim ke pimpinan untuk diputus"), "ok"); onClose(); });
   return (
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle><T>Proses Pengajuan</T> · <T>Pinjaman ke-</T>{loan.seqNo}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle><T>Pemeriksaan Pengajuan</T> · <T>Pinjaman ke-</T>{loan.seqNo}</DialogTitle></DialogHeader>
         {loan.purpose && <p className="-mt-2 text-sm text-gray-600">{loan.purpose}</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label className="text-xs"><T>{merge ? "Dana baru yang dicairkan" : "Jumlah (Rp)"}</T></Label><Input type="number" value={principal} onChange={(e) => setPrincipal(e.target.value)} /></div>
@@ -157,14 +157,13 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
             </div>
           );
         })()}
-        <p className="text-[11px] text-gray-400"><T>Setelah disetujui, tandai Dicairkan saat uang sudah diberikan; angsuran baru dipotong setelah dicairkan.</T></p>
-        <div className="space-y-1.5"><Label className="text-xs"><T>Catatan</T></Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
+        <p className="text-[11px] text-gray-400"><T>Periksa dokumen fisik pengajuan, lalu kirim ke pimpinan. Keputusan setuju atau tolak ada di pimpinan; setelah disetujui, tandai Dicairkan saat uang sudah diberikan.</T></p>
+        <div className="space-y-1.5"><Label className="text-xs"><T>Catatan pemeriksaan untuk pimpinan</T></Label><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Misalnya: dokumen lengkap")} /></div>
         <ErrorBox error={error} />
-        <DialogFooter className="gap-2 sm:justify-between">
-          <Button variant="outline" disabled={pending} className="text-rose-600"
-            onClick={async () => { if (await askConfirm(t("Tolak pengajuan ini?"))) act(() => rejectLoan(loan.id, note), onClose); }}><T>Tolak</T></Button>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" disabled={pending} onClick={onClose}><T>Batal</T></Button>
           <Button disabled={pending || (merge && merged.length === 0)} className="gap-1.5" onClick={approve}>
-            {pending && <Loader2 size={15} className="animate-spin" />} <T>Setujui</T>
+            {pending && <Loader2 size={15} className="animate-spin" />} <T>Kirim ke Pimpinan</T>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -278,7 +277,7 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
   if (!canEdit) return null;
   return (
     <div className="flex flex-col gap-1.5">
-      {loan.status === "PENDING" && <Button size="sm" onClick={() => onOpen("approve")}><T>Proses</T></Button>}
+      {loanStageOf(loan.status, loan.stage) === "ADMIN" && <Button size="sm" onClick={() => onOpen("approve")}><T>Periksa</T></Button>}
       {loan.status === "DISETUJUI" && <Button size="sm" onClick={() => onOpen("disburse")}><T>Tandai Dicairkan</T></Button>}
       {["DISETUJUI", "BERJALAN"].includes(loan.status) && <Button size="sm" variant="outline" onClick={() => onOpen("schedule")}><T>Ubah Sisa Angsuran</T></Button>}
       {canCancel && (

@@ -12,7 +12,7 @@ import { DeleteLoanButton } from "@/components/portal/LoanManager";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
-import { LOAN_GROUPS, LOAN_STATUS, addMonths, isPeriod, loanSummary, periodShort } from "@/lib/loans";
+import { LOAN_GROUPS, LOAN_STAGE, LOAN_STATUS, addMonths, isPeriod, loanStageOf, loanSummary, periodShort } from "@/lib/loans";
 import { showNotice } from "@/components/portal/Confirm";
 import { proposedText } from "@/lib/approval-text";
 import { importOpeningLoans, type OpeningRow } from "./actions";
@@ -212,7 +212,8 @@ export default function PinjamanAdminClient({ loans, employees, isSuper }: { loa
         )}
         {list.map((l) => {
           const s = loanSummary(l.principal, l.installments);
-          const st = LOAN_STATUS[l.status] ?? { label: l.status, tone: "bg-gray-100 text-gray-600" };
+          const stage = loanStageOf(l.status, l.stage);
+          const st = stage ? { label: LOAN_STAGE[stage], tone: stage === "ADMIN" ? "bg-rose-50 text-rose-700" : LOAN_STATUS.PENDING.tone } : LOAN_STATUS[l.status] ?? { label: l.status, tone: "bg-gray-100 text-gray-600" };
           const pct = l.principal ? Math.min(100, Math.round((s.paid / l.principal) * 100)) : 0;
           const isOpen = openId === l.id;
           return (

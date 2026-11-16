@@ -27,6 +27,9 @@ export function moduleOf(href: string | null, title = ""): NotifModule {
     if (rest.startsWith("Pinjaman:")) return "pinjaman";
     return PAYROLL_TITLE.test(rest) ? "payroll" : "karyawan";
   }
-  const path = (href ?? "").split("?")[0];
+  const [path, query = ""] = (href ?? "").split("?");
+  // Tautan ke halaman Notifikasi dengan modul tertentu (mis. pengajuan pinjaman untuk penyetuju).
+  const asked = new URLSearchParams(query).get("modul");
+  if (path === "/portal/notifikasi" && asked) return NOTIF_MODULES.find((m) => m.key === asked)?.key ?? "lainnya";
   return NOTIF_MODULES.find((m) => m.paths.some((p) => path === p || path.startsWith(`${p}/`)))?.key ?? "lainnya";
 }

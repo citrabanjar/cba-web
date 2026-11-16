@@ -6,7 +6,8 @@ import { getMasterOptions } from "@/lib/master-data";
 import { CANDIDATE_STATUS, readData, readJob } from "@/lib/onboarding";
 import { Prisma } from "@prisma/client";
 import { plannedHours } from "@/lib/overtime";
-import PersetujuanClient, { type ApprovalItem, type InterviewItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
+import PersetujuanClient, { type ApprovalItem, type InterviewItem, type LoanItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
+import { loanEarlyApprover, loanTurn, readLoanFlow } from "@/lib/loans";
 
 const LEGACY: Record<string, string> = { TAHUNAN: "Cuti Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan", PENTING: "Keperluan Penting", LAINNYA: "Lainnya" };
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -22,7 +23,7 @@ export async function loadApprovals(a: Approver) {
   const reviewer = reviewsProfiles(a);
   // Pemantau (Super Admin & Admin Data Karyawan) melihat semua perubahan data yang masih menunggu, tanpa tombol putus.
   const monitor = reviewer || a.role === "SUPER_ADMIN";
-  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots] = await Promise.all([
+  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots, loanReqs] = await Promise.all([
     // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
       where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
@@ -64,6 +65,14 @@ export async function loadApprovals(a: Approver) {
     prisma.overtime.findMany({
       where: { orderId: null, OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
+    }),
+    // Pengajuan pinjaman: atasan langsung (tahap ATASAN) dan pimpinan puncak (melihat sejak pemeriksaan Admin, memutus di tahap PIMPINAN).
+    prisma.employeeLoan.findMany({
+      where: {
+        OR: [{ flow: { path: ["managerId"], equals: a.id } }, { flow: { path: ["topId"], equals: a.id } }, { flow: { path: ["who"], array_contains: [a.id] } }],
+        AND: [{ OR: [{ status: "PENDING" }, { updatedAt: { gte: since } }] }],
+      },
+      include: { user: who }, orderBy: { createdAt: "desc" }, take: 100,
     }),
   ]);
 
@@ -146,7 +155,19 @@ export async function loadApprovals(a: Approver) {
     summary: (r.summary as { field: string; oldValue: string | null; newValue: string | null }[]) ?? [],
     createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
   }));
-  return { items, profiles: reviewer ? profiles : null, swaps, interviews, master, edits };
+  // Pimpinan puncak baru melihat pengajuan setelah disetujui atasan (tahap pemeriksaan Admin dan seterusnya).
+  const loans: LoanItem[] = loanReqs.filter((l) => {
+    const f = readLoanFlow(l.flow);
+    return loanEarlyApprover(f, a.id) || (l.status === "PENDING" ? l.stage !== "ATASAN" : !!f.adminAt);
+  }).map((l) => {
+    const flow = readLoanFlow(l.flow);
+    return {
+      id: l.id, status: l.status, stage: l.status === "PENDING" ? l.stage ?? "ADMIN" : null, person: person(l.user), principal: l.principal, tenor: l.tenor,
+      startPeriod: l.startPeriod, purpose: l.purpose, note: l.note, flow, createdAt: l.createdAt.toISOString(), decidedAt: l.approvedAt?.toISOString() ?? null,
+      mine: loanTurn(l.status, l.stage, flow, a.id),
+    };
+  });
+  return { items, profiles: reviewer ? profiles : null, swaps, interviews, master, edits, loans };
 }
 
 export type ApprovalData = Awaited<ReturnType<typeof loadApprovals>>;

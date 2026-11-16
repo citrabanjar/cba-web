@@ -10,8 +10,8 @@ import { markNotificationsRead } from "@/app/(portal)/notif-actions";
 import { respondSpl } from "@/app/(portal)/portal/lembur/actions";
 import { OT_STATUS } from "@/lib/overtime-status";
 import { respondSwap } from "@/app/(portal)/portal/tukar-shift/actions";
-import { Card, EditCard, InterviewCard, ProfileCard, SwapCard, type ApprovalItem, type EditItem, type InterviewItem, type OfferMaster, type ProfileItem, type SwapItem } from "@/app/(portal)/portal/persetujuan/PersetujuanClient";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { Card, EditCard, InterviewCard, LoanApprovalCard, ProfileCard, SwapCard, type ApprovalItem, type EditItem, type InterviewItem, type LoanItem, type OfferMaster, type ProfileItem, type SwapItem } from "@/app/(portal)/portal/persetujuan/PersetujuanClient";
+import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 
 // action: notifikasi yang dijawab langsung di halaman ini (SPL: Bersedia / Tidak bersedia).
 type Action = { kind: "spl"; id: string; status: string };
@@ -22,7 +22,7 @@ type Partner = { type: "partner"; id: string; date: string; requester: string; r
 export type PendingCard = {
   module: NotifModule; key: string; at?: string; // at: tanggal untuk urutan riwayat
   card: { type: "item"; item: ApprovalItem } | { type: "swap"; s: SwapItem } | { type: "edit"; item: EditItem } | { type: "profile"; item: ProfileItem }
-    | { type: "interview"; item: InterviewItem } | Partner;
+    | { type: "interview"; item: InterviewItem } | { type: "loan"; item: LoanItem } | Partner;
 };
 
 const PER_PAGE = 30;
@@ -71,6 +71,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
       : c.type === "edit" ? <EditCard key={key} item={c.item} />
       : c.type === "profile" ? <ProfileCard key={key} item={c.item} />
       : c.type === "interview" ? <InterviewCard key={key} item={c.item} master={master} />
+      : c.type === "loan" ? <LoanApprovalCard key={key} item={c.item} />
       : <PartnerCard key={key} c={c} />;
 
   const choose = (k: NotifModule) => {
@@ -126,7 +127,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
           )}
           {watched.length > 0 && (
             <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-3">
-              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>Menunggu persetujuan atasan</T> · {watched.length}</p>
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{mod === "pinjaman" ? "Sedang diproses" : "Menunggu persetujuan atasan"}</T> · {watched.length}</p>
               {watched.map(renderCard)}
             </div>
           )}
@@ -319,6 +320,12 @@ function HistoryRow({ h }: { h: PendingCard }) {
     title = `${t("Perubahan data pribadi")} · ${who(c.item.person)}`;
     body = c.item.reason ?? "";
     status = c.item.status; by = c.item.decidedBy ?? "";
+  } else if (c.type === "loan") {
+    const l = c.item;
+    title = `${t("Pengajuan pinjaman")} · ${who(l.person)}`;
+    body = [`${formatRupiah(l.flow.plan?.total ?? l.principal)} · ${l.flow.plan?.count ?? l.tenor} ${t("kali angsuran")}`, l.purpose].filter(Boolean).join(" · ");
+    status = l.status === "DISETUJUI" || l.status === "BERJALAN" || l.status === "LUNAS" ? "APPROVED" : l.status === "DITOLAK" ? "REJECTED" : l.status;
+    by = [...new Set([l.flow.managerAt && l.flow.managerName, ...(l.flow.pre ?? []).filter((x) => x.decision).map((x) => x.by || x.name), l.flow.topAt && (l.flow.topBy || l.flow.topName)].filter(Boolean))].join(", ");
   } else if (c.type === "interview") {
     title = `${t("Calon karyawan")} · ${c.item.name}`;
     body = t(c.item.statusLabel);

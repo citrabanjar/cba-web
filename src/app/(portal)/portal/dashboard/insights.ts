@@ -63,7 +63,7 @@ export async function loadInsights() {
     }),
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
     prisma.businessTrip.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
-    prisma.employeeLoan.findMany({ where: { status: { in: ["PENDING", "DISETUJUI"] } }, orderBy: { createdAt: "asc" }, select: { userId: true, status: true } }),
+    prisma.employeeLoan.findMany({ where: { status: { in: ["PENDING", "DISETUJUI"] } }, orderBy: { createdAt: "asc" }, select: { userId: true, status: true, stage: true } }),
     prisma.user.findMany({
       where: { ...employee, isActive: true, employmentStatus: "KONTRAK", contractEndDate: { lte: addDays(today, 30) } },
       orderBy: { contractEndDate: "asc" }, select: { id: true },
@@ -87,7 +87,8 @@ export async function loadInsights() {
   const profile = (userId?: string) => (userId ? `/portal/admin/karyawan/${userId}` : undefined);
   const rosterHref = (offset: number) => `/portal/admin/schedule?tab=jadwal&bulan=${monthParam(year, month + offset)}`;
   // Pinjaman: pengajuan baru dan yang sudah disetujui tapi belum dicairkan; tautan ke tab Pinjaman profil.
-  const loanRequests = loans.filter((l) => l.status === "PENDING");
+  // Hanya yang sedang di tahap pemeriksaan Admin (sudah disetujui atasan; null = pengajuan lama).
+  const loanRequests = loans.filter((l) => l.status === "PENDING" && (!l.stage || l.stage === "ADMIN"));
   const loanToDisburse = loans.filter((l) => l.status === "DISETUJUI");
   const loanTab = (userId?: string) => (userId ? `/portal/admin/karyawan/${userId}?tab=pinjaman` : "/portal/admin/pinjaman");
 
@@ -97,7 +98,7 @@ export async function loadInsights() {
     { key: "incomplete", title: "Selesaikan absen tidak lengkap", hint: "Lupa check-out atau check-in, 30 hari terakhir. Putuskan: lupa absen, potong cuti, atau mangkir.", count: incomplete.length, unit: "absen belum lengkap", href: profile(incomplete[0]?.userId) },
     { key: "leave", title: "Tinjau pengajuan cuti", hint: "Diputus atasan langsung karyawan di menu Persetujuan.", count: leaves.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
     { key: "trip", title: "Tinjau pengajuan dinas luar", hint: "Diputus atasan langsung karyawan di menu Persetujuan.", count: trips.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
-    { key: "loan", title: "Proses pengajuan pinjaman", hint: "Setujui atau tolak di tab Pinjaman profil karyawan.", count: loanRequests.length, unit: "pengajuan menunggu", href: loanTab(loanRequests[0]?.userId) },
+    { key: "loan", title: "Periksa pengajuan pinjaman", hint: "Periksa dokumen fisik lalu kirim ke pimpinan dari tab Pinjaman profil karyawan.", count: loanRequests.length, unit: "pengajuan menunggu", href: loanTab(loanRequests[0]?.userId) },
     { key: "loan-disburse", title: "Cairkan pinjaman yang disetujui", hint: "Tandai Dicairkan setelah uang diberikan; angsuran baru dipotong setelah itu.", count: loanToDisburse.length, unit: "pinjaman menunggu pencairan", href: loanTab(loanToDisburse[0]?.userId) },
   ];
 

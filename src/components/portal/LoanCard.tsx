@@ -4,11 +4,12 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
-import { LOAN_STATUS, loanSummary, periodShort } from "@/lib/loans";
+import { LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort, type LoanFlow } from "@/lib/loans";
 
 export type LoanView = {
   id: string; seqNo: number; disbursedAt: string | null; principal: number; tenor: number; startPeriod: string; purpose: string | null; status: string;
   isOpening: boolean; originalAmount: number | null; note: string | null; createdAt: string; approvedBy: string | null;
+  stage?: string | null; flow?: LoanFlow; // alur pengajuan (status PENDING)
   installments: { id: string; seq: number; period: string; amount: number; status: string; paidAt: string | null }[];
 };
 
@@ -17,7 +18,8 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
   const t = useT();
   const [open, setOpen] = useState(loan.status === "BERJALAN");
   const s = loanSummary(loan.principal, loan.installments);
-  const st = LOAN_STATUS[loan.status] ?? { label: loan.status, tone: "bg-gray-100 text-gray-600" };
+  const stage = loanStageOf(loan.status, loan.stage);
+  const st = stage ? { label: LOAN_STAGE[stage], tone: LOAN_STATUS.PENDING.tone } : LOAN_STATUS[loan.status] ?? { label: loan.status, tone: "bg-gray-100 text-gray-600" };
   const pct = loan.principal ? Math.min(100, Math.round((s.paid / loan.principal) * 100)) : 0;
   return (
     <div className="rounded-2xl border border-gray-200 bg-white">
@@ -38,6 +40,7 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
           </p>
           {loan.purpose && <p className="mt-1 text-sm text-gray-700">{loan.purpose}</p>}
           {loan.note && <p className="mt-1 text-xs text-gray-500"><T>Catatan</T>: {loan.note}</p>}
+          {(loan.flow?.managerName || loan.flow?.workflow) && <LoanTrail flow={loan.flow} status={loan.status} stage={stage} />}
         </div>
         {actions}
       </div>
@@ -89,5 +92,29 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
         </>
       )}
     </div>
+  );
+}
+
+// Jejak pengajuan: atasan langsung (atau level Workflow) → pemeriksaan Admin → pimpinan puncak (atau level terakhir Workflow).
+export function LoanTrail({ flow: f, status, stage }: { flow: LoanFlow; status: string; stage: string | null }) {
+  const t = useT();
+  const rejected = status === "DITOLAK";
+  const early = f.pre
+    ? f.pre.map((x, n) => ({ key: `pre${n}`, label: `${t("Level")} ${n + 1}`, name: x.by && x.by !== x.name ? `${x.name} (${x.by})` : x.name, done: x.decision === "SETUJU", no: x.decision === "TOLAK" }))
+    : [{ key: "atasan", label: t("Atasan langsung"), name: f.managerName, done: !!f.managerAt && !(rejected && !f.adminAt), no: rejected && !!f.managerAt && !f.adminAt }];
+  const steps = [
+    ...early,
+    { key: "admin", label: t("Pemeriksaan Admin"), name: f.adminName, done: !!f.adminAt, no: false },
+    { key: "top", label: f.workflow ? `${t("Level")} ${early.length + 1}` : t("Pimpinan puncak"), name: f.topBy && f.topBy !== f.topName ? `${f.topName} (${f.topBy})` : f.topName, done: !!f.topAt && !rejected, no: rejected && !!f.topAt },
+  ];
+  const current = stage === "ATASAN" ? steps.find((x) => !x.done)?.key : stage === "ADMIN" ? "admin" : stage === "PIMPINAN" ? "top" : null;
+  return (
+    <p className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
+      {steps.map((x, n) => (
+        <span key={x.key} className={x.done ? "text-emerald-700" : x.no ? "text-rose-700" : x.key === current ? "font-semibold text-amber-700" : ""}>
+          {x.label}{x.name ? ` · ${x.name}` : ""} {x.done ? "✓" : x.no ? "✗" : "…"}{n < steps.length - 1 && " →"}
+        </span>
+      ))}
+    </p>
   );
 }

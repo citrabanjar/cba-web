@@ -2,15 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, Briefcase, Calendar, Check, Clock, Inbox, Loader2, UserPen, X } from "lucide-react";
+import { ArrowLeftRight, Briefcase, Calendar, Check, Clock, HandCoins, Inbox, Loader2, UserPen, X } from "lucide-react";
 import { InterviewDecision, InterviewSummary, ReviewForm, type CandidateBrief } from "@/components/portal/InterviewPanel";
 import { latestOffer, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
 import { T, useT, useLang } from "@/components/i18n";
 import { adminTitleEn } from "@/lib/notif-en";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatRupiah } from "@/lib/utils";
+import { LOAN_STAGE, LOAN_STATUS, periodShort, type LoanFlow } from "@/lib/loans";
+import { LoanTrail } from "@/components/portal/LoanCard";
 import { halfDayLabel } from "@/lib/leave";
-import { decideLeave, decideOvertime, decideTrip } from "./actions";
+import { decideLeave, decideLoan, decideOvertime, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
 import { decideSwap } from "../tukar-shift/actions";
 import { decideEmployeeEdit } from "../admin/karyawan/actions";
@@ -51,7 +53,14 @@ export type InterviewItem = {
 };
 export type OfferMaster = { branches: string[]; departments: string[]; positions: string[]; managers: { value: string; label: string }[] } | null;
 
-type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara" | "ubah";
+type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara" | "ubah" | "pinjaman";
+
+// Pengajuan pinjaman: atasan langsung (tahap ATASAN) lalu pimpinan puncak (tahap PIMPINAN, setelah pemeriksaan Admin).
+export type LoanItem = {
+  id: string; status: string; stage: string | null; person: ApprovalItem["person"]; principal: number; tenor: number; startPeriod: string;
+  purpose: string | null; note: string | null; flow: LoanFlow; createdAt: string; decidedAt: string | null;
+  mine: boolean; // giliran saya memutus
+};
 
 // Pengajuan ubah data karyawan oleh Admin berhak "Ajukan" (diputus atasan langsung si Admin).
 export type EditItem = {
@@ -64,9 +73,9 @@ export type EditItem = {
   steps: { name: string; level: number; decision: string; at: string; note: string }[]; // approval berurutan (Level 1, 2)
 };
 
-export default function PersetujuanClient({ items, profiles, swaps, interviews, master = null, edits = [] }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[]; master?: OfferMaster; edits?: EditItem[] }) {
+export default function PersetujuanClient({ items, profiles, swaps, interviews, master = null, edits = [], loans = [] }: { items: ApprovalItem[]; profiles: ProfileItem[] | null; swaps: SwapItem[]; interviews: InterviewItem[]; master?: OfferMaster; edits?: EditItem[]; loans?: LoanItem[] }) {
   const [tab, setTab] = useState<TabKey>(() =>
-    edits.some((e) => e.mine) ? "ubah" : interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
+    loans.some((l) => l.mine) ? "pinjaman" : edits.some((e) => e.mine) ? "ubah" : interviews.some((i) => i.mine) ? "wawancara" : items.some((i) => i.status === "PENDING") ? "menunggu" : swaps.some((s) => s.mine) ? "swap"
       : profiles?.some((p) => p.status === "PENDING") ? "data" : "menunggu");
   const pending = items.filter((i) => i.status === "PENDING" && i.mine).sort((a, b) => a.start.localeCompare(b.start));
   const done = items.filter((i) => i.status !== "PENDING" || !i.mine).sort((a, b) => (b.decidedAt ?? "").localeCompare(a.decidedAt ?? ""));
@@ -77,6 +86,7 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
     ...(profiles ? [["data", "Perubahan Data", profiles.filter((p) => p.status === "PENDING").length] as [TabKey, string, number]] : []),
     ...(interviews.length ? [["wawancara", "Pra-Karyawan", interviews.filter((i) => i.mine).length] as [TabKey, string, number]] : []),
     ...(edits.length ? [["ubah", "Pengajuan Admin", edits.filter((e) => e.mine).length] as [TabKey, string, number]] : []),
+    ...(loans.length ? [["pinjaman", "Pinjaman", loans.filter((l) => l.mine).length] as [TabKey, string, number]] : []),
   ];
   return (
     <div className="space-y-4">
@@ -88,7 +98,9 @@ export default function PersetujuanClient({ items, profiles, swaps, interviews, 
           </button>
         ))}
       </div>
-      {tab === "ubah" ? (
+      {tab === "pinjaman" ? (
+        [...loans].sort((a, b) => Number(b.mine) - Number(a.mine) || b.createdAt.localeCompare(a.createdAt)).map((l) => <LoanApprovalCard key={l.id} item={l} />)
+      ) : tab === "ubah" ? (
         [...edits].sort((a, b) => Number(b.mine) - Number(a.mine) || b.createdAt.localeCompare(a.createdAt))
           .map((e) => <EditCard key={e.id} item={e} />)
       ) : tab === "wawancara" ? (
@@ -426,6 +438,80 @@ export function EditCard({ item }: { item: EditItem }) {
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-rose-600 hover:bg-rose-50"><X size={14} /> <T>Tolak</T></button>
             <button type="button" disabled={pending} onClick={() => decide(true)}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand/90">{pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} <T>Setujui</T></button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Kartu pengajuan pinjaman untuk atasan langsung dan pimpinan puncak.
+export function LoanApprovalCard({ item: l }: { item: LoanItem }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [error, setError] = useState("");
+  const st = l.stage ? { label: LOAN_STAGE[l.stage] ?? l.stage, cls: "bg-amber-100 text-amber-700" }
+    : { label: LOAN_STATUS[l.status]?.label ?? l.status, cls: LOAN_STATUS[l.status]?.tone ?? "bg-gray-100 text-gray-600" };
+  const plan = l.flow.plan;
+  const decide = (approve: boolean) => start(async () => {
+    setError("");
+    const r = await decideLoan(l.id, approve, note);
+    if (r.error) setError(r.error);
+  });
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex flex-wrap items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><HandCoins size={17} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900">{l.person.name} <span className="text-xs font-normal text-gray-400">{[l.person.employeeId, l.person.position, l.person.department].filter(Boolean).join(" · ")}</span></p>
+          <p className="mt-0.5 text-sm text-gray-800"><T>Pengajuan pinjaman</T> <b>{formatRupiah(l.principal)}</b></p>
+          <p className="text-xs text-gray-500">{l.tenor} <T>kali angsuran</T> · <T>mulai</T> {periodShort(l.startPeriod)} · <T>Diajukan</T> {formatDate(new Date(l.createdAt))}</p>
+          {l.purpose && <p className="mt-1.5 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">{l.purpose}</p>}
+          <LoanTrail flow={l.flow} status={l.status} stage={l.stage} />
+          {l.flow.managerNote && <p className="mt-1 text-[11px] text-gray-500"><T>Catatan atasan</T>: {l.flow.managerNote}</p>}
+          {plan && (
+            <div className="mt-2 space-y-1 rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700">
+              <p className="font-semibold text-gray-600"><T>Hasil pemeriksaan Admin</T>{l.flow.adminName ? ` · ${l.flow.adminName}` : ""}</p>
+              <p className="flex justify-between gap-2"><span><T>Total pinjaman</T></span><b>{formatRupiah(plan.total)}</b></p>
+              {plan.merged.length > 0 && <p className="text-[11px] text-gray-500"><T>Digabung</T>: {plan.merged.join(", ")} + <T>dana baru</T> {formatRupiah(plan.principal)}</p>}
+              <p className="flex justify-between gap-2"><span><T>Angsuran</T></span><span><b>{formatRupiah(plan.first)}</b><T>/bulan</T> x {plan.count} · {periodShort(plan.startPeriod)} – {periodShort(plan.endPeriod)}</span></p>
+              {plan.last !== plan.first && <p className="text-right text-[11px] text-gray-500"><T>terakhir</T> {formatRupiah(plan.last)}</p>}
+              <p className="flex justify-between gap-2 rounded-md bg-amber-50 px-2 py-1 text-amber-900"><span><T>Total potongan pinjaman per bulan</T></span><span>{formatRupiah(plan.before)} → <b>{formatRupiah(plan.after)}</b></span></p>
+              {l.flow.adminNote && <p className="text-[11px] text-gray-500"><T>Catatan pemeriksaan</T>: {l.flow.adminNote}</p>}
+            </div>
+          )}
+          {l.stage === "ADMIN" && <p className="mt-2 text-[11px] text-amber-700"><T>Keputusan dapat diberikan setelah Admin selesai memeriksa dokumen fisik.</T></p>}
+          {!l.stage && l.note && <p className="mt-1.5 text-[11px] text-gray-400"><T>Catatan</T>: {l.note}</p>}
+        </div>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>
+      </div>
+      {l.mine && (
+        <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+          <input value={note} onChange={(e) => setNote(e.target.value)}
+            placeholder={t(rejecting ? "Alasan penolakan (wajib)" : "Catatan untuk karyawan (opsional)")}
+            className="h-9 w-full rounded-lg border border-gray-200 px-3 text-sm" />
+          {error && <p className="text-xs text-rose-600"><T>{error}</T></p>}
+          <div className="flex justify-end gap-2">
+            {rejecting ? (
+              <>
+                <button type="button" disabled={pending} onClick={() => { setRejecting(false); setError(""); }} className="rounded-full px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"><T>Batal</T></button>
+                <button type="button" disabled={pending} onClick={() => decide(false)}
+                  className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                  {pending ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} <T>Tolak pengajuan</T>
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" disabled={pending} onClick={() => setRejecting(true)}
+                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"><X size={13} /> <T>Tolak</T></button>
+                <button type="button" disabled={pending} onClick={() => decide(true)}
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                  {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Setujui</T>
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
