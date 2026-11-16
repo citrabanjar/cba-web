@@ -318,7 +318,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
               </>
             )}
             {form.kind === "PENDAPATAN" && form.method !== "THR" && form.method !== "PPH21" && check(!!p.weeklyForMonthly, (v) => setParam({ weeklyForMonthly: v }), "Karyawan bulanan: dibayar mingguan",
-              "Bagi karyawan dengan payroll bulanan, komponen ini dibayarkan setiap minggu bersamaan dengan payroll mingguan (misalnya upah lembur, uang makan lembur, dan uang saku dinas). Pada payroll bulanan, komponen ini tetap diperhitungkan sebagai dasar PPh 21 dan dicatat sebagai sudah dibayarkan.")}
+              "Aktifkan pilihan ini apabila komponen ingin dibayarkan secara mingguan.")}
             {form.kind === "POTONGAN" && check(!!p.reducesGross, (v) => setParam({ reducesGross: v }), "Mengurangi penghasilan bruto (pajak)",
               "Potongan ini mengurangi bruto sebelum PPh 21 dihitung, mis. potongan mangkir atau terlambat.")}
             {check(form.isActive, (v) => set("isActive", v), "Aktif", "Komponen nonaktif tidak diperhitungkan dalam proses penggajian.")}

@@ -1078,7 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
-  "Bagi karyawan dengan payroll bulanan, komponen ini dibayarkan setiap minggu bersamaan dengan payroll mingguan (misalnya upah lembur, uang makan lembur, dan uang saku dinas). Pada payroll bulanan, komponen ini tetap diperhitungkan sebagai dasar PPh 21 dan dicatat sebagai sudah dibayarkan.": "For employees on monthly payroll, this component is paid weekly together with the weekly payroll (e.g. overtime pay, overtime meal allowance, and business trip allowance). In the monthly payroll it is still included in the PPh 21 base and recorded as already paid.",
+  "Aktifkan pilihan ini apabila komponen ingin dibayarkan secara mingguan.": "Enable this option if the component is to be paid weekly.",
   "Komponen gaji perlu dibuat dan ditempelkan kepada karyawan melalui menu Payroll & Benefit → Komponen agar diperhitungkan dalam Proses Gaji.": "Pay components must be created and attached to employees via Payroll & Benefit → Components so they are included in Payroll Processing.",
   "Peringatan": "Warning",
   "Pemberitahuan": "Notice",
