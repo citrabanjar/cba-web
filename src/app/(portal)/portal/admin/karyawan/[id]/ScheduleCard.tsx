@@ -132,7 +132,7 @@ export default function ScheduleCard({
               </div>
             ) : (
               <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500">
-                <T>Jadwal Manual diperuntukkan bagi karyawan dengan jadwal kerja tidak tetap. Setelah disimpan, penempatan shift dilakukan langsung pada Kalender Kehadiran.</T>
+                <T>Jadwal Manual diperuntukkan bagi karyawan dengan jadwal kerja tidak tetap.</T>
               </p>
             )}
             <div className="space-y-1.5">
