@@ -54,10 +54,6 @@ function SettingsTab({ settings }: { settings: PayrollSettings }) {
           <Input type="number" min={1} max={28} value={form.periodStartDay} onChange={(e) => set("periodStartDay", Number(e.target.value))} />)}
         {field("Tanggal gajian", "0 = hari kerja terakhir bulan itu.", <Input type="number" min={0} max={31} value={form.payDay} onChange={(e) => set("payDay", Number(e.target.value))} />)}
         {field("Pembagi upah sejam lembur", "PP 35/2021: 1/173 x upah sebulan.", <Input type="number" value={form.overtimeDivisor} onChange={(e) => set("overtimeDivisor", Number(e.target.value))} />)}
-        {field("Gaji masuk/keluar di tengah periode", "Cara menghitung gaji prorata.",
-          <select value={form.prorate} onChange={(e) => set("prorate", e.target.value === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA")} className={select}>
-            <option value="HARI_KERJA">{t("Per hari kerja")}</option><option value="HARI_KALENDER">{t("Per hari kalender")}</option>
-          </select>)}
         {field("Payroll mingguan mulai hari", "Untuk karyawan dengan jadwal bayar Mingguan (gaji harian).",
           <select value={form.weekStartDay} onChange={(e) => set("weekStartDay", Number(e.target.value))} className={select}>
             {["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].map((d, i) => <option key={d} value={i}>{t(d)}</option>)}

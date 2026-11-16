@@ -177,7 +177,6 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
   const value: PayrollSettings = {
     periodStartDay: n(input.periodStartDay, 1, 28), payDay: n(input.payDay, 0, 31),
     overtimeDivisor: n(input.overtimeDivisor, 1, 400),
-    prorate: input.prorate === "HARI_KALENDER" ? "HARI_KALENDER" : "HARI_KERJA",
     rounding: [1, 100, 1000].includes(Number(input.rounding)) ? Number(input.rounding) : 1,
     weekStartDay: n(input.weekStartDay, 0, 6),
     companyName: String(input.companyName ?? "").trim().slice(0, 120), companyNpwp: String(input.companyNpwp ?? "").trim().slice(0, 30),
@@ -188,7 +187,7 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
     kind: "gaji.savePayrollSettings", args: [input], title: "Payroll: ubah Pengaturan Payroll",
     details: diff({
       periodStartDay: "Awal periode (tanggal)", payDay: "Tanggal gajian", overtimeDivisor: "Pembagi lembur",
-      prorate: "Prorata", rounding: "Pembulatan", weekStartDay: "Awal minggu", companyName: "Nama perusahaan", companyNpwp: "NPWP perusahaan",
+      rounding: "Pembulatan", weekStartDay: "Awal minggu", companyName: "Nama perusahaan", companyNpwp: "NPWP perusahaan",
       signerName: "Penandatangan", signerId: "NIK penandatangan",
     }, { ...DEFAULT_PAYROLL_SETTINGS, ...(old ?? {}) } as Record<string, unknown>, value as unknown as Record<string, unknown>),
   });

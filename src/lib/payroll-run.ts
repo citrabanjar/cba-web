@@ -216,8 +216,9 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   // Prorata untuk karyawan yang masuk/keluar di tengah periode.
   const calDays = Math.round((end.getTime() - start.getTime()) / DAY) + 1;
   const calHere = from <= to ? Math.round((to.getTime() - from.getTime()) / DAY) + 1 : 0;
+  // Prorata selalu per hari kalender (sama dengan rumus potongan: dasar / jumlah hari bulan berjalan; keputusan pemilik 2026-11-16).
   // Mingguan: gaji pokok sudah = gaji harian x hari kerja terjadwal, jadi tidak diprorata lagi.
-  const factor = weekly ? 1 : s.prorate === "HARI_KALENDER" ? calHere / calDays : workDaysFull ? workDaysHere / workDaysFull : 1;
+  const factor = weekly ? 1 : calHere / calDays;
   const prorate = (n: number) => (factor < 1 ? n * factor : n);
   if (factor < 1) warnings.push(`Gaji prorata ${Math.round(factor * 100)}%`);
 
@@ -238,13 +239,12 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     if (!windowCache.has(key)) {
       windowCache.set(key, (async () => {
         if (w.a > w.b) return { factor: 0, ctx: null };
-        const [wd, attW, leaveW] = await Promise.all([
-          countLeaveDays(userId, w.a, w.b, "HARI_KERJA"),
+        const [attW, leaveW] = await Promise.all([
           prisma.attendance.groupBy({ by: ["status"], where: { userId, date: { gte: w.a, lte: w.b } }, _count: { _all: true } }),
           leaveQty(w.a, w.b),
         ]);
         const days = Math.round((w.b.getTime() - w.a.getTime()) / DAY) + 1;
-        const f = s.prorate === "HARI_KALENDER" ? days / calDays : workDaysFull ? wd / workDaysFull : 1;
+        const f = days / calDays;
         const cnt = (st: string[]) => attW.filter((x) => st.includes(x.status)).reduce((n, x) => n + x._count._all, 0);
         const dates = [...tripDates].filter((d) => d >= w.a.getTime() && d <= w.b.getTime()).length;
         return {
