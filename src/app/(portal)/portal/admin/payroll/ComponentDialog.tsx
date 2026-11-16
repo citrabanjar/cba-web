@@ -83,8 +83,6 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
   const category = PAY_CATEGORIES.find((c) => c.key === form.category);
   const unit = paramUnit(form.param);
   const tiers = overtimeTiers(p, workDaysPerWeek);
-  // Mode tarif hari libur lembur: PP35 (otomatis ikut pola kerja), SENDIRI (tarif diatur), SAMA (= tarif hari kerja).
-  const restMode = p.restAuto || (!p.work?.length && !p.rest?.length) ? "PP35" : tiers.rest ? "SENDIRI" : "SAMA";
   // Komponen yang bisa dicentang sebagai dasar nilai: gaji pokok + pendapatan bernilai tetap.
   const baseOptions = [
     { code: "GP", name: "Gaji Pokok" },
@@ -243,31 +241,26 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                         <Input type="number" className="h-8 w-20" value={p.divisor ?? ""} onChange={(e) => setParam({ divisor: Number(e.target.value) || undefined })} />
                         <span className="text-gray-400"><T>x dasar nilai</T></span></div>
                       <div className="rounded-lg bg-gray-50 p-2.5">
-                        <p className="mb-1.5 font-semibold text-gray-600"><T>{restMode === "SAMA" ? "Tarif lembur" : "Tarif hari kerja"}</T></p>
-                        <TierEditor tiers={tiers.work} onChange={(work) => setParam({ work, rest: restMode === "SENDIRI" ? tiers.rest : null, restAuto: restMode === "PP35" })} />
+                        <p className="mb-1.5 font-semibold text-gray-600"><T>Tarif hari kerja</T></p>
+                        <TierEditor tiers={tiers.work} onChange={(work) => setParam({ work, rest: null, restAuto: true })} />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs"><T>Tarif hari libur</T></Label>
-                        <select value={restMode} className={select} onChange={(e) => {
-                          const v = e.target.value;
-                          setParam(v === "PP35" ? { work: tiers.work, rest: null, restAuto: true }
-                            : v === "SENDIRI" ? { work: tiers.work, rest: tiers.rest ?? defaultRestTiers(6), restAuto: false }
-                            : { work: tiers.work, rest: null, restAuto: false });
-                        }}>
-                          <option value="PP35">{t("Sesuai PP 35/2021, otomatis ikut pola kerja karyawan")}</option>
-                          <option value="SENDIRI">{t("Atur sendiri")}</option>
-                          <option value="SAMA">{t("Sama dengan tarif hari kerja")}</option>
-                        </select>
-                        {restMode === "PP35" && (
-                          <p className="text-[11px] text-gray-500"><T>6 hari kerja per minggu: s/d jam 7 2x, jam 8 3x, berikutnya 4x. 5 hari kerja per minggu: s/d jam 8 2x, jam 9 3x, berikutnya 4x. Hari kerja per minggu dihitung dari pola kerja masing-masing karyawan.</T></p>
-                        )}
-                      </div>
-                      {restMode === "SENDIRI" && tiers.rest && (
-                        <div className="rounded-lg bg-gray-50 p-2.5">
-                          <p className="mb-1.5 font-semibold text-gray-600"><T>Tarif hari libur</T></p>
-                          <TierEditor tiers={tiers.rest} onChange={(rest) => setParam({ work: tiers.work, rest })} />
+                      {/* Tarif hari libur: tetap PP 35/2021; batas jamnya mengikuti hari kerja per minggu pola kerja karyawan. */}
+                      <div className="rounded-lg bg-gray-50 p-2.5">
+                        <p className="mb-1.5 font-semibold text-gray-600"><T>Tarif hari libur</T></p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {([[6, defaultRestTiers(6)], [5, defaultRestTiers(5)]] as const).map(([d, rows]) => (
+                            <div key={d} className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                              <p className="mb-1 text-[11px] font-semibold text-gray-500">{d} <T>hari kerja per minggu</T></p>
+                              {rows.map((r, i) => (
+                                <p key={i} className="flex justify-between text-gray-700">
+                                  <span>{r.upTo === null ? t("Jam berikutnya") : `${t("s/d jam")} ${r.upTo}`}</span><b>{r.x}x</b>
+                                </p>
+                              ))}
+                            </div>
+                          ))}
                         </div>
-                      )}
+                        <p className="mt-1.5 text-[11px] text-gray-500"><T>Sesuai PP 35/2021. Jumlah hari kerja per minggu mengikuti pola kerja masing-masing karyawan.</T></p>
+                      </div>
                     </div>
                   )}
                   {form.method === "PER_JAM" && (
