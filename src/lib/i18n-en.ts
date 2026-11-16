@@ -1684,7 +1684,7 @@ export const en: Record<string, string> = {
   "Proporsional bila masa kerja kurang dari 12 bulan": "Pro-rate when service is under 12 months",
   "Komponen tidak rutin: hanya dihitung bila dicentang saat Proses Gaji.": "Non-routine component: calculated only when ticked in the Payroll Run.",
   "Prorata": "Pro-rate",
-  "Dihitung sebagian bila karyawan masuk, keluar, atau berhenti dapat komponen ini di tengah periode.": "Partially paid when the employee joins, leaves, or stops getting this component mid-period.",
+  "Komponen dibayarkan secara proporsional berdasarkan hari kalender apabila karyawan mulai bekerja, berhenti bekerja, atau berhenti menerima komponen ini di tengah periode.": "The component is paid proportionally by calendar days when the employee starts work, stops work, or stops receiving this component mid-period.",
   "Termasuk upah tetap": "Part of fixed wage",
   "Ikut jadi dasar upah lembur, THR, BPJS, dan cek UMK (PP 36/2021).": "Used as the base for overtime, THR, BPJS and the minimum wage check (PP 36/2021).",
   "Upah tetap": "Fixed wage",
