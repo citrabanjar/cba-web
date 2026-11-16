@@ -314,7 +314,7 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
                 {check(!!p.prorate, (v) => setParam({ prorate: v }), "Prorata",
                   "Komponen dibayarkan secara proporsional berdasarkan hari kalender apabila karyawan mulai bekerja, berhenti bekerja, atau berhenti menerima komponen ini di tengah periode.")}
                 {check(!!p.fixedWage, (v) => setParam({ fixedWage: v }), "Termasuk upah tetap",
-                  "Ikut jadi dasar upah lembur, THR, dan BPJS (PP 36/2021).")}
+                  "Komponen ini diperhitungkan sebagai dasar upah lembur, THR, dan iuran BPJS sesuai PP 36/2021.")}
               </>
             )}
             {form.kind === "PENDAPATAN" && form.method !== "THR" && form.method !== "PPH21" && check(!!p.weeklyForMonthly, (v) => setParam({ weeklyForMonthly: v }), "Karyawan bulanan: dibayar mingguan",

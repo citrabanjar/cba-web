@@ -1073,7 +1073,7 @@ export const en: Record<string, string> = {
   "Periode gaji, tanggal gajian, dan aturan hitung yang berlaku untuk semua karyawan.": "Pay period, payday, and calculation rules for all employees.",
   "Tanggal Gajian": "Payday",
   "Hari kerja terakhir": "Last working day",
-  "Ikut jadi dasar upah lembur, THR, dan BPJS (PP 36/2021).": "Used as the base for overtime, THR and BPJS (PP 36/2021).",
+  "Komponen ini diperhitungkan sebagai dasar upah lembur, THR, dan iuran BPJS sesuai PP 36/2021.": "This component is included in the wage base for overtime, THR, and BPJS contributions in accordance with PP 36/2021.",
   "Komponen Input/Rumus, periode gaji, tanggal gajian.": "Input/Formula components, pay period, payday.",
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
