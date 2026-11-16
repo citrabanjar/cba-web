@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,10 @@ function ManualMonth({ userId, month, setMonth, edits, setEdits }: {
   const [loaded, setLoaded] = useState<{ month: string; shifts: MonthShift[]; days: Record<string, string>; holidays: Record<string, string> } | null>(null);
   const data = loaded?.month === month ? loaded : null; // bulan lain sedang dimuat
   const [fill, setFill] = useState("");
+  const [brush, setBrush] = useState<string | null>(null); // shift terpilih untuk klik / sapu ("" = kosongkan)
+  const painting = useRef(false);
+  const paint = (d: string) => { if (brush !== null) setEdits((x) => ({ ...x, [d]: brush || null })); };
+  const cellAt = (x: number, y: number) => (document.elementFromPoint(x, y)?.closest("[data-date]") as HTMLElement | null)?.dataset.date ?? null;
   useEffect(() => {
     let live = true;
     loadShiftMonth(userId, month).then((r) => { if (live && !r.error) setLoaded({ month, shifts: r.shifts ?? [], days: r.days ?? {}, holidays: r.holidays ?? {} }); });
@@ -55,6 +59,42 @@ function ManualMonth({ userId, month, setMonth, edits, setEdits }: {
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800"><T>Belum ada shift aktif. Buat dulu di Jadwal → Shift.</T></p>
       ) : (
         <>
+          {/* Palet shift: seret ke tanggal, atau pilih lalu klik / sapu beberapa tanggal sekaligus. */}
+          <div className="flex flex-wrap gap-1.5">
+            {data.shifts.map((s) => (
+              <button key={s.id} type="button" draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", s.id)}
+                onClick={() => setBrush(brush === s.id ? null : s.id)} title={s.name}
+                className={`inline-flex cursor-grab items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold active:cursor-grabbing ${brush === s.id ? "ring-2 ring-offset-1" : ""}`}
+                style={{ borderColor: s.color, color: s.color, background: `${s.color}1a`, ...(brush === s.id ? { ["--tw-ring-color" as string]: s.color } : {}) }}>
+                {s.code} <span className="font-normal text-gray-500">{s.name}</span>
+              </button>
+            ))}
+            <button type="button" draggable onDragStart={(e) => e.dataTransfer.setData("text/plain", "CLEAR")}
+              onClick={() => setBrush(brush === "" ? null : "")}
+              className={`inline-flex items-center rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-[11px] font-semibold text-gray-500 ${brush === "" ? "ring-2 ring-gray-400 ring-offset-1" : ""}`}>
+              <T>Kosongkan</T>
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-gray-400">{DOW.map((d) => <span key={d}><T>{d}</T></span>)}</div>
+          <div className="grid touch-none select-none grid-cols-7 gap-1"
+            onPointerDown={(e) => { const d = cellAt(e.clientX, e.clientY); if (d && brush !== null) { painting.current = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); paint(d); } }}
+            onPointerMove={(e) => { if (painting.current) { const d = cellAt(e.clientX, e.clientY); if (d) paint(d); } }}
+            onPointerUp={() => { painting.current = false; }} onPointerCancel={() => { painting.current = false; }}>
+            {Array.from({ length: lead }, (_, i) => <span key={`x${i}`} />)}
+            {dates.map((d) => {
+              const v = value(d), s = v ? byId.get(v) : undefined, hol = data.holidays[d];
+              return (
+                <div key={d} data-date={d} title={s ? s.name : hol ?? t("Belum diisi")}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); setEdits((x) => ({ ...x, [d]: id === "CLEAR" ? null : id })); }}
+                  className={`flex h-11 flex-col items-center justify-center rounded-lg border text-[10px] ${brush !== null ? "cursor-cell" : ""} ${d in edits ? "border-brand" : "border-gray-100"} ${s ? "" : hol ? "bg-gray-100" : "bg-amber-50"}`}
+                  style={s ? { background: `${s.color}22` } : undefined}>
+                  <span className="pointer-events-none text-gray-500">{Number(d.slice(8))}</span>
+                  <span className="pointer-events-none font-bold" style={s ? { color: s.color } : undefined}>{s ? s.code : hol ? "OFF" : "–"}</span>
+                </div>
+              );
+            })}
+          </div>
           <div className="flex items-center gap-2 text-xs">
             <select value={fill} onChange={(e) => setFill(e.target.value)} className="h-8 flex-1 rounded-lg border border-input bg-white px-2">
               <option value="">{t("Isi tanggal kosong dengan…")}</option>
@@ -63,26 +103,7 @@ function ManualMonth({ userId, month, setMonth, edits, setEdits }: {
             <button type="button" disabled={!fill} onClick={() => setEdits((e) => ({ ...e, ...Object.fromEntries(dates.filter((d) => !value(d) && !data.holidays[d]).map((d) => [d, fill])) }))}
               className="h-8 rounded-full border border-gray-200 px-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"><T>Isi</T></button>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-gray-400">{DOW.map((d) => <span key={d}><T>{d}</T></span>)}</div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: lead }, (_, i) => <span key={`x${i}`} />)}
-            {dates.map((d) => {
-              const v = value(d), s = v ? byId.get(v) : undefined, hol = data.holidays[d];
-              return (
-                <label key={d} title={hol ?? (s ? s.name : t("Belum diisi"))}
-                  className={`relative flex h-11 flex-col items-center justify-center rounded-lg border text-[10px] ${d in edits ? "border-brand" : "border-gray-100"} ${hol ? "bg-gray-100" : s ? "" : "bg-amber-50"}`}
-                  style={s && !hol ? { background: `${s.color}22` } : undefined}>
-                  <span className="text-gray-500">{Number(d.slice(8))}</span>
-                  <span className="font-bold" style={s ? { color: s.color } : undefined}>{hol ? "OFF" : s ? s.code : "–"}</span>
-                  <select value={v} onChange={(e) => setEdits((x) => ({ ...x, [d]: e.target.value || null }))} className="absolute inset-0 cursor-pointer opacity-0">
-                    <option value="">—</option>
-                    {data.shifts.map((o) => <option key={o.id} value={o.id}>{o.code} · {o.name}</option>)}
-                  </select>
-                </label>
-              );
-            })}
-          </div>
-          <p className="text-[11px] text-gray-400"><T>Klik tanggal untuk memilih shift. Hari libur di Kalender Libur otomatis OFF.</T></p>
+          <p className="text-[11px] text-gray-400"><T>Seret shift ke tanggal, atau klik shift lalu klik / sapu tanggal-tanggalnya. Hari libur di Kalender Libur tampil OFF.</T></p>
         </>
       )}
     </div>

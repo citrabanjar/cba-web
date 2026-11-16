@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Kosongkan": "Clear",
+  "Seret shift ke tanggal, atau klik shift lalu klik / sapu tanggal-tanggalnya. Hari libur di Kalender Libur tampil OFF.": "Drag a shift onto a date, or click a shift then click / sweep across dates. Holidays in the Holiday Calendar show OFF.",
   "Belum ada shift aktif. Buat dulu di Jadwal → Shift.": "No active shifts yet. Create them first in Schedule → Shift.",
   "Isi tanggal kosong dengan…": "Fill empty dates with…",
   "Isi": "Fill",
