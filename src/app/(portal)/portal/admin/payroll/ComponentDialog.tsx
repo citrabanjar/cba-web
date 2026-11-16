@@ -318,10 +318,10 @@ export default function ComponentDialog({ comp, all, workDaysPerWeek, onClose, o
               </>
             )}
             {form.kind === "PENDAPATAN" && form.method !== "THR" && form.method !== "PPH21" && check(!!p.weeklyForMonthly, (v) => setParam({ weeklyForMonthly: v }), "Karyawan bulanan: dibayar mingguan",
-              "Untuk karyawan payroll bulanan, komponen ini dibayar tiap minggu bersama payroll mingguan (mis. lembur, uang makan lembur, uang saku dinas). Di gaji bulanan ikut dasar PPh 21 dan tercatat sudah dibayar.")}
+              "Bagi karyawan dengan payroll bulanan, komponen ini dibayarkan setiap minggu bersamaan dengan payroll mingguan (misalnya upah lembur, uang makan lembur, dan uang saku dinas). Pada payroll bulanan, komponen ini tetap diperhitungkan sebagai dasar PPh 21 dan dicatat sebagai sudah dibayarkan.")}
             {form.kind === "POTONGAN" && check(!!p.reducesGross, (v) => setParam({ reducesGross: v }), "Mengurangi penghasilan bruto (pajak)",
               "Potongan ini mengurangi bruto sebelum PPh 21 dihitung, mis. potongan mangkir atau terlambat.")}
-            {check(form.isActive, (v) => set("isActive", v), "Aktif", "Komponen nonaktif tidak dipakai saat menghitung gaji.")}
+            {check(form.isActive, (v) => set("isActive", v), "Aktif", "Komponen nonaktif tidak diperhitungkan dalam proses penggajian.")}
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
         </div>
