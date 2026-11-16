@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Coins, Loader2, MinusCircle, Pencil, Plus, Search, ShieldCheck, Trash2, UserPlus, Users, Wallet } from "lucide-react";
+import { ChevronRight, Coins, Loader2, MinusCircle, Pencil, Plus, Search, ShieldCheck, Trash2, UserPlus, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -96,6 +96,10 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
   const [assigning, setAssigning] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const assignComp = components.find((c) => c.id === assigning);
+  // Komponen yang dibuka di kanan (bawaan: komponen pertama sesuai urutan jenis).
+  const ordered = PAY_KINDS.flatMap((k) => components.filter((c) => c.kind === k.key));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = ordered.find((c) => c.id === selectedId) ?? ordered[0];
   async function remove(c: Component) {
     if (!await askConfirm(t("Hapus komponen ini?"))) return;
     start(async () => {
@@ -118,58 +122,81 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
           </button>
         )}
       </div>
-      {PAY_KINDS.map((k) => {
-        const list = components.filter((c) => c.kind === k.key);
-        if (list.length === 0) return null;
-        const tone = KIND_TONE[k.key];
-        return (
-          <div key={k.key} className="border-b border-gray-100 p-4 last:border-b-0">
-            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              <tone.icon size={14} style={{ color: tone.color }} /> <T>{k.label}</T> <span className="text-gray-300">{list.length}</span>
-            </p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {list.map((c) => (
-                <div key={c.id} className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white ${c.isActive ? "" : "opacity-55"}`}>
-                  <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: tone.color }} />
-                  <div className="p-4 pl-5">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 min-w-12 items-center justify-center rounded-xl px-2 text-[11px] font-bold text-white" style={{ background: tone.color }}>{c.code}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-gray-900">{t(c.name)}</p>
-                        <p className="text-xs text-gray-500"><T>{categoryLabel(c.category)}</T> · <T>{c.method === "INPUT" ? "Input" : c.method === "PPH21" ? "Sistem" : "Rumus"}</T>{!c.isActive && <> · <T>Nonaktif</T></>}</p>
-                      </div>
-                      {canEdit && <button type="button" onClick={() => setEditing(c)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>}
-                      {canEdit && <button type="button" onClick={() => remove(c)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
-                    </div>
-                    <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {canApply ? (
-                        <button type="button" onClick={() => setAssigning(c.id)}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.employeeIds.length ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-600 text-white hover:bg-red-700"}`}>
-                          {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
-                          {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")} · <T>Tempel</T>
-                        </button>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white ${c.employeeIds.length ? "bg-emerald-600" : "bg-red-600"}`}>
-                          {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
-                          {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")}
-                        </span>
-                      )}
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.taxable ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
-                        <T>{c.taxable ? "Objek PPh 21" : "Bukan objek PPh 21"}</T>
-                      </span>
-                      {c.kind === "PENDAPATAN" && c.params?.fixedWage && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700"><T>Upah tetap</T></span>}
-                      {c.kind === "PENDAPATAN" && c.params?.weeklyForMonthly && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700"><T>Bulanan: dibayar mingguan</T></span>}
-                      {c.kind === "PENDAPATAN" && c.params?.prorate && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600"><T>Prorata</T></span>}
-                      {c.method === "THR" && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"><T>Tidak rutin</T></span>}
-                    </div>
+      {components.length === 0 ? (
+        <p className="px-5 py-10 text-center text-sm text-gray-400"><T>Belum ada komponen.</T></p>
+      ) : (
+      // Daftar komponen di kiri (per jenis), rincian komponen terpilih di kanan (seperti halaman Organisasi).
+      <div className="grid gap-4 p-4 md:grid-cols-[18rem_1fr]">
+        <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          {PAY_KINDS.map((k) => {
+            const list = components.filter((c) => c.kind === k.key);
+            if (list.length === 0) return null;
+            const tone = KIND_TONE[k.key];
+            return (
+              <div key={k.key}>
+                <p className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  <tone.icon size={13} style={{ color: tone.color }} /> <T>{k.label}</T> <span className="text-gray-300">{list.length}</span>
+                </p>
+                {list.map((c) => {
+                  const on = c.id === selected?.id;
+                  return (
+                    <button key={c.id} type="button" onClick={() => setSelectedId(c.id)}
+                      className={`flex w-full items-center gap-2.5 border-b border-gray-100 px-4 py-2.5 text-left ${on ? "bg-brand/10" : "hover:bg-gray-50"} ${c.isActive ? "" : "opacity-55"}`}>
+                      <span className="flex h-7 min-w-10 items-center justify-center rounded-lg px-1.5 text-[10px] font-bold text-white" style={{ background: tone.color }}>{c.code}</span>
+                      <span className={`min-w-0 flex-1 truncate text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}>{t(c.name)}</span>
+                      <span title={c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")}
+                        className={`h-2 w-2 shrink-0 rounded-full ${c.employeeIds.length ? "bg-emerald-500" : "bg-red-500"}`} />
+                      <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </nav>
+        {selected && (() => {
+          const c = selected, tone = KIND_TONE[c.kind] ?? KIND_TONE.PENDAPATAN;
+          return (
+                <div className={`relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white ${c.isActive ? "" : "opacity-55"}`}>
+              <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: tone.color }} />
+              <div className="p-4 pl-5">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 min-w-12 items-center justify-center rounded-xl px-2 text-[11px] font-bold text-white" style={{ background: tone.color }}>{c.code}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-900">{t(c.name)}</p>
+                    <p className="text-xs text-gray-500"><T>{categoryLabel(c.category)}</T> · <T>{c.method === "INPUT" ? "Input" : c.method === "PPH21" ? "Sistem" : "Rumus"}</T>{!c.isActive && <> · <T>Nonaktif</T></>}</p>
                   </div>
+                  {canEdit && <button type="button" onClick={() => setEditing(c)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>}
+                  {canEdit && <button type="button" onClick={() => remove(c)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
                 </div>
-              ))}
+                <p className="mt-3 text-sm font-semibold text-gray-900">{t(describe(c, workDaysPerWeek))}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {canApply ? (
+                    <button type="button" onClick={() => setAssigning(c.id)}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.employeeIds.length ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-600 text-white hover:bg-red-700"}`}>
+                      {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
+                      {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")} · <T>Tempel</T>
+                    </button>
+                  ) : (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white ${c.employeeIds.length ? "bg-emerald-600" : "bg-red-600"}`}>
+                      {c.employeeIds.length ? <Users size={12} /> : <UserPlus size={12} />}
+                      {c.employeeIds.length ? `${c.employeeIds.length} ${t("karyawan")}` : t("Belum ditempel")}
+                    </span>
+                  )}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.taxable ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
+                    <T>{c.taxable ? "Objek PPh 21" : "Bukan objek PPh 21"}</T>
+                  </span>
+                  {c.kind === "PENDAPATAN" && c.params?.fixedWage && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700"><T>Upah tetap</T></span>}
+                  {c.kind === "PENDAPATAN" && c.params?.weeklyForMonthly && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700"><T>Bulanan: dibayar mingguan</T></span>}
+                  {c.kind === "PENDAPATAN" && c.params?.prorate && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600"><T>Prorata</T></span>}
+                  {c.method === "THR" && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"><T>Tidak rutin</T></span>}
+                </div>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })()}
+      </div>
+      )}
       {canEdit && editing && <ComponentDialog comp={editing} all={components} workDaysPerWeek={workDaysPerWeek} onClose={() => setEditing(null)} onCreated={setAssigning} />}
       {canApply && assignComp && <AssignDialog key={assignComp.id} comp={assignComp} employees={employees} onClose={() => setAssigning(null)} />}
     </section>
