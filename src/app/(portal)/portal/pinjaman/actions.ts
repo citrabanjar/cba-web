@@ -73,7 +73,9 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
   revalidatePath("/portal/admin/pinjaman");
   revalidatePath("/portal/dashboard");
   revalidatePath("/portal/notifikasi");
-  return {};
+  // Nama penyetuju pertama untuk pemberitahuan "diajukan ke … untuk approval".
+  const first = stage === "ATASAN" ? (flow.pre?.[0]?.name ?? flow.managerName ?? "atasan langsung") : "Admin untuk pemeriksaan dokumen";
+  return { proposed: first };
 }
 
 export async function cancelLoanRequest(id: string) {

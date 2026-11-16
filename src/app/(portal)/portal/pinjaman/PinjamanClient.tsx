@@ -11,7 +11,6 @@ import { addMonths, buildSchedule, buildScheduleByAmount, periodShort } from "@/
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { cancelLoanRequest, requestLoan } from "./actions";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
-import { toast } from "@/components/portal/Toast";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 
@@ -52,21 +51,21 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
       });
       // Info = pop-up: berhasil → toast; gagal → dialog OK.
       if (r.error) showNotice(t(r.error), "error");
-      else { toast(t("Pengajuan terkirim. Menunggu persetujuan."), "ok"); setAmount(""); setPurpose(""); setRecalc(false); setEach(""); setSimKey(null); }
+      // Pemberitahuan standar portal untuk pengajuan yang menunggu approval (dialog dengan tombol OK).
+      else { showNotice(`${t("Pengajuan pinjaman diajukan ke")} ${r.proposed ?? ""} ${t("untuk approval.")}`); setAmount(""); setPurpose(""); setRecalc(false); setEach(""); setSimKey(null); }
     });
   }
 
   return (
     <main className="mx-auto max-w-3xl space-y-5 px-4 py-5 sm:px-6">
-      <section className="rounded-2xl border border-gray-200 bg-white p-5">
+      {/* Selama masih ada pengajuan yang diproses, form Ajukan Pinjaman disembunyikan. */}
+      {!hasPending && <section className="rounded-2xl border border-gray-200 bg-white p-5">
         <div className="mb-4 flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-400 text-white"><HandCoins size={17} /></span>
           <div><h3 className="font-semibold text-gray-900"><T>Ajukan Pinjaman</T></h3>
             <p className="text-xs text-gray-400"><T>Tanpa bunga. Pengajuan disetujui atasan langsung, diperiksa Admin, lalu diputus pimpinan. Angsuran dipotong dari gaji setiap bulan setelah pinjaman dicairkan.</T></p></div>
         </div>
-        {hasPending ? (
-          <p className="text-xs text-gray-500"><T>Pengajuan baru dapat dibuat setelah pengajuan sebelumnya selesai diproses.</T></p>
-        ) : (
+        {(
           <div className="space-y-3">
             {/* Hitung ulang: isian jangka waktu / angsuran pindah ke kotak pinjaman berjalan. */}
             <div className={`grid gap-3 ${merged.length ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
@@ -154,7 +153,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-700"><T>Pinjaman Saya</T></h3>
