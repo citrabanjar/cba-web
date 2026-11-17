@@ -8,6 +8,7 @@ import { getDatabaseStorage } from "@/lib/storage";
 import { isApprover, pendingApprovals } from "@/lib/approval";
 import { workflowFeatureOn } from "@/lib/workflow-settings";
 import { prisma } from "@/lib/prisma";
+import { escalateChecks } from "@/lib/overtime-check";
 import { getImportEnabled } from "@/lib/import-access";
 import { importKindsFor } from "@/lib/import-kinds";
 
@@ -27,6 +28,8 @@ export default async function PortalLayout({
   // Menu Persetujuan (atasan langsung, Admin/HRD) dengan jumlah pengajuan yang menunggu.
   const approver = access ? { id: access.id, role: access.role, menuAccess: access.menuAccess } : null;
   const approvals = approver && (await isApprover(approver)) ? await pendingApprovals(approver) : null;
+  // Cadangan cron 08:00 WIB: laporan cek fisik lembur ke atasan dibuat saat portal dibuka (sekali per lembur).
+  if (access) await escalateChecks().catch(() => 0);
   const [workflowOn, unread, importEnabled] = await Promise.all([
     workflowFeatureOn(),
     // Angka di lonceng: notifikasi belum dibaca + permintaan tukar shift yang menunggu jawaban saya sebagai rekan.

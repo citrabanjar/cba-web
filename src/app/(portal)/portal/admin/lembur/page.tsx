@@ -11,6 +11,7 @@ import LemburAdminClient, { type AdminOvertime, type EmployeePick } from "./Lemb
 
 export const metadata: Metadata = { title: "Lembur" };
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const hhmm = (d: Date) => new Date(d.getTime() + 7 * 3600_000).toISOString().slice(11, 16);
 const thisMonthWib = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7);
 
 // Panel Admin → Lembur (kewenangan Lembur): buat Surat Perintah Lembur (bila fitur SPL aktif), rekap per bulan.
@@ -33,12 +34,12 @@ export default async function AdminLemburPage({ searchParams }: { searchParams: 
     orgChart(),
     prisma.overtime.findMany({
       where: { date: { gte: from, lte: to } },
-      include: { user: { select: { name: true, employeeId: true } }, order: { select: { number: true } } },
+      include: { user: { select: { name: true, employeeId: true } }, order: { select: { number: true } }, checks: { orderBy: { createdAt: "asc" } } },
       orderBy: [{ date: "desc" }, { startTime: "asc" }],
     }),
     prisma.overtime.findMany({
       where: { revisionStatus: "MENUNGGU" },
-      include: { user: { select: { name: true, employeeId: true } }, order: { select: { number: true } } },
+      include: { user: { select: { name: true, employeeId: true } }, order: { select: { number: true } }, checks: { orderBy: { createdAt: "asc" } } },
       orderBy: { date: "asc" },
     }),
     prisma.user.findMany({
@@ -61,6 +62,13 @@ export default async function AdminLemburPage({ searchParams }: { searchParams: 
       checkOut: a?.checkOut ? new Date(a.checkOut.getTime() + 7 * 3600_000).toISOString().slice(11, 16) : null,
       paid: ["DISETUJUI", "APPROVED"].includes(r.status) && a?.checkOut ? paidHours(r, a, null, rest) : null,
       revisionStatus: r.revisionStatus, revisionEnd: r.revisionEnd, note: r.note, reason: r.reason,
+      // Cek fisik security: null = tidak ada security yang beririsan.
+      checkInfo: r.checkerIds.length
+        ? (r.checks.length ? r.checks.map((c) => `${c.present ? "Ada" : "Tidak ada"} ${hhmm(c.createdAt)} (${c.checkerName})`).join(" · ") : "belum dicek")
+        : null,
+      verifyStatus: r.verifyStatus,
+      // Laporan karyawan tanpa atasan aktif diputus Admin Lembur.
+      verifyByAdmin: canSpl && r.verifyStatus === "MENUNGGU" && org.chain(r.userId).length === 0,
     };
   };
   // Admin sendiri dan pimpinan puncak tidak bisa diberi SPL.

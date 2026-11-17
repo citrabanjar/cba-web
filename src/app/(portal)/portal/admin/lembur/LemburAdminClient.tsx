@@ -14,12 +14,13 @@ import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
 import { OT_BREAK_RULE, otPlan } from "@/lib/overtime-calc";
 import type { SplRowCheck } from "@/lib/spl";
-import { cancelSplItem, createSpl, decideRevision, previewSpl } from "./actions";
+import { cancelSplItem, createSpl, decideRevision, previewSpl, verifyByAdmin } from "./actions";
 
 export type AdminOvertime = {
   id: string; name: string; employeeId: string | null; date: string; start: string; end: string; breakStart: string | null; breakEnd: string | null;
   planned: number; rest?: boolean; spl: string | null; status: string; checkOut: string | null; paid: number | null;
   revisionStatus: string | null; revisionEnd: string | null; note: string | null; reason: string | null;
+  checkInfo?: string | null; verifyStatus?: string | null; verifyByAdmin?: boolean;
 };
 export type EmployeePick = { id: string; name: string; employeeId: string | null; department: string | null };
 
@@ -147,6 +148,9 @@ function RecapRow({ r, canEdit }: { r: AdminOvertime; canEdit: boolean }) {
         {r.reason && <p className="mt-0.5 text-xs text-gray-500">{r.reason}</p>}
         {r.note && ["TIDAK_BERSEDIA", "DIBATALKAN"].includes(r.status) && <p className="mt-0.5 text-[11px] text-gray-400"><T>Alasan</T>: {r.note}</p>}
         {r.revisionStatus && <p className="mt-0.5 text-[11px] text-amber-700"><T>Revisi</T> {r.revisionEnd}: <T>{r.revisionStatus === "MENUNGGU" ? "menunggu" : r.revisionStatus === "DISETUJUI" ? "disetujui" : "ditolak"}</T></p>}
+        {r.checkInfo && <p className="mt-0.5 text-[11px] text-gray-500"><T>Cek fisik</T>: {r.checkInfo}</p>}
+        {r.verifyStatus && <p className={`mt-0.5 text-[11px] ${r.verifyStatus === "MENUNGGU" ? "font-semibold text-amber-700" : "text-gray-500"}`}><T>Konfirmasi atasan</T>: <T>{r.verifyStatus === "MENUNGGU" ? "menunggu" : r.verifyStatus === "BENAR" ? "Benar lembur" : "Tidak lembur"}</T></p>}
+        {r.verifyByAdmin && <AdminVerify id={r.id} />}
         {cancelling && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("Alasan pembatalan (wajib)")} className="h-9 min-w-48 flex-1 rounded-lg border border-gray-200 px-3 text-sm" />
@@ -165,6 +169,24 @@ function RecapRow({ r, canEdit }: { r: AdminOvertime; canEdit: boolean }) {
         )}
       </div>
     </li>
+  );
+}
+
+// Karyawan tanpa atasan aktif: laporan cek fisik diputus Admin Lembur.
+function AdminVerify({ id }: { id: string }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState("");
+  const decide = (benar: boolean) => start(async () => {
+    const x = await verifyByAdmin(id, benar, note);
+    void showNotice(x.error ? t(x.error) : t("Keputusan tersimpan."), x.error ? "error" : undefined);
+  });
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Catatan (wajib bila tidak lembur)")} className="h-9 min-w-48 flex-1 rounded-lg border border-gray-200 px-3 text-sm" />
+      <button type="button" disabled={pending} onClick={() => decide(false)} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:opacity-50"><T>Tidak lembur</T></button>
+      <button type="button" disabled={pending} onClick={() => decide(true)} className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"><T>Benar lembur</T></button>
+    </div>
   );
 }
 

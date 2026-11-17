@@ -7,7 +7,7 @@ import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
 import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
-import { cancelOvertime, cancelTeamOvertime, respondSpl, submitOvertime } from "./actions";
+import { cancelOvertime, cancelTeamOvertime, respondSpl, submitOvertime, verifyTeamOvertime } from "./actions";
 import type { TeamOvertime } from "@/lib/spl";
 
 export type MyOvertime = {
@@ -71,8 +71,16 @@ const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 function TeamList({ rows }: { rows: TeamOvertime[] }) {
   const active = rows.filter((r) => ["MENUNGGU_KARYAWAN", "DISETUJUI"].includes(r.status));
   const est = active.reduce((a, r) => a + (r.estimate ?? 0), 0);
+  const verify = rows.filter((r) => r.canVerify);
   return (
     <section className="space-y-3">
+      {verify.length > 0 && (
+        <div className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-800">{verify.length} <T>lembur perlu Anda konfirmasi</T></p>
+          <p className="text-xs text-amber-700"><T>Karyawan absen sampai pulang, tetapi security tidak melihatnya saat jam lembur. Pastikan apakah karyawan benar lembur. Tidak lembur berarti lembur hari itu tidak dibayar.</T></p>
+          {verify.map((r) => <VerifyCard key={r.id} r={r} />)}
+        </div>
+      )}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <p className="text-sm font-semibold text-gray-900"><T>Surat Perintah Lembur tim Anda</T></p>
         <p className="mt-0.5 text-xs text-gray-500">
@@ -84,6 +92,38 @@ function TeamList({ rows }: { rows: TeamOvertime[] }) {
         <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-400"><T>Belum ada SPL untuk tim Anda.</T></p>
       ) : rows.map((r) => <TeamCard key={r.id} r={r} />)}
     </section>
+  );
+}
+
+const checkText = (r: TeamOvertime, t: (s: string) => string) => {
+  if (!r.checks) return null;
+  if (!r.checks.length) return t("belum pernah dicek security");
+  return r.checks.map((c) => `${c.present ? t("Ada") : t("Tidak ada")} ${c.at} (${c.name})`).join(" · ");
+};
+
+function VerifyCard({ r }: { r: TeamOvertime }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState("");
+  const decide = (benar: boolean) => start(async () => {
+    const x = await verifyTeamOvertime(r.id, benar, note);
+    if (x.error) void showNotice(t(x.error), "error");
+    else void showNotice(t(benar ? "Lembur dikonfirmasi benar dan tetap dibayar." : "Lembur dinyatakan tidak dijalankan dan tidak dibayar. Karyawan sudah diberi tahu."));
+  });
+  return (
+    <div className="rounded-xl border border-amber-200 bg-white p-3">
+      <p className="text-sm font-semibold text-gray-900">{r.name} <span className="text-xs font-normal text-gray-400">{r.employeeId} · {r.spl}</span></p>
+      <p className="text-sm text-gray-700">{formatDate(new Date(r.date))} · <T>SPL</T> <b>{r.start}–{r.end}</b> · <T>absen</T> <b>{r.checkIn ?? "—"}–{r.checkOut ?? "—"}</b></p>
+      {r.reason && <p className="mt-1 rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-600">{r.reason}</p>}
+      <p className="mt-1 text-xs text-amber-800"><T>Cek fisik</T>: {checkText(r, t)}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Catatan (wajib bila tidak lembur)")} className="h-9 min-w-48 flex-1 rounded-lg border border-gray-200 px-3 text-sm" />
+        <button type="button" disabled={pending} onClick={() => decide(false)} className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 disabled:opacity-50"><X size={13} /> <T>Tidak lembur</T></button>
+        <button type="button" disabled={pending} onClick={() => decide(true)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+          {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Benar lembur</T>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -108,6 +148,8 @@ function TeamCard({ r }: { r: TeamOvertime }) {
           <p className="text-sm text-gray-800">{formatDate(new Date(r.date))} · <b>{r.start}–{r.end}</b> <span className="text-gray-500">· {num(r.hours)} <T>jam</T> · <T>{r.rest ? "Hari libur" : "Hari kerja"}</T></span></p>
           {r.reason && <p className="mt-1 rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-600">{r.reason}</p>}
           {r.estimate != null && <p className="mt-1 text-xs text-gray-600"><T>Estimasi upah lembur</T>: <b className="text-gray-900">{rupiah(r.estimate)}</b></p>}
+          {r.checks && <p className="mt-1 text-[11px] text-gray-500"><T>Cek fisik</T>: {checkText(r, t)}</p>}
+          {r.verifyStatus && r.verifyStatus !== "MENUNGGU" && <p className="mt-0.5 text-[11px] text-gray-500"><T>Konfirmasi atasan</T>: <T>{r.verifyStatus === "BENAR" ? "Benar lembur" : "Tidak lembur"}</T>{r.verifyBy && ` · ${r.verifyBy}`}{r.verifyNote && ` · ${r.verifyNote}`}</p>}
           {r.note && ["DIBATALKAN", "TIDAK_BERSEDIA"].includes(r.status) && <p className="mt-1 text-[11px] text-gray-400"><T>Alasan</T>: {r.note}{r.decidedBy && ` · ${r.decidedBy}`}</p>}
         </div>
         <div className="flex flex-col items-end gap-1">

@@ -1003,14 +1003,38 @@ model Overtime {
   revisionEnd    String? // jam akhir yang diminta (jam check-out)
   revisionBy     String?
   revisionAt     DateTime?
+  // Cek fisik oleh security (karyawan berjadwal manual) yang shiftnya beririsan dengan jam lembur. Kosong = tidak ada
+  // security yang beririsan, jadi tidak ada cek fisik dan tidak ada laporan ke atasan.
+  checkerIds     String[]  @default([])
+  // Laporan ke atasan langsung (08:00 esok hari) bila cek fisik terakhir bukan "Ada" padahal ada absen pulang:
+  // MENUNGGU | BENAR (dibayar) | TIDAK (tidak dibayar, status lembur DIBATALKAN)
+  verifyStatus   String?
+  verifyBy       String?
+  verifyAt       DateTime?
+  verifyNote     String?   @db.Text
   createdBy      String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @default(now()) @updatedAt
 
-  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  order OvertimeOrder? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order  OvertimeOrder?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  checks OvertimeCheck[]
 
   @@index([userId, date])
   @@index([status])
   @@index([orderId])
+}
+
+// Satu kali cek fisik security atas satu lembur: Ada / Tidak ada. Hasil akhir = cek terakhir.
+model OvertimeCheck {
+  id          String   @id @default(cuid())
+  overtimeId  String
+  checkerId   String
+  checkerName String
+  present     Boolean
+  createdAt   DateTime @default(now())
+
+  overtime Overtime @relation(fields: [overtimeId], references: [id], onDelete: Cascade)
+
+  @@index([overtimeId])
 }

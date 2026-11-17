@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeftRight, Briefcase, CalendarCheck, CalendarDays, Clock, FileText, HandCoins, Receipt, Timer } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarCheck, CalendarDays, Clock, FileText, HandCoins, Receipt, Timer, UserCheck } from "lucide-react";
+import { isSecurity } from "@/lib/overtime-check";
 import { auth } from "@/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { T } from "@/components/i18n";
@@ -27,12 +28,16 @@ export default async function TombolHpPage() {
   const session = await auth();
   if (!session?.user) redirect("/portal");
   if (isSuperAdmin(session.user.role)) redirect("/portal/dashboard");
+  // Security (jadwal manual): tombol Cek Fisik Lembur.
+  const buttons = session.user.id && (await isSecurity(session.user.id))
+    ? [...HP_BUTTONS, { href: "/portal/cek-fisik", icon: UserCheck, label: "Cek Fisik Lembur", desc: "Cek keberadaan karyawan lembur" }]
+    : HP_BUTTONS;
   return (
     <div className="max-w-4xl p-4 sm:p-6">
       <h1 className="mb-1 text-2xl font-bold text-white"><T>Tombol HP</T></h1>
       <p className="mb-5 text-sm text-white/70"><T>Menu pribadi karyawan seperti tampilan di HP.</T></p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {HP_BUTTONS.map((item) => (
+        {buttons.map((item) => (
           <Link key={item.href} href={item.href}>
             <Card className="h-full cursor-pointer border-gray-200 border-l-4 border-l-brand transition-shadow hover:shadow-md">
               <CardContent className="pb-4 pt-4">

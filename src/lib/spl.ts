@@ -109,7 +109,11 @@ export type TeamOvertime = {
   id: string; name: string; employeeId: string | null; date: string; start: string; end: string; reason: string | null;
   status: string; spl: string | null; hours: number; rest: boolean; estimate: number | null; direct: boolean; canCancel: boolean;
   note: string | null; decidedBy: string | null;
+  // Cek fisik security & laporan ke atasan langsung.
+  checkIn: string | null; checkOut: string | null; checks: { name: string; at: string; present: boolean }[] | null;
+  verifyStatus: string | null; verifyBy: string | null; verifyNote: string | null; canVerify: boolean;
 };
+const hhmm = (d: Date) => new Date(d.getTime() + 7 * 3600_000).toISOString().slice(11, 16);
 export async function teamSpl(viewerId: string): Promise<TeamOvertime[] | null> {
   const org = await orgChart();
   const level = new Map<string, number>();
@@ -118,13 +122,14 @@ export async function teamSpl(viewerId: string): Promise<TeamOvertime[] | null> 
   const since = new Date(Date.now() - 30 * 86_400_000);
   const rows = await prisma.overtime.findMany({
     where: { userId: { in: [...level.keys()] }, orderId: { not: null }, OR: [{ date: { gte: since } }, { status: "MENUNGGU_KARYAWAN" }] },
-    include: { order: { select: { number: true } } }, orderBy: [{ date: "desc" }, { startTime: "asc" }], take: 200,
+    include: { order: { select: { number: true } }, checks: { orderBy: { createdAt: "asc" } } }, orderBy: [{ date: "desc" }, { startTime: "asc" }], take: 200,
   });
   const restSet = await restDaysOf(rows);
-  const outs = rows.length
-    ? await prisma.attendance.findMany({ where: { OR: rows.map((r) => ({ userId: r.userId, date: r.date })), checkOut: { not: null } }, select: { userId: true, date: true } })
+  const atts = rows.length
+    ? await prisma.attendance.findMany({ where: { OR: rows.map((r) => ({ userId: r.userId, date: r.date })) }, select: { userId: true, date: true, checkIn: true, checkOut: true } })
     : [];
-  const out = new Set(outs.map((a) => restKey(a.userId, a.date)));
+  const attBy = new Map(atts.map((a) => [restKey(a.userId, a.date), a]));
+  const out = new Set(atts.filter((a) => a.checkOut).map((a) => restKey(a.userId, a.date)));
   const view = rows.map((r) => {
     const rest = restSet.has(restKey(r.userId, r.date));
     const direct = level.get(r.userId) === 0;
@@ -134,6 +139,10 @@ export async function teamSpl(viewerId: string): Promise<TeamOvertime[] | null> 
       id: r.id, name: u?.name ?? "", employeeId: u?.employeeId ?? null, date: keyOf(r.date), start: r.startTime, end: r.endTime, reason: r.reason,
       status: r.status, spl: r.order?.number ?? null, hours: otPlan(r.startTime, r.endTime, rest).hours, rest, estimate: null as number | null,
       direct, canCancel: !direct && active && !out.has(restKey(r.userId, r.date)), note: r.note, decidedBy: r.decidedBy,
+      checkIn: attBy.get(restKey(r.userId, r.date))?.checkIn ? hhmm(attBy.get(restKey(r.userId, r.date))!.checkIn!) : null,
+      checkOut: attBy.get(restKey(r.userId, r.date))?.checkOut ? hhmm(attBy.get(restKey(r.userId, r.date))!.checkOut!) : null,
+      checks: r.checkerIds.length ? r.checks.map((c) => ({ name: c.checkerName, at: hhmm(c.createdAt), present: c.present })) : null,
+      verifyStatus: r.verifyStatus, verifyBy: r.verifyBy, verifyNote: r.verifyNote, canVerify: direct && r.verifyStatus === "MENUNGGU",
     };
   });
   // Estimasi hanya untuk atasan di atas atasan langsung, pada lembur yang masih berjalan.

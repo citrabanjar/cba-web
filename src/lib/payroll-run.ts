@@ -4,6 +4,7 @@ import { evaluate, type PayContext, type PayParams, type PayrollSettings } from 
 import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { countLeaveDays } from "@/lib/leave-balance";
 import { overtimeForPayroll, pendingRevisions, syncRevisions } from "@/lib/overtime";
+import { pendingVerifications } from "@/lib/overtime-check";
 import { getShiftCalendar, workDaysPerWeekOf } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
@@ -558,6 +559,8 @@ export async function finalizeRun(runId: string, by: string | null) {
     const c = await loadContext(run.period);
     const pend = await pendingRevisions(c.start, c.end);
     if (pend) throw new Error(`Masih ada ${pend} revisi jam lembur yang belum diputus di periode ini. Selesaikan dulu di Payroll & Benefit (bagian revisi jam lembur).`);
+    const pendCheck = await pendingVerifications(c.start, c.end);
+    if (pendCheck) throw new Error(`Masih ada ${pendCheck} laporan cek fisik lembur yang belum diputus atasan di periode ini.`);
   }
   const label = periodLabel(run.period);
   const ops = run.lines.filter((l) => l.earnings > 0).map((l) => {

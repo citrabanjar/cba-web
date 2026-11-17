@@ -1,6 +1,7 @@
 "use server";
 
 import { cancelSplOvertime, orgChart } from "@/lib/spl";
+import { assignCheckers, verifyOvertime } from "@/lib/overtime-check";
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
@@ -37,6 +38,8 @@ export async function respondSpl(id: string, accept: boolean, note: string): Pro
     where: { id },
     data: { status: accept ? "DISETUJUI" : "TIDAK_BERSEDIA", decidedBy: u.name, decidedAt: new Date(), note: note.trim() || null },
   });
+  // Bersedia pada SPL: daftar cek fisik ke security yang shiftnya beririsan dengan jam lembur.
+  if (accept && o.orderId) await assignCheckers(o.id).catch(() => []);
   refresh();
   return {};
 }
@@ -89,6 +92,14 @@ export async function cancelTeamOvertime(id: string, reason: string): Promise<Re
   const chain = (await orgChart()).chain(o.userId);
   if (chain.indexOf(u.id) < 1) return { error: "Pembatalan hanya oleh atasan di atas atasan langsung karyawan." };
   const r = await cancelSplOvertime(id, { id: u.id, name: u.name ?? "" }, reason);
+  if (!r.error) refresh();
+  return r;
+}
+
+// Atasan langsung memutus laporan cek fisik: benar lembur (dibayar) atau tidak lembur (tidak dibayar).
+export async function verifyTeamOvertime(id: string, benar: boolean, note: string): Promise<Result> {
+  const u = await me();
+  const r = await verifyOvertime(id, { id: u.id, name: u.name ?? "", canAdmin: false }, benar, note);
   if (!r.error) refresh();
   return r;
 }

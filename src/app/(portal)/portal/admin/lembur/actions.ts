@@ -6,6 +6,7 @@ import { requireMenu } from "@/lib/access";
 import { nextSplNumber, splEnabled } from "@/lib/overtime";
 import { cancelSplOvertime, checkSpl, orgChart, rupiah, type SplRowCheck, type SplRowInput } from "@/lib/spl";
 import { notify } from "@/lib/notify";
+import { verifyOvertime } from "@/lib/overtime-check";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string };
@@ -95,4 +96,12 @@ export async function decideRevision(id: string, approve: boolean, note: string)
     `${formatDate(o.date)} · ${approve ? `lembur dihitung sampai ${o.revisionEnd}` : `lembur tetap dihitung sampai ${o.endTime}`}${!approve && note.trim() ? `: ${note.trim()}` : ""}.`, "/portal/lembur");
   refresh();
   return {};
+}
+
+// Laporan cek fisik untuk karyawan tanpa atasan aktif: diputus Admin Lembur.
+export async function verifyByAdmin(id: string, benar: boolean, note: string): Promise<Result> {
+  const admin = await requireSpl();
+  const r = await verifyOvertime(id, { id: admin.id, name: admin.name, canAdmin: true }, benar, note);
+  if (!r.error) refresh();
+  return r;
 }
