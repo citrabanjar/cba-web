@@ -162,10 +162,6 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const names = (list: string[]) => (list.length ? `${list.slice(0, 2).map((n) => n.split(" ")[0]).join(", ")}${list.length > 2 ? ` +${list.length - 2}` : ""}` : undefined);
   const indicators: Indicator[] = [
     {
-      key: "cuti-hari-ini", title: "Cuti Hari Ini", value: leaveNames.length, noteValue: names(leaveNames),
-      note: leaveNames.length ? "sedang cuti" : "Tidak ada yang cuti", icon: "holiday", tone: "violet", href: "/portal/admin/leave",
-    },
-    {
       key: "dinas-hari-ini", title: "Dinas Hari Ini", value: tripNames.length, noteValue: names(tripNames),
       note: tripNames.length ? "sedang dinas luar" : "Tidak ada yang dinas", icon: "trip", tone: "blue", href: "/portal/persetujuan",
     },
