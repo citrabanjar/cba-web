@@ -27,10 +27,12 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
   const setMod = (k: WorkflowKey, patch: Partial<WorkflowSettings[WorkflowKey]>) => setS((x) => ({ ...x, [k]: { ...x[k], ...patch } }));
   const setLevel = (k: WorkflowKey, i: number, patch: Partial<WorkflowLevel>) =>
     setMod(k, { levels: s[k].levels.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
-  const valueOptions = (type: LevelType) =>
+  // Hak akses = Peran Admin buatan Super Admin (Pengaturan → Peran Admin). Pilihan lama (Super Admin, Semua Admin,
+  // Admin per menu) tidak ditawarkan lagi; bila level tersimpan masih memakainya, tetap ditampilkan agar tidak hilang.
+  const valueOptions = (type: LevelType, current = "") =>
     type === "ROLE" ? [
-      ...groups.map((g) => ({ value: `${ROLE_GROUP_PREFIX}${g.id}`, label: `${t("Peran")}: ${g.name}` })),
-      ...ROLE_OPTIONS.map((r) => ({ value: r.value, label: t(r.label) })),
+      ...groups.map((g) => ({ value: `${ROLE_GROUP_PREFIX}${g.id}`, label: g.name })),
+      ...ROLE_OPTIONS.filter((r) => r.value === current).map((r) => ({ value: r.value, label: t(r.label) })),
     ]
       : users.map((u) => ({ value: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }));
   // Level baru default: atasan di bagan organisasi.
@@ -107,8 +109,8 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                           </p>
                         ) : (
                           <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} disabled={!canEdit} className={select}>
-                            <option value="">{t(l.type === "ROLE" ? "Pilih hak akses" : "Pilih karyawan")}</option>
-                            {valueOptions(l.type).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            <option value="">{t(l.type === "ROLE" ? (groups.length ? "Pilih peran admin" : "Belum ada Peran Admin") : "Pilih karyawan")}</option>
+                            {valueOptions(l.type, l.value).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
                         )}
                         {canEdit && (

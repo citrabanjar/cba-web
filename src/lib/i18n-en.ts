@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Pilih peran admin": "Select admin role",
+  "Belum ada Peran Admin": "No Admin Role yet",
   "Pakai workflow untuk modul ini": "Use workflow for this module",
   "bila tidak dicentang, pengajuan ke atasan langsung": "if unchecked, requests go to the direct supervisor",
   "Level persetujuan": "Approval levels",
