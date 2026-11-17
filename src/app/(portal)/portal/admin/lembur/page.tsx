@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
-import { hasMenu } from "@/lib/roles";
+import { canEditMenu, hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { paidHours, plannedHours, splEnabled, syncRevisions } from "@/lib/overtime";
 import LemburAdminClient, { type AdminOvertime, type EmployeePick } from "./LemburAdminClient";
@@ -16,7 +16,10 @@ const thisMonthWib = () => new Date(Date.now() + 7 * 3600_000).toISOString().sli
 export default async function AdminLemburPage({ searchParams }: { searchParams: Promise<{ bulan?: string }> }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
-  if (!hasMenu(access, "absensi")) redirect("/portal/dashboard");
+  if (!hasMenu(access, "absensi") && !hasMenu(access, "spl")) redirect("/portal/dashboard");
+  // SPL: hak edit Absensi & Cuti atau Surat Perintah Lembur. Keputusan revisi jam lembur: hanya hak edit Absensi & Cuti.
+  const canSpl = canEditMenu(access, "absensi") || canEditMenu(access, "spl");
+  const canRevise = canEditMenu(access, "absensi");
   const { bulan } = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(bulan ?? "") ? bulan! : thisMonthWib();
   const [y, m] = month.split("-").map(Number);
@@ -57,5 +60,5 @@ export default async function AdminLemburPage({ searchParams }: { searchParams: 
   };
   const pickers: EmployeePick[] = employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId, department: e.department?.name ?? null }));
 
-  return <LemburAdminClient spl={spl} month={month} rows={rows.map(view)} revisions={revisions.map(view)} employees={pickers} />;
+  return <LemburAdminClient canSpl={canSpl} canRevise={canRevise} spl={spl} month={month} rows={rows.map(view)} revisions={revisions.map(view)} employees={pickers} />;
 }

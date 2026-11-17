@@ -11,6 +11,8 @@ export const MENUS = [
   { key: "karyawan", label: "Data Karyawan", desc: "Lihat dan ubah data karyawan", levels: ["view", "propose", "edit"] },
   { key: "gaji", label: "Gaji & Payroll", desc: "Lihat gaji, riwayat gaji, dan slip gaji", levels: ["view", "edit"] },
   { key: "absensi", label: "Absensi & Cuti", desc: "Schedule, jadwal kerja, aturan absensi, jenis & saldo cuti", levels: ["view", "edit"] },
+  // Kewenangan SPL saja (mis. kepala bagian): menu Lembur tanpa Jadwal, Cuti, Rekap, dan keputusan revisi jam lembur.
+  { key: "spl", label: "Surat Perintah Lembur", desc: "Buat dan batalkan Surat Perintah Lembur (SPL) di menu Lembur", levels: ["view", "edit"] },
   { key: "prakaryawan", label: "Pra-Karyawan", desc: "Rekrutmen dan onboarding calon karyawan", levels: ["view", "edit"] },
   { key: "pinjaman", label: "Pinjaman Karyawan", desc: "Kelola pinjaman dan cicilan karyawan", levels: ["view", "edit"] },
   // Workflow tidak lagi kewenangan Admin: diatur Super Admin (keputusan pemilik 2026-11-14).

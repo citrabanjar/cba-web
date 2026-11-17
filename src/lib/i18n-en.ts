@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Surat Perintah Lembur": "Overtime Order",
+  "Buat dan batalkan Surat Perintah Lembur (SPL) di menu Lembur": "Create and cancel Overtime Orders (SPL) in the Overtime menu",
   "Batas Jam Absen": "Attendance Time Limits",
   "Kosongkan jika tidak dibatasi.": "Leave empty for no limit.",
   "Contoh 180: check-in mulai 3 jam sebelum jam masuk. Check-in lebih dari 3 jam setelah jam masuk mendapat peringatan potongan gaji.": "Example 180: clock-in opens 3 hours before shift start. Clocking in more than 3 hours after shift start shows a pay-deduction warning.",

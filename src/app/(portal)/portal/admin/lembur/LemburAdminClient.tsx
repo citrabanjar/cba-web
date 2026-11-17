@@ -5,7 +5,6 @@ import Link from "next/link";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Clock, FileText, Loader2, Send, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
-import { useCanEdit } from "@/components/portal/edit-access";
 import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
 import { cancelSplItem, createSpl, decideRevision } from "./actions";
@@ -24,10 +23,9 @@ const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", 
 const shiftMonth = (m: string, d: number) => { const [y, mm] = m.split("-").map(Number); const x = new Date(Date.UTC(y, mm - 1 + d, 1)); return x.toISOString().slice(0, 7); };
 const field = "h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm";
 
-export default function LemburAdminClient({ spl, month, rows, revisions, employees }: {
-  spl: boolean; month: string; rows: AdminOvertime[]; revisions: AdminOvertime[]; employees: EmployeePick[];
+export default function LemburAdminClient({ canSpl, canRevise, spl, month, rows, revisions, employees }: {
+  canSpl: boolean; canRevise: boolean; spl: boolean; month: string; rows: AdminOvertime[]; revisions: AdminOvertime[]; employees: EmployeePick[];
 }) {
-  const canEdit = useCanEdit("absensi");
   const [y, m] = month.split("-").map(Number);
   const paidTotal = rows.reduce((a, r) => a + (r.paid ?? 0), 0);
   return (
@@ -43,11 +41,11 @@ export default function LemburAdminClient({ spl, month, rows, revisions, employe
         <section className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-800"><AlertTriangle size={16} /> {revisions.length} <T>revisi jam lembur menunggu keputusan</T></p>
           <p className="text-xs text-amber-700"><T>Karyawan absen pulang melewati jam akhir SPL. Selama belum diputus, lembur dibayar sampai jam akhir SPL dan gaji periode itu belum bisa difinalkan.</T></p>
-          {revisions.map((r) => <RevisionCard key={r.id} item={r} canEdit={canEdit} />)}
+          {revisions.map((r) => <RevisionCard key={r.id} item={r} canEdit={canRevise} />)}
         </section>
       )}
 
-      {spl && canEdit && <SplForm employees={employees} />}
+      {spl && canSpl && <SplForm employees={employees} />}
 
       <section className="rounded-2xl border border-gray-200 bg-white">
         <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-3">
@@ -73,7 +71,7 @@ export default function LemburAdminClient({ spl, month, rows, revisions, employe
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {rows.map((r) => <Row key={r.id} r={r} canEdit={canEdit} />)}
+                {rows.map((r) => <Row key={r.id} r={r} canEdit={canSpl} />)}
               </tbody>
             </table>
           </div>

@@ -2,12 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireMenu } from "@/lib/access";
+import { getAccess, requireMenu } from "@/lib/access";
+import { canEditMenu } from "@/lib/roles";
 import { dinasOn, isTime, nextSplNumber, OT_BREAK_TEXT, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string };
+
+// Membuat / membatalkan SPL: hak edit Absensi & Cuti, atau hak edit Surat Perintah Lembur.
+async function requireSpl() {
+  const user = await getAccess();
+  if (!user || !(canEditMenu(user, "absensi") || canEditMenu(user, "spl"))) throw new Error("Anda tidak punya kewenangan membuat Surat Perintah Lembur.");
+  return user;
+}
 
 function refresh() {
   for (const p of ["/portal/admin/lembur", "/portal/lembur", "/portal/dashboard", "/portal/profil"]) revalidatePath(p);
@@ -18,7 +26,7 @@ export type SplInput = { date: string; startTime: string; endTime: string; note:
 
 // Admin membuat SPL untuk beberapa karyawan pada satu tanggal. Karyawan mendapat notifikasi untuk menjawab.
 export async function createSpl(input: SplInput): Promise<Result & { number?: string; skipped?: string[] }> {
-  const admin = await requireMenu("absensi");
+  const admin = await requireSpl();
   if (!(await splEnabled())) return { error: "Fitur Surat Perintah Lembur belum dinyalakan Super Admin." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Tanggal lembur wajib diisi." };
   if (!isTime(input.startTime) || !isTime(input.endTime) || input.startTime === input.endTime) return { error: "Isi jam mulai dan jam selesai lembur." };
@@ -60,7 +68,7 @@ export async function createSpl(input: SplInput): Promise<Result & { number?: st
 
 // Batalkan lembur satu karyawan dari SPL (belum dijalani).
 export async function cancelSplItem(id: string): Promise<Result> {
-  await requireMenu("absensi");
+  await requireSpl();
   const o = await prisma.overtime.findUnique({ where: { id }, include: { order: { select: { number: true } } } });
   if (!o || !o.orderId || !["MENUNGGU_KARYAWAN", "DISETUJUI"].includes(o.status)) return { error: "Lembur ini tidak bisa dibatalkan." };
   const att = await prisma.attendance.findFirst({ where: { userId: o.userId, date: o.date, checkOut: { not: null } } });

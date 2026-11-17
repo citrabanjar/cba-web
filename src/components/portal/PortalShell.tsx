@@ -44,12 +44,15 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   const add = (section: string, items: NavItem[]) => { if (items.length) admin.push({ section, items, admin: true }); };
 
   // Jadwal kerja, aturan absensi, jenis & saldo cuti: akses Absensi & Cuti.
-  add("TIME", can("absensi") ? [
-    { href: "/portal/admin/schedule", label: "Jadwal", icon: CalendarClock },
-    { href: "/portal/admin/leave", label: "Cuti", icon: CalendarHeart },
-    { href: "/portal/admin/lembur", label: "Lembur", icon: Timer },
-    { href: "/portal/admin/rekap", label: "Rekap", icon: ClipboardList },
-  ] : []);
+  // Lembur juga terbuka untuk kewenangan Surat Perintah Lembur saja.
+  add("TIME", [
+    ...(can("absensi") ? [
+      { href: "/portal/admin/schedule", label: "Jadwal", icon: CalendarClock },
+      { href: "/portal/admin/leave", label: "Cuti", icon: CalendarHeart },
+    ] : []),
+    ...(can("absensi") || can("spl") ? [{ href: "/portal/admin/lembur", label: "Lembur", icon: Timer }] : []),
+    ...(can("absensi") ? [{ href: "/portal/admin/rekap", label: "Rekap", icon: ClipboardList }] : []),
+  ]);
   add("FINANCE", [
     ...(can("gaji") ? [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }] : []),
     // Pinjaman karyawan dikelola Admin dan Super Admin.
