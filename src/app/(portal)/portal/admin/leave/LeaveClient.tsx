@@ -4,7 +4,7 @@ import { proposedText } from "@/lib/approval-text";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  BadgeCheck, CalendarHeart, ChevronDown, FileClock, X, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet,
+  BadgeCheck, CalendarHeart, ChevronDown, FileClock, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -280,6 +280,7 @@ export type LeaveRequestRow = {
 
 export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, backDays = 3, requests = [], onLeave = [], view, initialTab }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; backDays?: number; requests?: LeaveRequestRow[]; onLeave?: LeaveRequestRow[]; view?: "pengajuan" | "sedang"; initialTab?: "pengajuan" | "saldo" }) {
   const t = useT();
+  const router = useRouter();
   const [tab, setTab] = useState<"jenis" | "saldo" | "pengajuan">(initialTab ?? "jenis");
   const [creating, setCreating] = useState(false); // formulir jenis baru di panel kanan
   const [dirty, setDirty] = useState(false); // ada isian yang belum disimpan
@@ -334,7 +335,7 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
 
         <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
           {([["jenis", "Jenis Cuti", Scale], ["saldo", "Saldo Cuti", Wallet], ["pengajuan", "Proses Cuti", FileClock]] as const).map(([k, label, Icon]) => (
-            <button key={k} type="button" onClick={() => setTab(k)}
+            <button key={k} type="button" onClick={() => { setTab(k); if (view) router.replace(k === "pengajuan" ? "/portal/admin/leave?tab=pengajuan" : "/portal/admin/leave"); }}
               className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               <Icon size={15} /> <T>{label}</T>
               {k === "pengajuan" && requests.length + onLeave.length > 0 && <span className="text-xs opacity-70">{requests.length + onLeave.length}</span>}
@@ -478,7 +479,6 @@ function AbsenceSetting({ value, canEdit }: { value: number; canEdit: boolean })
 // keputusan tetap di penyetuju (atasan langsung / level Workflow) lewat Notifikasi. ?lihat= dari kotak kartu Beranda.
 function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave: LeaveRequestRow[]; view?: "pengajuan" | "sedang" }) {
   const t = useT();
-  const router = useRouter();
   const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   const num = (n: number) => String(n).replace(".", ",");
   const item = (r: LeaveRequestRow, pill: React.ReactNode) => (
@@ -508,12 +508,6 @@ function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave
   );
   return (
     <div className="space-y-4">
-      {view && (
-        <button type="button" onClick={() => router.replace("/portal/admin/leave?tab=pengajuan")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-50 px-4 text-sm font-semibold text-amber-800 hover:bg-amber-100">
-          <T>Disaring</T>: <T>{view === "sedang" ? "Sedang cuti hari ini" : "Pengajuan menunggu persetujuan"}</T> <X size={14} />
-        </button>
-      )}
       {view !== "sedang" && block("Pengajuan Menunggu Persetujuan", "Pengajuan yang belum diputus beserta penyetuju yang sedang mendapat giliran.", rows,
         "Tidak ada pengajuan cuti yang berjalan.", <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700"><T>Menunggu</T></span>, "from-amber-500 to-orange-400")}
       {view !== "pengajuan" && block("Sedang Cuti Hari Ini", "Karyawan yang cutinya sudah disetujui dan mencakup hari ini.", onLeave,
