@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "uraian pekerjaan belum diisi": "job descriptions not filled",
   "Ketik ID atau nama karyawan...": "Type an employee ID or name...",
   "Admin sendiri dan pimpinan puncak tidak ada di daftar.": "You and the top leader are not listed.",
   "Salin": "Copy",

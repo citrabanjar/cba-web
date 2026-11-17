@@ -208,7 +208,7 @@ function SplForm({ employees, onDone }: { employees: EmployeePick[]; onDone: () 
   const [sameTime, setSameTime] = useState(false); // centang di baris pertama: jam semua baris ikut baris pertama
   const [lines, setLines] = useState<Line[]>([]);
   const [pick, setPick] = useState("");
-  const [check, setCheck] = useState<{ rows: SplRowCheck[]; error?: string } | null>(null);
+  const [check, setCheck] = useState<{ rows: SplRowCheck[]; error?: string; date: string } | null>(null);
   const [checking, setChecking] = useState(false);
   const [pending, start] = useTransition();
   const byId = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
@@ -240,7 +240,7 @@ function SplForm({ employees, onDone }: { employees: EmployeePick[]; onDone: () 
       setChecking(true);
       const r = await previewSpl({ date, rows: lines.map(({ userId, startTime, endTime, reason }) => ({ userId, startTime, endTime, reason })) }).catch(() => null);
       setChecking(false);
-      if (r) setCheck(r);
+      if (r) setCheck({ ...r, date });
     }, 500);
     return () => clearTimeout(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -250,10 +250,13 @@ function SplForm({ employees, onDone }: { employees: EmployeePick[]; onDone: () 
   const totalHours = lines.reduce((a, l) => a + (info(l.userId)?.hours ?? otPlan(l.startTime, l.endTime, false).hours), 0);
   const totalEst = lines.reduce((a, l) => a + (info(l.userId)?.estimate ?? 0), 0);
   const problems = lines.filter((l) => info(l.userId)?.problem).length;
+  const noReason = lines.filter((l) => !l.reason.trim()).length;
+  // Hasil pemeriksaan server sesuai isian terakhir (tanggal, karyawan, dan jam).
+  const fresh = !!check && check.date === date && lines.every((l) => check.rows.some((r) => r.userId === l.userId && r.startTime === l.startTime && r.endTime === l.endTime));
 
   const submit = () => start(async () => {
     const r = await createSpl({ date, rows: lines.map(({ userId, startTime, endTime, reason }) => ({ userId, startTime, endTime, reason })) });
-    if (r.rows) setCheck({ rows: r.rows, error: r.error });
+    if (r.rows) setCheck({ rows: r.rows, error: r.error, date });
     if (r.error) { void showNotice(t(r.error), "error"); return; }
     void showNotice(`${r.number} ${t("terkirim ke")} ${lines.length} ${t("karyawan. Atasan mereka mendapat info.")}`);
     setLines([]); setCheck(null); setDate(""); setSameTime(false);
@@ -367,8 +370,10 @@ function SplForm({ employees, onDone }: { employees: EmployeePick[]; onDone: () 
             {totalEst > 0 && <> · <T>estimasi</T> <b className="text-gray-900">{rupiah(totalEst)}</b></>}
             {checking && <Loader2 size={13} className="ml-2 inline animate-spin text-gray-400" />}
             {problems > 0 && <span className="ml-2 text-xs font-semibold text-rose-700">{problems} <T>baris perlu diperbaiki</T></span>}
+            {noReason > 0 && <span className="ml-2 text-xs font-semibold text-rose-700">{noReason} <T>uraian pekerjaan belum diisi</T></span>}
           </p>
-          <button type="button" disabled={pending || !date || lines.length === 0} onClick={submit}
+          {/* Kirim aktif hanya bila pemeriksaan terbaru bersih: tidak ada bentrok shift, dinas, lembur ganda, dsb. */}
+          <button type="button" disabled={pending || checking || !date || lines.length === 0 || !fresh || problems > 0 || noReason > 0} onClick={submit}
             className="inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-40">
             {pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Kirim SPL</T>
           </button>
