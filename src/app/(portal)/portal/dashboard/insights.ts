@@ -180,7 +180,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
     {
       key: "cuti-berjalan", title: "Pengajuan Cuti Berjalan", value: leaveRunning.length,
       noteValue: new Set(leaveRunning.map((l) => l.userId)).size, note: "karyawan · menunggu persetujuan",
-      icon: "leave", tone: "violet", href: "/portal/persetujuan", actionable: true,
+      icon: "leave", tone: "violet", href: "/portal/admin/leave?tab=pengajuan", actionable: true,
     },
     {
       key: "proses-pinjaman", title: "Proses Pinjaman", value: loanPending.length, note: "pengajuan berjalan",
