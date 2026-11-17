@@ -17,7 +17,7 @@ type Attendance = {
   checkInAddr: string | null; status: string; note: string | null;
 };
 type Range = { id: string; startDate: Date; endDate: Date; status: string };
-type Leave = Range & { type: string; reason: string };
+type Leave = Range & { type: string; reason: string; delegateName?: string | null };
 type Trip = Range & { destination: string };
 
 // Warna tiap status, dipakai di kotak tanggal, keterangan, dan ringkasan.
@@ -407,6 +407,7 @@ export default function AttendanceCalendar({
                   <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS.CUTI.cell}`}><T>Cuti</T></span>
                   <p className="text-xs text-gray-500">{formatDate(selLeave.startDate)} – {formatDate(selLeave.endDate)}</p>
                   <p className="text-xs text-gray-600">{selLeave.reason}</p>
+                  {selLeave.delegateName && <p className="text-xs text-gray-600"><T>Delegasi tanggung jawab</T>: <b>{selLeave.delegateName}</b></p>}
                 </div>
               ) : selTrip ? (
                 <div className="mt-3 space-y-1.5 text-sm text-gray-700">

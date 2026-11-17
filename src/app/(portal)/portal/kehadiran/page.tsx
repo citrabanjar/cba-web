@@ -37,7 +37,7 @@ export default async function KehadiranPage() {
       where: { id },
       select: {
         attendances: { orderBy: { date: "desc" }, take: 400, select: { id: true, date: true, checkIn: true, checkOut: true, checkInAddr: true, status: true, note: true } },
-        leaves: { orderBy: { startDate: "desc" }, take: 50, select: { id: true, type: true, startDate: true, endDate: true, totalDays: true, reason: true, status: true } },
+        leaves: { orderBy: { startDate: "desc" }, take: 50, select: { id: true, type: true, startDate: true, endDate: true, totalDays: true, reason: true, status: true, delegateName: true } },
         businessTrips: { orderBy: { startDate: "desc" }, take: 50, select: { id: true, destination: true, startDate: true, endDate: true, status: true } },
       },
     }),

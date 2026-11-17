@@ -91,7 +91,7 @@ export default async function KaryawanDetailPage({
         take: 50,
         select: {
           id: true, type: true, startDate: true, endDate: true,
-          totalDays: true, reason: true, status: true, policy: { select: { code: true, name: true } },
+          totalDays: true, reason: true, status: true, delegateName: true, policy: { select: { code: true, name: true } },
         },
       },
       businessTrips: {
