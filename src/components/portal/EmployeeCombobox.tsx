@@ -9,12 +9,14 @@ export type ComboboxOption = { value: string; label: string };
 // terpotong oleh dialog. Pencarian mencocokkan nilai maupun nama, dan isian tetap
 // boleh berisi teks di luar daftar.
 export default function EmployeeCombobox({
-  id, value, options, onChange,
+  id, value, options, onChange, placeholder, className,
 }: {
   id: string;
   value: string;
   options: ComboboxOption[];
   onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -59,6 +61,8 @@ export default function EmployeeCombobox({
         aria-expanded={open}
         aria-controls={listId}
         autoComplete="off"
+        placeholder={placeholder}
+        className={className}
         value={value}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
         onFocus={() => setOpen(true)}

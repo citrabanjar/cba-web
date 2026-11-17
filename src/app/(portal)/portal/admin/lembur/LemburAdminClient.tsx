@@ -211,12 +211,10 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
   const [sameTime, setSameTime] = useState(false); // centang di baris pertama: jam semua baris ikut baris pertama
   const [lines, setLines] = useState<Line[]>([]);
   const [pick, setPick] = useState("");
-  const [dept, setDept] = useState("");
   const [check, setCheck] = useState<{ rows: SplRowCheck[]; error?: string } | null>(null);
   const [checking, setChecking] = useState(false);
   const [pending, start] = useTransition();
   const byId = useMemo(() => new Map(employees.map((e) => [e.id, e])), [employees]);
-  const depts = useMemo(() => [...new Set(employees.map((e) => e.department).filter(Boolean))].sort() as string[], [employees]);
   const taken = new Set(lines.map((l) => l.userId));
   const options = employees.filter((e) => e.employeeId && !taken.has(e.id)).map((e) => ({ value: e.employeeId!, label: e.name }));
 
@@ -281,21 +279,12 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
           <label className="mb-1 block text-xs font-medium text-gray-500"><T>Tanggal lembur</T></label><DateInput value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
 
-        {/* Tambah karyawan: ketik ID / nama, atau tambah satu departemen sekaligus. */}
-        <div className="grid gap-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3 sm:grid-cols-[1fr_auto]">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500"><T>Tambah karyawan</T></label>
-            <EmployeeCombobox id="spl-add" value={pick} onChange={onPick} options={options} />
-            <p className="mt-1 text-[11px] text-gray-400"><T>Ketik ID atau nama karyawan, lalu pilih. Admin sendiri dan pimpinan puncak tidak ada di daftar.</T></p>
-          </div>
-          <div className="flex items-end gap-2">
-            <select value={dept} onChange={(e) => setDept(e.target.value)} className="h-10 rounded-xl border border-gray-200 bg-white px-2 text-sm">
-              <option value="">{t("Pilih departemen")}</option>
-              {depts.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <button type="button" disabled={!dept} onClick={() => { add(employees.filter((e) => e.department === dept).map((e) => e.id)); setDept(""); }}
-              className="inline-flex h-10 items-center gap-1 rounded-xl bg-ink px-3 text-xs font-semibold text-white disabled:opacity-40"><Plus size={14} /> <T>Tambah</T></button>
-          </div>
+        {/* Tambah karyawan: ketik ID / nama lalu pilih dari daftar. */}
+        <div className="max-w-xl">
+          <label className="mb-1 block text-xs font-medium text-gray-500"><T>Tambah karyawan</T></label>
+          <EmployeeCombobox id="spl-add" value={pick} onChange={onPick} options={options} placeholder={t("Ketik ID atau nama karyawan...")}
+            className="h-10 rounded-xl !border-gray-300 !bg-white text-sm text-gray-900 placeholder:text-gray-400" />
+          <p className="mt-1 text-[11px] text-gray-400"><T>Admin sendiri dan pimpinan puncak tidak ada di daftar.</T></p>
         </div>
 
         {lines.length === 0 ? (
@@ -328,7 +317,6 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
                         <td className="px-3 py-2.5">
                           <p className="font-semibold text-gray-900">{e?.name}</p>
                           <p className="text-[11px] text-gray-400">{e?.employeeId}{e?.department ? ` · ${e.department}` : ""}</p>
-                          {x && <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${x.rest ? "bg-rose-50 text-rose-700" : "bg-gray-100 text-gray-600"}`}><T>{x.rest ? "Hari libur" : "Hari kerja"}</T></span>}
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5">
@@ -341,7 +329,7 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
                             {i === 0 && lines.length > 1 && (
                               <label className="ml-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs font-medium text-gray-700">
                                 <input type="checkbox" checked={sameTime} onChange={(ev) => toggleSame(ev.target.checked)} className="h-4 w-4 accent-[#BE353F]" />
-                                <T>Samakan semua</T>
+                                <T>Salin</T>
                               </label>
                             )}
                           </div>
@@ -373,7 +361,7 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
           </div>
         )}
 
-        {lines.length > 0 && <p className="-mt-2 text-[11px] text-gray-400"><T>{OT_BREAK_RULE}</T> <T>Estimasi dan hari kerja / libur muncul setelah tanggal diisi.</T></p>}
+        {lines.length > 0 && <p className="-mt-2 text-[11px] text-gray-400"><T>{OT_BREAK_RULE}</T> <T>Estimasi muncul setelah tanggal diisi.</T></p>}
         {check?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{check.error}</T></p>}
         {(rules.maxPeople || rules.maxEnd) && (
           <p className="text-[11px] text-gray-400">
