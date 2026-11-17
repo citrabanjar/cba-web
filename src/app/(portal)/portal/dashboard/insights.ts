@@ -187,7 +187,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
       steps: [
         { label: "Atasan", value: loanStage("ATASAN"), href: "/portal/admin/pinjaman?tahap=ATASAN" },
         { label: "Admin", value: loanStage("ADMIN"), href: "/portal/admin/pinjaman?tahap=ADMIN" },
-        { label: "Pimpinan", value: loanStage("PIMPINAN"), href: "/portal/admin/pinjaman?tahap=PIMPINAN" },
+        { label: "Pemutus", value: loanStage("PIMPINAN"), href: "/portal/admin/pinjaman?tahap=PIMPINAN" },
         { label: "Selesai", value: loanDone, href: "/portal/admin/pinjaman?tahap=SELESAI" },
       ],
       icon: "loan", tone: "amber", href: "/portal/admin/pinjaman", actionable: true,

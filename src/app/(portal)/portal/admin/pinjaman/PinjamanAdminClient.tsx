@@ -170,7 +170,7 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
   const params = useSearchParams();
   const router = useRouter();
   const tahap = params.get("tahap");
-  const STAGE_LABEL: Record<string, string> = { ATASAN: "Menunggu atasan", ADMIN: "Dalam pemeriksaan Admin", PIMPINAN: "Menunggu keputusan pimpinan", SELESAI: "Selesai diputus hari ini" };
+  const STAGE_LABEL: Record<string, string> = { ATASAN: "Menunggu atasan", ADMIN: "Dalam pemeriksaan Admin", PIMPINAN: "Menunggu keputusan pemutus", SELESAI: "Selesai diputus hari ini" };
   // Awal hari ini menurut WIB (pengajuan selesai hanya dihitung hari itu).
   const [since] = useState(() => { const d = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date()); return new Date(`${d}T00:00:00+07:00`).getTime(); });
   const matchStage = (l: AdminLoan) => tahap === "SELESAI"
