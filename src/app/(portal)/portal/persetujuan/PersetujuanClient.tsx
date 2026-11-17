@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, Briefcase, Calendar, Check, Clock, HandCoins, Inbox, Loader2, UserPen, X } from "lucide-react";
+import { ArrowLeftRight, Briefcase, Calendar, Check, ChevronRight, Clock, HandCoins, Inbox, Loader2, UserPen, X } from "lucide-react";
+import Link from "next/link";
 import { InterviewDecision, InterviewSummary, ReviewForm, type CandidateBrief } from "@/components/portal/InterviewPanel";
 import { latestOffer, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
 import type { CandidateJob } from "@/lib/onboarding";
@@ -59,7 +60,8 @@ type TabKey = "menunggu" | "riwayat" | "data" | "swap" | "wawancara" | "ubah" | 
 export type LoanItem = {
   id: string; status: string; stage: string | null; person: ApprovalItem["person"]; principal: number; tenor: number; startPeriod: string;
   purpose: string | null; note: string | null; flow: LoanFlow; createdAt: string; decidedAt: string | null;
-  mine: boolean; // giliran saya memutus
+  mine: boolean; // giliran saya (memutus atau memeriksa)
+  review?: boolean; // giliran saya memeriksa dokumen → tombol Buka Pengajuan (bukan Setujui/Tolak)
 };
 
 // Pengajuan ubah data karyawan oleh Admin berhak "Ajukan" (diputus atasan langsung si Admin).
@@ -483,12 +485,20 @@ export function LoanApprovalCard({ item: l }: { item: LoanItem }) {
               {l.flow.adminNote && <p className="text-[11px] text-gray-500"><T>Catatan pemeriksaan</T>: {l.flow.adminNote}</p>}
             </div>
           )}
-          {l.stage === "ADMIN" && <p className="mt-2 text-[11px] text-amber-700"><T>Keputusan dapat diberikan setelah Admin selesai memeriksa dokumen fisik.</T></p>}
+          {l.stage === "ADMIN" && !l.review && <p className="mt-2 text-[11px] text-amber-700"><T>Keputusan dapat diberikan setelah Admin selesai memeriksa dokumen fisik.</T></p>}
+          {l.review && <p className="mt-2 text-[11px] text-amber-700"><T>Periksa dokumen fisik, susun angsuran, lalu kirim ke pemutus.</T></p>}
           {!l.stage && l.note && <p className="mt-1.5 text-[11px] text-gray-400"><T>Catatan</T>: {l.note}</p>}
         </div>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>
+          {l.review && (
+            <Link href="/portal/admin/pinjaman" className="inline-flex items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink/85">
+              <T>Buka Pengajuan</T> <ChevronRight size={13} />
+            </Link>
+          )}
+        </div>
       </div>
-      {l.mine && (
+      {l.mine && !l.review && (
         <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
           <input value={note} onChange={(e) => setNote(e.target.value)}
             placeholder={t(rejecting ? "Alasan penolakan (wajib)" : "Catatan untuk karyawan (opsional)")}

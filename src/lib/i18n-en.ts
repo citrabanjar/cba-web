@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Buka Pengajuan": "Open Request",
+  "Periksa dokumen fisik, susun angsuran, lalu kirim ke pemutus.": "Check the physical documents, set the installments, then send to the decider.",
   "Pilih peran": "Select role",
   "Pemeriksa dokumen": "Document reviewer",
   "memeriksa dokumen fisik dan menyusun angsuran": "checks physical documents and sets installments",

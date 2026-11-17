@@ -5,7 +5,7 @@ import { isInterviewApprover, pendingInterviewApprovals } from "@/lib/onboarding
 import { isWorkflowApprover } from "@/lib/workflow-settings";
 import { actionableApprovers, readApproval } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
-import { loanTurn, readLoanFlow } from "@/lib/loans";
+import { loanReviewTurn, loanTurn, readLoanFlow } from "@/lib/loans";
 
 // Pengajuan cuti/dinas tanpa jejak workflow = jalur atasan langsung.
 export const noWorkflow = { approval: { equals: Prisma.DbNull } };
@@ -61,9 +61,12 @@ export async function pendingApprovals(a: Approver) {
     prisma.overtime.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     // Pinjaman: atasan langsung di tahap ATASAN, pimpinan puncak di tahap PIMPINAN.
     prisma.employeeLoan.findMany({
-      where: { status: "PENDING", stage: { in: ["ATASAN", "PIMPINAN"] }, OR: [{ flow: { path: ["managerId"], equals: a.id } }, { flow: { path: ["topId"], equals: a.id } }, { flow: { path: ["who"], array_contains: [a.id] } }] },
-      select: { status: true, stage: true, flow: true },
-    }).then((list) => list.filter((l) => loanTurn(l.status, l.stage, readLoanFlow(l.flow), a.id)).length),
+      where: { status: "PENDING" },
+      select: { status: true, stage: true, flow: true, userId: true },
+    }).then((list) => {
+      const admin = canEditMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "pinjaman");
+      return list.filter((l) => { const f = readLoanFlow(l.flow); return loanTurn(l.status, l.stage, f, a.id) || loanReviewTurn(l.status, l.stage, f, a.id, l.userId, admin); }).length;
+    }),
   ]);
   return leaves + trips + profiles + swaps + interviews + workflow + edits + ots + loans;
 }
@@ -71,6 +74,8 @@ export async function pendingApprovals(a: Approver) {
 // Menu Persetujuan tampil untuk atasan (punya bawahan langsung) dan Admin Data Karyawan (perubahan data).
 export async function isApprover(a: Approver) {
   if (reviewsProfiles(a)) return true;
+  // Pemeriksa dokumen pinjaman (Admin berhak Edit Pinjaman) melihat kartu pengajuan yang perlu diperiksa.
+  if (canEditMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "pinjaman")) return true;
   if (await isInterviewApprover(a.id)) return true;
   if (await isWorkflowApprover(a.id)) return true;
   // Atasan dari Admin berhak "Ajukan" yang punya pengajuan ubah data karyawan.

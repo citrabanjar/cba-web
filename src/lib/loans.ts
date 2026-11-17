@@ -50,6 +50,12 @@ export function loanTurn(status: string, stage: string | null | undefined, f: Lo
   }
   return stage === "PIMPINAN" && loanTopIds(f).includes(userId);
 }
+// Giliran memeriksa dokumen: tahap ADMIN; Workflow → anggota level Pemeriksa dokumen, jalur normal → Admin berhak Edit Pinjaman.
+// Pemohon tidak memeriksa pengajuannya sendiri.
+export function loanReviewTurn(status: string, stage: string | null | undefined, f: LoanFlow, userId: string, requesterId: string, isLoanAdmin: boolean) {
+  if (status !== "PENDING" || (stage || "ADMIN") !== "ADMIN" || userId === requesterId) return false;
+  return f.checkIds?.length ? f.checkIds.includes(userId) : isLoanAdmin;
+}
 // Penyetuju sebelum pemeriksaan Admin (selalu melihat pengajuannya).
 export const loanEarlyApprover = (f: LoanFlow, userId: string) => f.managerId === userId || !!f.pre?.some((x) => loanStepIds(x).includes(userId));
 export const LOAN_GROUPS = [

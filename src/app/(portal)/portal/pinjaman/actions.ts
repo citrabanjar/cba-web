@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isPeriod } from "@/lib/loans";
 import { nextLoanNo } from "@/lib/loan-view";
-import { activeManager, loanReviewers, planLoan, topLeaderOf } from "@/lib/loan-flow";
+import { activeManager, planLoan, topLeaderOf } from "@/lib/loan-flow";
 import type { EmployeeLoan } from "@prisma/client";
 import { workflowSteps } from "@/lib/workflow-settings";
 import { loanStepIds, loanTopIds, type LoanFlow } from "@/lib/loans";
@@ -75,7 +75,6 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
   // Penyetuju yang mendapat giliran cukup melihat kartu "Menunggu keputusan Anda" (tanpa notifikasi ganda, sama seperti cuti).
   if (stage !== "ATASAN") {
     // Langsung ke pemeriksaan Admin (Workflow satu level / atasan langsung = pimpinan puncak); pimpinan mendapat kabar.
-    await notify(await loanReviewers(flow), "Pengajuan pinjaman perlu diperiksa", `${what} Periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
     await notify(loanTopIds(flow), "Pengajuan pinjaman dalam pemeriksaan Admin", `${what} Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");
   }
   revalidatePath(PATH);

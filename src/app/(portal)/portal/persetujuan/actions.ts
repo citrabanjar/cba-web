@@ -147,8 +147,6 @@ export async function decideLoan(id: string, approve: boolean, note: string): Pr
     }
     await prisma.employeeLoan.update({ where: { id }, data: { stage: "ADMIN", flow: next } });
     await notify(loan.userId, "Pengajuan pinjaman disetujui atasan", `${amount} · Disetujui oleh ${a.name ?? "atasan"}. Siapkan dokumen fisik untuk diperiksa ${flow.checkName ?? "Admin"}.`, "/portal/pinjaman");
-    await notify(await loanReviewers(flow), "Pengajuan pinjaman perlu diperiksa",
-      `${loan.user.name} · ${amount} · ${loan.tenor} kali angsuran. Disetujui ${a.name ?? "atasan"}; periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
     const tops = loanTopIds(flow).filter((x) => x !== a.id);
     if (tops.length) {
       await notify(tops, "Pengajuan pinjaman dalam pemeriksaan Admin",
