@@ -8,7 +8,7 @@ import { nextLoanNo } from "@/lib/loan-view";
 import { activeManager, loanAdmins, planLoan, topLeaderOf } from "@/lib/loan-flow";
 import type { EmployeeLoan } from "@prisma/client";
 import { workflowSteps } from "@/lib/workflow-settings";
-import { loanStepIds, type LoanFlow } from "@/lib/loans";
+import { loanStepIds, loanTopIds, type LoanFlow } from "@/lib/loans";
 import { notify } from "@/lib/notify";
 import { formatRupiah } from "@/lib/utils";
 
@@ -53,8 +53,10 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
     const manager = await activeManager(session.user.id);
     if (!manager) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
     const top = (await topLeaderOf(session.user.id)) ?? manager;
-    flow = { ...(request ? { request } : {}), managerId: manager.id, managerName: manager.name, topId: top.id, topName: top.name, who: [manager.id, top.id] };
-    stage = "ATASAN";
+    // Atasan langsung = pimpinan puncak: tahap atasan dilewati, langsung ke pemeriksaan Admin; pimpinan memutus setelahnya.
+    const skip = manager.id === top.id;
+    flow = { ...(request ? { request } : {}), ...(skip ? {} : { managerId: manager.id, managerName: manager.name }), topId: top.id, topName: top.name, who: [manager.id, top.id] };
+    stage = skip ? "ADMIN" : "ATASAN";
   }
   await prisma.employeeLoan.create({
     data: {
@@ -65,16 +67,16 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
   const what = `${session.user.name ?? ""} · ${formatRupiah(amount)} · ${tenor} kali angsuran.${request?.mergeIds.length ? " Dengan permohonan hitung ulang angsuran." : ""}`;
   // Penyetuju yang mendapat giliran cukup melihat kartu "Menunggu keputusan Anda" (tanpa notifikasi ganda, sama seperti cuti).
   if (stage !== "ATASAN") {
-    // Workflow satu level: langsung ke pemeriksaan Admin; penyetuju mendapat kabar.
+    // Langsung ke pemeriksaan Admin (Workflow satu level / atasan langsung = pimpinan puncak); pimpinan mendapat kabar.
     await notify(await loanAdmins(), "Pengajuan pinjaman perlu diperiksa", `${what} Periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
-    await notify(flow.topIds ?? [], "Pengajuan pinjaman dalam pemeriksaan Admin", `${what} Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");
+    await notify(loanTopIds(flow), "Pengajuan pinjaman dalam pemeriksaan Admin", `${what} Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");
   }
   revalidatePath(PATH);
   revalidatePath("/portal/admin/pinjaman");
   revalidatePath("/portal/dashboard");
   revalidatePath("/portal/notifikasi");
   // Nama penyetuju pertama untuk pemberitahuan "diajukan ke … untuk approval".
-  const first = stage === "ATASAN" ? (flow.pre?.[0]?.name ?? flow.managerName ?? "atasan langsung") : "Admin untuk pemeriksaan dokumen";
+  const first = stage === "ATASAN" ? (flow.pre?.[0]?.name ?? flow.managerName ?? "atasan langsung") : "Admin";
   return { proposed: first };
 }
 

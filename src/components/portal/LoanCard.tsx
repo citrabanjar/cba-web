@@ -41,7 +41,7 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
           {loan.purpose && <p className="mt-1 text-sm text-gray-700">{loan.purpose}</p>}
           {loan.note && <p className="mt-1 text-xs text-gray-500"><T>Catatan</T>: {loan.note}</p>}
           {loan.status === "PENDING" && loan.flow?.request && <LoanRequestSummary plan={loan.flow.request} />}
-          {(loan.flow?.managerName || loan.flow?.workflow) && <LoanTrail flow={loan.flow} status={loan.status} stage={stage} />}
+          {(loan.flow?.managerName || loan.flow?.workflow || loan.flow?.topName) && <LoanTrail flow={loan.flow} status={loan.status} stage={stage} />}
         </div>
         {actions}
       </div>
@@ -102,7 +102,8 @@ export function LoanTrail({ flow: f, status, stage }: { flow: LoanFlow; status: 
   const rejected = status === "DITOLAK";
   const early = f.pre
     ? f.pre.map((x, n) => ({ key: `pre${n}`, label: `${t("Level")} ${n + 1}`, name: x.by && x.by !== x.name ? `${x.name} (${x.by})` : x.name, done: x.decision === "SETUJU", no: x.decision === "TOLAK" }))
-    : [{ key: "atasan", label: t("Atasan langsung"), name: f.managerName, done: !!f.managerAt && !(rejected && !f.adminAt), no: rejected && !!f.managerAt && !f.adminAt }];
+    : f.managerName ? [{ key: "atasan", label: t("Atasan langsung"), name: f.managerName, done: !!f.managerAt && !(rejected && !f.adminAt), no: rejected && !!f.managerAt && !f.adminAt }]
+    : []; // atasan langsung = pimpinan puncak: tanpa tahap atasan
   const steps = [
     ...early,
     { key: "admin", label: t("Pemeriksaan Admin"), name: f.adminName, done: !!f.adminAt, no: false },
