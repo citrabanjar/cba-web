@@ -178,8 +178,12 @@ export async function loadIndicators(): Promise<Indicator[]> {
       note: "sudah check-in", icon: "present", tone: "emerald", href: "/portal/admin/schedule",
     },
     {
-      key: "cuti-berjalan", title: "Pengajuan Cuti Berjalan", value: leaveRunning.length,
-      noteValue: new Set(leaveRunning.map((l) => l.userId)).size, note: "karyawan · menunggu persetujuan",
+      // Proses cuti: pengajuan yang menunggu persetujuan dan karyawan yang sedang cuti hari ini (sudah disetujui).
+      key: "cuti-berjalan", title: "Proses Cuti", value: leaveRunning.length, note: "pengajuan menunggu persetujuan",
+      steps: [
+        { label: "Pengajuan", value: leaveRunning.length, href: "/portal/admin/leave?tab=pengajuan&lihat=pengajuan" },
+        { label: "Sedang cuti", value: leaveNames.length, href: "/portal/admin/leave?tab=pengajuan&lihat=sedang" },
+      ],
       icon: "leave", tone: "violet", href: "/portal/admin/leave?tab=pengajuan", actionable: true,
     },
     {

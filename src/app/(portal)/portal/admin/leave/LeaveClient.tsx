@@ -2,8 +2,9 @@
 
 import { proposedText } from "@/lib/approval-text";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
-  BadgeCheck, CalendarHeart, ChevronDown, FileClock, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet,
+  BadgeCheck, CalendarHeart, ChevronDown, FileClock, X, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -277,7 +278,7 @@ export type LeaveRequestRow = {
   reason: string; urgent: boolean; delegate: string | null; createdAt: string; approver: string;
 };
 
-export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, backDays = 3, requests = [], initialTab }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; backDays?: number; requests?: LeaveRequestRow[]; initialTab?: "pengajuan" | "saldo" }) {
+export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, backDays = 3, requests = [], onLeave = [], view, initialTab }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; backDays?: number; requests?: LeaveRequestRow[]; onLeave?: LeaveRequestRow[]; view?: "pengajuan" | "sedang"; initialTab?: "pengajuan" | "saldo" }) {
   const t = useT();
   const [tab, setTab] = useState<"jenis" | "saldo" | "pengajuan">(initialTab ?? "jenis");
   const [creating, setCreating] = useState(false); // formulir jenis baru di panel kanan
@@ -332,17 +333,17 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
         </div>
 
         <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
-          {([["jenis", "Jenis Cuti", Scale], ["saldo", "Saldo Cuti", Wallet], ["pengajuan", "Pengajuan Berjalan", FileClock]] as const).map(([k, label, Icon]) => (
+          {([["jenis", "Jenis Cuti", Scale], ["saldo", "Saldo Cuti", Wallet], ["pengajuan", "Proses Cuti", FileClock]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
               className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               <Icon size={15} /> <T>{label}</T>
-              {k === "pengajuan" && requests.length > 0 && <span className="text-xs opacity-70">{requests.length}</span>}
+              {k === "pengajuan" && requests.length + onLeave.length > 0 && <span className="text-xs opacity-70">{requests.length + onLeave.length}</span>}
             </button>
           ))}
         </div>
 
         {tab === "saldo" && <BalanceTab rows={balances} balanceSwitch={balanceSwitch} superAdmin={superAdmin} />}
-        {tab === "pengajuan" && <RequestsTab rows={requests} />}
+        {tab === "pengajuan" && <RequestsTab rows={requests} onLeave={onLeave} view={view} />}
         {tab === "jenis" && <AbsenceSetting value={backDays} canEdit={canEdit} />}
         {tab === "jenis" && <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
@@ -473,42 +474,50 @@ function AbsenceSetting({ value, canEdit }: { value: number; canEdit: boolean })
   );
 }
 
-// Pengajuan cuti yang sedang berjalan: Admin & Super Admin memantau siapa yang mengajukan dan menunggu siapa.
-// Keputusan tetap di penyetuju (atasan langsung / level Workflow) lewat Notifikasi.
-function RequestsTab({ rows }: { rows: LeaveRequestRow[] }) {
+// Proses cuti: pengajuan yang menunggu persetujuan dan karyawan yang sedang cuti hari ini. Admin & Super Admin memantau;
+// keputusan tetap di penyetuju (atasan langsung / level Workflow) lewat Notifikasi. ?lihat= dari kotak kartu Beranda.
+function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave: LeaveRequestRow[]; view?: "pengajuan" | "sedang" }) {
   const t = useT();
+  const router = useRouter();
   const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   const num = (n: number) => String(n).replace(".", ",");
-  return (
+  const item = (r: LeaveRequestRow, pill: React.ReactNode) => (
+    <li key={r.id} className="flex flex-wrap items-start gap-3 px-5 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-gray-900">{r.name} <span className="text-xs font-normal text-gray-400">{[r.employeeId, r.department].filter(Boolean).join(" · ")}</span></p>
+        <p className="text-sm text-gray-700">{t(r.policy)}{r.urgent && <span className="ml-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700"><T>Tidak masuk (mendadak)</T></span>}</p>
+        <p className="text-xs text-gray-500">{fmt(r.start)}{r.end !== r.start && <> – {fmt(r.end)}</>} · {num(r.days)} <T>hari</T> · <T>Diajukan</T> {fmt(r.createdAt.slice(0, 10))}</p>
+        {r.reason && <p className="mt-1 text-xs text-gray-500">{r.reason}</p>}
+        {r.delegate && <p className="mt-0.5 text-[11px] text-gray-500"><T>Delegasi tanggung jawab</T>: {r.delegate}</p>}
+      </div>
+      <div className="text-right">{pill}<p className="mt-1 text-[11px] text-gray-500">{r.approver}</p></div>
+    </li>
+  );
+  const block = (title: string, hint: string, list: LeaveRequestRow[], empty: string, pill: React.ReactNode, tone: string) => (
     <section className="rounded-2xl border border-gray-200 bg-white">
       <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-400 text-white"><FileClock size={17} /></span>
-        <div>
-          <h3 className="font-semibold text-gray-900"><T>Pengajuan Cuti Berjalan</T></h3>
-          <p className="text-xs text-gray-400"><T>Pengajuan yang belum diputus beserta penyetuju yang sedang mendapat giliran.</T></p>
+        <span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br text-white ${tone}`}><FileClock size={17} /></span>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-gray-900"><T>{title}</T> <span className="text-sm font-normal text-gray-400">{list.length}</span></h3>
+          <p className="text-xs text-gray-400"><T>{hint}</T></p>
         </div>
       </div>
-      {rows.length === 0 ? (
-        <p className="px-5 py-10 text-center text-sm text-gray-400"><T>Tidak ada pengajuan cuti yang berjalan.</T></p>
-      ) : (
-        <ul className="divide-y divide-gray-100">
-          {rows.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-start gap-3 px-5 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-gray-900">{r.name} <span className="text-xs font-normal text-gray-400">{[r.employeeId, r.department].filter(Boolean).join(" · ")}</span></p>
-                <p className="text-sm text-gray-700">{t(r.policy)}{r.urgent && <span className="ml-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700"><T>Tidak masuk (mendadak)</T></span>}</p>
-                <p className="text-xs text-gray-500">{fmt(r.start)}{r.end !== r.start && <> – {fmt(r.end)}</>} · {num(r.days)} <T>hari</T> · <T>Diajukan</T> {fmt(r.createdAt.slice(0, 10))}</p>
-                {r.reason && <p className="mt-1 text-xs text-gray-500">{r.reason}</p>}
-                {r.delegate && <p className="mt-0.5 text-[11px] text-gray-500"><T>Delegasi tanggung jawab</T>: {r.delegate}</p>}
-              </div>
-              <div className="text-right">
-                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700"><T>Menunggu</T></span>
-                <p className="mt-1 text-[11px] text-gray-500">{r.approver}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      {list.length === 0 ? <p className="px-5 py-8 text-center text-sm text-gray-400"><T>{empty}</T></p>
+        : <ul className="divide-y divide-gray-100">{list.map((r) => item(r, pill))}</ul>}
     </section>
+  );
+  return (
+    <div className="space-y-4">
+      {view && (
+        <button type="button" onClick={() => router.replace("/portal/admin/leave?tab=pengajuan")}
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-50 px-4 text-sm font-semibold text-amber-800 hover:bg-amber-100">
+          <T>Disaring</T>: <T>{view === "sedang" ? "Sedang cuti hari ini" : "Pengajuan menunggu persetujuan"}</T> <X size={14} />
+        </button>
+      )}
+      {view !== "sedang" && block("Pengajuan Menunggu Persetujuan", "Pengajuan yang belum diputus beserta penyetuju yang sedang mendapat giliran.", rows,
+        "Tidak ada pengajuan cuti yang berjalan.", <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700"><T>Menunggu</T></span>, "from-amber-500 to-orange-400")}
+      {view !== "pengajuan" && block("Sedang Cuti Hari Ini", "Karyawan yang cutinya sudah disetujui dan mencakup hari ini.", onLeave,
+        "Tidak ada karyawan yang sedang cuti hari ini.", <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><T>Sedang cuti</T></span>, "from-emerald-500 to-teal-400")}
+    </div>
   );
 }

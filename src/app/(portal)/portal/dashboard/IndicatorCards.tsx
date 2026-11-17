@@ -36,7 +36,7 @@ function Card({ item }: { item: Indicator }) {
       </div>
       {item.steps ? (
         // Rincian per tahap (mis. Proses Pinjaman): angka kecil berderet.
-        <div className="relative mt-1.5 grid grid-cols-4 gap-1">
+        <div className={`relative mt-1.5 grid gap-1 ${item.steps.length === 2 ? "grid-cols-2" : item.steps.length === 3 ? "grid-cols-3" : "grid-cols-4"}`}>
           {item.steps.map((x) => {
             const inner = <>
               <span className="block text-sm font-bold tabular-nums text-gray-800">{x.value}</span>
