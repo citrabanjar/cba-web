@@ -10,6 +10,7 @@ import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
 import { isPersonApprover, withDelegation } from "@/lib/delegation";
 import { formatDate } from "@/lib/utils";
+import { notify } from "@/lib/notify";
 
 export async function getLeaveRequests() {
   const session = await auth();
@@ -151,10 +152,25 @@ async function createLeave(userId: string, input: LeaveInput) {
     },
   });
 
+  // Notifikasi info (tanpa tombol keputusan), keputusan pemilik 2026-11-17:
+  // - jalur default (atasan langsung memutus) → atasan dari atasan langsung mendapat info;
+  // - jalur Workflow (atasan langsung bisa terlewati) → atasan langsung mendapat info, bila ia bukan penyetuju di jalur itu.
+  const approver = await firstApproverName(flow, userId);
+  const chainOf = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, manager: { select: { id: true, isActive: true, manager: { select: { id: true, isActive: true } } } } } });
+  const m = chainOf?.manager?.isActive ? chainOf.manager : null;
+  const approverIds = new Set((flow?.steps ?? []).flatMap((x) => (x.ids?.length ? x.ids : [x.id])));
+  const infoTo = wf.flow
+    ? (m && !approverIds.has(m.id) ? m.id : null)
+    : (m?.manager?.isActive && m.manager.id !== userId && !approverIds.has(m.manager.id) ? m.manager.id : null);
+  if (infoTo) {
+    const range = `${formatDate(start)}${start.getTime() === end.getTime() ? "" : ` – ${formatDate(end)}`}`;
+    await notify(infoTo, "Info: pengajuan cuti", `${chainOf?.name ?? ""} mengajukan ${policy.name} ${range} (${fmt(totalDays)} hari). Diputus oleh ${approver}.`, "/portal/notifikasi?modul=cuti");
+  }
+
   revalidatePath("/portal/cuti");
   revalidatePath("/portal/kehadiran");
   revalidatePath("/portal/admin/leave");
-  return { ok: true, days: fmt(totalDays), unpaid: unpaidDays > 0 ? fmt(unpaidDays) : null, approver: await firstApproverName(flow, userId) };
+  return { ok: true, days: fmt(totalDays), unpaid: unpaidDays > 0 ? fmt(unpaidDays) : null, approver };
 }
 
 export async function cancelLeave(id: string) {
