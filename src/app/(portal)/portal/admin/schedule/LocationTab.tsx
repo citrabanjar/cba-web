@@ -1,18 +1,16 @@
 "use client";
 
 import { proposedText } from "@/lib/approval-text";
-import { useMemo, useState, useTransition } from "react";
-import { Crosshair, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { ChevronDown, ChevronRight, Crosshair, ExternalLink, Loader2, MapPin, Plus, Search, Trash2 } from "lucide-react";
 import { googleMapsLink } from "@/lib/google-maps";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import LocationMap from "./LocationMap";
 import { deleteLocation, saveLocation, type LocationInput } from "./actions";
-import { toast } from "@/components/portal/Toast";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
 export type Location = LocationInput & { id: string; address: string };
@@ -75,13 +73,17 @@ function PickList({
   );
 }
 
-function LocationDialog({
-  location, others, employees, shifts, patterns, onClose,
+// Formulir lokasi di panel kanan (bukan dialog), seperti Jenis Cuti & Komponen Payroll.
+function LocationForm({
+  location, others, employees, shifts, patterns, onClose, onDirty,
 }: {
-  location: Location | "new"; others: Location[]; employees: Option[]; shifts: Option[]; patterns: Option[]; onClose: () => void;
+  location: Location | "new"; others: Location[]; employees: Option[]; shifts: Option[]; patterns: Option[]; onClose: () => void; onDirty: (d: boolean) => void;
 }) {
   const t = useT();
-  const [form, setForm] = useState<LocationInput>(() => (location === "new" ? EMPTY : location));
+  const initial = useMemo<LocationInput>(() => (location === "new" ? EMPTY : location), [location]);
+  const [form, setForm] = useState<LocationInput>(initial);
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
   const [scope, setScope] = useState<"karyawan" | "shift" | "pola">("karyawan");
   const [error, setError] = useState<string | null>(null);
   const [gps, setGps] = useState(false);
@@ -112,9 +114,15 @@ function LocationDialog({
     setError(null);
     start(async () => {
       const r = await saveLocation(location === "new" ? null : location.id, form);
-      if (r.error) setError(r.error);
-      else { if (r.proposed) showNotice(proposedText(r.proposed)); onClose(); }
+      if (r.error) { void showNotice(t(r.error), "error"); return; }
+      onDirty(false);
+      void showNotice(r.proposed ? proposedText(r.proposed) : t("Lokasi absen tersimpan."));
+      if (location === "new") onClose();
     });
+  }
+  function cancel() {
+    if (location === "new") { onDirty(false); onClose(); return; }
+    setForm(initial); setError(null);
   }
 
   const scopes = [
@@ -124,11 +132,13 @@ function LocationDialog({
   ] as const;
 
   return (
-    <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle><T>{location === "new" ? "Tambah Lokasi Absen" : "Ubah Lokasi Absen"}</T></DialogTitle>
-        </DialogHeader>
+    <div>
+        <div className="mb-4 flex justify-end gap-2">
+          <Button variant="outline" disabled={pending || (location !== "new" && !dirty)} onClick={cancel}><T>Batal</T></Button>
+          <Button onClick={save} disabled={pending || (location !== "new" && !dirty)} className="gap-1.5">
+            {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T>
+          </Button>
+        </div>
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -203,14 +213,7 @@ function LocationDialog({
           </label>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}><T>Batal</T></Button>
-          <Button onClick={save} disabled={pending} className="gap-1.5">
-            {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T>
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 
@@ -220,11 +223,28 @@ export default function LocationTab({
   locations: Location[]; employees: Option[]; shifts: Option[]; patterns: Option[];
 }) {
   const t = useT();
-  const [editing, setEditing] = useState<Location | "new" | null>(null);
+  const [creating, setCreating] = useState(false); // formulir lokasi baru di panel kanan
+  const [dirty, setDirty] = useState(false); // ada isian yang belum disimpan
+  const [showForm, setShowForm] = useState(false); // formulir ubah: dibuka / disembunyikan
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const canEdit = useCanEdit(); // hak lihat saja: tanpa tambah/ubah/hapus lokasi
   const names = (ids: string[], list: Option[]) => ids.map((id) => list.find((o) => o.id === id)?.label).filter(Boolean) as string[];
-  const overview = locations.filter((l) => l.isActive);
+  const selected = locations.find((l) => l.id === selectedId) ?? locations[0];
+
+  async function leave(go: () => void) {
+    if (dirty && !(await askConfirm(t("Perubahan belum disimpan. Tinggalkan tanpa menyimpan?")))) return;
+    setDirty(false);
+    go();
+  }
+  async function remove(l: Location) {
+    if (!await askConfirm(t("Hapus lokasi ini?"))) return;
+    start(async () => {
+      const r = await deleteLocation(l.id);
+      if (r.error) void showNotice(t(r.error), "error");
+      else if (r.proposed) void showNotice(proposedText(r.proposed));
+    });
+  }
 
   return (
     <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -237,86 +257,114 @@ export default function LocationTab({
           </div>
         </div>
         {canEdit && (
-          <button type="button" onClick={() => setEditing("new")}
+          <button type="button" onClick={() => leave(() => { setCreating(true); setShowForm(true); })}
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
             <Plus size={14} /> <T>Tambah Lokasi</T>
           </button>
         )}
       </div>
 
-      <div className="space-y-5 p-5">
-        {locations.length === 0 ? (
+      <div className="p-5">
+        {locations.length === 0 && !creating ? (
           <div className="rounded-2xl border border-dashed border-gray-200 py-10 text-center">
             <MapPin size={28} className="mx-auto text-gray-300" />
             <p className="mt-2 text-sm text-gray-500"><T>Belum ada lokasi absen.</T></p>
             <p className="text-xs text-gray-400"><T>Selama belum ada lokasi, absen belum dibatasi lokasi.</T></p>
           </div>
         ) : (
-          <>
-            {overview.length > 0 && (
-              <LocationMap
-                key={overview.map((l) => `${l.id}:${l.latitude}:${l.longitude}:${l.radius}`).join("|")}
-                point={null}
-                others={overview.map((l) => ({ latitude: l.latitude, longitude: l.longitude, radius: l.radius, name: l.name }))}
-                height={260}
-              />
-            )}
-            <div className="grid gap-4 md:grid-cols-2">
+          /* Daftar lokasi di kiri, rincian lokasi terpilih di kanan (seperti Jenis Cuti). */
+          <div className="grid gap-4 md:grid-cols-[18rem_1fr]">
+            <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
               {locations.map((l) => {
-                const emp = names(l.employeeIds, employees);
-                const sh = names(l.shiftIds, shifts);
-                const pa = names(l.patternIds, patterns);
-                const scopeText = [
-                  emp.length ? `${emp.length} ${t("karyawan")}` : null,
-                  sh.length ? `${t("Shift")}: ${sh.join(", ")}` : null,
-                  pa.length ? `${t("Pola")}: ${pa.join(", ")}` : null,
-                ].filter(Boolean).join(" · ");
+                const on = !creating && l.id === selected?.id;
                 return (
-                  <div key={l.id} className={`rounded-2xl border border-gray-200 p-4 ${l.isActive ? "" : "opacity-55"}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white">
-                          <MapPin size={18} />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate font-bold text-gray-900">{l.name}</p>
-                          <p className="truncate text-xs text-gray-500">{l.address || `${l.latitude.toFixed(5)}, ${l.longitude.toFixed(5)}`}</p>
-                        </div>
+                  <button key={l.id} type="button" onClick={() => { if (!on) leave(() => { setCreating(false); setSelectedId(l.id); }); }}
+                    className={`flex w-full items-center gap-2.5 border-b border-gray-100 px-3 py-2.5 text-left last:border-b-0 ${on ? "bg-brand/10" : "hover:bg-gray-50"} ${l.isActive ? "" : "opacity-55"}`}>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-rose-400 text-white"><MapPin size={14} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}>{l.name}</span>
+                      <span className="block text-[11px] text-gray-400"><T>Radius</T> {l.radius} m{!l.isActive && <> · <T>Nonaktif</T></>}</span>
+                    </span>
+                    <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+                  </button>
+                );
+              })}
+              {locations.length === 0 && <p className="px-4 py-8 text-center text-sm text-gray-400"><T>Belum ada lokasi absen.</T></p>}
+            </nav>
+
+            {creating && canEdit && (
+              <div className="relative h-fit min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                <span className="absolute inset-y-0 left-0 w-1.5 bg-ink" />
+                <div className="p-4 pl-5">
+                  <p className="mb-4 font-bold text-gray-900"><T>Tambah Lokasi Absen</T></p>
+                  <LocationForm key="new" location="new" others={locations} employees={employees} shifts={shifts} patterns={patterns}
+                    onDirty={setDirty} onClose={() => { setDirty(false); setCreating(false); }} />
+                </div>
+              </div>
+            )}
+            {!creating && selected && (() => {
+              const l = selected;
+              const emp = names(l.employeeIds, employees);
+              const sh = names(l.shiftIds, shifts);
+              const pa = names(l.patternIds, patterns);
+              const scopeText = [
+                emp.length ? `${emp.length} ${t("karyawan")}` : null,
+                sh.length ? `${t("Shift")}: ${sh.join(", ")}` : null,
+                pa.length ? `${t("Pola")}: ${pa.join(", ")}` : null,
+              ].filter(Boolean).join(" · ");
+              return (
+                <div className="relative h-fit min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                  <span className="absolute inset-y-0 left-0 w-1.5 bg-brand" />
+                  <div className="p-4 pl-5">
+                    <div className={`flex items-start gap-3 ${l.isActive ? "" : "opacity-55"}`}>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><MapPin size={18} /></span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-gray-900">{l.name}</p>
+                        <p className="text-xs text-gray-500">{l.address || `${l.latitude.toFixed(5)}, ${l.longitude.toFixed(5)}`}</p>
                       </div>
-                      {canEdit && (
-                      <div className="flex shrink-0">
-                        <button type="button" onClick={() => setEditing(l)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand">
-                          <Pencil size={14} />
-                        </button>
-                        <button type="button" disabled={pending} aria-label={t("Hapus")}
-                          onClick={async () => { if (await askConfirm(t("Hapus lokasi ini?"))) start(async () => { const r = await deleteLocation(l.id); if (r.error) toast(r.error, "error"); else if (r.proposed) showNotice(proposedText(r.proposed)); }); }}
-                          className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      )}
+                      {canEdit && <button type="button" onClick={() => remove(l)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       <span className="rounded-full bg-rose-50 px-2.5 py-0.5 font-semibold text-rose-700"><T>Radius</T> {l.radius} m</span>
                       {!l.isActive && <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600"><T>Nonaktif</T></span>}
                       <a href={googleMapsLink(l.latitude, l.longitude)} target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 font-semibold text-sky-700 hover:bg-sky-100">
+                        className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 font-semibold text-gray-700 hover:bg-gray-200">
                         <ExternalLink size={11} /> <T>Buka di Google Maps</T>
                       </a>
                     </div>
                     <p className="mt-2 text-xs text-gray-500">{scopeText || t("Belum ditempel ke karyawan, shift, atau pola kerja.")}</p>
+                    {/* Peta lokasi terpilih; disembunyikan saat formulir dibuka (formulir punya peta sendiri). */}
+                    {!showForm && (
+                      <div className="mt-3">
+                        <LocationMap key={`${l.id}:${l.latitude}:${l.longitude}:${l.radius}`} point={null} height={260}
+                          others={[{ latitude: l.latitude, longitude: l.longitude, radius: l.radius, name: l.name }]} />
+                      </div>
+                    )}
+                    {canEdit && (
+                      <>
+                        {/* Garis pembatas sekaligus tombol buka / sembunyikan formulir ubah. */}
+                        <button type="button" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}
+                          className="group mt-4 flex w-full items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-brand">
+                          <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                          <T>{showForm ? "Sembunyikan pengaturan" : "Tampilkan pengaturan"}</T>
+                          <ChevronDown size={14} className={`transition-transform ${showForm ? "rotate-180" : ""}`} />
+                          <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                        </button>
+                        {showForm && (
+                          <div className="pt-4">
+                            <LocationForm key={`${l.id}:${JSON.stringify(l)}`} location={l} others={locations} employees={employees} shifts={shifts} patterns={patterns}
+                              onDirty={setDirty} onClose={() => {}} />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          </>
+                </div>
+              );
+            })()}
+          </div>
         )}
       </div>
-
-      {editing && (
-        <LocationDialog location={editing} others={locations} employees={employees} shifts={shifts} patterns={patterns}
-          onClose={() => setEditing(null)} />
-      )}
     </section>
   );
 }

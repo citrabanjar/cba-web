@@ -1,10 +1,10 @@
 "use client";
 
 import { proposedText } from "@/lib/approval-text";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CalendarClock, CalendarOff, CalendarRange, Clock, Coffee, GripVertical, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
+  CalendarClock, CalendarOff, CalendarRange, ChevronDown, ChevronRight, Clock, Coffee, GripVertical, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,30 +139,40 @@ const EMPTY_SHIFT: ShiftInput = {
   overtimeRounding: 30, isActive: true,
 };
 
-function ShiftDialog({ shift, onClose }: { shift: Shift | "new"; onClose: () => void }) {
+// Formulir shift di panel kanan (bukan dialog), seperti Jenis Cuti & Komponen Payroll.
+function ShiftForm({ shift, onClose, onDirty }: { shift: Shift | "new"; onClose: () => void; onDirty: (d: boolean) => void }) {
   const t = useT();
-  const [form, setForm] = useState<ShiftInput>(() =>
-    shift === "new" ? EMPTY_SHIFT : { ...shift, startTime: shift.startTime ?? "", endTime: shift.endTime ?? "" });
-  const [error, setError] = useState<string | null>(null);
+  const initial = useMemo<ShiftInput>(() =>
+    shift === "new" ? EMPTY_SHIFT : { ...shift, startTime: shift.startTime ?? "", endTime: shift.endTime ?? "" }, [shift]);
+  const [form, setForm] = useState<ShiftInput>(initial);
   const [pending, start] = useTransition();
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
   const set = <K extends keyof ShiftInput>(k: K, v: ShiftInput[K]) => setForm((f) => ({ ...f, [k]: v }));
   const overnight = !form.isOff && form.startTime && form.endTime && toMin(form.endTime) <= toMin(form.startTime);
 
   function save() {
-    setError(null);
     start(async () => {
       const r = await saveShift(shift === "new" ? null : shift.id, form);
-      if (r.error) setError(r.error);
-      else { if (r.proposed) showNotice(proposedText(r.proposed)); onClose(); }
+      if (r.error) { void showNotice(t(r.error), "error"); return; }
+      onDirty(false);
+      void showNotice(r.proposed ? proposedText(r.proposed) : t("Shift tersimpan."));
+      if (shift === "new") onClose();
     });
+  }
+  function cancel() {
+    if (shift === "new") { onDirty(false); onClose(); return; }
+    setForm(initial);
   }
 
   return (
-    <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle><T>{shift === "new" ? "Tambah Shift" : "Ubah Shift"}</T></DialogTitle>
-        </DialogHeader>
+    <div>
+      <div className="mb-4 flex justify-end gap-2">
+        <Button variant="outline" disabled={pending || (shift !== "new" && !dirty)} onClick={cancel}><T>Batal</T></Button>
+        <Button onClick={save} disabled={pending || (shift !== "new" && !dirty)} className="gap-1.5">
+          {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T>
+        </Button>
+      </div>
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
             <div className="space-y-1.5">
@@ -247,27 +257,21 @@ function ShiftDialog({ shift, onClose }: { shift: Shift | "new"; onClose: () => 
                   dipindah ke Setup Lembur. Nilainya tetap tersimpan di database. */}
             </>
           )}
-          <ErrorText text={error} />
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}><T>Batal</T></Button>
-          <Button onClick={save} disabled={pending} className="gap-1.5">
-            {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T>
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 
 function ShiftTab({ shifts }: { shifts: Shift[] }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: tanpa tambah/ubah/hapus/geser urutan
-  const [editing, setEditing] = useState<Shift | "new" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false); // formulir shift baru di panel kanan
+  const [dirty, setDirty] = useState(false); // ada isian yang belum disimpan
+  const [showForm, setShowForm] = useState(false); // formulir ubah: dibuka / disembunyikan
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  // Urutan kartu di layar. Ikut data server kalau daftar shift berubah (tambah/hapus).
+  // Urutan daftar di layar. Ikut data server kalau daftar shift berubah (tambah/hapus).
   const serverKey = shifts.map((s) => s.id).join(",");
   const [order, setOrder] = useState(() => shifts.map((s) => s.id));
   const [syncedKey, setSyncedKey] = useState(serverKey);
@@ -275,8 +279,15 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const byId = new Map(shifts.map((s) => [s.id, s]));
   const ordered = order.map((id) => byId.get(id)).filter((s): s is Shift => !!s);
+  const selected = ordered.find((s) => s.id === selectedId) ?? ordered[0];
 
-  // Saat diseret melewati kartu lain, kartu yang diseret langsung pindah ke posisi itu.
+  async function leave(go: () => void) {
+    if (dirty && !(await askConfirm(t("Perubahan belum disimpan. Tinggalkan tanpa menyimpan?")))) return;
+    setDirty(false);
+    go();
+  }
+
+  // Saat diseret melewati baris lain, baris yang diseret langsung pindah ke posisi itu.
   function moveOver(targetId: string) {
     if (!dragId || dragId === targetId) return;
     setOrder((prev) => {
@@ -289,89 +300,120 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
     if (!dragId) return;
     setDragId(null);
     if (order.join(",") === serverKey) return;
-    setError(null);
     start(async () => {
       const r = await reorderShifts(order);
-      if (r.error) { setError(r.error); setOrder(shifts.map((s) => s.id)); }
+      if (r.error) { void showNotice(t(r.error), "error"); setOrder(shifts.map((s) => s.id)); }
     });
   }
 
   async function remove(s: Shift) {
     if (!await askConfirm(t("Hapus shift ini?"))) return;
-    setError(null);
     start(async () => {
       const r = await deleteShift(s.id);
-      if (r.error) setError(r.error);
-      else if (r.proposed) showNotice(proposedText(r.proposed));
+      if (r.error) void showNotice(t(r.error), "error");
+      else if (r.proposed) void showNotice(proposedText(r.proposed));
     });
   }
 
   return (
-    <SectionCard icon={Clock} title="Master Shift" desc="Jam kerja, istirahat, toleransi, dan aturan lembur per shift."
-      action={canEdit && <PillButton onClick={() => setEditing("new")}><Plus size={14} /> <T>Tambah Shift</T></PillButton>}>
-      <ErrorText text={error} />
-      {canEdit && (
-        <p className="mb-3 flex items-center gap-1.5 text-[11px] text-gray-400">
-          <GripVertical size={13} /> <T>Tahan dan geser kartu untuk mengatur urutan. Urutan ini dipakai di semua daftar shift.</T>
-          {pending && <Loader2 size={12} className="animate-spin" />}
-        </p>
-      )}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {ordered.map((s) => (
-          <div key={s.id} draggable={canEdit}
-            onDragStart={canEdit ? (e) => { setDragId(s.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.id); } : undefined}
-            onDragOver={canEdit ? (e) => { e.preventDefault(); moveOver(s.id); } : undefined}
-            onDrop={canEdit ? (e) => { e.preventDefault(); finishDrag(); } : undefined}
-            onDragEnd={canEdit ? finishDrag : undefined}
-            className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition-shadow ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${s.isActive ? "" : "opacity-55"} ${dragId === s.id ? "opacity-40 ring-2 ring-brand/40" : "hover:shadow-md"}`}>
-            <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: s.color }} />
-            <div className="p-4 pl-5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-xs font-bold text-white" style={{ background: s.color }}>
-                    {s.code}
+    <SectionCard icon={Clock} title="Master Shift" desc="Jam kerja, istirahat, dan toleransi per shift."
+      action={canEdit && <PillButton onClick={() => leave(() => { setCreating(true); setShowForm(true); })}><Plus size={14} /> <T>Tambah Shift</T></PillButton>}>
+      {/* Daftar shift di kiri (bisa digeser untuk urutan), rincian shift terpilih di kanan. */}
+      <div className="grid gap-4 md:grid-cols-[18rem_1fr]">
+        <div className="h-fit">
+          <nav className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            {ordered.map((s) => {
+              const on = !creating && s.id === selected?.id;
+              return (
+                <button key={s.id} type="button" draggable={canEdit}
+                  onClick={() => { if (!on) leave(() => { setCreating(false); setSelectedId(s.id); }); }}
+                  onDragStart={canEdit ? (e) => { setDragId(s.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", s.id); } : undefined}
+                  onDragOver={canEdit ? (e) => { e.preventDefault(); moveOver(s.id); } : undefined}
+                  onDrop={canEdit ? (e) => { e.preventDefault(); finishDrag(); } : undefined}
+                  onDragEnd={canEdit ? finishDrag : undefined}
+                  className={`flex w-full items-center gap-2.5 border-b border-gray-100 px-3 py-2.5 text-left last:border-b-0 ${on ? "bg-brand/10" : "hover:bg-gray-50"} ${s.isActive ? "" : "opacity-55"} ${dragId === s.id ? "opacity-40" : ""}`}>
+                  {canEdit && <GripVertical size={14} className="shrink-0 cursor-grab text-gray-300" />}
+                  <span className="flex h-7 min-w-9 items-center justify-center rounded-lg px-1.5 text-[10px] font-bold text-white" style={{ background: s.color }}>{s.code}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}>{s.name}</span>
+                    <span className="block text-[11px] text-gray-400">{s.isOff ? <T>Hari libur</T> : `${s.startTime} – ${s.endTime}`}</span>
                   </span>
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-gray-900">{s.name}</p>
+                  <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+                </button>
+              );
+            })}
+            {ordered.length === 0 && <p className="px-4 py-8 text-center text-sm text-gray-400"><T>Belum ada shift.</T></p>}
+          </nav>
+          {canEdit && ordered.length > 1 && (
+            <p className="mt-2 flex items-center gap-1.5 px-1 text-[11px] text-gray-400">
+              <GripVertical size={13} /> <T>Tahan dan geser untuk mengatur urutan. Urutan ini dipakai di semua daftar shift.</T>
+              {pending && <Loader2 size={12} className="animate-spin" />}
+            </p>
+          )}
+        </div>
+
+        {creating && canEdit && (
+          <div className="relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <span className="absolute inset-y-0 left-0 w-1.5 bg-ink" />
+            <div className="p-4 pl-5">
+              <p className="mb-4 font-bold text-gray-900"><T>Tambah Shift</T></p>
+              <ShiftForm key="new" shift="new" onDirty={setDirty} onClose={() => { setDirty(false); setCreating(false); }} />
+            </div>
+          </div>
+        )}
+        {!creating && selected && (() => {
+          const s = selected;
+          return (
+            <div className="relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: s.color }} />
+              <div className="p-4 pl-5">
+                <div className={`flex items-start gap-3 ${s.isActive ? "" : "opacity-55"}`}>
+                  <span className="flex h-9 min-w-12 items-center justify-center rounded-xl px-2 text-[11px] font-bold text-white" style={{ background: s.color }}>{s.code}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-900">{s.name}</p>
                     <p className="text-xs text-gray-500">
                       {s.isOff ? <T>Hari libur</T> : `${s.startTime} – ${s.endTime}`}
                       {!s.isActive && <> · <T>Nonaktif</T></>}
                     </p>
                   </div>
+                  {canEdit && <button type="button" onClick={() => remove(s)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
                 </div>
+                {!s.isOff && (
+                  <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                    {[
+                      ["Efektif", fmtDur(effective(s))],
+                      ["Istirahat", s.breaks.length ? s.breaks.map((b) => `${b.start}–${b.end}`).join(", ") : "—"],
+                      ["Toleransi telat", `${s.lateTolerance} mnt`],
+                      ["Pulang cepat", `${s.earlyLeaveTolerance} mnt`],
+                    ].map(([k, v]) => (
+                      <div key={k} className="rounded-lg bg-gray-50 px-2.5 py-1.5">
+                        <dt className="text-[10px] uppercase tracking-wide text-gray-400"><T>{k}</T></dt>
+                        <dd className="font-semibold text-gray-800">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                <p className="mt-3 text-[11px] text-gray-400">{s.used} <T>hari dipakai di pola kerja</T></p>
                 {canEdit && (
-                <div className="flex shrink-0">
-                  <button type="button" onClick={() => setEditing(s)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand">
-                    <Pencil size={14} />
-                  </button>
-                  <button type="button" onClick={() => remove(s)} disabled={pending} aria-label={t("Hapus")}
-                    className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+                  <>
+                    {/* Garis pembatas sekaligus tombol buka / sembunyikan formulir ubah. */}
+                    <button type="button" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}
+                      className="group mt-4 flex w-full items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-brand">
+                      <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                      <T>{showForm ? "Sembunyikan pengaturan" : "Tampilkan pengaturan"}</T>
+                      <ChevronDown size={14} className={`transition-transform ${showForm ? "rotate-180" : ""}`} />
+                      <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                    </button>
+                    <div className={showForm ? "pt-4" : "hidden"}>
+                      <ShiftForm key={`${s.id}:${JSON.stringify(s)}`} shift={s} onDirty={setDirty} onClose={() => {}} />
+                    </div>
+                  </>
                 )}
               </div>
-              {!s.isOff && (
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  {[
-                    ["Efektif", fmtDur(effective(s))],
-                    ["Istirahat", s.breaks.length ? s.breaks.map((b) => `${b.start}–${b.end}`).join(", ") : "—"],
-                    ["Toleransi telat", `${s.lateTolerance} mnt`],
-                    ["Pulang cepat", `${s.earlyLeaveTolerance} mnt`],
-                  ].map(([k, v]) => (
-                    <div key={k} className="rounded-lg bg-gray-50 px-2.5 py-1.5">
-                      <dt className="text-[10px] uppercase tracking-wide text-gray-400"><T>{k}</T></dt>
-                      <dd className="font-semibold text-gray-800">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              <p className="mt-3 text-[11px] text-gray-400">{s.used} <T>hari dipakai di pola kerja</T></p>
             </div>
-          </div>
-        ))}
+          );
+        })()}
       </div>
-      {editing && <ShiftDialog shift={editing} onClose={() => setEditing(null)} />}
     </SectionCard>
   );
 }
