@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import {
   addMonths, countLeaveDays, eligible, hasBalance, legacyType, todayDate, visibleBalances,
 } from "@/lib/leave-balance";
-import { hasApprover } from "@/lib/approval";
+import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
 import { formatDate } from "@/lib/utils";
 
@@ -128,7 +128,7 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
 
   revalidatePath("/portal/cuti");
   revalidatePath("/portal/admin/leave");
-  return { ok: true, days: fmt(totalDays), unpaid: unpaidDays > 0 ? fmt(unpaidDays) : null };
+  return { ok: true, days: fmt(totalDays), unpaid: unpaidDays > 0 ? fmt(unpaidDays) : null, approver: await firstApproverName(flow, userId) };
 }
 
 export async function cancelLeave(id: string) {

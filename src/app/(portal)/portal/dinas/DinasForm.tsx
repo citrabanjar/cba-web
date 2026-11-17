@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Briefcase, Loader2, CheckCircle2, AlertTriangle, X, MapPin } from "lucide-react";
+import { showNotice } from "@/components/portal/Confirm";
+import { Briefcase, Loader2, CheckCircle2, X, MapPin } from "lucide-react";
 import { submitBusinessTrip, cancelBusinessTrip } from "./actions";
 import type { BusinessTrip } from "@prisma/client";
 import { T, useT } from "@/components/i18n";
@@ -21,8 +22,17 @@ interface Props {
 
 export default function DinasForm({ trips }: Props) {
   const t = useT();
-  const [state, formAction, isPending] = useActionState(submitBusinessTrip, undefined);
   const [showForm, setShowForm] = useState(false);
+  const [, formAction, isPending] = useActionState(async (prev: unknown, fd: FormData) => {
+    // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal), bukan kotak tetap.
+    const r = await submitBusinessTrip(prev, fd);
+    if ("error" in r && r.error) void showNotice(t(r.error), "error");
+    else if ("days" in r) {
+      void showNotice(`${t("Dinas luar")} ${r.days} ${t("hari diajukan ke")} ${r.approver} ${t("untuk approval.")}`);
+      setShowForm(false);
+    }
+    return r;
+  }, undefined);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const handleCancel = async (id: string) => {
@@ -45,19 +55,6 @@ export default function DinasForm({ trips }: Props) {
       {showForm && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
           <h2 className="font-semibold text-gray-700"><T>Pengajuan Dinas Luar</T></h2>
-
-          {state && "ok" in state && (
-            <div className="bg-green-50 text-green-700 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
-              <CheckCircle2 size={16} />
-              <T>Dinas luar</T> {state.days} <T>hari berhasil diajukan. Menunggu persetujuan.</T>
-            </div>
-          )}
-          {state && "error" in state && (
-            <div className="bg-red-50 text-red-700 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
-              <AlertTriangle size={16} />
-              <T>{state.error}</T>
-            </div>
-          )}
 
           <form action={formAction} className="space-y-4">
             <div>

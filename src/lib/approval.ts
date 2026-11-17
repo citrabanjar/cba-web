@@ -41,6 +41,13 @@ export async function hasApprover(userId: string) {
   return !!(u?.managerId && u.managerId !== userId && u.manager?.isActive);
 }
 
+// Nama penyetuju pertama untuk pemberitahuan "diajukan ke … untuk approval": level Workflow pertama, atau atasan langsung.
+export async function firstApproverName(flow: { steps: { name: string }[] } | null, userId: string) {
+  if (flow?.steps.length) return flow.steps[0].name;
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { manager: { select: { name: true } } } });
+  return u?.manager?.name ?? "atasan langsung";
+}
+
 export async function canDecide(a: Approver, requesterId: string) {
   if (requesterId === a.id) return false;
   const u = await prisma.user.findUnique({ where: { id: requesterId }, select: { managerId: true } });

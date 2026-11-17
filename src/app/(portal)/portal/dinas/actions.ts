@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { OT_ACTIVE } from "@/lib/overtime";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { hasApprover } from "@/lib/approval";
+import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
 import { formatDate } from "@/lib/utils";
 
@@ -86,7 +86,7 @@ export async function submitBusinessTrip(_prevState: unknown, formData: FormData
   });
 
   revalidatePath("/portal/dinas");
-  return { ok: true, days: totalDays };
+  return { ok: true, days: totalDays, approver: await firstApproverName(flow, session.user.id) };
 }
 
 export async function cancelBusinessTrip(id: string) {

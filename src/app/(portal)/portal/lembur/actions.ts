@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { hasApprover } from "@/lib/approval";
+import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
 import { dinasOn, isTime, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { formatDate } from "@/lib/utils";
 
-type Result = { error?: string };
+type Result = { error?: string; approver?: string };
 
 async function me() {
   const session = await auth();
@@ -63,7 +63,7 @@ export async function submitOvertime(input: { date: string; startTime: string; e
     data: { userId: u.id, ...row, reason: input.reason.trim(), status: "PENDING", createdBy: u.name, ...(flow ? { approval: flow } : {}) },
   });
   refresh();
-  return {};
+  return { approver: await firstApproverName(flow, u.id) };
 }
 
 export async function cancelOvertime(id: string): Promise<Result> {

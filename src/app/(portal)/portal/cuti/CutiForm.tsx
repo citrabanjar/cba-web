@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CalendarDays, Loader2, CheckCircle2, AlertTriangle, X } from "lucide-react";
+import { showNotice } from "@/components/portal/Confirm";
+import { CalendarDays, Loader2, CheckCircle2, X } from "lucide-react";
 import { submitLeave, cancelLeave } from "./actions";
 import type { LeaveRequest } from "@prisma/client";
 import { T, useT } from "@/components/i18n";
@@ -34,9 +35,18 @@ type Request = LeaveRequest & { policy: { code: string; name: string } | null };
 
 export default function CutiForm({ requests, options, balances }: { requests: Request[]; options: LeaveOption[]; balances: BalanceRow[] }) {
   const t = useT();
-  const [state, formAction, isPending] = useActionState(submitLeave, undefined);
   const [showForm, setShowForm] = useState(false);
   const [policyId, setPolicyId] = useState("");
+  const [, formAction, isPending] = useActionState(async (prev: unknown, fd: FormData) => {
+    // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal), bukan kotak tetap.
+    const r = await submitLeave(prev, fd);
+    if ("error" in r && r.error) void showNotice(t(r.error), "error");
+    else if ("days" in r) {
+      void showNotice(`${t("Pengajuan cuti")} ${r.days} ${t("hari diajukan ke")} ${r.approver} ${t("untuk approval.")}` + (r.unpaid ? ` ${r.unpaid} ${t("hari melebihi saldo dan masuk cuti di luar tanggungan.")}` : ""));
+      setShowForm(false); setPolicyId("");
+    }
+    return r;
+  }, undefined);
   const [dayPart, setDayPart] = useState("PENUH");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const chosen = options.find((o) => o.id === policyId);
@@ -73,20 +83,6 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
       {showForm && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
           <h2 className="font-semibold text-gray-700"><T>Pengajuan Cuti</T></h2>
-
-          {state && "ok" in state && (
-            <div className="bg-green-50 text-green-700 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
-              <CheckCircle2 size={16} />
-              <span><T>Pengajuan cuti</T> {state.days} <T>hari berhasil disubmit. Menunggu persetujuan HRD.</T>
-                {state.unpaid && <> <b>{state.unpaid} <T>hari</T></b> <T>melebihi saldo dan masuk cuti di luar tanggungan.</T></>}</span>
-            </div>
-          )}
-          {state && "error" in state && (
-            <div className="bg-red-50 text-red-700 rounded-xl px-4 py-3 flex items-center gap-2 text-sm">
-              <AlertTriangle size={16} className="shrink-0" />
-              <T>{state.error}</T>
-            </div>
-          )}
 
           <form action={formAction} className="space-y-4">
             <div>

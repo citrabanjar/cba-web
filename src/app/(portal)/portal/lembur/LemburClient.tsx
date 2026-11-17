@@ -1,5 +1,6 @@
 "use client";
 
+import { showNotice } from "@/components/portal/Confirm";
 import { useState, useTransition } from "react";
 import { Check, Clock, Loader2, Plus, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
@@ -133,13 +134,12 @@ function RequestForm() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ date: "", startTime: "16:00", endTime: "18:00", reason: "" });
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
+  // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal).
   const submit = () => start(async () => {
-    setMsg(null);
     const r = await submitOvertime(f);
-    if (r.error) setMsg({ ok: false, text: r.error });
-    else { setMsg({ ok: true, text: "Pengajuan lembur terkirim. Menunggu persetujuan atasan." }); setF({ ...f, date: "", reason: "" }); }
+    if (r.error) void showNotice(t(r.error), "error");
+    else { void showNotice(`${t("Pengajuan lembur diajukan ke")} ${r.approver ?? ""} ${t("untuk approval.")}`); setF({ ...f, date: "", reason: "" }); setOpen(false); }
   });
   if (!open) {
     return (
@@ -164,7 +164,6 @@ function RequestForm() {
         <label className="mb-1 block text-xs font-medium text-gray-500"><T>Keperluan</T></label>
         <textarea rows={3} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder={t("Pekerjaan yang dikerjakan saat lembur...")} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
       </div>
-      {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}><T>{msg.text}</T></p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={() => setOpen(false)} className="rounded-full px-4 py-2 text-sm text-gray-500 hover:bg-gray-100"><T>Tutup</T></button>
         <button type="button" disabled={pending} onClick={submit} className="inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
