@@ -23,6 +23,7 @@ export type Tone = "blue" | "emerald" | "amber" | "violet" | "rose";
 export type Indicator = {
   key: string; title: string; value: string | number; note: string; noteValue?: string | number;
   icon: IndicatorIcon; tone: Tone; href?: string; pinned?: boolean; actionable?: boolean;
+  steps?: { label: string; value: number }[]; // rincian per tahap (mis. Proses Pinjaman), tampil menggantikan baris keterangan
 };
 
 // Satu baris di kartu Tugas. Selesai kalau count = 0.
@@ -121,7 +122,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const today = todayDate();
   const todayKey = keyOf(today);
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
-  const [hidden, leaveRunning, onLeave, checkIns, onTrip, adminEdits, profileEdits] = await Promise.all([
+  const [hidden, leaveRunning, onLeave, checkIns, onTrip, adminEdits, profileEdits, loanPending, loanDone] = await Promise.all([
     getHiddenIndicators(),
     // Pengajuan cuti yang sedang berjalan: sejak diajukan karyawan sampai diputus (disetujui / ditolak / dibatalkan).
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
@@ -143,7 +144,11 @@ export async function loadIndicators(): Promise<Indicator[]> {
     // Perubahan data yang belum diputus: pengajuan Admin (wajib approval) dan pengajuan karyawan dari Profil Saya.
     prisma.employeeEditRequest.count({ where: { status: "PENDING" } }),
     prisma.profileChangeRequest.count({ where: { status: "PENDING" } }),
+    // Proses pinjaman: pengajuan yang berjalan per tahap, dan yang selesai diputus 24 jam terakhir.
+    prisma.employeeLoan.findMany({ where: { status: "PENDING" }, select: { stage: true } }),
+    prisma.employeeLoan.count({ where: { isOpening: false, approvedAt: { gte: new Date(Date.now() - 86_400_000) }, status: { not: "PENDING" } } }),
   ]);
+  const loanStage = (st: string) => loanPending.filter((l) => (l.stage || "ADMIN") === st).length;
   // Terlambat / tepat waktu dinilai dari jam masuk shift hari itu + toleransi terlambat shift.
   const cal = checkIns.length ? await getShiftCalendars(checkIns.map((a) => a.userId), today, today) : {};
   const late: string[] = [], onTime: string[] = [];
@@ -178,12 +183,22 @@ export async function loadIndicators(): Promise<Indicator[]> {
       icon: "leave", tone: "violet", href: "/portal/persetujuan", actionable: true,
     },
     {
+      key: "proses-pinjaman", title: "Proses Pinjaman", value: loanPending.length, note: "pengajuan berjalan",
+      steps: [
+        { label: "Atasan", value: loanStage("ATASAN") }, { label: "Admin", value: loanStage("ADMIN") },
+        { label: "Pimpinan", value: loanStage("PIMPINAN") }, { label: "Selesai", value: loanDone },
+      ],
+      icon: "loan", tone: "amber", href: "/portal/admin/pinjaman", actionable: true,
+    },
+    {
       key: "perubahan-data", title: "Perubahan Data Belum Disetujui", value: adminEdits + profileEdits,
       noteValue: `${adminEdits} Admin · ${profileEdits}`, note: "karyawan · menunggu persetujuan",
       icon: "users", tone: "amber", href: "/portal/notifikasi", actionable: true,
     },
   ];
-  return indicators.filter((i) => !hidden.includes(i.key) && !(i.actionable && i.value === 0));
+  // Indikator pekerjaan hilang saat beres; yang punya rincian tahap hilang saat semua tahapnya 0.
+  const done = (i: Indicator) => (i.steps ? i.steps.every((x) => x.value === 0) : i.value === 0);
+  return indicators.filter((i) => !hidden.includes(i.key) && !(i.actionable && done(i)));
 }
 
 // Tugas kelengkapan data karyawan aktif: siapa saja yang datanya belum diperbarui.

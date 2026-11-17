@@ -34,10 +34,22 @@ function Card({ item }: { item: Indicator }) {
           <Icon size={20} />
         </span>
       </div>
-      <p className="relative mt-1.5 truncate text-[11px] text-gray-400">
-        {item.noteValue !== undefined && <span className="font-semibold text-gray-600">{item.noteValue} </span>}
-        <T>{item.note}</T>
-      </p>
+      {item.steps ? (
+        // Rincian per tahap (mis. Proses Pinjaman): angka kecil berderet.
+        <div className="relative mt-1.5 grid grid-cols-4 gap-1">
+          {item.steps.map((x) => (
+            <span key={x.label} className="rounded-lg bg-gray-50 px-1 py-0.5 text-center">
+              <span className="block text-sm font-bold tabular-nums text-gray-800">{x.value}</span>
+              <span className="block truncate text-[10px] text-gray-400"><T>{x.label}</T></span>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="relative mt-1.5 truncate text-[11px] text-gray-400">
+          {item.noteValue !== undefined && <span className="font-semibold text-gray-600">{item.noteValue} </span>}
+          <T>{item.note}</T>
+        </p>
+      )}
       <span aria-hidden className={`absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r ${tone.bar}`} />
     </>
   );
