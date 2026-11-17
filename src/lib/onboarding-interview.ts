@@ -210,4 +210,4 @@ export const approvalFrom = (approvers: ApproverRef[]): InterviewApproval => ({
 // Status calon yang sedang berjalan workflow approval (wawancara atau data calon).
 export const APPROVAL_STATUSES = ["APPROVAL_WAWANCARA", "MENUNGGU_APPROVAL"];
 
-export const rupiah = (v: string | number) => `Rp${Math.round(Number(v) || 0).toLocaleString("id-ID")}`;
+export const rupiah = (v: string | number) => `Rp ${Math.round(Number(v) || 0).toLocaleString("id-ID")}`;

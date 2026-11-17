@@ -20,7 +20,7 @@ export type AiRunView = {
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
 const when = (d: string) => new Date(d).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
-const rupiah = (usd: number) => `± Rp${Math.round(usd * USD_TO_IDR).toLocaleString("id-ID")}`;
+const rupiah = (usd: number) => `± Rp ${Math.round(usd * USD_TO_IDR).toLocaleString("id-ID")}`;
 const RUN_TONE: Record<string, string> = { MENUNGGU: "bg-amber-100 text-amber-700", SELESAI: "bg-emerald-100 text-emerald-700", GAGAL: "bg-rose-100 text-rose-700" };
 const RUN_LABEL: Record<string, string> = { MENUNGGU: "Diproses AI", SELESAI: "Selesai", GAGAL: "Gagal" };
 

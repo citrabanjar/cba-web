@@ -24,7 +24,7 @@ export type AdminOvertime = {
 export type EmployeePick = { id: string; name: string; employeeId: string | null; department: string | null };
 
 const num = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
-const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const shiftMonth = (m: string, d: number) => { const [y, mm] = m.split("-").map(Number); const x = new Date(Date.UTC(y, mm - 1 + d, 1)); return x.toISOString().slice(0, 7); };
 const field = "h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40";
@@ -208,7 +208,7 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
   const t = useT();
   const router = useRouter();
   const [date, setDate] = useState("");
-  const [def, setDef] = useState({ startTime: "17:00", endTime: "20:00", reason: "" });
+  const [sameTime, setSameTime] = useState(false); // centang di baris pertama: jam semua baris ikut baris pertama
   const [lines, setLines] = useState<Line[]>([]);
   const [pick, setPick] = useState("");
   const [dept, setDept] = useState("");
@@ -220,12 +220,22 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
   const taken = new Set(lines.map((l) => l.userId));
   const options = employees.filter((e) => e.employeeId && !taken.has(e.id)).map((e) => ({ value: e.employeeId!, label: e.name }));
 
-  const add = (ids: string[]) => setLines((ls) => [...ls, ...ids.filter((id) => !ls.some((l) => l.userId === id)).map((id) => ({ key: ++seq, userId: id, ...def }))]);
+  // Karyawan baru memakai jam baris pertama (atau 17:00–20:00 bila tabel masih kosong).
+  const add = (ids: string[]) => setLines((ls) => {
+    const base = ls[0] ? { startTime: ls[0].startTime, endTime: ls[0].endTime } : { startTime: "17:00", endTime: "20:00" };
+    return [...ls, ...ids.filter((id) => !ls.some((l) => l.userId === id)).map((id) => ({ key: ++seq, userId: id, ...base, reason: "" }))];
+  });
   const onPick = (v: string) => {
     const e = employees.find((x) => x.employeeId && x.employeeId.toLowerCase() === v.trim().toLowerCase());
     if (e && !taken.has(e.id)) { add([e.id]); setPick(""); } else setPick(v);
   };
   const setLine = (key: number, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  // Jam baris pertama; bila "Samakan jam" dicentang, semua baris ikut.
+  const setFirstTime = (patch: Partial<Line>) => setLines((ls) => ls.map((l, i) => (i === 0 || sameTime ? { ...l, ...patch } : l)));
+  const toggleSame = (on: boolean) => {
+    setSameTime(on);
+    if (on) setLines((ls) => ls.map((l) => ({ ...l, startTime: ls[0]?.startTime ?? l.startTime, endTime: ls[0]?.endTime ?? l.endTime })));
+  };
 
   // Pratinjau server (hari kerja/libur, estimasi, masalah) setelah isian berhenti diketik sebentar.
   const sig = JSON.stringify({ date, lines: lines.map(({ userId, startTime, endTime }) => [userId, startTime, endTime]) });
@@ -251,7 +261,7 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
     if (r.rows) setCheck({ rows: r.rows, error: r.error });
     if (r.error) { void showNotice(t(r.error), "error"); return; }
     void showNotice(`${r.number} ${t("terkirim ke")} ${lines.length} ${t("karyawan. Atasan mereka mendapat info.")}`);
-    setLines([]); setCheck(null); setDate("");
+    setLines([]); setCheck(null); setDate(""); setSameTime(false);
     router.refresh();
     onDone();
   });
@@ -267,22 +277,8 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
       </div>
 
       <div className="space-y-4 p-5">
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr]">
-          <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Tanggal lembur</T></label><DateInput value={date} onChange={(e) => setDate(e.target.value)} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam mulai untuk karyawan baru</T></label><input type="time" value={def.startTime} onChange={(e) => setDef({ ...def, startTime: e.target.value })} className={field} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam selesai untuk karyawan baru</T></label><input type="time" value={def.endTime} onChange={(e) => setDef({ ...def, endTime: e.target.value })} className={field} /></div>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500"><T>Uraian pekerjaan untuk karyawan baru</T></label>
-          <div className="flex flex-wrap gap-2">
-            <input value={def.reason} onChange={(e) => setDef({ ...def, reason: e.target.value })} placeholder={t("Mis. menyelesaikan fabrikasi proyek X")} className={`${field} min-w-56 flex-1`} />
-            {lines.length > 0 && (
-              <button type="button" onClick={() => setLines((ls) => ls.map((l) => ({ ...l, ...def })))} className="rounded-xl border border-gray-200 px-3 text-xs font-semibold text-gray-700 hover:bg-gray-50">
-                <T>Terapkan ke semua baris</T>
-              </button>
-            )}
-          </div>
-          <p className="mt-1 text-[11px] text-gray-400"><T>Jam dan uraian di atas otomatis terisi ke karyawan yang ditambahkan; tiap baris di tabel tetap bisa diubah.</T> <T>{OT_BREAK_RULE}</T></p>
+        <div className="max-w-xs">
+          <label className="mb-1 block text-xs font-medium text-gray-500"><T>Tanggal lembur</T></label><DateInput value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
 
         {/* Tambah karyawan: ketik ID / nama, atau tambah satu departemen sekaligus. */}
@@ -324,7 +320,7 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
                   const e = byId.get(l.userId);
                   const x = info(l.userId);
                   const plan = x ? { hours: x.hours, breaks: x.breaks } : otPlan(l.startTime, l.endTime, false);
-                  const time = "h-9 w-32 rounded-lg border border-gray-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40";
+                  const time = "h-9 w-32 rounded-lg border border-gray-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:bg-gray-50 disabled:text-gray-500";
                   return (
                     <Fragment key={l.key}>
                       <tr className={`align-top ${x?.problem ? "bg-rose-50/70" : ""}`}>
@@ -336,14 +332,25 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5">
-                            <input type="time" value={l.startTime} aria-label={t("Jam mulai")} onChange={(ev) => setLine(l.key, { startTime: ev.target.value })} className={time} />
+                            <input type="time" value={l.startTime} aria-label={t("Jam mulai")} disabled={i > 0 && sameTime}
+                              onChange={(ev) => (i === 0 ? setFirstTime({ startTime: ev.target.value }) : setLine(l.key, { startTime: ev.target.value }))} className={time} />
                             <span className="text-gray-400">–</span>
-                            <input type="time" value={l.endTime} aria-label={t("Jam selesai")} onChange={(ev) => setLine(l.key, { endTime: ev.target.value })} className={time} />
+                            <input type="time" value={l.endTime} aria-label={t("Jam selesai")} disabled={i > 0 && sameTime}
+                              onChange={(ev) => (i === 0 ? setFirstTime({ endTime: ev.target.value }) : setLine(l.key, { endTime: ev.target.value }))} className={time} />
+                            {/* Baris pertama: centang untuk menyamakan jam semua karyawan dengan baris ini. */}
+                            {i === 0 && lines.length > 1 && (
+                              <label className="ml-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs font-medium text-gray-700">
+                                <input type="checkbox" checked={sameTime} onChange={(ev) => toggleSame(ev.target.checked)} className="h-4 w-4 accent-[#BE353F]" />
+                                <T>Samakan semua</T>
+                              </label>
+                            )}
                           </div>
                           <p className="mt-1 text-[11px] text-gray-400"><T>istirahat dipotong</T> {plan.breaks.length ? plan.breaks.join(", ") : "—"}</p>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-gray-900">{num(plan.hours)} <T>jam</T></td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-gray-900">{x?.estimate != null ? rupiah(x.estimate) : "—"}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-gray-900">
+                          {x?.estimate != null ? rupiah(x.estimate) : !date ? <span className="text-[11px] font-normal text-gray-400"><T>isi tanggal dulu</T></span> : x?.problem ? "—" : <Loader2 size={13} className="ml-auto animate-spin text-gray-300" />}
+                        </td>
                         <td className="px-3 py-2.5">
                           <input value={l.reason} onChange={(ev) => setLine(l.key, { reason: ev.target.value })} placeholder={t("Uraian pekerjaan (wajib)")}
                             className="h-9 w-full min-w-48 rounded-lg border border-gray-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
@@ -366,6 +373,7 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
           </div>
         )}
 
+        {lines.length > 0 && <p className="-mt-2 text-[11px] text-gray-400"><T>{OT_BREAK_RULE}</T> <T>Estimasi dan hari kerja / libur muncul setelah tanggal diisi.</T></p>}
         {check?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{check.error}</T></p>}
         {(rules.maxPeople || rules.maxEnd) && (
           <p className="text-[11px] text-gray-400">

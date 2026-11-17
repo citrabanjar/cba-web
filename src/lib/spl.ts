@@ -93,7 +93,7 @@ export async function checkSpl(adminId: string, dateStr: string, rows: SplRowInp
   return { error, rows: out, date };
 }
 
-export const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+export const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 
 // ─── Pembatalan lembur SPL (Admin Lembur, atau atasan di atas atasan langsung) ──
 export async function cancelSplOvertime(id: string, by: { id: string; name: string }, reason: string) {

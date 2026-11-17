@@ -15,7 +15,7 @@ import { holdForApproval } from "@/lib/approval-hold";
 const PATH = "/portal/admin/pinjaman";
 // proposed = perubahan ditahan untuk approval (aturan Peran Admin): berisi nama approver.
 type Result = { error?: string; proposed?: string };
-const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+const rp = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 const loanLabel = (l: { seqNo?: number | null; principal: number; user?: { name: string } | null }) =>
   `${l.user?.name ?? ""} · pinjaman${l.seqNo ? ` #${l.seqNo}` : ""} ${rp(l.principal)}`;
 
@@ -104,7 +104,7 @@ export async function saveSchedule(loanId: string, rows: { period: string; amoun
   if (clean.some((r) => !isPeriod(r.period))) return { error: "Periode angsuran tidak valid." };
   const total = clean.reduce((a, r) => a + r.amount, 0);
   if (Math.round(total) !== Math.round(remaining)) {
-    return { error: `Total angsuran (Rp${total.toLocaleString("id-ID")}) harus sama dengan sisa pinjaman (Rp${Math.round(remaining).toLocaleString("id-ID")}).` };
+    return { error: `Total angsuran (Rp ${total.toLocaleString("id-ID")}) harus sama dengan sisa pinjaman (Rp ${Math.round(remaining).toLocaleString("id-ID")}).` };
   }
   const sorted = [...clean].sort((a, b) => a.period.localeCompare(b.period));
   const unpaid = loan.installments.filter((i) => i.status !== "LUNAS").sort((a, b) => a.period.localeCompare(b.period));

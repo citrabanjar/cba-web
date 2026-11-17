@@ -65,7 +65,7 @@ export default function LemburClient({ spl, items, team = null, initialTeam = fa
   );
 }
 
-const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 
 // Lembur Tim: atasan langsung melihat info; atasan di atasnya sampai pimpinan puncak melihat estimasi dan bisa membatalkan.
 function TeamList({ rows }: { rows: TeamOvertime[] }) {

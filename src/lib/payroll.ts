@@ -162,7 +162,7 @@ export const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
   companyName: "PT. Citra Banjar Abadi", companyNpwp: "", signerName: "", signerId: "",
 };
 
-export const rupiah = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+export const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 const num = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
 // Data satu karyawan dalam satu periode yang dipakai rumus.

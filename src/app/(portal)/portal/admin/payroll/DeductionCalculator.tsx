@@ -16,7 +16,7 @@ import type { DayShift } from "@/lib/schedule";
 //   pulang cepat dihitung dari jam pulang dibulatkan ke atas per 30 menit sampai jam pulang shift,
 //   tanpa jam istirahat (lib/attendance-penalty).
 
-const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
+const rp = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 const num = (n: number) => n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 const thisMonth = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7);
 const daysIn = (ym: string) => { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
