@@ -10,7 +10,7 @@ import { decideStep } from "@/lib/workflow-settings";
 import { readApproval } from "@/lib/onboarding-interview";
 import { dateRange, decisionText, notify } from "@/lib/notify";
 import { loanPreStep, loanTopIds, loanTurn, readLoanFlow } from "@/lib/loans";
-import { applyPlan, loanAdmins, planLoan } from "@/lib/loan-flow";
+import { applyPlan, loanReviewers, planLoan } from "@/lib/loan-flow";
 import { formatRupiah } from "@/lib/utils";
 
 // Keputusan per level menu Workflow. Hasil null = bukan jalur workflow (pakai atasan langsung).
@@ -146,8 +146,8 @@ export async function decideLoan(id: string, approve: boolean, note: string): Pr
       return done();
     }
     await prisma.employeeLoan.update({ where: { id }, data: { stage: "ADMIN", flow: next } });
-    await notify(loan.userId, "Pengajuan pinjaman disetujui atasan", `${amount} · Disetujui oleh ${a.name ?? "atasan"}. Siapkan dokumen fisik untuk diperiksa Admin.`, "/portal/pinjaman");
-    await notify(await loanAdmins(), "Pengajuan pinjaman perlu diperiksa",
+    await notify(loan.userId, "Pengajuan pinjaman disetujui atasan", `${amount} · Disetujui oleh ${a.name ?? "atasan"}. Siapkan dokumen fisik untuk diperiksa ${flow.checkName ?? "Admin"}.`, "/portal/pinjaman");
+    await notify(await loanReviewers(flow), "Pengajuan pinjaman perlu diperiksa",
       `${loan.user.name} · ${amount} · ${loan.tenor} kali angsuran. Disetujui ${a.name ?? "atasan"}; periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
     const tops = loanTopIds(flow).filter((x) => x !== a.id);
     if (tops.length) {
@@ -159,7 +159,7 @@ export async function decideLoan(id: string, approve: boolean, note: string): Pr
 
   if (loan.stage === "PIMPINAN") {
     if (!loanTurn(loan.status, loan.stage, flow, a.id)) return { error: "Anda bukan penyetuju pengajuan ini." };
-    const admins = [flow.adminId, ...(await loanAdmins())];
+    const admins = [flow.adminId, ...(await loanReviewers(flow))];
     if (!approve) {
       await prisma.employeeLoan.update({
         where: { id }, data: { status: "DITOLAK", stage: null, note: note.trim(), approvedBy: a.name, approvedAt: new Date(), flow: { ...flow, topAt: now, topNote: note.trim(), topBy: a.name ?? "" } },

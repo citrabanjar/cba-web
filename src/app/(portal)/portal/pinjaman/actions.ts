@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isPeriod } from "@/lib/loans";
 import { nextLoanNo } from "@/lib/loan-view";
-import { activeManager, loanAdmins, planLoan, topLeaderOf } from "@/lib/loan-flow";
+import { activeManager, loanReviewers, planLoan, topLeaderOf } from "@/lib/loan-flow";
 import type { EmployeeLoan } from "@prisma/client";
 import { workflowSteps } from "@/lib/workflow-settings";
 import { loanStepIds, loanTopIds, type LoanFlow } from "@/lib/loans";
@@ -38,16 +38,23 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
     request = p.plan;
     if (mergeIds.length) tenor = p.rows.length;
   }
-  // Menu Workflow modul Pinjaman (bila aktif) menggantikan atasan langsung & pimpinan puncak:
-  // level sebelum terakhir memutus dulu, lalu pemeriksaan Admin, lalu level terakhir memutus.
+  // Menu Workflow modul Pinjaman (bila aktif) menggantikan jalur normal sepenuhnya:
+  // level sebelum Pemeriksa dokumen memutus dulu → level Pemeriksa dokumen memeriksa & menyusun angsuran → level terakhir memutus.
   const wf = await workflowSteps("PINJAMAN", session.user.id);
   if (wf.error) return { error: wf.error };
   let flow: LoanFlow, stage: string;
   if (wf.flow) {
     const steps = wf.flow.steps, last = steps[steps.length - 1];
-    const pre = steps.slice(0, -1).map((x) => ({ id: x.id, ...(x.ids?.length ? { ids: x.ids } : {}), name: x.name, decision: "" as const, at: "", note: "" }));
+    const ci = steps.findIndex((x) => x.check);
+    if (ci === steps.length - 1) return { error: "Pemutus pinjaman pada Workflow tidak bisa memutus pengajuannya sendiri. Hubungi HRD." };
+    const checker = ci >= 0 ? steps[ci] : null;
+    const pre = steps.slice(0, ci >= 0 ? ci : -1).map((x) => ({ id: x.id, ...(x.ids?.length ? { ids: x.ids } : {}), name: x.name, decision: "" as const, at: "", note: "" }));
     const topIds = loanStepIds(last);
-    flow = { workflow: true, ...(request ? { request } : {}), pre, topId: last.id, topIds, topName: last.name, who: [...new Set([...pre.flatMap(loanStepIds), ...topIds])] };
+    const checkIds = checker ? loanStepIds(checker) : [];
+    flow = {
+      workflow: true, ...(request ? { request } : {}), pre, topId: last.id, topIds, topName: last.name,
+      ...(checker ? { checkIds, checkName: checker.name } : {}), who: [...new Set([...pre.flatMap(loanStepIds), ...checkIds, ...topIds])],
+    };
     stage = pre.length ? "ATASAN" : "ADMIN";
   } else {
     const manager = await activeManager(session.user.id);
@@ -68,7 +75,7 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
   // Penyetuju yang mendapat giliran cukup melihat kartu "Menunggu keputusan Anda" (tanpa notifikasi ganda, sama seperti cuti).
   if (stage !== "ATASAN") {
     // Langsung ke pemeriksaan Admin (Workflow satu level / atasan langsung = pimpinan puncak); pimpinan mendapat kabar.
-    await notify(await loanAdmins(), "Pengajuan pinjaman perlu diperiksa", `${what} Periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
+    await notify(await loanReviewers(flow), "Pengajuan pinjaman perlu diperiksa", `${what} Periksa dokumen fisik lalu kirim ke pimpinan.`, "/portal/admin/pinjaman");
     await notify(loanTopIds(flow), "Pengajuan pinjaman dalam pemeriksaan Admin", `${what} Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");
   }
   revalidatePath(PATH);
@@ -76,7 +83,7 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
   revalidatePath("/portal/dashboard");
   revalidatePath("/portal/notifikasi");
   // Nama penyetuju pertama untuk pemberitahuan "diajukan ke … untuk approval".
-  const first = stage === "ATASAN" ? (flow.pre?.[0]?.name ?? flow.managerName ?? "atasan langsung") : "Admin";
+  const first = stage === "ATASAN" ? (flow.pre?.[0]?.name ?? flow.managerName ?? "atasan langsung") : flow.checkName ?? "Admin";
   return { proposed: first };
 }
 

@@ -232,7 +232,7 @@ export function MembersSettings({ roles: initial, people }: { roles: AdminRole[]
           <div key={r.id} className="rounded-2xl border border-gray-200 p-4">
             <p className="font-semibold text-gray-900">{r.name}</p>
             <p className="text-xs text-gray-500">
-              {r.menus.length ? MENUS.flatMap((m) => { const l = menuLevelOf(r.menus, m.key); return l ? [`${m.label} (${l === "propose" ? `Edit, approval Level ${r.approvalLevels}` : LEVEL_LABEL[l]})`] : []; }).join(" · ") : <T>Belum ada kewenangan.</T>}
+              {r.menus.length ? MENUS.flatMap((m) => { const l = menuLevelOf(r.menus, m.key); return l ? [`${m.label} (${l === "propose" ? `Edit, approval Level ${r.approvalLevels}` : LEVEL_LABEL[l]})`] : []; }).join(" · ") : <T>Peran penyetuju Workflow (tanpa menu): anggota tetap berstatus karyawan.</T>}
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {r.members.length === 0 && <span className="text-xs text-gray-400"><T>Belum ada anggota.</T></span>}

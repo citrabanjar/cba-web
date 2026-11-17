@@ -31,6 +31,7 @@ export type LoanStep = { id: string; ids?: string[]; name: string; decision: "" 
 export const loanStepIds = (s: { id: string; ids?: string[] }) => (s.ids?.length ? s.ids : [s.id]);
 export type LoanFlow = {
   workflow?: boolean; pre?: LoanStep[]; topIds?: string[]; who?: string[]; // jalur menu Workflow; who = semua penyetuju (untuk pencarian)
+  checkIds?: string[]; checkName?: string; // Workflow: pemeriksa dokumen (level bertanda Pemeriksa dokumen); kosong = semua Admin Pinjaman
   managerId?: string; managerName?: string; managerAt?: string; managerNote?: string;
   topId?: string; topName?: string; topAt?: string; topNote?: string; topBy?: string;
   adminId?: string; adminName?: string; adminAt?: string; adminNote?: string; plan?: LoanPlan;

@@ -106,7 +106,7 @@ export function LoanTrail({ flow: f, status, stage }: { flow: LoanFlow; status: 
     : []; // atasan langsung = pimpinan puncak: tanpa tahap atasan
   const steps = [
     ...early,
-    { key: "admin", label: t("Pemeriksaan Admin"), name: f.adminName, done: !!f.adminAt, no: false },
+    { key: "admin", label: t(f.checkName ? "Pemeriksa dokumen" : "Pemeriksaan Admin"), name: f.adminName ?? f.checkName, done: !!f.adminAt, no: false },
     { key: "top", label: f.workflow ? `${t("Level")} ${early.length + 1}` : t("Pimpinan puncak"), name: f.topBy && f.topBy !== f.topName ? `${f.topName} (${f.topBy})` : f.topName, done: !!f.topAt && !rejected, no: rejected && !!f.topAt },
   ];
   const current = stage === "ATASAN" ? steps.find((x) => !x.done)?.key : stage === "ADMIN" ? "admin" : stage === "PIMPINAN" ? "top" : null;

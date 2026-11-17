@@ -1,6 +1,7 @@
 // Menu Workflow (Admin): approval custom per modul yang menggantikan (bypass) atasan langsung di profil karyawan.
 // Super Admin hanya menyalakan fitur Workflow di Pengaturan → Fitur; Level 1..3 per modul diatur semua Admin di menu Workflow.
-// Setiap level bisa disetujui oleh: karyawan tertentu, pemegang jabatan tertentu, atau pemegang hak akses tertentu.
+// Setiap level disetujui oleh: karyawan tertentu, atau anggota Peran Admin (hak akses) yang berada di rantai atasan pemohon
+// menurut bagan organisasi (yang terdekat). Pinjaman: satu level ditandai Pemeriksa dokumen (semua anggota perannya boleh).
 // Modul tidak aktif → aturan default (atasan langsung). Aman dipakai di server dan browser.
 import { MENUS } from "@/lib/roles";
 
@@ -18,10 +19,10 @@ export const WORKFLOW_MODULES = [
 ] as const;
 export type WorkflowKey = (typeof WORKFLOW_MODULES)[number]["key"];
 
-// Jenis approver per level.
-export type LevelType = "EMPLOYEE" | "POSITION" | "ROLE";
+// Jenis approver per level. ("Berdasarkan jabatan" dihapus 2026-11-17: kebutuhan atasan dari atasan dipenuhi lewat
+// Peran Admin yang dicari di rantai atasan pemohon.)
+export type LevelType = "EMPLOYEE" | "ROLE";
 export const LEVEL_TYPES: { value: LevelType; label: string }[] = [
-  { value: "POSITION", label: "Berdasarkan jabatan" },
   { value: "ROLE", label: "Berdasarkan hak akses" },
   { value: "EMPLOYEE", label: "Karyawan tertentu" },
 ];
@@ -35,17 +36,14 @@ export const roleOptionLabel = (v: string) => ROLE_OPTIONS.find((r) => r.value =
 // Peran Admin buatan Super Admin (Pengaturan → Peran Admin) juga bisa jadi penyetuju: nilai "PERAN:<id>".
 export const ROLE_GROUP_PREFIX = "PERAN:";
 
-export type WorkflowLevel = { type: LevelType; value: string; label: string };
+// check: level Pemeriksa dokumen (modul Pinjaman) — memeriksa dokumen fisik & menyusun angsuran, bukan Setujui/Tolak.
+export type WorkflowLevel = { type: LevelType; value: string; label: string; check?: boolean };
 export type WorkflowModule = { enabled: boolean; levels: WorkflowLevel[] };
 export type WorkflowSettings = Record<WorkflowKey, WorkflowModule>;
 
-// Level "jabatan" = atasan di bagan organisasi: ke-1 atasan langsung, ke-2 atasan dari atasan, dst.
-export const chainTitle = (n: number) => (n === 1 ? "Atasan langsung" : n === 2 ? "Atasan dari atasan" : `Atasan tingkat ${n}`);
-export const CHAIN_VALUE = "ATASAN";
-
 // Nama yang tampil di jejak approval.
 export const levelTitle = (l: WorkflowLevel) =>
-  l.type === "POSITION" ? "Atasan (bagan organisasi)" : l.type === "ROLE" ? (l.value.startsWith(ROLE_GROUP_PREFIX) ? l.label || "Peran Admin" : roleOptionLabel(l.value)) : l.label || l.value;
+  l.type === "ROLE" ? (l.value.startsWith(ROLE_GROUP_PREFIX) ? l.label || "Peran Admin" : roleOptionLabel(l.value)) : l.label || l.value;
 
 // Fitur Workflow aktif atau tidak (Pengaturan → Fitur). Nonaktif = semua approval ke atasan langsung, menu Workflow disembunyikan.
 export const WORKFLOW_FEATURE_KEY = "feature-workflow";
@@ -56,11 +54,12 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 function readLevel(raw: Record<string, unknown>): WorkflowLevel | null {
   // Format lama: { id, name } = karyawan tertentu.
   if (!raw.type && str(raw.id)) return { type: "EMPLOYEE", value: str(raw.id), label: str(raw.name) };
-  const type = raw.type === "POSITION" || raw.type === "ROLE" || raw.type === "EMPLOYEE" ? raw.type : null;
-  const value = type === "POSITION" ? CHAIN_VALUE : str(raw.value).trim(); // jabatan tidak perlu nilai: mengikuti bagan organisasi
+  // Level "jabatan" lama tidak dipakai lagi (dibuang).
+  const type = raw.type === "ROLE" || raw.type === "EMPLOYEE" ? raw.type : null;
+  const value = str(raw.value).trim();
   if (!type || !value) return null;
   if (type === "ROLE" && !value.startsWith(ROLE_GROUP_PREFIX) && !ROLE_OPTIONS.some((r) => r.value === value)) return null;
-  return { type, value, label: str(raw.label) };
+  return { type, value, label: str(raw.label), ...(raw.check === true ? { check: true } : {}) };
 }
 
 export function normalizeWorkflow(raw: unknown): WorkflowSettings {
@@ -72,12 +71,18 @@ export function normalizeWorkflow(raw: unknown): WorkflowSettings {
     const levels = Array.isArray(r.levels)
       ? (r.levels as Record<string, unknown>[]).map((x) => readLevel(x ?? {})).filter((l): l is WorkflowLevel => {
           if (!l) return false;
-          if (l.type === "POSITION") return true; // boleh lebih dari satu: tiap level naik satu tingkat
           const k = `${l.type}:${l.value.toLowerCase()}`;
           return !seen.has(k) && !!seen.add(k);
         })
       : [];
-    out[m.key] = { enabled: r.enabled === true && !("soon" in m), levels: levels.slice(0, MAX_LEVELS) };
+    // Pemeriksa dokumen hanya untuk Pinjaman, paling banyak satu level.
+    let checked = false;
+    const lv = levels.slice(0, MAX_LEVELS).map((l) => {
+      const { check, ...rest } = l;
+      if (check && m.key === "PINJAMAN" && !checked) { checked = true; return { ...rest, check: true }; }
+      return rest;
+    });
+    out[m.key] = { enabled: r.enabled === true && !("soon" in m), levels: lv };
   }
   return out;
 }

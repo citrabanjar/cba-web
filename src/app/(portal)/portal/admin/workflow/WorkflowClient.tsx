@@ -6,7 +6,7 @@ import { toast } from "@/components/portal/Toast";
 import { Button } from "@/components/ui/button";
 import { T, useT } from "@/components/i18n";
 import {
-  CHAIN_VALUE, chainTitle, LEVEL_TYPES, levelTitle, MAX_LEVELS, ROLE_GROUP_PREFIX, ROLE_OPTIONS, WORKFLOW_MODULES,
+  LEVEL_TYPES, levelTitle, MAX_LEVELS, ROLE_GROUP_PREFIX, ROLE_OPTIONS, WORKFLOW_MODULES,
   type LevelType, type WorkflowKey, type WorkflowLevel, type WorkflowSettings,
 } from "@/lib/workflow";
 import { saveWorkflow } from "./actions";
@@ -36,9 +36,8 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
     ]
       : users.map((u) => ({ value: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }));
   // Level baru default: atasan di bagan organisasi.
-  const newLevel = (): WorkflowLevel => ({ type: "POSITION", value: CHAIN_VALUE, label: "" });
+  const newLevel = (): WorkflowLevel => ({ type: "ROLE", value: "", label: "" });
   // Level jabatan ke-n (dihitung hanya di antara level jabatan) → "Atasan langsung", "Atasan dari atasan", …
-  const chainIndex = (levels: WorkflowLevel[], i: number) => levels.slice(0, i + 1).filter((l) => l.type === "POSITION").length;
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -100,22 +99,24 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                     {mod.levels.map((l, i) => (
                       <div key={i} className="grid items-center gap-2 rounded-xl bg-gray-50 p-2 sm:grid-cols-[56px_minmax(0,1fr)_minmax(0,1.3fr)_28px]">
                         <span className="text-xs font-semibold text-gray-600"><T>Level</T> {i + 1}</span>
-                        <select value={l.type} onChange={(e) => { const type = e.target.value as LevelType; setLevel(m.key, i, { type, value: type === "POSITION" ? CHAIN_VALUE : "", label: "" }); }} disabled={!canEdit} className={select}>
+                        <select value={l.type} onChange={(e) => setLevel(m.key, i, { type: e.target.value as LevelType, value: "", label: "" })} disabled={!canEdit} className={select}>
                           {LEVEL_TYPES.map((x) => <option key={x.value} value={x.value}>{t(x.label)}</option>)}
                         </select>
-                        {l.type === "POSITION" ? (
-                          <p title={t("Mengikuti bagan organisasi pemohon")} className="flex h-9 items-center truncate whitespace-nowrap rounded-lg border border-dashed border-gray-300 bg-white px-3 text-sm font-medium text-gray-700">
-                            <T>{chainTitle(chainIndex(mod.levels, i))}</T>
-                          </p>
-                        ) : (
-                          <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} disabled={!canEdit} className={select}>
-                            <option value="">{t(l.type === "ROLE" ? (groups.length ? "Pilih peran admin" : "Belum ada Peran Admin") : "Pilih karyawan")}</option>
-                            {valueOptions(l.type, l.value).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                        )}
+                        <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} disabled={!canEdit} className={select}>
+                          <option value="">{t(l.type === "ROLE" ? (groups.length ? "Pilih peran" : "Belum ada Peran Admin") : "Pilih karyawan")}</option>
+                          {valueOptions(l.type, l.value).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
                         {canEdit && (
                           <button type="button" aria-label={t("Hapus")} onClick={() => setMod(m.key, { levels: mod.levels.filter((_, j) => j !== i) })}
                             className="justify-self-end rounded p-1.5 text-gray-400 hover:text-rose-600"><Trash2 size={14} /></button>
+                        )}
+                        {/* Pinjaman: satu level menjadi Pemeriksa dokumen (memeriksa dokumen fisik & menyusun angsuran). */}
+                        {m.key === "PINJAMAN" && (
+                          <label className={`flex items-center gap-2 text-xs text-gray-600 sm:col-start-2 sm:col-end-4 ${canEdit ? "cursor-pointer" : ""}`}>
+                            <input type="radio" name={`check-${m.key}`} checked={!!l.check} disabled={!canEdit} className="h-3.5 w-3.5 accent-[#BE353F]"
+                              onChange={() => setMod(m.key, { levels: mod.levels.map((x, j) => ({ ...x, check: j === i })) })} />
+                            <T>Pemeriksa dokumen</T> <span className="text-gray-400">· <T>memeriksa dokumen fisik dan menyusun angsuran</T></span>
+                          </label>
                         )}
                       </div>
                     ))}
@@ -126,14 +127,14 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                     {mod.levels.some((l) => l.value) && (
                       <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
                         <T>Alur</T>: <b>{mod.levels.map((l, i) => ({ l, i })).filter(({ l }) => l.value)
-                          .map(({ l, i }) => (l.type === "EMPLOYEE" ? l.label : l.type === "POSITION" ? t(chainTitle(chainIndex(mod.levels, i))) : t(levelTitle(l)))).join(" → ")}</b>
+                          .map(({ l }) => `${l.type === "EMPLOYEE" ? l.label : t(levelTitle(l))}${l.check ? ` (${t("pemeriksa dokumen")})` : ""}`).join(" → ")}</b>
                       </p>
                     )}
                   </div>
                 )}
 
                 <p className="border-t border-gray-100 pt-3 text-[11px] leading-relaxed text-gray-500">
-                  <T>Berdasarkan jabatan: mengikuti bagan organisasi pemohon. Level jabatan pertama = atasan langsung (sesuai profil karyawan), berikutnya = atasan dari atasan, dan seterusnya. Atasan yang kosong atau tidak aktif dilewati, naik ke atasnya. Berdasarkan hak akses: salah satu pemegang hak akses itu.</T>
+                  <T>Berdasarkan hak akses: penyetuju dicari di antara anggota peran yang berada di atas pemohon pada bagan organisasi (yang terdekat), tidak menyeberang ke departemen lain. Bila pemohon sendiri anggota peran itu, levelnya dilewati; bila tidak ada anggota di atas pemohon, pengajuan ditolak. Orang yang sama tidak memutus dua kali. Pemeriksa dokumen (Pinjaman): semua anggota perannya boleh memeriksa, dan levelnya harus tepat sebelum level terakhir (pemutus).</T>
                 </p>
 
                 {canEdit && (

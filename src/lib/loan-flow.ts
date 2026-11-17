@@ -36,6 +36,11 @@ export async function loanAdmins() {
   return list.filter((u) => canEditMenu(u, "pinjaman")).map((u) => u.id);
 }
 
+// Pemeriksa dokumen pengajuan: level Pemeriksa dokumen di Workflow, atau (jalur normal) semua Admin Pinjaman.
+export async function loanReviewers(flow: { checkIds?: string[] }) {
+  return flow.checkIds?.length ? flow.checkIds : loanAdmins();
+}
+
 export type PlanInput = { principal: number; tenor: number; startPeriod: string; installment?: number; mergeIds?: string[] };
 
 // Hitung rencana angsuran (dipakai saat Admin mengirim hasil pemeriksaan dan dihitung ulang saat pimpinan menyetujui).

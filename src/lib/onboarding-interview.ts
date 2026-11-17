@@ -84,7 +84,8 @@ export function missingReview(r: Review): string[] {
   return m;
 }
 // offer = usulan final dari approver ini (jalur wawancara). pick = data lama (memilih tawaran pewawancara).
-export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string; pick?: string; offer?: Offer };
+// check: level Pemeriksa dokumen (Workflow Pinjaman).
+export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string; pick?: string; offer?: Offer; check?: boolean };
 export const stepCandidates = (s: ApprovalStep) => (s.ids?.length ? s.ids : [s.id]);
 export type InterviewApproval = { mode: ApprovalMode; order: ApprovalOrder; steps: ApprovalStep[] };
 export type Interview = {

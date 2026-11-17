@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { workflowFeatureOn } from "@/lib/workflow-settings";
-import { normalizeWorkflow, WORKFLOW_KEY, WORKFLOW_MODULES, type WorkflowSettings } from "@/lib/workflow";
+import { normalizeWorkflow, ROLE_GROUP_PREFIX, WORKFLOW_KEY, WORKFLOW_MODULES, type WorkflowSettings } from "@/lib/workflow";
+import { getAdminRoles } from "@/lib/admin-roles";
+import { canEditMenu, menuLevelOf } from "@/lib/roles";
 
 // Admin menyimpan Level approval per modul (semua Admin, bila fitur Workflow dinyalakan Super Admin).
 export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: string }> {
@@ -24,6 +26,20 @@ export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: s
       }
     }
     if (mod.enabled && mod.levels.length === 0) return { error: `Workflow ${m.label} aktif tapi Level 1 belum diisi.` };
+    // Pinjaman: tepat satu level Pemeriksa dokumen, tepat sebelum level terakhir (pemutus), dan pemeriksanya punya hak Edit Pinjaman.
+    if (m.key === "PINJAMAN" && mod.enabled) {
+      const ci = mod.levels.findIndex((l) => l.check);
+      if (mod.levels.length < 2 || ci !== mod.levels.length - 2) {
+        return { error: "Workflow Pinjaman: tandai satu level sebagai Pemeriksa dokumen, tepat sebelum level terakhir (pemutus pinjaman)." };
+      }
+      const l = mod.levels[ci];
+      const groups = await getAdminRoles();
+      const ok = l.type === "EMPLOYEE"
+        ? canEditMenu(await prisma.user.findUnique({ where: { id: l.value }, select: { role: true, menuAccess: true } }), "pinjaman")
+        : l.value.startsWith(ROLE_GROUP_PREFIX) ? menuLevelOf(groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === l.value)?.menus ?? [], "pinjaman") === "edit"
+        : true;
+      if (!ok) return { error: "Workflow Pinjaman: Pemeriksa dokumen harus punya hak Edit menu Pinjaman Karyawan (untuk memeriksa dan menyusun angsuran)." };
+    }
   }
   await prisma.appSetting.upsert({
     where: { key: WORKFLOW_KEY },

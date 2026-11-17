@@ -49,6 +49,10 @@ export async function submitLoanReview(id: string, input: PlanInput & { note: st
   const p = await planLoan(loan, input, true);
   if ("error" in p) return { error: p.error };
   const flow = readLoanFlow(loan.flow);
+  // Workflow: hanya pemeriksa dokumen yang ditetapkan (level Pemeriksa dokumen) yang boleh memeriksa.
+  if (flow.checkIds?.length && !flow.checkIds.includes(access.id) && !isSuperAdmin(access.role)) {
+    return { error: `Pemeriksa dokumen pengajuan ini adalah ${flow.checkName ?? "pemeriksa pada Workflow"}.` };
+  }
   // Pengajuan lama (sebelum alur baru) belum punya pimpinan puncak.
   const top = flow.topId ? { id: flow.topId, name: flow.topName ?? "" } : await topLeaderOf(loan.userId);
   if (!top) return { error: "Pimpinan puncak karyawan ini tidak ditemukan. Lengkapi atasan langsung di data karyawan." };

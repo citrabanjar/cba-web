@@ -78,7 +78,8 @@ export async function saveAdminRoles(roles: AdminRole[], by: string | null) {
   });
 
   const want = new Map<string, Set<string>>();
-  for (const r of clean) for (const id of r.members) {
+  // Peran tanpa menu = peran penyetuju Workflow: anggotanya tetap berstatus karyawan (tidak mendapat Panel Admin).
+  for (const r of clean.filter((x) => x.menus.length > 0)) for (const id of r.members) {
     const s = want.get(id) ?? new Set<string>();
     r.menus.forEach((m) => s.add(m));
     want.set(id, s);
