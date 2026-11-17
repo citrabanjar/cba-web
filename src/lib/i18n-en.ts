@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Buka Pinjaman Karyawan": "Open Employee Loans",
   "Pengajuan pinjaman diajukan ke": "Loan request submitted to",
   "untuk approval.": "for approval.",
   "angsuran terakhir": "last installment",

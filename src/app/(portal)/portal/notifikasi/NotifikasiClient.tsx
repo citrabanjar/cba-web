@@ -80,7 +80,13 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
     window.history.replaceState(null, "", `/portal/notifikasi?modul=${k}`);
   };
   // Notifikasi cukup dibaca di sini: klik = tandai sudah dibaca, tidak pindah halaman.
-  const open = (n: Item) => { if (!n.read) start(async () => { await markNotificationsRead(n.id); router.refresh(); }); };
+  // Kecuali tugas Admin di menu Pinjaman Karyawan (mis. "perlu diperiksa"): klik = tandai dibaca lalu buka menunya.
+  const linkOf = (n: Item) => (n.href?.startsWith("/portal/admin/pinjaman") ? n.href : null);
+  const open = (n: Item) => {
+    const go = linkOf(n);
+    if (!n.read) start(async () => { await markNotificationsRead(n.id); if (go) router.push(go); else router.refresh(); });
+    else if (go) router.push(go);
+  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
@@ -137,13 +143,14 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
               {shown.map(({ key, n, h }) => h ? <HistoryRow key={key} h={h} /> : !n ? null : n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
-                <button key={n.id} type="button" onClick={() => open(n)} title={n.read ? undefined : t("Tandai dibaca")}
-                  className={`flex w-full gap-3 px-4 py-3 text-left ${n.read ? "cursor-default" : "bg-rose-50/40 hover:bg-rose-50"}`}>
+                <button key={n.id} type="button" onClick={() => open(n)} title={linkOf(n) ? t("Buka Pinjaman Karyawan") : n.read ? undefined : t("Tandai dibaca")}
+                  className={`flex w-full gap-3 px-4 py-3 text-left ${n.read ? (linkOf(n) ? "hover:bg-gray-50" : "cursor-default") : "bg-rose-50/40 hover:bg-rose-50"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
                   <span className="min-w-0 flex-1">
                     <span className={`block text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{en ? notifTitleEn(n.title) : n.title}</span>
                     {n.body && <span className="block text-xs text-gray-500">{en ? notifBodyEn(n.body) : n.body}</span>}
-                    <span className="mt-0.5 block text-[11px] text-gray-400">{formatDateTime(n.at)}</span>
+                    <span className="mt-0.5 block text-[11px] text-gray-400">{formatDateTime(n.at)}
+                      {linkOf(n) && <span className="ml-2 inline-flex items-center gap-0.5 font-medium text-brand"><T>Buka Pinjaman Karyawan</T> <ChevronRight size={11} /></span>}</span>
                   </span>
                 </button>
               ))}
