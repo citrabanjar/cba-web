@@ -146,15 +146,18 @@ async function createLeave(userId: string, input: LeaveInput, urgent = false) {
     }
   }
 
-  let unpaidDays = 0;
+  const unpaidDays = 0; // kelebihan saldo kini ditolak (bukan lagi cuti di luar tanggungan)
   if (hasBalance(policy) || policy.deductsAnnual) {
     const rows = await visibleBalances([userId]);
     const row = hasBalance(policy) ? rows.find((r) => r.policyId === policy.id) : rows[0];
     if (!row) return { error: "Saldo cuti Anda belum tersedia. Hubungi HRD." };
     if (row.problem) return { error: "Saldo cuti Anda belum bisa dihitung (tanggal masuk kosong). Hubungi HRD." };
-    // Saldo kurang: kelebihannya masuk cuti di luar tanggungan (tidak memotong saldo).
+    // Saldo kurang: pengajuan ditolak (keputusan pemilik 2026-11-17); kelebihannya diajukan sebagai Izin Tanpa Hak Cuti.
+    // Saldo yang dipakai = saldo dikurangi pengajuan lain yang masih menunggu.
     const available = Math.max(0, row.balance - row.pending);
-    if (totalDays > available) unpaidDays = Math.round((totalDays - available) * 100) / 100;
+    if (totalDays > available) {
+      return { error: `Saldo ${hasBalance(policy) ? policy.name : "Cuti Tahunan"} Anda tinggal ${fmt(available)} hari. Kurangi jumlah hari, atau ajukan kelebihannya sebagai Izin Tanpa Hak Cuti.` };
+    }
   }
 
   const clash = await prisma.leaveRequest.findFirst({
