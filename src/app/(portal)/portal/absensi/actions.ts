@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getAllowedLocations, isOnApprovedTrip, nearestLocation } from "@/lib/work-location";
-import { checkInBlocked, checkInWorkDate, checkOutBlocked, openAttendance, wibToday } from "@/lib/attendance-assess";
+import { checkInBlocked, checkInWarning, checkInWorkDate, checkOutBlocked, checkOutWarning, openAttendance, wibToday } from "@/lib/attendance-assess";
 
 // Cek lokasi absen. Saat Dinas Luar disetujui, absen boleh di mana saja (lokasinya tetap
 // disimpan). Selain itu, absen di luar radius semua lokasi yang diizinkan ditolak.
@@ -61,7 +61,7 @@ export async function getWeekAttendance() {
   });
 }
 
-export async function checkIn(lat: number, lng: number) {
+export async function checkIn(lat: number, lng: number, confirmed = false) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
 
@@ -72,12 +72,14 @@ export async function checkIn(lat: number, lng: number) {
     where: { userId_date: { userId: session.user.id, date: today } },
   });
   if (existing?.checkIn) return { error: "Anda sudah check-in hari ini." };
-  // Batas jam absen masuk terhadap jam masuk shift (Jadwal → Aturan Kehadiran).
+  // Batas jam absen masuk terhadap jam masuk shift (Jadwal → Shift).
   const blockedIn = await checkInBlocked(session.user.id, today);
   if (blockedIn) return { error: blockedIn };
 
   const place = await checkLocation(session.user.id, lat, lng);
   if ("error" in place) return { error: place.error };
+  // Check-in sangat terlambat: karyawan diberi peringatan dulu (cuti setengah hari sebagai alternatif).
+  if (!confirmed) { const warn = await checkInWarning(session.user.id, today); if (warn) return { warn }; }
   const address = await reverseGeocode(lat, lng);
 
   await prisma.attendance.upsert({
@@ -107,7 +109,7 @@ export async function checkIn(lat: number, lng: number) {
   return { ok: true, location: place.label, distance: place.distance, address };
 }
 
-export async function checkOut(lat: number, lng: number) {
+export async function checkOut(lat: number, lng: number, confirmed = false) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
 
@@ -121,12 +123,14 @@ export async function checkOut(lat: number, lng: number) {
     return { error: late ?? "Anda belum check-in hari ini." };
   }
   if (record.checkOut) return { error: "Anda sudah check-out hari ini." };
-  // Batas jam absen pulang terhadap jam pulang shift (Jadwal → Aturan Kehadiran).
+  // Batas jam absen pulang terhadap jam pulang shift (Jadwal → Shift).
   const blockedOut = await checkOutBlocked(session.user.id, record.date);
   if (blockedOut) return { error: blockedOut };
 
   const place = await checkLocation(session.user.id, lat, lng);
   if ("error" in place) return { error: place.error };
+  // Check-out jauh lebih awal: karyawan diberi peringatan dulu (cuti setengah hari sebagai alternatif).
+  if (!confirmed) { const warn = await checkOutWarning(session.user.id, record.date); if (warn) return { warn }; }
   const address = await reverseGeocode(lat, lng);
 
   await prisma.attendance.update({

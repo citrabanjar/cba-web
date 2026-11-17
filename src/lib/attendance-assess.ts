@@ -39,46 +39,49 @@ export async function checkInWorkDate(userId: string, now = Date.now()) {
   return today;
 }
 
-// ─── Batas jam absen (Jadwal → Aturan Kehadiran) ────────────────────────────
-// Dihitung terhadap jadwal shift tanggal kerja itu. Hari tanpa jam shift (libur, jadwal manual) tidak dibatasi.
-export type AttendanceWindow = { inOpen: number | null; inClose: number | null; outClose: number | null };
-export async function attendanceWindow(): Promise<AttendanceWindow> {
-  const r = await prisma.attendanceRule.findUnique({ where: { id: "default" }, select: { checkInOpenMinutes: true, checkInCloseMinutes: true, checkOutCloseMinutes: true } });
-  return { inOpen: r?.checkInOpenMinutes ?? null, inClose: r?.checkInCloseMinutes ?? null, outClose: r?.checkOutCloseMinutes ?? null };
-}
+// ─── Batas jam absen per shift (Jadwal → Shift) ─────────────────────────────
+// N = "absen masuk dibuka sebelum jam masuk": check-in sebelum jam masuk − N ditolak; check-in lewat jam masuk + N
+// boleh tetapi diberi peringatan dulu. M = "absen pulang ditutup setelah jam pulang": check-out lewat jam pulang + M
+// ditolak; check-out sebelum jam pulang − M diberi peringatan. Hari tanpa jam shift (libur, jadwal manual) tidak dibatasi.
 // Waktu absolut jam "HH:MM" WIB pada tanggal kerja `date` (+1 hari bila nextDay).
 const atWib = (date: Date, hhmm: string, nextDay = false) => date.getTime() + toMin(hhmm) * 60_000 - 7 * 3600_000 + (nextDay ? DAY : 0);
 export const clockWib = (t: number) => { const d = new Date(t + 7 * 3600_000); return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`; };
 const dayLabel = (t: number, ref: Date) => (wibToday(t).getTime() === ref.getTime() ? "" : " besok");
+const shiftOn = async (userId: string, date: Date) => (await getShiftCalendar(userId, date, date))[key(date)];
+const HALF_DAY_HINT = "Potongan gaji Anda akan besar. Gunakan cuti setengah hari sebagai alternatif.";
 
-// Absen masuk pada tanggal kerja `date`: error bila di luar batas.
+// Absen masuk pada tanggal kerja `date`: error bila belum dibuka.
 export async function checkInBlocked(userId: string, date: Date, now = Date.now()) {
-  const w = await attendanceWindow();
-  if (w.inOpen === null && w.inClose === null) return null;
-  const s = (await getShiftCalendar(userId, date, date))[key(date)];
-  if (!s || s.isOff || !s.startTime) return null;
-  const start = atWib(date, s.startTime);
-  if (w.inOpen !== null && now < start - w.inOpen * 60_000) {
-    const open = start - w.inOpen * 60_000;
-    return `Absen masuk baru dibuka pukul ${clockWib(open)}${dayLabel(open, wibToday(now))} (shift ${s.startTime}).`;
-  }
-  if (w.inClose !== null && now > start + w.inClose * 60_000) {
-    return `Batas absen masuk sudah lewat (pukul ${clockWib(start + w.inClose * 60_000)}, shift ${s.startTime}). Hubungi Admin.`;
-  }
+  const s = await shiftOn(userId, date);
+  if (!s || s.isOff || !s.startTime || s.checkInOpen == null) return null;
+  const open = atWib(date, s.startTime) - s.checkInOpen * 60_000;
+  if (now < open) return `Absen masuk baru dibuka pukul ${clockWib(open)}${dayLabel(open, wibToday(now))} (shift ${s.startTime}).`;
   return null;
+}
+// Peringatan sebelum check-in yang sangat terlambat (lewat jam masuk + N menit).
+export async function checkInWarning(userId: string, date: Date, now = Date.now()) {
+  const s = await shiftOn(userId, date);
+  if (!s || s.isOff || !s.startTime || s.checkInOpen == null) return null;
+  const start = atWib(date, s.startTime);
+  if (now <= start + s.checkInOpen * 60_000) return null;
+  return `Anda check-in pukul ${clockWib(now)}, lewat lebih dari ${s.checkInOpen} menit dari jam masuk (${s.startTime}). ${HALF_DAY_HINT} Tetap lanjut check-in?`;
 }
 
 // Absen pulang untuk absen tanggal `date`: error bila lewat batas.
 export async function checkOutBlocked(userId: string, date: Date, now = Date.now()) {
-  const w = await attendanceWindow();
-  if (w.outClose === null) return null;
-  const s = (await getShiftCalendar(userId, date, date))[key(date)];
-  if (!s || s.isOff || !s.endTime) return null;
-  const end = atWib(date, s.endTime, crossesMidnight(s));
-  if (now > end + w.outClose * 60_000) {
-    return `Batas absen pulang sudah lewat (pukul ${clockWib(end + w.outClose * 60_000)}). Hubungi Admin untuk lupa absen pulang.`;
-  }
+  const s = await shiftOn(userId, date);
+  if (!s || s.isOff || !s.endTime || s.checkOutClose == null) return null;
+  const close = atWib(date, s.endTime, crossesMidnight(s)) + s.checkOutClose * 60_000;
+  if (now > close) return `Batas absen pulang sudah lewat (pukul ${clockWib(close)}). Hubungi Admin untuk lupa absen pulang.`;
   return null;
+}
+// Peringatan sebelum check-out yang jauh lebih awal (sebelum jam pulang − M menit).
+export async function checkOutWarning(userId: string, date: Date, now = Date.now()) {
+  const s = await shiftOn(userId, date);
+  if (!s || s.isOff || !s.endTime || s.checkOutClose == null) return null;
+  const end = atWib(date, s.endTime, crossesMidnight(s));
+  if (now >= end - s.checkOutClose * 60_000) return null;
+  return `Anda check-out pukul ${clockWib(now)}, lebih dari ${s.checkOutClose} menit sebelum jam pulang (${s.endTime}). ${HALF_DAY_HINT} Tetap lanjut check-out?`;
 }
 
 // Absen yang sedang berjalan untuk absen pulang: hari ini, atau shift malam kemarin yang belum check-out,
@@ -96,8 +99,7 @@ export async function openAttendance(userId: string, now = Date.now()) {
     const ys = cal[key(yesterday)];
     if (crossesMidnight(ys)) return yAtt;
     // Lembur lewat tengah malam: masih boleh absen pulang untuk kemarin selama belum melewati batas absen pulang.
-    const w = await attendanceWindow();
-    if (!todayAtt?.checkIn && w.outClose !== null && ys && !ys.isOff && ys.endTime && now <= atWib(yesterday, ys.endTime) + w.outClose * 60_000) return yAtt;
+    if (!todayAtt?.checkIn && ys && !ys.isOff && ys.endTime && ys.checkOutClose != null && now <= atWib(yesterday, ys.endTime) + ys.checkOutClose * 60_000) return yAtt;
   }
   return todayAtt;
 }

@@ -12,8 +12,8 @@ import { holdDiff } from "@/lib/hold-diff";
 type Result = { error?: string; proposed?: string };
 const SHIFT_LABELS: Record<string, string> = {
   code: "Kode", name: "Nama", isOff: "Hari libur", startTime: "Jam masuk", endTime: "Jam pulang", breaks: "Istirahat",
-  lateTolerance: "Toleransi terlambat (menit)", earlyLeaveTolerance: "Toleransi pulang cepat (menit)", checkInEarliest: "Check-in paling awal (menit)",
-  checkOutLatest: "Check-out paling lambat (menit)", overtimeStartAfter: "Lembur mulai setelah (menit)", overtimeMinimum: "Minimal lembur (menit)",
+  lateTolerance: "Toleransi terlambat (menit)", earlyLeaveTolerance: "Toleransi pulang cepat (menit)", checkInEarliest: "Absen masuk dibuka sebelum jam masuk (menit)",
+  checkOutLatest: "Absen pulang ditutup setelah jam pulang (menit)", overtimeStartAfter: "Lembur mulai setelah (menit)", overtimeMinimum: "Minimal lembur (menit)",
   overtimeRounding: "Pembulatan lembur (menit)", isActive: "Aktif",
 };
 
@@ -22,7 +22,7 @@ export type ShiftInput = {
   code: string; name: string; color: string; isOff: boolean;
   startTime: string; endTime: string; breaks: BreakTime[];
   lateTolerance: number; earlyLeaveTolerance: number;
-  checkInEarliest: number; checkOutLatest: number;
+  checkInEarliest: number | null; checkOutLatest: number | null; // batas jam absen (menit; null = tanpa batas)
   overtimeStartAfter: number; overtimeMinimum: number; overtimeRounding: number;
   isActive: boolean;
 };
@@ -69,8 +69,9 @@ export async function saveShift(id: string | null, input: ShiftInput): Promise<R
     if (!breaksInside(input.startTime, input.endTime, breaks)) return { error: "Jam istirahat harus di dalam jam kerja." };
   }
   const nums = [
-    input.lateTolerance, input.earlyLeaveTolerance, input.checkInEarliest, input.checkOutLatest,
+    input.lateTolerance, input.earlyLeaveTolerance,
     input.overtimeStartAfter, input.overtimeMinimum, input.overtimeRounding,
+    ...[input.checkInEarliest, input.checkOutLatest].filter((n): n is number => n !== null),
   ];
   if (!nums.every((n) => minutes(n))) return { error: "Isian menit harus angka 0 sampai 1440." };
 
@@ -84,7 +85,7 @@ export async function saveShift(id: string | null, input: ShiftInput): Promise<R
     code, name, color: input.color || "#10b981", isOff: input.isOff,
     startTime: input.isOff ? null : input.startTime, endTime: input.isOff ? null : input.endTime,
     breaks, lateTolerance: input.lateTolerance, earlyLeaveTolerance: input.earlyLeaveTolerance,
-    checkInEarliest: input.checkInEarliest, checkOutLatest: input.checkOutLatest,
+    checkInEarliest: input.isOff ? null : input.checkInEarliest, checkOutLatest: input.isOff ? null : input.checkOutLatest,
     overtimeStartAfter: input.overtimeStartAfter, overtimeMinimum: input.overtimeMinimum,
     overtimeRounding: input.overtimeRounding, isActive: input.isActive,
   };

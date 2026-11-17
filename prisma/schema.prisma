@@ -451,8 +451,8 @@ model WorkShift {
   breaks              Json     @default("[]") // [{ "start": "12:00", "end": "13:00" }]
   lateTolerance       Int      @default(5) // menit
   earlyLeaveTolerance Int      @default(0) // menit
-  checkInEarliest     Int      @default(60) // menit sebelum jam masuk
-  checkOutLatest      Int      @default(360) // menit sesudah jam pulang
+  checkInEarliest     Int? // absen masuk dibuka sekian menit sebelum jam masuk; check-in lebih dari sekian menit setelah jam masuk diberi peringatan (kosong = tanpa batas)
+  checkOutLatest      Int? // absen pulang ditutup sekian menit setelah jam pulang; check-out lebih dari sekian menit sebelum jam pulang diberi peringatan (kosong = tanpa batas)
   overtimeStartAfter  Int      @default(30) // lembur dihitung setelah X menit dari jam pulang
   overtimeMinimum     Int      @default(60) // lembur minimal X menit
   overtimeRounding    Int      @default(30) // pembulatan ke bawah per X menit

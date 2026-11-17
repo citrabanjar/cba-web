@@ -1,5 +1,7 @@
 "use client";
 
+import { askConfirm } from "@/components/portal/Confirm";
+
 import { useEffect, useState, useTransition } from "react";
 import { MapPin, LogIn, LogOut, Loader2, AlertTriangle, CheckCircle2, Navigation, XCircle, Plane } from "lucide-react";
 import { checkIn, checkOut } from "./actions";
@@ -58,7 +60,12 @@ export default function AbsensiClient({ today, week, locations, onTrip }: Props)
     if (!pos) return setMessage({ type: "err", text: "GPS belum siap. Tunggu sebentar." });
     setMessage(null);
     startTransition(async () => {
-      const res = await checkIn(pos.lat, pos.lng);
+      let res = await checkIn(pos.lat, pos.lng);
+      if ("warn" in res) {
+        if (!(await askConfirm(res.warn ?? ""))) return;
+        res = await checkIn(pos.lat, pos.lng, true);
+      }
+      if ("warn" in res) return;
       if ("error" in res) {
         setMessage({ type: "err", text: res.error ?? "" });
       } else {
@@ -78,7 +85,12 @@ export default function AbsensiClient({ today, week, locations, onTrip }: Props)
     if (!pos) return setMessage({ type: "err", text: "GPS belum siap." });
     setMessage(null);
     startTransition(async () => {
-      const res = await checkOut(pos.lat, pos.lng);
+      let res = await checkOut(pos.lat, pos.lng);
+      if ("warn" in res) {
+        if (!(await askConfirm(res.warn ?? ""))) return;
+        res = await checkOut(pos.lat, pos.lng, true);
+      }
+      if ("warn" in res) return;
       if ("error" in res) {
         setMessage({ type: "err", text: res.error ?? "" });
       } else {

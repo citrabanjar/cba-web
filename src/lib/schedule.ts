@@ -8,6 +8,7 @@ export type DayShift = {
   override?: boolean; // diisi per tanggal di Jadwal Bulanan (jadwal manual atau tukar shift)
   breaks?: { start: string; end: string }[]; // jam istirahat shift
   lateTolerance?: number; earlyLeaveTolerance?: number; // menit
+  checkInOpen?: number | null; checkOutClose?: number | null; // batas jam absen shift (menit; null = tanpa batas)
 };
 
 const DAY = 86_400_000;
@@ -17,11 +18,13 @@ const utcDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getU
 type ShiftLike = {
   code: string; name: string; color: string; isOff: boolean; startTime: string | null; endTime: string | null;
   breaks?: unknown; lateTolerance?: number; earlyLeaveTolerance?: number;
+  checkInEarliest?: number | null; checkOutLatest?: number | null;
 };
 const toDay = (s: ShiftLike, extra: Partial<DayShift> = {}): DayShift => ({
   code: s.code, name: s.name, color: s.color, isOff: s.isOff, startTime: s.startTime, endTime: s.endTime,
   breaks: Array.isArray(s.breaks) ? (s.breaks as { start: string; end: string }[]).filter((b) => b?.start && b?.end) : [],
-  lateTolerance: s.lateTolerance ?? 0, earlyLeaveTolerance: s.earlyLeaveTolerance ?? 0, ...extra,
+  lateTolerance: s.lateTolerance ?? 0, earlyLeaveTolerance: s.earlyLeaveTolerance ?? 0,
+  checkInOpen: s.checkInEarliest ?? null, checkOutClose: s.checkOutLatest ?? null, ...extra,
 });
 
 // Shift per tanggal untuk banyak karyawan dalam rentang [from, to] (tanggal UTC tengah malam).

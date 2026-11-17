@@ -135,7 +135,7 @@ function Toggle({ checked, onChange, label, hint, disabled }: { checked: boolean
 const EMPTY_SHIFT: ShiftInput = {
   code: "", name: "", color: COLORS[0], isOff: false, startTime: "08:00", endTime: "17:00",
   breaks: [{ start: "12:00", end: "13:00" }], lateTolerance: 5, earlyLeaveTolerance: 0,
-  checkInEarliest: 60, checkOutLatest: 360, overtimeStartAfter: 30, overtimeMinimum: 60,
+  checkInEarliest: null, checkOutLatest: null, overtimeStartAfter: 30, overtimeMinimum: 60,
   overtimeRounding: 30, isActive: true,
 };
 
@@ -242,6 +242,20 @@ function ShiftForm({ shift, onClose, onDirty }: { shift: Shift | "new"; onClose:
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline">
                     <Plus size={13} /> <T>Tambah jam istirahat</T>
                   </button>
+                </div>
+              </div>
+
+              {/* Batas jam absen shift ini: di luar batas tidak bisa absen; angka yang sama menjadi patokan peringatan. */}
+              <div>
+                <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900"><CalendarClock size={15} /> <T>Batas Jam Absen</T></p>
+                <p className="mb-2 text-[11px] text-gray-400"><T>Kosongkan jika tidak dibatasi.</T></p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <NumberField label="Absen masuk dibuka sebelum jam masuk" value={form.checkInEarliest ?? NaN}
+                    onChange={(n) => set("checkInEarliest", Number.isFinite(n) ? n : null)}
+                    hint="Contoh 180: check-in mulai 3 jam sebelum jam masuk. Check-in lebih dari 3 jam setelah jam masuk mendapat peringatan potongan gaji." />
+                  <NumberField label="Absen pulang ditutup setelah jam pulang" value={form.checkOutLatest ?? NaN}
+                    onChange={(n) => set("checkOutLatest", Number.isFinite(n) ? n : null)}
+                    hint="Contoh 360: check-out paling lambat 6 jam setelah jam pulang. Check-out lebih dari 6 jam sebelum jam pulang mendapat peringatan potongan gaji." />
                 </div>
               </div>
 
@@ -379,12 +393,14 @@ function ShiftTab({ shifts }: { shifts: Shift[] }) {
                   {canEdit && <button type="button" onClick={() => remove(s)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
                 </div>
                 {!s.isOff && (
-                  <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
                     {[
                       ["Efektif", fmtDur(effective(s))],
                       ["Istirahat", s.breaks.length ? s.breaks.map((b) => `${b.start}–${b.end}`).join(", ") : "—"],
                       ["Toleransi telat", `${s.lateTolerance} mnt`],
                       ["Pulang cepat", `${s.earlyLeaveTolerance} mnt`],
+                      ["Absen masuk dibuka", s.checkInEarliest == null ? t("Tanpa batas") : `${s.checkInEarliest} ${t("mnt sebelum")}`],
+                      ["Absen pulang ditutup", s.checkOutLatest == null ? t("Tanpa batas") : `${s.checkOutLatest} ${t("mnt setelah")}`],
                     ].map(([k, v]) => (
                       <div key={k} className="rounded-lg bg-gray-50 px-2.5 py-1.5">
                         <dt className="text-[10px] uppercase tracking-wide text-gray-400"><T>{k}</T></dt>
@@ -697,9 +713,6 @@ function RuleTab({ rule }: { rule: Rule }) {
     halfDayMinutes: rule.halfDayMinutes, lateAsHalfDayMinutes: rule.lateAsHalfDayMinutes, noCheckInIsAlpha: rule.noCheckInIsAlpha,
     checkInOpenMinutes: rule.checkInOpenMinutes, checkInCloseMinutes: rule.checkInCloseMinutes, checkOutCloseMinutes: rule.checkOutCloseMinutes,
   });
-  const opt = (k: "checkInOpenMinutes" | "checkInCloseMinutes" | "checkOutCloseMinutes") => ({
-    value: form[k] ?? NaN, onChange: (n: number) => setForm({ ...form, [k]: Number.isFinite(n) ? n : null }),
-  });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const canEdit = useCanEdit(); // hak lihat saja: isian dikunci, tombol simpan disembunyikan
@@ -733,24 +746,6 @@ function RuleTab({ rule }: { rule: Rule }) {
             label="Lembur harus disetujui atasan" hint="Kalau dimatikan, lembur dihitung otomatis dari jam absen." />
           <Toggle disabled={!canEdit} checked={form.holidayWorkIsOvertime} onChange={(v) => setForm({ ...form, holidayWorkIsOvertime: v })}
             label="Masuk di hari libur dihitung lembur" hint="Dicatat terpisah: lembur hari libur dan libur nasional." />
-          <div className="grid gap-3 pt-2 sm:grid-cols-2">
-            <NumberField disabled={!canEdit} label="Setengah hari jika kerja kurang dari" value={form.halfDayMinutes}
-              onChange={(n) => setForm({ ...form, halfDayMinutes: n })} hint="240 = 4 jam." />
-            <div className="space-y-1.5">
-              <NumberField disabled={!canEdit} label="Terlambat lebih dari ini = setengah hari" value={form.lateAsHalfDayMinutes ?? NaN}
-                onChange={(n) => setForm({ ...form, lateAsHalfDayMinutes: Number.isFinite(n) ? n : null })} hint="Kosongkan jika tidak dipakai." />
-            </div>
-          </div>
-          {/* Batas jam absen terhadap jadwal shift: di luar batas, karyawan tidak bisa absen. */}
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-sm font-semibold text-gray-800"><T>Batas jam absen</T></p>
-            <p className="text-[11px] text-gray-400"><T>Dihitung dari jam shift karyawan hari itu. Di luar batas, karyawan tidak bisa absen. Kosongkan jika tidak dibatasi. Hari tanpa jam shift (libur, jadwal manual) tidak dibatasi.</T></p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-3">
-              <NumberField disabled={!canEdit} label="Absen masuk dibuka sebelum jam masuk" {...opt("checkInOpenMinutes")} hint="120 = mulai 2 jam sebelum jam masuk." />
-              <NumberField disabled={!canEdit} label="Absen masuk ditutup setelah jam masuk" {...opt("checkInCloseMinutes")} hint="240 = paling lambat 4 jam setelah jam masuk." />
-              <NumberField disabled={!canEdit} label="Absen pulang ditutup setelah jam pulang" {...opt("checkOutCloseMinutes")} hint="360 = paling lambat 6 jam setelah jam pulang." />
-            </div>
-          </div>
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           {canEdit && (
