@@ -171,7 +171,7 @@ export default async function KaryawanDetailPage({
       initialAction={(await searchParams).aksi}
       initialTab={(await searchParams).tab}
       canSeeLoans={canSeeLoans}
-      loans={canSeeLoans ? (await prisma.employeeLoan.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, include: { installments: true } })).map(toLoanView) : []}
+      loans={canSeeLoans ? (await prisma.employeeLoan.findMany({ where: { userId: id, status: { in: ["BERJALAN", "LUNAS", "DIGABUNG"] } }, orderBy: { createdAt: "desc" }, include: { installments: true } })).map(toLoanView) : []}
       master={await getMasterOptions()}
       canSeePay={canSeePay}
       isSuper={isSuperAdmin(access.role)}

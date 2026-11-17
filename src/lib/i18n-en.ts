@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Semua pinjaman karyawan. Pemeriksaan pengajuan, pencairan, dan perubahan angsuran dilakukan di sini; pinjaman yang sudah dicairkan juga tampil di tab Pinjaman profil karyawan.": "All employee loans. Request review, disbursement, and installment changes are done here; disbursed loans also appear in the Loans tab of the employee profile.",
+  "Periksa dokumen fisik lalu kirim ke pimpinan dari menu Pinjaman Karyawan.": "Check the physical documents, then send to top management from the Employee Loans menu.",
   "Buka Pinjaman Karyawan": "Open Employee Loans",
   "Pengajuan pinjaman diajukan ke": "Loan request submitted to",
   "untuk approval.": "for approval.",

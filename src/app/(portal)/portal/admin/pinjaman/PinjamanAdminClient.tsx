@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
-import { DeleteLoanButton } from "@/components/portal/LoanManager";
+import { LoanActions, LoanDialog } from "@/components/portal/LoanManager";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
@@ -154,14 +154,16 @@ export function OpeningLoanImportDialog({ employees, onClose }: { employees: Loa
   );
 }
 
-// Daftar semua pinjaman semua karyawan. Proses, pencairan, dan perubahan angsuran dilakukan di tab Pinjaman profil karyawan.
-export default function PinjamanAdminClient({ loans, employees, isSuper }: { loans: AdminLoan[]; employees: LoanEmployee[]; isSuper: boolean }) {
+// Daftar semua pinjaman semua karyawan. Pemeriksaan pengajuan, pencairan, dan perubahan angsuran dilakukan langsung di sini;
+// pinjaman yang sudah dicairkan juga tampil di tab Pinjaman profil karyawan.
+export default function PinjamanAdminClient({ loans, employees }: { loans: AdminLoan[]; employees: LoanEmployee[] }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: Upload & Hapus disembunyikan
   const [tab, setTab] = useState<string>(() => (loans.some((l) => ["PENDING", "DISETUJUI"].includes(l.status)) ? "menunggu" : "berjalan"));
   const [q, setQ] = useState("");
   const [upload, setUpload] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<{ kind: "approve" | "disburse" | "schedule"; loan: AdminLoan } | null>(null);
   const inGroup = (key: string) => loans.filter((l) => (LOAN_GROUPS.find((g) => g.key === key)!.statuses as readonly string[]).includes(l.status));
   const list = inGroup(tab).filter((l) => !q || `${l.name} ${l.employeeId}`.toLowerCase().includes(q.toLowerCase()));
   const running = inGroup("berjalan");
@@ -241,11 +243,13 @@ export default function PinjamanAdminClient({ loans, employees, isSuper }: { loa
                 <div className="bg-gray-50 px-3 pb-3">
                   <LoanCard loan={l}
                     actions={<div className="flex flex-col items-end gap-1.5">
-                      <Link href={`/portal/admin/karyawan/${l.userId}?tab=pinjaman`}
-                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                        <T>{["PENDING", "DISETUJUI", "BERJALAN"].includes(l.status) ? "Kelola di profil" : "Lihat profil"}</T> <ArrowUpRight size={13} />
-                      </Link>
-                      {canEdit && (!l.isOpening || isSuper) && <DeleteLoanButton loan={l} />}
+                      <LoanActions loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />
+                      {["BERJALAN", "LUNAS", "DIGABUNG"].includes(l.status) && (
+                        <Link href={`/portal/admin/karyawan/${l.userId}?tab=pinjaman`}
+                          className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                          <T>Lihat profil</T> <ArrowUpRight size={13} />
+                        </Link>
+                      )}
                     </div>} />
                 </div>
               )}
@@ -254,6 +258,8 @@ export default function PinjamanAdminClient({ loans, employees, isSuper }: { loa
         })}
       </div>
       {upload && <OpeningLoanImportDialog employees={employees} onClose={() => setUpload(false)} />}
+      {dialog && <LoanDialog kind={dialog.kind} loan={dialog.loan}
+        running={loans.filter((x) => x.userId === dialog.loan.userId && x.status === "BERJALAN" && x.id !== dialog.loan.id)} onClose={() => setDialog(null)} />}
     </main>
   );
 }
