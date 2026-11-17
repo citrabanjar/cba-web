@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { showNotice } from "@/components/portal/Confirm";
+import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { CalendarDays, Loader2, CheckCircle2, X } from "lucide-react";
 import { submitLeave, cancelLeave } from "./actions";
 import type { LeaveRequest } from "@prisma/client";
@@ -33,9 +34,12 @@ export type LeaveOption = {
 
 type Request = LeaveRequest & { policy: { code: string; name: string } | null };
 
-export default function CutiForm({ requests, options, balances, people = [], approver = false }: { requests: Request[]; options: LeaveOption[]; balances: BalanceRow[]; people?: { id: string; label: string }[]; approver?: boolean }) {
+export default function CutiForm({ requests, options, balances, people = [], approver = false }: { requests: Request[]; options: LeaveOption[]; balances: BalanceRow[]; people?: { id: string; employeeId: string; name: string }[]; approver?: boolean }) {
   const t = useT();
   const [showForm, setShowForm] = useState(false);
+  // Delegasi: ketik ID atau nama karyawan, pilih dari daftar.
+  const [delegateText, setDelegateText] = useState("");
+  const delegate = people.find((p) => p.employeeId && p.employeeId.toLowerCase() === delegateText.trim().toLowerCase());
   const [policyId, setPolicyId] = useState("");
   const [, formAction, isPending] = useActionState(async (prev: unknown, fd: FormData) => {
     // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal), bukan kotak tetap.
@@ -43,7 +47,7 @@ export default function CutiForm({ requests, options, balances, people = [], app
     if ("error" in r && r.error) void showNotice(t(r.error), "error");
     else if ("days" in r) {
       void showNotice(`${t("Pengajuan cuti")} ${r.days} ${t("hari diajukan ke")} ${r.approver} ${t("untuk approval.")}` + (r.unpaid ? ` ${r.unpaid} ${t("hari melebihi saldo dan masuk cuti di luar tanggungan.")}` : ""));
-      setShowForm(false); setPolicyId("");
+      setShowForm(false); setPolicyId(""); setDelegateText("");
     }
     return r;
   }, undefined);
@@ -122,11 +126,12 @@ export default function CutiForm({ requests, options, balances, people = [], app
             {chosen?.category === "TAHUNAN" && (
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block"><T>{approver ? "Delegasi (wajib)" : "Delegasi (opsional)"}</T></label>
-                <select name="delegateId" required={approver} defaultValue=""
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white">
-                  <option value="">{t("Pilih karyawan")}</option>
-                  {people.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
-                </select>
+                <EmployeeCombobox id="delegate" value={delegateText} onChange={setDelegateText}
+                  options={people.filter((u) => u.employeeId).map((u) => ({ value: u.employeeId, label: u.name }))} />
+                <input type="hidden" name="delegateId" value={delegate?.id ?? ""} />
+                {delegate ? <p className="mt-1 text-xs text-emerald-700">{delegate.name}</p>
+                  : delegateText.trim() && <p className="mt-1 text-xs text-rose-600"><T>Pilih karyawan dari daftar.</T></p>}
+                {!delegateText.trim() && <p className="mt-1 text-[11px] text-gray-400"><T>Ketik ID atau nama karyawan.</T></p>}
                 {approver && <p className="mt-1 text-[11px] text-gray-400"><T>Selama cuti disetujui, pengajuan baru yang biasanya Anda putuskan akan masuk ke delegasi.</T></p>}
               </div>
             )}

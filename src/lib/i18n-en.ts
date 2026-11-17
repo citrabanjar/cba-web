@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Pilih karyawan dari daftar.": "Select an employee from the list.",
+  "Ketik ID atau nama karyawan.": "Type an employee ID or name.",
   "Batas jam absen": "Attendance time limits",
   "Dihitung dari jam shift karyawan hari itu. Di luar batas, karyawan tidak bisa absen. Kosongkan jika tidak dibatasi. Hari tanpa jam shift (libur, jadwal manual) tidak dibatasi.": "Measured from the employee's shift that day. Outside the limit, the employee cannot clock in/out. Leave empty for no limit. Days without shift hours (off, manual schedule) are not limited.",
   "Absen masuk dibuka sebelum jam masuk": "Clock-in opens before shift start",

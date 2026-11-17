@@ -45,7 +45,7 @@ export default async function CutiPage() {
         <p className="text-xs text-gray-400 mt-0.5">{session.user.name}</p>
       </div>
       <CutiForm requests={requests} options={options} balances={balances}
-        people={people.map((u) => ({ id: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }))} approver={approver} />
+        people={people.map((u) => ({ id: u.id, employeeId: u.employeeId ?? "", name: u.name }))} approver={approver} />
     </div>
   );
 }
