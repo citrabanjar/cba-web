@@ -8,9 +8,7 @@ import { nextLoanNo } from "@/lib/loan-view";
 import { activeManager, planLoan, topLeaderOf } from "@/lib/loan-flow";
 import type { EmployeeLoan } from "@prisma/client";
 import { workflowSteps } from "@/lib/workflow-settings";
-import { loanStepIds, loanTopIds, type LoanFlow } from "@/lib/loans";
-import { notify } from "@/lib/notify";
-import { formatRupiah } from "@/lib/utils";
+import { loanStepIds, type LoanFlow } from "@/lib/loans";
 
 const PATH = "/portal/pinjaman";
 
@@ -71,12 +69,8 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
       purpose: input.purpose.trim().slice(0, 500), createdBy: session.user.name ?? null, stage, flow,
     },
   });
-  const what = `${session.user.name ?? ""} · ${formatRupiah(amount)} · ${tenor} kali angsuran.${request?.mergeIds.length ? " Dengan permohonan hitung ulang angsuran." : ""}`;
   // Penyetuju yang mendapat giliran cukup melihat kartu "Menunggu keputusan Anda" (tanpa notifikasi ganda, sama seperti cuti).
-  if (stage !== "ATASAN") {
-    // Langsung ke pemeriksaan Admin (Workflow satu level / atasan langsung = pimpinan puncak); pimpinan mendapat kabar.
-    await notify(loanTopIds(flow), "Pengajuan pinjaman dalam pemeriksaan Admin", `${what} Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");
-  }
+  // Pemeriksa dan pimpinan cukup melihat kartu pengajuan di Notifikasi → Pinjaman (tanpa notifikasi ganda).
   revalidatePath(PATH);
   revalidatePath("/portal/admin/pinjaman");
   revalidatePath("/portal/dashboard");

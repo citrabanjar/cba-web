@@ -9,7 +9,7 @@ import { assessAttendance } from "@/lib/attendance-assess";
 import { decideStep } from "@/lib/workflow-settings";
 import { readApproval } from "@/lib/onboarding-interview";
 import { dateRange, decisionText, notify } from "@/lib/notify";
-import { loanPreStep, loanTopIds, loanTurn, readLoanFlow } from "@/lib/loans";
+import { loanPreStep, loanTurn, readLoanFlow } from "@/lib/loans";
 import { applyPlan, loanReviewers, planLoan } from "@/lib/loan-flow";
 import { formatRupiah } from "@/lib/utils";
 
@@ -147,11 +147,7 @@ export async function decideLoan(id: string, approve: boolean, note: string): Pr
     }
     await prisma.employeeLoan.update({ where: { id }, data: { stage: "ADMIN", flow: next } });
     await notify(loan.userId, "Pengajuan pinjaman disetujui atasan", `${amount} · Disetujui oleh ${a.name ?? "atasan"}. Siapkan dokumen fisik untuk diperiksa ${flow.checkName ?? "Admin"}.`, "/portal/pinjaman");
-    const tops = loanTopIds(flow).filter((x) => x !== a.id);
-    if (tops.length) {
-      await notify(tops, "Pengajuan pinjaman dalam pemeriksaan Admin",
-        `${loan.user.name} · ${amount} · ${loan.tenor} kali angsuran. Keputusan dapat diberikan setelah Admin selesai memeriksa.`, "/portal/notifikasi?modul=pinjaman");
-    }
+    // Pimpinan melihat kartunya di "Sedang diproses" selama pemeriksaan (tanpa notifikasi ganda).
     return done();
   }
 
