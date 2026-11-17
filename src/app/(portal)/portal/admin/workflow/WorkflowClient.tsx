@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ArrowLeftRight, Briefcase, CalendarDays, ChevronRight, GitBranch, HandCoins, Loader2, Plus, Save, Timer, Trash2, UserPen, type LucideIcon } from "lucide-react";
-import { toast } from "@/components/portal/Toast";
+import { showNotice } from "@/components/portal/Confirm";
 import { Button } from "@/components/ui/button";
 import { T, useT } from "@/components/i18n";
 import {
@@ -142,8 +142,9 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                     <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
                       const cleaned = Object.fromEntries(Object.entries(s).map(([k, x]) => [k, { ...x, levels: x.levels.filter((l) => l.value) }])) as WorkflowSettings;
                       const r = await saveWorkflow(cleaned);
-                      if (r.error) toast(t(r.error), "error");
-                      else toast(t("Workflow tersimpan. Berlaku untuk pengajuan baru."), "ok");
+                      // Dialog standar portal (Pemberitahuan / Gagal) dengan tombol OK.
+                      if (r.error) showNotice(t(r.error), "error");
+                      else showNotice(t("Workflow tersimpan. Berlaku untuk pengajuan baru."));
                     })}>{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan</T></Button>
                   </div>
                 )}
