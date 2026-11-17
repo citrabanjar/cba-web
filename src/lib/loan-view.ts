@@ -7,7 +7,7 @@ import type { LoanView } from "@/components/portal/LoanCard";
 export const toLoanView = (l: EmployeeLoan & { installments: LoanInstallment[] }): LoanView => ({
   // Pengajuan ditolak / dibatalkan tidak memakai nomor "Pinjaman ke-".
   id: l.id, seqNo: ["DITOLAK", "BATAL"].includes(l.status) ? 0 : l.seqNo ?? 0, disbursedAt: l.disbursedAt?.toISOString().slice(0, 10) ?? null, principal: l.principal, tenor: l.tenor, startPeriod: l.startPeriod, purpose: l.purpose, status: l.status,
-  isOpening: l.isOpening, originalAmount: l.originalAmount, note: l.note, createdAt: l.createdAt.toISOString(), approvedBy: l.approvedBy,
+  isOpening: l.isOpening, originalAmount: l.originalAmount, note: l.note, createdAt: l.createdAt.toISOString(), approvedBy: l.approvedBy, approvedAt: l.approvedAt?.toISOString() ?? null,
   stage: l.stage, flow: readLoanFlow(l.flow),
   installments: [...l.installments].sort((a, b) => a.seq - b.seq).map((i) => ({
     id: i.id, seq: i.seq, period: i.period, amount: i.amount, status: i.status, paidAt: i.paidAt?.toISOString() ?? null,

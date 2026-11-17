@@ -37,12 +37,16 @@ function Card({ item }: { item: Indicator }) {
       {item.steps ? (
         // Rincian per tahap (mis. Proses Pinjaman): angka kecil berderet.
         <div className="relative mt-1.5 grid grid-cols-4 gap-1">
-          {item.steps.map((x) => (
-            <span key={x.label} className="rounded-lg bg-gray-50 px-1 py-0.5 text-center">
+          {item.steps.map((x) => {
+            const inner = <>
               <span className="block text-sm font-bold tabular-nums text-gray-800">{x.value}</span>
               <span className="block truncate text-[10px] text-gray-400"><T>{x.label}</T></span>
-            </span>
-          ))}
+            </>;
+            // Kotak bertautan sendiri: di atas tautan kartu (z-10), membuka daftar yang sudah disaring.
+            return x.href
+              ? <Link key={x.label} href={x.href} className="relative z-10 rounded-lg bg-gray-50 px-1 py-0.5 text-center hover:bg-gray-100 hover:ring-1 hover:ring-gray-200">{inner}</Link>
+              : <span key={x.label} className="rounded-lg bg-gray-50 px-1 py-0.5 text-center">{inner}</span>;
+          })}
         </div>
       ) : (
         <p className="relative mt-1.5 truncate text-[11px] text-gray-400">
@@ -54,6 +58,15 @@ function Card({ item }: { item: Indicator }) {
     </>
   );
   const cls = "relative block h-full overflow-hidden rounded-2xl border bg-white p-5";
+  // Kartu dengan kotak bertautan: tautan kartu dipasang sebagai lapisan penuh di belakang (tautan tidak boleh bersarang).
+  if (item.href && item.steps?.some((x) => x.href)) {
+    return (
+      <section className={`${cls} transition-transform hover:-translate-y-0.5`}>
+        <Link href={item.href} aria-label={item.title} className="absolute inset-0" />
+        {body}
+      </section>
+    );
+  }
   return item.href
     ? <Link href={item.href} className={`${cls} transition-transform hover:-translate-y-0.5`}>{body}</Link>
     : <section className={cls}>{body}</section>;

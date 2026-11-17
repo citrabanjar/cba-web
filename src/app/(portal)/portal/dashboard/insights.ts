@@ -23,7 +23,7 @@ export type Tone = "blue" | "emerald" | "amber" | "violet" | "rose";
 export type Indicator = {
   key: string; title: string; value: string | number; note: string; noteValue?: string | number;
   icon: IndicatorIcon; tone: Tone; href?: string; pinned?: boolean; actionable?: boolean;
-  steps?: { label: string; value: number }[]; // rincian per tahap (mis. Proses Pinjaman), tampil menggantikan baris keterangan
+  steps?: { label: string; value: number; href?: string }[]; // rincian per tahap (mis. Proses Pinjaman), tampil menggantikan baris keterangan
 };
 
 // Satu baris di kartu Tugas. Selesai kalau count = 0.
@@ -144,9 +144,9 @@ export async function loadIndicators(): Promise<Indicator[]> {
     // Perubahan data yang belum diputus: pengajuan Admin (wajib approval) dan pengajuan karyawan dari Profil Saya.
     prisma.employeeEditRequest.count({ where: { status: "PENDING" } }),
     prisma.profileChangeRequest.count({ where: { status: "PENDING" } }),
-    // Proses pinjaman: pengajuan yang berjalan per tahap, dan yang selesai diputus 24 jam terakhir.
+    // Proses pinjaman: pengajuan yang berjalan per tahap, dan yang selesai diputus HARI INI (WIB); ganti hari → hilang.
     prisma.employeeLoan.findMany({ where: { status: "PENDING" }, select: { stage: true } }),
-    prisma.employeeLoan.count({ where: { isOpening: false, approvedAt: { gte: new Date(Date.now() - 86_400_000) }, status: { not: "PENDING" } } }),
+    prisma.employeeLoan.count({ where: { isOpening: false, approvedAt: { gte: new Date(today.getTime() - 7 * 3600_000) }, status: { not: "PENDING" } } }),
   ]);
   const loanStage = (st: string) => loanPending.filter((l) => (l.stage || "ADMIN") === st).length;
   // Terlambat / tepat waktu dinilai dari jam masuk shift hari itu + toleransi terlambat shift.
@@ -185,8 +185,10 @@ export async function loadIndicators(): Promise<Indicator[]> {
     {
       key: "proses-pinjaman", title: "Proses Pinjaman", value: loanPending.length, note: "pengajuan berjalan",
       steps: [
-        { label: "Atasan", value: loanStage("ATASAN") }, { label: "Admin", value: loanStage("ADMIN") },
-        { label: "Pimpinan", value: loanStage("PIMPINAN") }, { label: "Selesai", value: loanDone },
+        { label: "Atasan", value: loanStage("ATASAN"), href: "/portal/admin/pinjaman?tahap=ATASAN" },
+        { label: "Admin", value: loanStage("ADMIN"), href: "/portal/admin/pinjaman?tahap=ADMIN" },
+        { label: "Pimpinan", value: loanStage("PIMPINAN"), href: "/portal/admin/pinjaman?tahap=PIMPINAN" },
+        { label: "Selesai", value: loanDone, href: "/portal/admin/pinjaman?tahap=SELESAI" },
       ],
       icon: "loan", tone: "amber", href: "/portal/admin/pinjaman", actionable: true,
     },

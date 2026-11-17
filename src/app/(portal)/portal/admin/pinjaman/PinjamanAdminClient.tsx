@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
-import { ArrowUpRight, ChevronDown, Download, HandCoins, Loader2, Search, Upload, Wallet } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Download, HandCoins, Loader2, Search, Upload, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -165,7 +166,18 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ kind: "approve" | "disburse" | "schedule"; loan: AdminLoan } | null>(null);
   const inGroup = (key: string) => loans.filter((l) => (LOAN_GROUPS.find((g) => g.key === key)!.statuses as readonly string[]).includes(l.status));
-  const list = inGroup(tab).filter((l) => !q || `${l.name} ${l.employeeId}`.toLowerCase().includes(q.toLowerCase()));
+  // Saringan dari kotak kartu Proses Pinjaman di Beranda (?tahap=ATASAN|ADMIN|PIMPINAN|SELESAI).
+  const params = useSearchParams();
+  const router = useRouter();
+  const tahap = params.get("tahap");
+  const STAGE_LABEL: Record<string, string> = { ATASAN: "Menunggu atasan", ADMIN: "Dalam pemeriksaan Admin", PIMPINAN: "Menunggu keputusan pimpinan", SELESAI: "Selesai diputus hari ini" };
+  // Awal hari ini menurut WIB (pengajuan selesai hanya dihitung hari itu).
+  const [since] = useState(() => { const d = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date()); return new Date(`${d}T00:00:00+07:00`).getTime(); });
+  const matchStage = (l: AdminLoan) => tahap === "SELESAI"
+    ? l.status !== "PENDING" && !l.isOpening && !!l.approvedAt && new Date(l.approvedAt).getTime() >= since
+    : l.status === "PENDING" && (l.stage || "ADMIN") === tahap;
+  const filtered = tahap && STAGE_LABEL[tahap];
+  const list = (filtered ? loans.filter(matchStage) : inGroup(tab)).filter((l) => !q || `${l.name} ${l.employeeId}`.toLowerCase().includes(q.toLowerCase()));
   const running = inGroup("berjalan");
   const outstanding = running.reduce((a, l) => a + loanSummary(l.principal, l.installments).remaining, 0);
   const stats = [
@@ -186,9 +198,15 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-2">
+        {filtered && (
+          <button type="button" onClick={() => router.replace("/portal/admin/pinjaman")}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-50 px-4 text-sm font-semibold text-amber-800 hover:bg-amber-100">
+            <T>Disaring</T>: <T>{STAGE_LABEL[tahap!]}</T> <X size={14} />
+          </button>
+        )}
         {LOAN_GROUPS.map((g) => (
-          <button key={g.key} type="button" onClick={() => setTab(g.key)}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm ${tab === g.key ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+          <button key={g.key} type="button" onClick={() => { setTab(g.key); if (filtered) router.replace("/portal/admin/pinjaman"); }}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm ${!filtered && tab === g.key ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
             <T>{g.label}</T> <span className="text-xs opacity-70">{inGroup(g.key).length}</span>
           </button>
         ))}

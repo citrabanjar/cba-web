@@ -8,7 +8,7 @@ import { LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort, type Lo
 
 export type LoanView = {
   id: string; seqNo: number; disbursedAt: string | null; principal: number; tenor: number; startPeriod: string; purpose: string | null; status: string;
-  isOpening: boolean; originalAmount: number | null; note: string | null; createdAt: string; approvedBy: string | null;
+  isOpening: boolean; originalAmount: number | null; note: string | null; createdAt: string; approvedBy: string | null; approvedAt?: string | null;
   stage?: string | null; flow?: LoanFlow; // alur pengajuan (status PENDING)
   installments: { id: string; seq: number; period: string; amount: number; status: string; paidAt: string | null }[];
 };
