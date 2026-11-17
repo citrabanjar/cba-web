@@ -653,6 +653,10 @@ function RuleTab({ rule }: { rule: Rule }) {
   const [form, setForm] = useState<RuleInput>({
     overtimeNeedsApproval: rule.overtimeNeedsApproval, holidayWorkIsOvertime: rule.holidayWorkIsOvertime,
     halfDayMinutes: rule.halfDayMinutes, lateAsHalfDayMinutes: rule.lateAsHalfDayMinutes, noCheckInIsAlpha: rule.noCheckInIsAlpha,
+    checkInOpenMinutes: rule.checkInOpenMinutes, checkInCloseMinutes: rule.checkInCloseMinutes, checkOutCloseMinutes: rule.checkOutCloseMinutes,
+  });
+  const opt = (k: "checkInOpenMinutes" | "checkInCloseMinutes" | "checkOutCloseMinutes") => ({
+    value: form[k] ?? NaN, onChange: (n: number) => setForm({ ...form, [k]: Number.isFinite(n) ? n : null }),
   });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -693,6 +697,16 @@ function RuleTab({ rule }: { rule: Rule }) {
             <div className="space-y-1.5">
               <NumberField disabled={!canEdit} label="Terlambat lebih dari ini = setengah hari" value={form.lateAsHalfDayMinutes ?? NaN}
                 onChange={(n) => setForm({ ...form, lateAsHalfDayMinutes: Number.isFinite(n) ? n : null })} hint="Kosongkan jika tidak dipakai." />
+            </div>
+          </div>
+          {/* Batas jam absen terhadap jadwal shift: di luar batas, karyawan tidak bisa absen. */}
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-sm font-semibold text-gray-800"><T>Batas jam absen</T></p>
+            <p className="text-[11px] text-gray-400"><T>Dihitung dari jam shift karyawan hari itu. Di luar batas, karyawan tidak bisa absen. Kosongkan jika tidak dibatasi. Hari tanpa jam shift (libur, jadwal manual) tidak dibatasi.</T></p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-3">
+              <NumberField disabled={!canEdit} label="Absen masuk dibuka sebelum jam masuk" {...opt("checkInOpenMinutes")} hint="120 = mulai 2 jam sebelum jam masuk." />
+              <NumberField disabled={!canEdit} label="Absen masuk ditutup setelah jam masuk" {...opt("checkInCloseMinutes")} hint="240 = paling lambat 4 jam setelah jam masuk." />
+              <NumberField disabled={!canEdit} label="Absen pulang ditutup setelah jam pulang" {...opt("checkOutCloseMinutes")} hint="360 = paling lambat 6 jam setelah jam pulang." />
             </div>
           </div>
         </div>

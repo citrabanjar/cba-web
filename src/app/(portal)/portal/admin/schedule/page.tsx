@@ -67,6 +67,9 @@ export default async function SchedulePage({
         halfDayMinutes: rule?.halfDayMinutes ?? 240,
         lateAsHalfDayMinutes: rule?.lateAsHalfDayMinutes ?? null,
         noCheckInIsAlpha: rule?.noCheckInIsAlpha ?? true,
+        checkInOpenMinutes: rule?.checkInOpenMinutes ?? null,
+        checkInCloseMinutes: rule?.checkInCloseMinutes ?? null,
+        checkOutCloseMinutes: rule?.checkOutCloseMinutes ?? null,
         updatedBy: rule?.updatedBy ?? null,
         updatedAt: rule?.updatedAt ?? null,
       }}

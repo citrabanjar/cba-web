@@ -514,6 +514,9 @@ model AttendanceRule {
   halfDayMinutes        Int      @default(240) // kerja kurang dari ini dihitung setengah hari
   lateAsHalfDayMinutes  Int? // terlambat lebih dari ini dihitung setengah hari (kosong = tidak)
   noCheckInIsAlpha      Boolean  @default(true) // tidak absen & tanpa izin/cuti/sakit/dinas = Alpha
+  checkInOpenMinutes    Int? // absen masuk dibuka sekian menit sebelum jam masuk shift (kosong = tanpa batas)
+  checkInCloseMinutes   Int? // absen masuk ditutup sekian menit setelah jam masuk shift (kosong = tanpa batas)
+  checkOutCloseMinutes  Int? // absen pulang ditutup sekian menit setelah jam pulang shift (kosong = tanpa batas)
   updatedBy             String?
   updatedAt             DateTime @updatedAt
 }

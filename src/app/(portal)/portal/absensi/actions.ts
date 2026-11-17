@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getAllowedLocations, isOnApprovedTrip, nearestLocation } from "@/lib/work-location";
-import { checkInWorkDate, openAttendance, wibToday } from "@/lib/attendance-assess";
+import { checkInBlocked, checkInWorkDate, checkOutBlocked, openAttendance, wibToday } from "@/lib/attendance-assess";
 
 // Cek lokasi absen. Saat Dinas Luar disetujui, absen boleh di mana saja (lokasinya tetap
 // disimpan). Selain itu, absen di luar radius semua lokasi yang diizinkan ditolak.
@@ -72,6 +72,9 @@ export async function checkIn(lat: number, lng: number) {
     where: { userId_date: { userId: session.user.id, date: today } },
   });
   if (existing?.checkIn) return { error: "Anda sudah check-in hari ini." };
+  // Batas jam absen masuk terhadap jam masuk shift (Jadwal → Aturan Kehadiran).
+  const blockedIn = await checkInBlocked(session.user.id, today);
+  if (blockedIn) return { error: blockedIn };
 
   const place = await checkLocation(session.user.id, lat, lng);
   if ("error" in place) return { error: place.error };
@@ -110,8 +113,17 @@ export async function checkOut(lat: number, lng: number) {
 
   // Absen pulang shift malam (pagi hari berikutnya) masuk ke absen tanggal mulai shift.
   const record = await openAttendance(session.user.id);
-  if (!record?.checkIn) return { error: "Anda belum check-in hari ini." };
+  if (!record?.checkIn) {
+    // Absen kemarin masih terbuka tapi batas absen pulangnya sudah lewat: sebutkan batasnya.
+    const yesterday = new Date(wibToday().getTime() - 86_400_000);
+    const y = await prisma.attendance.findUnique({ where: { userId_date: { userId: session.user.id, date: yesterday } }, select: { checkIn: true, checkOut: true } });
+    const late = y?.checkIn && !y.checkOut ? await checkOutBlocked(session.user.id, yesterday) : null;
+    return { error: late ?? "Anda belum check-in hari ini." };
+  }
   if (record.checkOut) return { error: "Anda sudah check-out hari ini." };
+  // Batas jam absen pulang terhadap jam pulang shift (Jadwal → Aturan Kehadiran).
+  const blockedOut = await checkOutBlocked(session.user.id, record.date);
+  if (blockedOut) return { error: blockedOut };
 
   const place = await checkLocation(session.user.id, lat, lng);
   if ("error" in place) return { error: place.error };

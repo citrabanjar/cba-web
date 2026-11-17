@@ -32,6 +32,8 @@ export type PatternInput = {
 export type RuleInput = {
   overtimeNeedsApproval: boolean; holidayWorkIsOvertime: boolean; halfDayMinutes: number;
   lateAsHalfDayMinutes: number | null; noCheckInIsAlpha: boolean;
+  // Batas jam absen terhadap shift (menit; null = tanpa batas).
+  checkInOpenMinutes: number | null; checkInCloseMinutes: number | null; checkOutCloseMinutes: number | null;
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -238,6 +240,9 @@ export async function saveRule(input: RuleInput): Promise<Result> {
   if (input.lateAsHalfDayMinutes !== null && !minutes(input.lateAsHalfDayMinutes)) {
     return { error: "Batas terlambat harus 0 sampai 1440 menit." };
   }
+  for (const v of [input.checkInOpenMinutes, input.checkInCloseMinutes, input.checkOutCloseMinutes]) {
+    if (v !== null && !minutes(v)) return { error: "Batas jam absen harus 0 sampai 1440 menit." };
+  }
   const data = { ...input, updatedBy: user.name };
   const oldRule = await prisma.attendanceRule.findUnique({ where: { id: "default" } });
   const held = await holdForApproval({
@@ -245,6 +250,8 @@ export async function saveRule(input: RuleInput): Promise<Result> {
     details: holdDiff({
       overtimeNeedsApproval: "Lembur perlu persetujuan", holidayWorkIsOvertime: "Kerja di hari libur = lembur", halfDayMinutes: "Batas setengah hari (menit)",
       lateAsHalfDayMinutes: "Terlambat dihitung setengah hari (menit)", noCheckInIsAlpha: "Tanpa check-in = alpha",
+      checkInOpenMinutes: "Absen masuk dibuka sebelum jam masuk (menit)", checkInCloseMinutes: "Absen masuk ditutup setelah jam masuk (menit)",
+      checkOutCloseMinutes: "Absen pulang ditutup setelah jam pulang (menit)",
     }, oldRule as Record<string, unknown> | null, input as unknown as Record<string, unknown>),
   });
   if (held) return held;
