@@ -1,14 +1,13 @@
 "use client";
 
 import { proposedText } from "@/lib/approval-text";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
-  BadgeCheck, CalendarHeart, Coins, Loader2, Paperclip, Pencil, Plus, Scale, Trash2, Users, Wallet,
+  BadgeCheck, CalendarHeart, ChevronDown, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import {
   LEAVE_CATEGORIES, LEAVE_PERIODS, LEAVE_RENEWALS, LEAVE_UNITS, categoryLabel, expiryLabel, periodLabel, unitLabel, type LeavePolicyInput,
@@ -52,15 +51,18 @@ function Chip({ children, tone = "gray" }: { children: React.ReactNode; tone?: "
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>{children}</span>;
 }
 
-function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: () => void }) {
+// Formulir jenis cuti di panel kanan (seperti Komponen Payroll): Batal / Simpan di atas, tanpa dialog.
+function PolicyForm({ policy, onClose, onDirty }: { policy: Policy | "new"; onClose: () => void; onDirty: (d: boolean) => void }) {
   const t = useT();
-  const [form, setForm] = useState<LeavePolicyInput>(() => policy === "new" ? EMPTY : {
+  const initial = useMemo<LeavePolicyInput>(() => policy === "new" ? EMPTY : {
     ...policy, payNote: policy.payNote ?? "", attachmentNote: policy.attachmentNote ?? "",
     legalBasis: policy.legalBasis ?? "", note: policy.note ?? "", carryOverExpiry: policy.carryOverExpiry ?? "",
-  });
-  const [unlimited, setUnlimited] = useState(form.quota === null);
-  const [error, setError] = useState<string | null>(null);
+  }, [policy]);
+  const [form, setForm] = useState<LeavePolicyInput>(initial);
+  const [unlimited, setUnlimited] = useState(initial.quota === null);
   const [pending, start] = useTransition();
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
   const set = <K extends keyof LeavePolicyInput>(k: K, v: LeavePolicyInput[K]) => setForm((f) => ({ ...f, [k]: v }));
   const [expMonth, expDay] = (form.carryOverExpiry || "03-31").split("-").map(Number);
   const setExpiry = (m: number, d: number) => set("carryOverExpiry", `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
@@ -90,12 +92,17 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   }
 
   function save() {
-    setError(null);
     start(async () => {
       const r = await saveLeavePolicy(policy === "new" ? null : policy.id, { ...form, quota: saldo ? (monthly ? null : form.quota) : unlimited ? null : form.quota });
-      if (r.error) setError(r.error);
-      else { if (r.proposed) showNotice(proposedText(r.proposed)); onClose(); }
+      if (r.error) { void showNotice(t(r.error), "error"); return; }
+      onDirty(false);
+      void showNotice(r.proposed ? proposedText(r.proposed) : t("Jenis cuti tersimpan."));
+      if (policy === "new") onClose();
     });
+  }
+  function cancel() {
+    if (policy === "new") { onDirty(false); onClose(); return; }
+    setForm(initial); setUnlimited(initial.quota === null);
   }
 
   const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
@@ -124,9 +131,13 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   const halfDay = check("allowHalfDay", "Boleh setengah hari", "Karyawan bisa mengajukan 0,5 hari: masuk setelah istirahat, atau pulang saat istirahat.");
 
   return (
-    <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle><T>{policy === "new" ? "Tambah Jenis Cuti" : "Ubah Jenis Cuti"}</T></DialogTitle></DialogHeader>
+    <div>
+        <div className="mb-4 flex justify-end gap-2">
+          <Button variant="outline" disabled={pending || (policy !== "new" && !dirty)} onClick={cancel}><T>Batal</T></Button>
+          <Button onClick={save} disabled={pending || (policy !== "new" && !dirty)} className="gap-1.5">
+            {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T>
+          </Button>
+        </div>
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-[110px_1fr]">
             <div className="space-y-1.5"><Label className="text-xs"><T>Kode</T></Label>
@@ -256,25 +267,27 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
           )}
 
           {check("isActive", "Aktif", "Jenis nonaktif tidak bisa dipilih saat pengajuan.")}
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{error}</T></p>}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}><T>Batal</T></Button>
-          <Button onClick={save} disabled={pending} className="gap-1.5">
-            {pending && <Loader2 size={15} className="animate-spin" />} <T>Simpan</T>
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 
 export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, backDays = 3 }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; backDays?: number }) {
   const t = useT();
   const [tab, setTab] = useState<"jenis" | "saldo">("jenis");
-  const [editing, setEditing] = useState<Policy | "new" | null>(null);
-  const [filter, setFilter] = useState<string>("ALL");
+  const [creating, setCreating] = useState(false); // formulir jenis baru di panel kanan
+  const [dirty, setDirty] = useState(false); // ada isian yang belum disimpan
+  const [showForm, setShowForm] = useState(false); // formulir ubah di bawah garis: dibuka / disembunyikan
   const [pending, start] = useTransition();
+  // Daftar kiri dikelompokkan per kategori; jenis yang dibuka di kanan (bawaan: yang pertama).
+  const ordered = [...LEAVE_CATEGORIES.flatMap((c) => policies.filter((p) => p.category === c.key)), ...policies.filter((p) => !LEAVE_CATEGORIES.some((c) => c.key === p.category))];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = ordered.find((p) => p.id === selectedId) ?? ordered[0];
+  async function leave(go: () => void) {
+    if (dirty && !(await askConfirm(t("Perubahan belum disimpan. Tinggalkan tanpa menyimpan?")))) return;
+    setDirty(false);
+    go();
+  }
   const canEdit = useCanEdit(); // hak lihat saja: tombol ubah disembunyikan
 
   const active = policies.filter((p) => p.isActive);
@@ -285,8 +298,6 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
     { label: "Cuti Khusus", value: active.filter((p) => p.category === "KHUSUS").length, icon: Users, tone: "from-violet-500 to-indigo-400" },
     { label: "Tanpa Upah", value: active.filter((p) => !p.paid).length, icon: Coins, tone: "from-slate-500 to-slate-400" },
   ];
-  const usedCategories = LEAVE_CATEGORIES.filter((c) => policies.some((p) => p.category === c.key));
-  const shown = filter === "ALL" ? policies : policies.filter((p) => p.category === filter);
 
   async function remove(p: Policy) {
     if (!await askConfirm(t("Hapus jenis cuti ini?"))) return;
@@ -334,64 +345,102 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
               <p className="text-xs text-gray-400"><T>Hak Cuti, syarat, dan upah setiap jenis cuti.</T></p>
             </div>
             {canEdit && (
-              <button type="button" onClick={() => setEditing("new")}
+              <button type="button" onClick={() => leave(() => { setCreating(true); setShowForm(true); })}
                 className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
                 <Plus size={14} /> <T>Tambah Jenis</T>
               </button>
             )}
           </div>
 
-          <div className="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-100 px-4 py-2">
-            {[{ key: "ALL", label: "Semua" }, ...usedCategories].map((c) => (
-              <button key={c.key} type="button" onClick={() => setFilter(c.key)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${filter === c.key ? "bg-ink text-white" : "text-gray-500 hover:bg-gray-100"}`}>
-                <T>{c.label}</T> <span className="opacity-60">{c.key === "ALL" ? policies.length : policies.filter((p) => p.category === c.key).length}</span>
-              </button>
-            ))}
-          </div>
+          {/* Daftar jenis di kiri (per kategori), rincian jenis terpilih di kanan (seperti Komponen Payroll). */}
+          <div className="grid gap-4 p-4 md:grid-cols-[18rem_1fr]">
+            <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              {LEAVE_CATEGORIES.map((c) => {
+                const list = policies.filter((p) => p.category === c.key);
+                if (!list.length) return null;
+                return (
+                  <div key={c.key}>
+                    <p className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: TONE[c.key] ?? "#94a3b8" }} /> <T>{c.label}</T> <span className="text-gray-300">{list.length}</span>
+                    </p>
+                    {list.map((p) => {
+                      const on = !creating && p.id === selected?.id;
+                      return (
+                        <button key={p.id} type="button" onClick={() => { if (!on) leave(() => { setCreating(false); setSelectedId(p.id); }); }}
+                          className={`flex w-full items-center gap-2.5 border-b border-gray-100 px-4 py-2.5 text-left ${on ? "bg-brand/10" : "hover:bg-gray-50"} ${p.isActive ? "" : "opacity-55"}`}>
+                          <span className="flex h-7 min-w-10 items-center justify-center rounded-lg px-1.5 text-[10px] font-bold text-white" style={{ background: TONE[p.category] ?? "#94a3b8" }}>{p.code}</span>
+                          <span className={`min-w-0 flex-1 truncate text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}>{t(p.name)}</span>
+                          <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {policies.length === 0 && <p className="px-4 py-8 text-center text-sm text-gray-400"><T>Belum ada jenis cuti.</T></p>}
+            </nav>
 
-          <div className="grid gap-4 p-4 md:grid-cols-2">
-            {shown.map((p) => (
-              <div key={p.id} className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white ${p.isActive ? "" : "opacity-55"}`}>
-                <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: TONE[p.category] ?? "#94a3b8" }} />
+            {creating && canEdit && (
+              <div className="relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                <span className="absolute inset-y-0 left-0 w-1.5 bg-ink" />
                 <div className="p-4 pl-5">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 min-w-11 items-center justify-center rounded-xl px-2 text-[11px] font-bold text-white" style={{ background: TONE[p.category] ?? "#94a3b8" }}>
-                      {p.code}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-gray-900">{t(p.name)}</p>
-                      <p className="text-xs text-gray-500"><T>{categoryLabel(p.category)}</T>{!p.isActive && <> · <T>Nonaktif</T></>}</p>
-                    </div>
-                    {canEdit && <>
-                    <button type="button" onClick={() => setEditing(p)} aria-label={t("Ubah")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Pencil size={14} /></button>
-                    <button type="button" onClick={() => remove(p)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>
-                    </>}
-                  </div>
-
-                  <p className="mt-3 text-lg font-bold text-gray-900">
-                    {p.accrualPerMonth > 0 ? <>+{p.accrualPerMonth} <T>hari tiap genap 1 bulan kerja</T></> : <Quota p={p} />}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {p.paid ? <Chip tone="green"><T>Upah dibayar</T></Chip> : <Chip tone="rose"><T>Tanpa upah</T></Chip>}
-                    {p.deductsAnnual && <Chip tone="amber"><T>Potong cuti tahunan</T></Chip>}
-                    {p.forStatus && <Chip tone="blue"><T>{p.forStatus === "TETAP" ? "Khusus karyawan tetap" : "Khusus karyawan kontrak"}</T></Chip>}
-                    {p.gender && <Chip tone="blue"><T>{p.gender === "P" ? "Khusus perempuan" : "Khusus laki-laki"}</T></Chip>}
-                    {p.minServiceMonths > 0 && <Chip><T>Masa kerja min.</T> {p.minServiceMonths} <T>bulan</T></Chip>}
-                    {p.noticeDays > 0 && <Chip><T>Ajukan</T> H-{p.noticeDays}</Chip>}
-                    {p.period === "TAHUN" && p.quota !== null && !(p.accrualPerMonth > 0) && <Chip tone="green"><T>{p.renewal === "JANUARI" ? "Diperbarui 1 Januari" : "Diperbarui ulang tahun kerja"}</T></Chip>}
-                    {p.carryOverDays > 0 && <Chip><T>Sisa dibawa</T> {p.carryOverDays} <T>hari</T>{p.carryOverExpires && p.carryOverExpiry ? <> · s/d {expiryLabel(p.carryOverExpiry)}</> : null}</Chip>}
-                    {p.allowHalfDay && <Chip tone="blue"><T>Bisa setengah hari</T></Chip>}
-                    {p.needsAttachment && <Chip><Paperclip size={10} /> {p.attachmentNote ? t(p.attachmentNote) : <T>Lampiran</T>}</Chip>}
-                  </div>
-                  {p.payNote && <p className="mt-2 text-xs text-gray-600"><Coins size={12} className="mr-1 inline text-gray-400" />{t(p.payNote)}</p>}
+                  <p className="mb-4 font-bold text-gray-900"><T>Tambah Jenis Cuti</T></p>
+                  <PolicyForm key="new" policy="new" onDirty={setDirty} onClose={() => { setDirty(false); setCreating(false); }} />
                 </div>
               </div>
-            ))}
+            )}
+            {!creating && selected && (() => {
+              const p = selected, tone = TONE[p.category] ?? "#94a3b8";
+              return (
+                <div className="relative h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                  <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: tone }} />
+                  <div className="p-4 pl-5">
+                    <div className={`flex items-start gap-3 ${p.isActive ? "" : "opacity-55"}`}>
+                      <span className="flex h-9 min-w-12 items-center justify-center rounded-xl px-2 text-[11px] font-bold text-white" style={{ background: tone }}>{p.code}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-gray-900">{t(p.name)}</p>
+                        <p className="text-xs text-gray-500"><T>{categoryLabel(p.category)}</T>{!p.isActive && <> · <T>Nonaktif</T></>}</p>
+                      </div>
+                      {canEdit && <button type="button" onClick={() => remove(p)} disabled={pending} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-30"><Trash2 size={14} /></button>}
+                    </div>
+                    <p className="mt-3 text-lg font-bold text-gray-900">
+                      {p.accrualPerMonth > 0 ? <>+{p.accrualPerMonth} <T>hari tiap genap 1 bulan kerja</T></> : <Quota p={p} />}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {p.paid ? <Chip tone="green"><T>Upah dibayar</T></Chip> : <Chip tone="rose"><T>Tanpa upah</T></Chip>}
+                      {p.deductsAnnual && <Chip tone="amber"><T>Potong cuti tahunan</T></Chip>}
+                      {p.forStatus && <Chip tone="blue"><T>{p.forStatus === "TETAP" ? "Khusus karyawan tetap" : "Khusus karyawan kontrak"}</T></Chip>}
+                      {p.gender && <Chip tone="blue"><T>{p.gender === "P" ? "Khusus perempuan" : "Khusus laki-laki"}</T></Chip>}
+                      {p.minServiceMonths > 0 && <Chip><T>Masa kerja min.</T> {p.minServiceMonths} <T>bulan</T></Chip>}
+                      {p.noticeDays > 0 && <Chip><T>Ajukan</T> H-{p.noticeDays}</Chip>}
+                      {p.period === "TAHUN" && p.quota !== null && !(p.accrualPerMonth > 0) && <Chip tone="green"><T>{p.renewal === "JANUARI" ? "Diperbarui 1 Januari" : "Diperbarui ulang tahun kerja"}</T></Chip>}
+                      {p.carryOverDays > 0 && <Chip><T>Sisa dibawa</T> {p.carryOverDays} <T>hari</T>{p.carryOverExpires && p.carryOverExpiry ? <> · s/d {expiryLabel(p.carryOverExpiry)}</> : null}</Chip>}
+                      {p.allowHalfDay && <Chip tone="blue"><T>Bisa setengah hari</T></Chip>}
+                      {p.needsAttachment && <Chip><Paperclip size={10} /> {p.attachmentNote ? t(p.attachmentNote) : <T>Lampiran</T>}</Chip>}
+                    </div>
+                    {p.payNote && <p className="mt-2 text-xs text-gray-600"><Coins size={12} className="mr-1 inline text-gray-400" />{t(p.payNote)}</p>}
+                    {canEdit && (
+                      <>
+                        {/* Garis pembatas sekaligus tombol buka / sembunyikan formulir ubah. */}
+                        <button type="button" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}
+                          className="group mt-4 flex w-full items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-brand">
+                          <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                          <T>{showForm ? "Sembunyikan pengaturan" : "Tampilkan pengaturan"}</T>
+                          <ChevronDown size={14} className={`transition-transform ${showForm ? "rotate-180" : ""}`} />
+                          <span className="h-px flex-1 bg-gray-200 group-hover:bg-brand/40" />
+                        </button>
+                        <div className={showForm ? "pt-4" : "hidden"}>
+                          <PolicyForm key={`${p.id}:${p.updatedAt}`} policy={p} onDirty={setDirty} onClose={() => {}} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </section>}
       </main>
-      {editing && <PolicyDialog policy={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Jenis cuti tersimpan.": "Leave type saved.",
+  "Belum ada jenis cuti.": "No leave types yet.",
   "Delegasi tanggung jawab": "Delegate of responsibilities",
   "Ajukan Tidak Masuk": "Request Absence",
   "Tidak masuk hari ini atau beberapa hari terakhir.": "Absent today or in the last few days.",
