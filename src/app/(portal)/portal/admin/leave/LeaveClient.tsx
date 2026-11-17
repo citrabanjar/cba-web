@@ -13,7 +13,7 @@ import { T, useT } from "@/components/i18n";
 import {
   LEAVE_CATEGORIES, LEAVE_PERIODS, LEAVE_RENEWALS, LEAVE_UNITS, categoryLabel, expiryLabel, periodLabel, unitLabel, type LeavePolicyInput,
 } from "@/lib/leave";
-import { deleteLeavePolicy, saveAbsenceBackDays, saveLeavePolicy } from "./actions";
+import { deleteLeavePolicy, saveLeavePolicy } from "./actions";
 import BalanceTab from "./BalanceTab";
 import { useCanEdit } from "@/components/portal/edit-access";
 import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
@@ -275,10 +275,10 @@ function PolicyForm({ policy, onClose, onDirty }: { policy: Policy | "new"; onCl
 
 export type LeaveRequestRow = {
   id: string; name: string; employeeId: string; department: string | null; policy: string; start: string; end: string; days: number;
-  reason: string; urgent: boolean; delegate: string | null; createdAt: string; approver: string;
+  reason: string; delegate: string | null; createdAt: string; approver: string;
 };
 
-export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, backDays = 3, requests = [], onLeave = [], view, initialTab }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; backDays?: number; requests?: LeaveRequestRow[]; onLeave?: LeaveRequestRow[]; view?: "pengajuan" | "sedang"; initialTab?: "pengajuan" | "saldo" }) {
+export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, requests = [], onLeave = [], view, initialTab }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; requests?: LeaveRequestRow[]; onLeave?: LeaveRequestRow[]; view?: "pengajuan" | "sedang"; initialTab?: "pengajuan" | "saldo" }) {
   const t = useT();
   const router = useRouter();
   const [tab, setTab] = useState<"jenis" | "saldo" | "pengajuan">(initialTab ?? "jenis");
@@ -345,7 +345,6 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
 
         {tab === "saldo" && <BalanceTab rows={balances} balanceSwitch={balanceSwitch} superAdmin={superAdmin} />}
         {tab === "pengajuan" && <RequestsTab rows={requests} onLeave={onLeave} view={view} />}
-        {tab === "jenis" && <AbsenceSetting value={backDays} canEdit={canEdit} />}
         {tab === "jenis" && <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Scale size={17} /></span>
@@ -454,27 +453,6 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
   );
 }
 
-// Batas mundur "Ajukan Tidak Masuk" (menu Kehadiran karyawan): pengajuan mendadak tanpa batas H-x.
-function AbsenceSetting({ value, canEdit }: { value: number; canEdit: boolean }) {
-  const t = useT();
-  const [days, setDays] = useState(String(value));
-  const [pending, start] = useTransition();
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm text-gray-700">
-      <T>Pengajuan tidak masuk mendadak: boleh mundur sampai</T>
-      <input type="number" min={0} max={31} value={days} disabled={!canEdit} onChange={(e) => setDays(e.target.value)}
-        className="h-8 w-16 rounded-lg border border-gray-200 px-2 text-center text-sm" />
-      <T>hari ke belakang</T>
-      {canEdit && Number(days) !== value && (
-        <button type="button" disabled={pending} onClick={() => start(async () => {
-          const r = await saveAbsenceBackDays(Number(days));
-          if (r.error) void showNotice(t(r.error), "error"); else void showNotice(t("Batas mundur tersimpan."));
-        })} className="ml-auto inline-flex h-8 items-center rounded-full bg-ink px-4 text-xs font-semibold text-white disabled:opacity-50"><T>Simpan</T></button>
-      )}
-    </div>
-  );
-}
-
 // Proses cuti: pengajuan yang menunggu persetujuan dan karyawan yang sedang cuti hari ini. Admin & Super Admin memantau;
 // keputusan tetap di penyetuju (atasan langsung / level Workflow) lewat Notifikasi. ?lihat= dari kotak kartu Beranda.
 function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave: LeaveRequestRow[]; view?: "pengajuan" | "sedang" }) {
@@ -485,7 +463,7 @@ function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave
     <li key={r.id} className="flex flex-wrap items-start gap-3 px-5 py-3">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-gray-900">{r.name} <span className="text-xs font-normal text-gray-400">{[r.employeeId, r.department].filter(Boolean).join(" · ")}</span></p>
-        <p className="text-sm text-gray-700">{t(r.policy)}{r.urgent && <span className="ml-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700"><T>Tidak masuk (mendadak)</T></span>}</p>
+        <p className="text-sm text-gray-700">{t(r.policy)}</p>
         <p className="text-xs text-gray-500">{fmt(r.start)}{r.end !== r.start && <> – {fmt(r.end)}</>} · {num(r.days)} <T>hari</T> · <T>Diajukan</T> {fmt(r.createdAt.slice(0, 10))}</p>
         {r.reason && <p className="mt-1 text-xs text-gray-500">{r.reason}</p>}
         {r.delegate && <p className="mt-0.5 text-[11px] text-gray-500"><T>Delegasi tanggung jawab</T>: {r.delegate}</p>}

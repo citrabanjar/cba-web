@@ -95,7 +95,7 @@ export async function loadApprovals(a: Approver) {
     ...leaves.filter((l) => flowOf(l.approval).show).map((l) => ({
       flow: flowOf(l.approval).steps, mine: flowOf(l.approval).mine,
       id: l.id, kind: "CUTI" as const, status: l.status, person: person(l.user),
-      title: `${l.policy?.name ?? LEGACY[l.type] ?? l.type}${l.urgent ? " · Tidak masuk (mendadak)" : ""}`, start: ymd(l.startDate), end: ymd(l.endDate), days: l.totalDays,
+      title: l.policy?.name ?? LEGACY[l.type] ?? l.type, start: ymd(l.startDate), end: ymd(l.endDate), days: l.totalDays,
       delegate: l.delegateName,
       halfDay: l.halfDay, unpaidDays: l.unpaidDays, reason: l.reason, note: l.note, decidedBy: l.approvedBy,
       decidedAt: l.approvedAt?.toISOString() ?? null, createdAt: l.createdAt.toISOString(),
