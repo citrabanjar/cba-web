@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { dateRange, decisionText, notify } from "@/lib/notify";
 import { auth } from "@/auth";
+import { submitSwapFor, type SwapInput } from "@/lib/request-submit";
 import { prisma } from "@/lib/prisma";
 import { routeTo } from "@/lib/delegation";
 import { OPEN_SWAP, activeManager, applySwap, hasAttendance, periodFinal, swapShifts } from "@/lib/shift-swap";
@@ -34,30 +35,8 @@ export async function previewSwap(date: string, partnerId: string) {
   };
 }
 
-export async function submitSwap(input: { date: string; partnerId: string; reason: string }): Promise<Result> {
-  const u = await me();
-  if (!DATE.test(input.date) || !input.partnerId) return { error: "Pilih tanggal dan rekan." };
-  if (input.partnerId === u.id) return { error: "Pilih rekan lain." };
-  const date = new Date(`${input.date}T00:00:00Z`);
-  const partner = await prisma.user.findUnique({ where: { id: input.partnerId }, select: { isActive: true } });
-  if (!partner?.isActive) return { error: "Rekan tidak ditemukan atau tidak aktif." };
-  if (!(await activeManager(u.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif. Hubungi HRD." };
-  if (!(await activeManager(input.partnerId))) return { error: "Atasan langsung rekan belum diatur atau sudah tidak aktif. Hubungi HRD." };
-  if (await periodFinal(date)) return { error: "Periode gaji bulan itu sudah final." };
-  if (await hasAttendance([u.id, input.partnerId], date)) return { error: ATT };
-  const s = await swapShifts(u.id, input.partnerId, date);
-  if ("error" in s.a) return { error: `Jadwal Anda: ${s.a.error}.` };
-  if ("error" in s.b) return { error: `Jadwal rekan: ${s.b.error}.` };
-  if (s.a.code === s.b.code) return { error: "Shift Anda dan rekan sama, tidak perlu ditukar." };
-  const busy = await prisma.shiftSwapRequest.findFirst({
-    where: { date, status: { in: OPEN_SWAP }, OR: [{ requesterId: { in: [u.id, input.partnerId] } }, { partnerId: { in: [u.id, input.partnerId] } }] },
-  });
-  if (busy) return { error: "Sudah ada pengajuan tukar shift yang berjalan di tanggal itu untuk Anda atau rekan." };
-  await prisma.shiftSwapRequest.create({
-    data: { requesterId: u.id, partnerId: input.partnerId, date, requesterShift: s.a.code, partnerShift: s.b.code, reason: input.reason.trim() || null },
-  });
-  refresh();
-  return {};
+export async function submitSwap(input: SwapInput): Promise<Result> {
+  return submitSwapFor(await me(), input);
 }
 
 // Rekan menerima / menolak. Diterima → diteruskan ke atasan langsung kedua karyawan.

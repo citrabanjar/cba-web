@@ -47,6 +47,7 @@ function Card({ item }: { item: Indicator }) {
               ? <Link key={x.label} href={x.href} className="relative z-10 rounded-lg bg-gray-50 px-1 py-0.5 text-center hover:bg-gray-100 hover:ring-1 hover:ring-gray-200">{inner}</Link>
               : <span key={x.label} className="rounded-lg bg-gray-50 px-1 py-0.5 text-center">{inner}</span>;
           })}
+          {item.sub && <p className="col-span-full truncate text-[10px] text-gray-400">{item.sub}</p>}
         </div>
       ) : (
         <p className="relative mt-1.5 truncate text-[11px] text-gray-400">

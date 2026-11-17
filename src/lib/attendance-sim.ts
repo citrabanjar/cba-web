@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { getShiftCalendars } from "@/lib/schedule";
 import { AUTO_ALPHA } from "@/lib/attendance-assess";
+import { countSimRequests, deleteSimRequests, simulateRequests } from "@/lib/request-sim";
 
 export const SIM_SETTING_KEY = "attendance-sim";
 export const SIM_TAG = "[UJI]";
@@ -148,15 +149,19 @@ export async function simulateRecent(days: number) {
 export async function simulateScheduled() {
   if (!(await simEnabled())) return { simulated: false };
   const r = await simulateDay(new Date(todayWib().getTime() - DAY));
-  return { simulated: true, ...r };
+  // Pengajuan uji (menunggu persetujuan) untuk tanggal ke depan, supaya alur approval bisa dites.
+  const requests = await simulateRequests(4).catch(() => null);
+  return { simulated: true, ...r, requests };
 }
 
 export async function countSimulated() {
   return prisma.attendance.count({ where: { note: { startsWith: SIM_TAG } } });
 }
+export { countSimRequests };
 
-// Hapus semua absen uji beserta lembur ujinya.
+// Hapus semua absen uji beserta lembur ujinya dan pengajuan uji.
 export async function deleteSimulated() {
+  await deleteSimRequests();
   const [r] = await prisma.$transaction([
     prisma.attendance.deleteMany({ where: { note: { startsWith: SIM_TAG } } }),
     prisma.overtime.deleteMany({ where: { reason: { startsWith: SIM_TAG } } }),

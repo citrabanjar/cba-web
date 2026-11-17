@@ -65,7 +65,7 @@ export default function SettingsClient({
 }: {
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean; sim: { enabled: boolean; count: number } } | null;
+  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean; sim: { enabled: boolean; count: number; requests: number } } | null;
   access?: { roles: AdminRole[]; people: Person[]; importEnabled: string[] } | null;
   importData?: ImportData | null;
   initialTab?: string | null; // tab yang dibuka dari tautan (mis. Setup Awal -> Import Data)
@@ -105,7 +105,7 @@ export default function SettingsClient({
       {tab === "onboarding" && onboarding && (
         <>
           <OnboardingSettings {...onboarding} />
-          <SimSettings enabled={onboarding.sim.enabled} count={onboarding.sim.count} />
+          <SimSettings enabled={onboarding.sim.enabled} count={onboarding.sim.count} requests={onboarding.sim.requests} />
         </>
       )}
       {tab === "peran" && access && <RolesSettings roles={access.roles} importEnabled={access.importEnabled} />}

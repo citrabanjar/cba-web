@@ -10,8 +10,9 @@ import { clearSim, runSimNow, setSimEnabled } from "./sim-actions";
 import { askConfirm } from "@/components/portal/Confirm";
 
 // Pengaturan → Fitur (Super Admin): absen uji untuk masa testing.
-export default function SimSettings({ enabled: initial, count }: { enabled: boolean; count: number }) {
+export default function SimSettings({ enabled: initial, count, requests }: { enabled: boolean; count: number; requests: number }) {
   const [enabled, setEnabled] = useState(initial);
+  const [reqCount, setReqCount] = useState(5); // jumlah pengajuan uji (menunggu persetujuan) per sekali isi
   // Isi sekarang: sejak tanggal tertentu sampai kemarin (WIB), paling banyak 31 hari.
   const DAY = 86_400_000;
   const [yday] = useState(() => new Date(Date.now() + 7 * 3600_000 - DAY).toISOString().slice(0, 10));
@@ -40,6 +41,7 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
         </CardTitle>
         <p className="text-xs text-gray-400">
           <T>Mengisi absen pura-pura untuk semua karyawan aktif mengikuti shift masing-masing, dengan skenario acak: tepat waktu, terlambat, pulang cepat, lupa absen pulang, lembur, dan alpha. Karyawan yang sudah absen, cuti, dinas, atau libur dilewati. Skenario lembur ikut membuat data lembur yang sudah disetujui (dibayar per jam penuh sampai absen pulang). Semua catatan bertanda [UJI].</T>
+          {" "}<T>Juga membuat pengajuan uji untuk tanggal ke depan (cuti tahunan, sakit, izin, dinas luar, pinjaman, tukar shift, lembur) lewat jalur pengajuan asli. Pengajuan ini menunggu persetujuan penyetuju asli; approval dites manual.</T>
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -56,22 +58,27 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
           <span className="text-gray-600"><T>Isi sekarang sejak tanggal</T></span>
           <div className="w-44"><DateInput value={from} onChange={(e) => setFrom(e.target.value)} /></div>
           <span className="text-gray-600"><T>sampai kemarin</T>{daysFrom(from) > 0 && <> ({daysFrom(from)} <T>hari</T>)</>}</span>
+          <span className="text-gray-600"><T>dan pengajuan uji</T></span>
+          <select value={reqCount} onChange={(e) => setReqCount(Number(e.target.value))} className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm">
+            {[0, 3, 5, 10, 20].map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
           <Button size="sm" className="ml-auto gap-1.5" disabled={busy !== null}
             onClick={() => act("run", async () => {
               const days = daysFrom(from);
               if (days < 1) throw new Error("Pilih tanggal paling lambat kemarin.");
               if (days > 31) throw new Error("Paling banyak 31 hari sekali isi. Pilih tanggal yang lebih dekat.");
-              const r = await runSimNow(days);
-              return `${r.created ?? 0} absen uji dan ${r.overtime ?? 0} lembur uji dibuat.`;
+              const r = await runSimNow(days, reqCount);
+              const req = r.requests && Object.keys(r.requests).length ? ` Pengajuan uji ${r.requestTotal}: ${Object.entries(r.requests).map(([k, v]) => `${v} ${k}`).join(", ")}.` : reqCount ? " Pengajuan uji: tidak ada yang lolos aturan pengajuan." : "";
+              return `${r.created ?? 0} absen uji dan ${r.overtime ?? 0} lembur uji dibuat.${req}`;
             })}>
             {busy === "run" ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} <T>Isi Sekarang</T>
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
-          <span className="text-gray-600"><T>Absen uji tersimpan</T>: <b>{count}</b></span>
-          <Button size="sm" variant="outline" className="gap-1.5 text-rose-600" disabled={busy !== null || count === 0}
-            onClick={async () => { if (await askConfirm("Hapus semua absen uji dan lembur uji? Absen dan lembur asli tidak ikut terhapus.")) act("clear", async () => { const r = await clearSim(); return `${r.deleted ?? 0} absen uji dihapus.`; }); }}>
+          <span className="text-gray-600"><T>Absen uji tersimpan</T>: <b>{count}</b> · <T>Pengajuan uji</T>: <b>{requests}</b></span>
+          <Button size="sm" variant="outline" className="gap-1.5 text-rose-600" disabled={busy !== null || count + requests === 0}
+            onClick={async () => { if (await askConfirm("Hapus semua absen uji, lembur uji, dan pengajuan uji? Data asli tidak ikut terhapus.")) act("clear", async () => { const r = await clearSim(); return `${r.deleted ?? 0} absen uji dihapus.`; }); }}>
             {busy === "clear" ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} <T>Hapus Semua Absen Uji</T>
           </Button>
         </div>

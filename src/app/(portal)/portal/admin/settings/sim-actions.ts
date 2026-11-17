@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/roles";
 import { assessRecent } from "@/lib/attendance-assess";
 import { SIM_SETTING_KEY, deleteSimulated, simulateRecent } from "@/lib/attendance-sim";
+import { simulateRequests } from "@/lib/request-sim";
 
 // Absen uji (masa testing), khusus Super Admin.
 async function requireSuper() {
@@ -26,12 +27,14 @@ export async function setSimEnabled(enabled: boolean): Promise<{ error?: string 
 }
 
 // Isi absen uji untuk N hari terakhir (sampai kemarin), lalu nilai ulang kehadiran (alpha otomatis).
-export async function runSimNow(days: number): Promise<{ error?: string; created?: number; overtime?: number }> {
+export async function runSimNow(days: number, requests = 0): Promise<{ error?: string; created?: number; overtime?: number; requests?: Record<string, number>; requestTotal?: number }> {
   await requireSuper();
   const r = await simulateRecent(days);
   await assessRecent(true).catch(() => null);
+  // Pengajuan uji menunggu persetujuan (tanggal ke depan), lewat jalur pengajuan asli.
+  const q = requests > 0 ? await simulateRequests(Math.min(20, requests)) : null;
   revalidatePath("/portal", "layout");
-  return { created: r.created, overtime: r.overtime };
+  return { created: r.created, overtime: r.overtime, requests: q?.created, requestTotal: q?.total };
 }
 
 export async function clearSim(): Promise<{ error?: string; deleted?: number }> {

@@ -5,11 +5,9 @@ import { assignCheckers, verifyOvertime } from "@/lib/overtime-check";
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { submitOvertimeFor, type OvertimeInput } from "@/lib/request-submit";
 import { prisma } from "@/lib/prisma";
-import { firstApproverName, hasApprover } from "@/lib/approval";
-import { workflowSteps } from "@/lib/workflow-settings";
-import { withDelegation } from "@/lib/delegation";
-import { dinasOn, isTime, otBreakText, plannedHours, restDaysOf, restKey, shiftConflicts, splEnabled } from "@/lib/overtime";
+import { dinasOn } from "@/lib/overtime";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string; approver?: string };
@@ -45,34 +43,8 @@ export async function respondSpl(id: string, accept: boolean, note: string): Pro
 }
 
 // Pengajuan lembur oleh karyawan (bila SPL tidak dipakai). Diputus atasan langsung / Workflow modul Lembur.
-export async function submitOvertime(input: { date: string; startTime: string; endTime: string; reason: string }): Promise<Result> {
-  const u = await me();
-  if (await splEnabled()) return { error: "Lembur memakai Surat Perintah Lembur dari Admin; pengajuan sendiri tidak dipakai." };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Tanggal lembur wajib diisi." };
-  if (!isTime(input.startTime) || !isTime(input.endTime)) return { error: "Jam mulai dan jam selesai lembur wajib diisi." };
-  if (input.startTime === input.endTime) return { error: "Jam selesai harus berbeda dengan jam mulai." };
-  if (!input.reason.trim()) return { error: "Tulis keperluan lembur." };
-  const date = new Date(`${input.date}T00:00:00Z`);
-  // Istirahat lembur dipotong otomatis (hari kerja 18:00-19:00; hari libur juga 12:00-13:00) bila tercakup penuh.
-  const row = { date, startTime: input.startTime, endTime: input.endTime, breakStart: null, breakEnd: null };
-  const rest = (await restDaysOf([{ userId: u.id, date }])).has(restKey(u.id, date));
-  if (plannedHours(row, rest) < 1) return { error: `Lembur minimal 1 jam (di luar istirahat ${otBreakText(rest)}).` };
-  const conflict = (await shiftConflicts([u.id], date, input.startTime, input.endTime)).get(u.id);
-  if (conflict) return { error: `Jam lembur bentrok dengan ${conflict}.` };
-  const clash = await prisma.overtime.findFirst({ where: { userId: u.id, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } } });
-  if (clash) return { error: `Sudah ada lembur di ${formatDate(date)} (${clash.startTime}–${clash.endTime}).` };
-  const dinas = (await dinasOn([u.id], date)).get(u.id);
-  if (dinas) return { error: `Tanggal ${formatDate(date)} beririsan dengan ${dinas}; lembur tidak bisa diajukan saat dinas.` };
-  const { flow: wfFlow, error } = await workflowSteps("LEMBUR", u.id);
-  if (error) return { error };
-  if (!wfFlow && !(await hasApprover(u.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
-  // Penyetuju yang sedang cuti dengan delegasi → pengajuan baru dialihkan ke delegasinya.
-  const flow = await withDelegation(wfFlow, u.id);
-  await prisma.overtime.create({
-    data: { userId: u.id, ...row, reason: input.reason.trim(), status: "PENDING", createdBy: u.name, ...(flow ? { approval: flow } : {}) },
-  });
-  refresh();
-  return { approver: await firstApproverName(flow, u.id) };
+export async function submitOvertime(input: OvertimeInput): Promise<Result> {
+  return submitOvertimeFor(await me(), input);
 }
 
 export async function cancelOvertime(id: string): Promise<Result> {
