@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMenu } from "@/lib/access";
-import { isTime, nextSplNumber, splEnabled } from "@/lib/overtime";
-import { cancelSplOvertime, checkSpl, orgChart, rupiah, SPL_RULES_KEY, type SplRowCheck, type SplRowInput, type SplRules } from "@/lib/spl";
+import { nextSplNumber, splEnabled } from "@/lib/overtime";
+import { cancelSplOvertime, checkSpl, orgChart, rupiah, type SplRowCheck, type SplRowInput } from "@/lib/spl";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
 
@@ -79,16 +79,6 @@ export async function cancelSplItem(id: string, reason: string): Promise<Result>
   const r = await cancelSplOvertime(id, { id: admin.id, name: admin.name }, reason);
   if (!r.error) refresh();
   return r;
-}
-
-// Batas SPL (kosong = tanpa batas).
-export async function saveSplRules(input: SplRules): Promise<Result> {
-  await requireSpl();
-  if (input.maxEnd !== null && !isTime(input.maxEnd)) return { error: "Jam selesai maksimal tidak valid." };
-  if (input.maxPeople !== null && !(Number.isInteger(input.maxPeople) && input.maxPeople > 0 && input.maxPeople <= 500)) return { error: "Maksimal karyawan per SPL harus 1 sampai 500." };
-  await prisma.appSetting.upsert({ where: { key: SPL_RULES_KEY }, update: { value: input }, create: { key: SPL_RULES_KEY, value: input } });
-  refresh();
-  return {};
 }
 
 // Admin Payroll memutus revisi jam lembur (check-out melewati jam akhir SPL).

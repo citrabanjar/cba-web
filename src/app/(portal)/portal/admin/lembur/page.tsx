@@ -6,7 +6,7 @@ import { getAccess } from "@/lib/access";
 import { canEditMenu, hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { paidHours, plannedHours, restDaysOf, restKey, splEnabled, syncRevisions } from "@/lib/overtime";
-import { getSplRules, orgChart } from "@/lib/spl";
+import { orgChart } from "@/lib/spl";
 import LemburAdminClient, { type AdminOvertime, type EmployeePick } from "./LemburAdminClient";
 
 export const metadata: Metadata = { title: "Lembur" };
@@ -28,9 +28,8 @@ export default async function AdminLemburPage({ searchParams }: { searchParams: 
   const from = new Date(Date.UTC(y, m - 1, 1)), to = new Date(Date.UTC(y, m, 0));
 
   await syncRevisions().catch(() => 0);
-  const [spl, rules, org, rows, revisions, employees] = await Promise.all([
+  const [spl, org, rows, revisions, employees] = await Promise.all([ 
     splEnabled(),
-    getSplRules(),
     orgChart(),
     prisma.overtime.findMany({
       where: { date: { gte: from, lte: to } },
@@ -68,5 +67,5 @@ export default async function AdminLemburPage({ searchParams }: { searchParams: 
   const pickers: EmployeePick[] = employees.filter((e) => e.id !== access.id && !org.isTop(e.id))
     .map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId, department: e.department?.name ?? null }));
 
-  return <LemburAdminClient canSpl={canSpl} canRevise={canRevise} spl={spl} month={month} rules={rules} rows={rows.map(view)} revisions={revisions.map(view)} employees={pickers} />;
+  return <LemburAdminClient canSpl={canSpl} canRevise={canRevise} spl={spl} month={month} rows={rows.map(view)} revisions={revisions.map(view)} employees={pickers} />;
 }

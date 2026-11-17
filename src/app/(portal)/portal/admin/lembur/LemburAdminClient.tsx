@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle, CalendarClock, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Loader2, Plus, Send, Settings2, Timer, Trash2, Users, Wallet, X,
+  AlertTriangle, CalendarClock, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Loader2, Plus, Send, Timer, Trash2, Users, Wallet, X,
 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
@@ -13,8 +13,8 @@ import { showNotice } from "@/components/portal/Confirm";
 import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
 import { OT_BREAK_RULE, otPlan } from "@/lib/overtime-calc";
-import type { SplRowCheck, SplRules } from "@/lib/spl";
-import { cancelSplItem, createSpl, decideRevision, previewSpl, saveSplRules } from "./actions";
+import type { SplRowCheck } from "@/lib/spl";
+import { cancelSplItem, createSpl, decideRevision, previewSpl } from "./actions";
 
 export type AdminOvertime = {
   id: string; name: string; employeeId: string | null; date: string; start: string; end: string; breakStart: string | null; breakEnd: string | null;
@@ -27,12 +27,11 @@ const num = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const shiftMonth = (m: string, d: number) => { const [y, mm] = m.split("-").map(Number); const x = new Date(Date.UTC(y, mm - 1 + d, 1)); return x.toISOString().slice(0, 7); };
-const field = "h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40";
 
-type Tab = "buat" | "rekap" | "aturan";
+type Tab = "buat" | "rekap";
 
-export default function LemburAdminClient({ canSpl, canRevise, spl, month, rules, rows, revisions, employees }: {
-  canSpl: boolean; canRevise: boolean; spl: boolean; month: string; rules: SplRules; rows: AdminOvertime[]; revisions: AdminOvertime[]; employees: EmployeePick[];
+export default function LemburAdminClient({ canSpl, canRevise, spl, month, rows, revisions, employees }: {
+  canSpl: boolean; canRevise: boolean; spl: boolean; month: string; rows: AdminOvertime[]; revisions: AdminOvertime[]; employees: EmployeePick[];
 }) {
   const [tab, setTab] = useState<Tab>(spl && canSpl ? "buat" : "rekap");
   const [y, m] = month.split("-").map(Number);
@@ -46,7 +45,6 @@ export default function LemburAdminClient({ canSpl, canRevise, spl, month, rules
   const tabs = ([
     spl && canSpl && ["buat", "Buat SPL", Plus],
     ["rekap", "Rekap Lembur", ClipboardList],
-    spl && canSpl && ["aturan", "Pengaturan SPL", Settings2],
   ].filter(Boolean) as [Tab, string, typeof Plus][]);
 
   return (
@@ -91,8 +89,7 @@ export default function LemburAdminClient({ canSpl, canRevise, spl, month, rules
           </div>
         )}
 
-        {tab === "buat" && spl && canSpl && <SplForm employees={employees} rules={rules} onDone={() => setTab("rekap")} />}
-        {tab === "aturan" && spl && canSpl && <RulesForm rules={rules} />}
+        {tab === "buat" && spl && canSpl && <SplForm employees={employees} onDone={() => setTab("rekap")} />}
         {tab === "rekap" && <Recap month={month} rows={rows} canEdit={canSpl} />}
       </main>
     </div>
@@ -204,7 +201,7 @@ export function RevisionCard({ item: r, canEdit }: { item: AdminOvertime; canEdi
 type Line = { key: number; userId: string; startTime: string; endTime: string; reason: string };
 let seq = 0;
 
-function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rules: SplRules; onDone: () => void }) {
+function SplForm({ employees, onDone }: { employees: EmployeePick[]; onDone: () => void }) {
   const t = useT();
   const router = useRouter();
   const [date, setDate] = useState("");
@@ -363,13 +360,6 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
 
         {lines.length > 0 && <p className="-mt-2 text-[11px] text-gray-400"><T>{OT_BREAK_RULE}</T> <T>Estimasi muncul setelah tanggal diisi.</T></p>}
         {check?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{check.error}</T></p>}
-        {(rules.maxPeople || rules.maxEnd) && (
-          <p className="text-[11px] text-gray-400">
-            {rules.maxPeople && <><T>Paling banyak</T> {rules.maxPeople} <T>karyawan per SPL</T></>}
-            {rules.maxPeople && rules.maxEnd && " · "}
-            {rules.maxEnd && <><T>Jam selesai paling lambat</T> {rules.maxEnd}</>}
-          </p>
-        )}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
           <p className="flex-1 text-sm text-gray-600">
@@ -384,45 +374,6 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
           </button>
         </div>
         <p className="flex items-start gap-1.5 text-[11px] text-gray-400"><Wallet size={12} className="mt-0.5 shrink-0" /><T>Estimasi memakai rumus komponen lembur di Payroll & Benefit, dibayar per 1 jam penuh. Atasan langsung mendapat info; atasan di atasnya sampai pimpinan puncak mendapat info beserta estimasi dan bisa membatalkan.</T></p>
-      </div>
-    </section>
-  );
-}
-
-// ─── Pengaturan SPL ────────────────────────────────────────────────────────
-function RulesForm({ rules }: { rules: SplRules }) {
-  const t = useT();
-  const [maxEnd, setMaxEnd] = useState(rules.maxEnd ?? "");
-  const [maxPeople, setMaxPeople] = useState(rules.maxPeople ? String(rules.maxPeople) : "");
-  const [pending, start] = useTransition();
-  const save = () => start(async () => {
-    const r = await saveSplRules({ maxEnd: maxEnd || null, maxPeople: maxPeople ? Number(maxPeople) : null });
-    void showNotice(r.error ? t(r.error) : t("Pengaturan SPL tersimpan."), r.error ? "error" : undefined);
-  });
-  return (
-    <section className="rounded-2xl border border-gray-200 bg-white">
-      <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-ink to-slate-500 text-white"><Settings2 size={17} /></span>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900"><T>Pengaturan SPL</T></h3>
-          <p className="text-xs text-gray-400"><T>Batas saat membuat SPL. Kosongkan jika tidak dibatasi.</T></p>
-        </div>
-      </div>
-      <div className="grid gap-4 p-5 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam selesai lembur paling lambat</T></label>
-          <input type="time" value={maxEnd} onChange={(e) => setMaxEnd(e.target.value)} className={field} />
-          <p className="mt-1 text-[11px] text-gray-400"><T>Mis. 23:00. Lembur yang lewat tengah malam ikut ditolak bila batas diisi.</T></p>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500"><T>Maksimal karyawan per SPL</T></label>
-          <input type="number" min={1} value={maxPeople} onChange={(e) => setMaxPeople(e.target.value)} className={field} />
-        </div>
-      </div>
-      <div className="flex justify-end border-t border-gray-100 px-5 py-3">
-        <button type="button" disabled={pending} onClick={save} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
-          {pending && <Loader2 size={14} className="animate-spin" />} <T>Simpan</T>
-        </button>
       </div>
     </section>
   );

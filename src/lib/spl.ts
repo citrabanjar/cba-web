@@ -1,8 +1,8 @@
 // Surat Perintah Lembur (SPL) — aturan dari SOP form SPL lama (keputusan pemilik 2026-11-17):
 // - Satu SPL = satu tanggal, banyak karyawan; tiap karyawan punya jam mulai, jam selesai, dan uraian pekerjaan (wajib).
 // - Ditolak: Admin untuk dirinya sendiri, pimpinan puncak, karyawan dobel dalam satu SPL, karyawan yang sudah punya
-//   lembur di tanggal itu, karyawan yang sedang dinas, jam lembur yang masuk jam shift, jam selesai melewati batas,
-//   jumlah karyawan melewati batas (batas diatur Admin Lembur; kosong = tanpa batas).
+//   lembur di tanggal itu, karyawan yang sedang dinas, dan jam lembur yang masuk jam shift. Tanpa batas jam selesai /
+//   jumlah karyawan (Pengaturan SPL dihapus, keputusan pemilik 2026-11-17).
 // - Info: atasan langsung mendapat info (tanpa estimasi); atasan di atasnya sampai pimpinan puncak mendapat info,
 //   estimasi upah lembur (rumus komponen payroll), dan bisa membatalkan lembur karyawan di bawahnya.
 import { prisma } from "@/lib/prisma";
@@ -10,19 +10,9 @@ import { getShiftCalendars } from "@/lib/schedule";
 import { dinasOn, isRestDay, isTime, OT_ACTIVE, otBreakText, otPlan, restDaysOf, restKey, shiftConflicts } from "@/lib/overtime";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
-import { toMin } from "@/lib/overtime-calc";
 import { estimateOvertimeCost } from "@/lib/payroll-run";
 
 const keyOf = (d: Date) => d.toISOString().slice(0, 10);
-
-// ─── Batas SPL (menu Lembur → Pengaturan) ──────────────────────────────────
-export const SPL_RULES_KEY = "overtime-spl-rules";
-export type SplRules = { maxEnd: string | null; maxPeople: number | null };
-export async function getSplRules(): Promise<SplRules> {
-  const v = (await prisma.appSetting.findUnique({ where: { key: SPL_RULES_KEY } }))?.value as Partial<SplRules> | null;
-  const maxPeople = Number(v?.maxPeople);
-  return { maxEnd: isTime(v?.maxEnd) ? v!.maxEnd! : null, maxPeople: Number.isInteger(maxPeople) && maxPeople > 0 ? maxPeople : null };
-}
 
 // ─── Bagan organisasi (atasan aktif) ────────────────────────────────────────
 export async function orgChart() {
@@ -51,7 +41,6 @@ export type SplRowCheck = SplRowInput & {
 export async function checkSpl(adminId: string, dateStr: string, rows: SplRowInput[], final: boolean) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return { error: "Tanggal lembur wajib diisi.", rows: [] as SplRowCheck[] };
   const date = new Date(`${dateStr}T00:00:00Z`);
-  const rules = await getSplRules();
   const org = await orgChart();
   const ids = rows.map((r) => r.userId);
   const [cal, dinas, busy] = await Promise.all([
@@ -73,7 +62,6 @@ export async function checkSpl(adminId: string, dateStr: string, rows: SplRowInp
     else if (r.userId === adminId) problem = "Admin tidak boleh membuat SPL untuk dirinya sendiri.";
     else if (org.isTop(r.userId)) problem = "Pimpinan puncak tidak bisa diberi lembur.";
     else if (!okTime) problem = "Isi jam mulai dan jam selesai (berbeda).";
-    else if (rules.maxEnd && (plan.overnight || toMin(r.endTime) > toMin(rules.maxEnd))) problem = `Jam selesai paling lambat ${rules.maxEnd}.`;
     else if (plan.hours < 1) problem = `Lembur minimal 1 jam (di luar istirahat ${otBreakText(rest)}).`;
     else if (busyBy.has(r.userId)) { const b = busyBy.get(r.userId)!; problem = `Sudah terdaftar lembur ${b.startTime}–${b.endTime}${b.order ? ` di ${b.order.number}` : " (pengajuan karyawan)"}.`; }
     else if (dinas.has(r.userId)) problem = `Sedang ${dinas.get(r.userId)}; tidak bisa lembur.`;
@@ -89,8 +77,7 @@ export async function checkSpl(adminId: string, dateStr: string, rows: SplRowInp
   const ok = out.filter((x) => !x.problem);
   const costs = await estimateOvertimeCost(ok.map((x) => ({ userId: x.userId, date: dateStr, hours: Math.floor(x.hours), rest: x.rest })));
   ok.forEach((x, i) => { x.estimate = costs[i] ?? 0; });
-  const error = rules.maxPeople && rows.length > rules.maxPeople ? `Paling banyak ${rules.maxPeople} karyawan per SPL.` : undefined;
-  return { error, rows: out, date };
+  return { error: undefined as string | undefined, rows: out, date };
 }
 
 export const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
