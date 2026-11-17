@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -269,11 +269,11 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
       <div className="space-y-4 p-5">
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr]">
           <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Tanggal lembur</T></label><DateInput value={date} onChange={(e) => setDate(e.target.value)} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam mulai (isian awal)</T></label><input type="time" value={def.startTime} onChange={(e) => setDef({ ...def, startTime: e.target.value })} className={field} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam selesai (isian awal)</T></label><input type="time" value={def.endTime} onChange={(e) => setDef({ ...def, endTime: e.target.value })} className={field} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam mulai untuk karyawan baru</T></label><input type="time" value={def.startTime} onChange={(e) => setDef({ ...def, startTime: e.target.value })} className={field} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam selesai untuk karyawan baru</T></label><input type="time" value={def.endTime} onChange={(e) => setDef({ ...def, endTime: e.target.value })} className={field} /></div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500"><T>Uraian pekerjaan (isian awal)</T></label>
+          <label className="mb-1 block text-xs font-medium text-gray-500"><T>Uraian pekerjaan untuk karyawan baru</T></label>
           <div className="flex flex-wrap gap-2">
             <input value={def.reason} onChange={(e) => setDef({ ...def, reason: e.target.value })} placeholder={t("Mis. menyelesaikan fabrikasi proyek X")} className={`${field} min-w-56 flex-1`} />
             {lines.length > 0 && (
@@ -282,7 +282,7 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
               </button>
             )}
           </div>
-          <p className="mt-1 text-[11px] text-gray-400"><T>Isian awal dipakai untuk karyawan yang ditambahkan; tiap baris tetap bisa diubah.</T> <T>{OT_BREAK_RULE}</T></p>
+          <p className="mt-1 text-[11px] text-gray-400"><T>Jam dan uraian di atas otomatis terisi ke karyawan yang ditambahkan; tiap baris di tabel tetap bisa diubah.</T> <T>{OT_BREAK_RULE}</T></p>
         </div>
 
         {/* Tambah karyawan: ketik ID / nama, atau tambah satu departemen sekaligus. */}
@@ -305,36 +305,65 @@ function SplForm({ employees, rules, onDone }: { employees: EmployeePick[]; rule
         {lines.length === 0 ? (
           <p className="rounded-xl border border-gray-100 py-8 text-center text-sm text-gray-400"><T>Belum ada karyawan di SPL ini.</T></p>
         ) : (
-          <ul className="space-y-2">
-            {lines.map((l, i) => {
-              const e = byId.get(l.userId);
-              const x = info(l.userId);
-              const plan = x ? { hours: x.hours, breaks: x.breaks } : otPlan(l.startTime, l.endTime, false);
-              return (
-                <li key={l.key} className={`rounded-xl border p-3 ${x?.problem ? "border-rose-300 bg-rose-50/60" : "border-gray-200 bg-white"}`}>
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-semibold text-gray-500">{i + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900">{e?.name} <span className="text-xs font-normal text-gray-400">{e?.employeeId}{e?.department ? ` · ${e.department}` : ""}</span></p>
-                      {x && <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${x.rest ? "bg-rose-50 text-rose-700" : "bg-gray-100 text-gray-600"}`}><T>{x.rest ? "Hari libur" : "Hari kerja"}</T></span>}
-                    </div>
-                    <button type="button" onClick={() => setLines((ls) => ls.filter((y) => y.key !== l.key))} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Trash2 size={14} /></button>
-                  </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-[7rem_7rem_1fr]">
-                    <input type="time" value={l.startTime} aria-label={t("Jam mulai")} onChange={(ev) => setLine(l.key, { startTime: ev.target.value })} className={field} />
-                    <input type="time" value={l.endTime} aria-label={t("Jam selesai")} onChange={(ev) => setLine(l.key, { endTime: ev.target.value })} className={field} />
-                    <input value={l.reason} onChange={(ev) => setLine(l.key, { reason: ev.target.value })} placeholder={t("Uraian pekerjaan (wajib)")} className={field} />
-                  </div>
-                  <p className="mt-1.5 text-[11px] text-gray-500">
-                    <T>Jam efektif</T> <b className="text-gray-800">{num(plan.hours)} <T>jam</T></b>
-                    {" · "}<T>istirahat dipotong</T> {plan.breaks.length ? plan.breaks.join(", ") : "—"}
-                    {x?.estimate != null && <> · <T>estimasi</T> <b className="text-gray-800">{rupiah(x.estimate)}</b></>}
-                  </p>
-                  {x?.problem && <p className="mt-1 text-xs font-medium text-rose-700"><T>{x.problem}</T></p>}
-                </li>
-              );
-            })}
-          </ul>
+          // Tabel karyawan SPL (di HP bisa digeser ke samping di dalam kotak ini).
+          <div className="overflow-x-auto rounded-xl border border-gray-200">
+            <table className="w-full min-w-[880px] text-sm">
+              <thead className="bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="w-10 px-3 py-2">No</th>
+                  <th className="px-3 py-2"><T>Karyawan</T></th>
+                  <th className="px-3 py-2"><T>Jam lembur</T></th>
+                  <th className="px-3 py-2 text-right"><T>Jam efektif</T></th>
+                  <th className="px-3 py-2 text-right"><T>Estimasi</T></th>
+                  <th className="px-3 py-2"><T>Uraian pekerjaan</T></th>
+                  <th className="w-10 px-2 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {lines.map((l, i) => {
+                  const e = byId.get(l.userId);
+                  const x = info(l.userId);
+                  const plan = x ? { hours: x.hours, breaks: x.breaks } : otPlan(l.startTime, l.endTime, false);
+                  const time = "h-9 w-32 rounded-lg border border-gray-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40";
+                  return (
+                    <Fragment key={l.key}>
+                      <tr className={`align-top ${x?.problem ? "bg-rose-50/70" : ""}`}>
+                        <td className="px-3 py-2.5 text-xs font-semibold text-gray-400">{i + 1}</td>
+                        <td className="px-3 py-2.5">
+                          <p className="font-semibold text-gray-900">{e?.name}</p>
+                          <p className="text-[11px] text-gray-400">{e?.employeeId}{e?.department ? ` · ${e.department}` : ""}</p>
+                          {x && <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${x.rest ? "bg-rose-50 text-rose-700" : "bg-gray-100 text-gray-600"}`}><T>{x.rest ? "Hari libur" : "Hari kerja"}</T></span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <input type="time" value={l.startTime} aria-label={t("Jam mulai")} onChange={(ev) => setLine(l.key, { startTime: ev.target.value })} className={time} />
+                            <span className="text-gray-400">–</span>
+                            <input type="time" value={l.endTime} aria-label={t("Jam selesai")} onChange={(ev) => setLine(l.key, { endTime: ev.target.value })} className={time} />
+                          </div>
+                          <p className="mt-1 text-[11px] text-gray-400"><T>istirahat dipotong</T> {plan.breaks.length ? plan.breaks.join(", ") : "—"}</p>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-gray-900">{num(plan.hours)} <T>jam</T></td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-gray-900">{x?.estimate != null ? rupiah(x.estimate) : "—"}</td>
+                        <td className="px-3 py-2.5">
+                          <input value={l.reason} onChange={(ev) => setLine(l.key, { reason: ev.target.value })} placeholder={t("Uraian pekerjaan (wajib)")}
+                            className="h-9 w-full min-w-48 rounded-lg border border-gray-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40" />
+                        </td>
+                        <td className="px-2 py-2.5">
+                          <button type="button" onClick={() => setLines((ls) => ls.filter((y) => y.key !== l.key))} aria-label={t("Hapus")} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-brand"><Trash2 size={14} /></button>
+                        </td>
+                      </tr>
+                      {x?.problem && (
+                        <tr className="bg-rose-50/70">
+                          <td />
+                          <td colSpan={6} className="px-3 pb-2.5 text-xs font-medium text-rose-700"><T>{x.problem}</T></td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {check?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><T>{check.error}</T></p>}
