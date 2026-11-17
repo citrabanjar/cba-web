@@ -5,13 +5,18 @@ import { FlaskConical, Loader2, Play, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { T } from "@/components/i18n";
+import { DateInput } from "@/components/ui/date-input";
 import { clearSim, runSimNow, setSimEnabled } from "./sim-actions";
 import { askConfirm } from "@/components/portal/Confirm";
 
 // Pengaturan → Fitur (Super Admin): absen uji untuk masa testing.
 export default function SimSettings({ enabled: initial, count }: { enabled: boolean; count: number }) {
   const [enabled, setEnabled] = useState(initial);
-  const [days, setDays] = useState(7);
+  // Isi sekarang: sejak tanggal tertentu sampai kemarin (WIB), paling banyak 31 hari.
+  const DAY = 86_400_000;
+  const [yday] = useState(() => new Date(Date.now() + 7 * 3600_000 - DAY).toISOString().slice(0, 10));
+  const [from, setFrom] = useState(() => new Date(Date.now() + 7 * 3600_000 - 7 * DAY).toISOString().slice(0, 10));
+  const daysFrom = (f: string) => /^\d{4}-\d{2}-\d{2}$/.test(f) ? Math.round((Date.parse(`${yday}T00:00:00Z`) - Date.parse(`${f}T00:00:00Z`)) / DAY) + 1 : 0;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [, start] = useTransition();
@@ -48,13 +53,17 @@ export default function SimSettings({ enabled: initial, count }: { enabled: bool
         </label>
 
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
-          <span className="text-gray-600"><T>Isi sekarang untuk</T></span>
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm">
-            {[1, 3, 7, 14, 30].map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <span className="text-gray-600"><T>hari terakhir (sampai kemarin)</T></span>
+          <span className="text-gray-600"><T>Isi sekarang sejak tanggal</T></span>
+          <div className="w-44"><DateInput value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+          <span className="text-gray-600"><T>sampai kemarin</T>{daysFrom(from) > 0 && <> ({daysFrom(from)} <T>hari</T>)</>}</span>
           <Button size="sm" className="ml-auto gap-1.5" disabled={busy !== null}
-            onClick={() => act("run", async () => { const r = await runSimNow(days); return `${r.created ?? 0} absen uji dan ${r.overtime ?? 0} lembur uji dibuat.`; })}>
+            onClick={() => act("run", async () => {
+              const days = daysFrom(from);
+              if (days < 1) throw new Error("Pilih tanggal paling lambat kemarin.");
+              if (days > 31) throw new Error("Paling banyak 31 hari sekali isi. Pilih tanggal yang lebih dekat.");
+              const r = await runSimNow(days);
+              return `${r.created ?? 0} absen uji dan ${r.overtime ?? 0} lembur uji dibuat.`;
+            })}>
             {busy === "run" ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} <T>Isi Sekarang</T>
           </Button>
         </div>
