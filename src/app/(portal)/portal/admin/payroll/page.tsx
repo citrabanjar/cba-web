@@ -4,6 +4,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
+import { plannedHours, syncRevisions } from "@/lib/overtime";
+import type { AdminOvertime } from "../lembur/LemburAdminClient";
+import OvertimeRevisions from "./OvertimeRevisions";
 import type { PayParams } from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
 import { ensureSystemComponents, getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
@@ -21,6 +24,7 @@ export default async function PayrollPage() {
 
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
   await ensureSystemComponents();
+  await syncRevisions().catch(() => 0);
   const [components, settings, runs, employees, taxSettings, terSettings, bonus] = await Promise.all([
     prisma.payComponent.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }], include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     getPayrollSettings(),
@@ -36,8 +40,26 @@ export default async function PayrollPage() {
     getTerSettings(),
     getBonusSchedule(),
   ]);
+  // Revisi jam lembur menunggu keputusan Admin Payroll.
+  const revs = await prisma.overtime.findMany({
+    where: { revisionStatus: "MENUNGGU" }, orderBy: { date: "asc" },
+    include: { user: { select: { name: true, employeeId: true } }, order: { select: { number: true } } },
+  });
+  const revAtt = revs.length
+    ? await prisma.attendance.findMany({ where: { OR: revs.map((r) => ({ userId: r.userId, date: r.date })) }, select: { userId: true, date: true, checkOut: true } })
+    : [];
+  const revisions: AdminOvertime[] = revs.map((r) => {
+    const a = revAtt.find((x) => x.userId === r.userId && x.date.getTime() === r.date.getTime());
+    return {
+      id: r.id, name: r.user.name, employeeId: r.user.employeeId, date: r.date.toISOString().slice(0, 10), start: r.startTime, end: r.endTime,
+      breakStart: r.breakStart, breakEnd: r.breakEnd, planned: plannedHours(r), spl: r.order?.number ?? null, status: r.status,
+      checkOut: a?.checkOut ? new Date(a.checkOut.getTime() + 7 * 3600_000).toISOString().slice(11, 16) : null, paid: null,
+      revisionStatus: r.revisionStatus, revisionEnd: r.revisionEnd, note: r.note, reason: r.reason,
+    };
+  });
   return (
     <PayrollClient
+      revisions={<OvertimeRevisions items={revisions} />}
       components={components.map(({ employees: assigned, createdAt, updatedAt, ...c }) => ({
         ...c, params: (c.params as PayParams | null) ?? null, employeeIds: assigned.filter((e) => !e.endDate || e.endDate >= today).map((e) => e.userId), // termasuk yang mulai nanti (karyawan baru)
         createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString(),

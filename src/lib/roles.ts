@@ -11,11 +11,12 @@ export const MENUS = [
   { key: "karyawan", label: "Data Karyawan", desc: "Lihat dan ubah data karyawan", levels: ["view", "propose", "edit"] },
   { key: "gaji", label: "Gaji & Payroll", desc: "Lihat gaji, riwayat gaji, dan slip gaji", levels: ["view", "edit"] },
   { key: "absensi", label: "Absensi & Cuti", desc: "Schedule, jadwal kerja, aturan absensi, jenis & saldo cuti", levels: ["view", "edit"] },
-  // Kewenangan SPL saja (mis. kepala bagian): menu Lembur tanpa Jadwal, Cuti, Rekap, dan keputusan revisi jam lembur.
-  { key: "spl", label: "Surat Perintah Lembur", desc: "Buat dan batalkan Surat Perintah Lembur (SPL) di menu Lembur", levels: ["view", "edit"] },
+  // Menu Lembur, terpisah dari Absensi & Cuti (keputusan pemilik 2026-11-17). Kunci "spl" tetap dipakai agar isian peran lama terbaca.
+  // Keputusan revisi jam lembur ada di Gaji & Payroll.
+  { key: "spl", label: "Lembur", desc: "Menu Lembur: buat Surat Perintah Lembur (bila fitur SPL aktif) dan rekap lembur", levels: ["view", "edit"] },
   { key: "prakaryawan", label: "Pra-Karyawan", desc: "Rekrutmen dan onboarding calon karyawan", levels: ["view", "edit"] },
   { key: "pinjaman", label: "Pinjaman Karyawan", desc: "Kelola pinjaman dan cicilan karyawan", levels: ["view", "edit"] },
-  // Workflow tidak lagi kewenangan Admin: diatur Super Admin (keputusan pemilik 2026-11-14).
+  // Workflow bukan kewenangan Admin: disusun Super Admin (keputusan pemilik 2026-11-14 & 2026-11-17).
   { key: "pengaturan", label: "Pengaturan", desc: "Task Admin, Agent HRD, dan running indikator Beranda", levels: ["view", "edit"] },
 ] as const;
 

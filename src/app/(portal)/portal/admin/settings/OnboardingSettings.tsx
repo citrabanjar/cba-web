@@ -46,11 +46,11 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag, 
       <CardContent className="space-y-3">
         <Feature icon={GitBranch} title="Workflow" checked={workflow} onChange={(v) => { setMsg(null); setWorkflow(v); }}
           desc="Pengaturan approval per modul sesuai kebutuhan perusahaan.">
-          <p className="text-[11px] text-gray-500"><T>Level approval per modul diatur Admin di menu Workflow.</T></p>
+          <p className="text-[11px] text-gray-500"><T>Level approval per modul disusun Super Admin di menu Workflow (Company → Workflow).</T></p>
         </Feature>
 
         <Feature icon={Timer} title="Surat Perintah Lembur (SPL)" checked={spl} onChange={(v) => { setMsg(null); setSpl(v); }}
-          desc="Aktif: lembur diperintahkan Admin lewat SPL dan karyawan menjawab Bersedia / Tidak bersedia. Tidak aktif: karyawan mengajukan lembur sendiri, diputus atasan langsung / Workflow." />
+          desc="Aktif: lembur diperintahkan Admin Lembur lewat SPL dan karyawan menjawab Bersedia / Tidak bersedia. Tidak aktif: karyawan mengajukan lembur sendiri, diputus atasan langsung / Workflow." />
 
         <Feature icon={Bot} title="Agent HRD" checked={agent} onChange={(v) => { setMsg(null); setAgent(v); }}
           desc="AI (Claude) membantu admin memeriksa data seluruh karyawan berdasarkan SOP perusahaan. Admin bisa menambahkan SOP lainnya jika dibutuhkan." />

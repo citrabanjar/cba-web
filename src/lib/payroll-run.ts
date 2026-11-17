@@ -557,7 +557,7 @@ export async function finalizeRun(runId: string, by: string | null) {
   {
     const c = await loadContext(run.period);
     const pend = await pendingRevisions(c.start, c.end);
-    if (pend) throw new Error(`Masih ada ${pend} revisi jam lembur yang belum diputus di periode ini. Selesaikan dulu di menu Lembur (Task Admin).`);
+    if (pend) throw new Error(`Masih ada ${pend} revisi jam lembur yang belum diputus di periode ini. Selesaikan dulu di Payroll & Benefit (bagian revisi jam lembur).`);
   }
   const label = periodLabel(run.period);
   const ops = run.lines.filter((l) => l.earnings > 0).map((l) => {

@@ -12,14 +12,15 @@ export const metadata: Metadata = { title: "Lembur" };
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
 const thisMonthWib = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7);
 
-// Panel Admin → Lembur: buat Surat Perintah Lembur (bila fitur SPL aktif), putus revisi jam lembur, rekap per bulan.
+// Panel Admin → Lembur (kewenangan Lembur): buat Surat Perintah Lembur (bila fitur SPL aktif), rekap per bulan.
+// Revisi jam lembur ditampilkan; keputusannya oleh Admin Payroll.
 export default async function AdminLemburPage({ searchParams }: { searchParams: Promise<{ bulan?: string }> }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
-  if (!hasMenu(access, "absensi") && !hasMenu(access, "spl")) redirect("/portal/dashboard");
-  // SPL: hak edit Absensi & Cuti atau Surat Perintah Lembur. Keputusan revisi jam lembur: hanya hak edit Absensi & Cuti.
-  const canSpl = canEditMenu(access, "absensi") || canEditMenu(access, "spl");
-  const canRevise = canEditMenu(access, "absensi");
+  if (!hasMenu(access, "spl")) redirect("/portal/dashboard");
+  // SPL: hak edit Lembur. Keputusan revisi jam lembur: hak edit Gaji & Payroll (diputus di Payroll & Benefit).
+  const canSpl = canEditMenu(access, "spl");
+  const canRevise = canEditMenu(access, "gaji");
   const { bulan } = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(bulan ?? "") ? bulan! : thisMonthWib();
   const [y, m] = month.split("-").map(Number);

@@ -8,11 +8,11 @@ import { normalizeWorkflow, ROLE_GROUP_PREFIX, WORKFLOW_KEY, WORKFLOW_MODULES, t
 import { getAdminRoles } from "@/lib/admin-roles";
 import { canEditMenu, menuLevelOf } from "@/lib/roles";
 
-// Admin menyimpan Level approval per modul (semua Admin, bila fitur Workflow dinyalakan Super Admin).
+// Super Admin menyimpan Level approval per modul (bila fitur Workflow dinyalakan).
 export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: string }> {
   const access = await getAccess();
-  if (!access || access.role !== "ADMIN") return { error: "Hanya Admin yang bisa mengubah workflow." };
-  if (!(await workflowFeatureOn())) return { error: "Fitur Workflow belum dinyalakan Super Admin." };
+  if (!access || access.role !== "SUPER_ADMIN") return { error: "Hanya Super Admin yang bisa mengubah workflow." };
+  if (!(await workflowFeatureOn())) return { error: "Fitur Workflow belum dinyalakan di Pengaturan → Fitur." };
   const v = normalizeWorkflow(input);
   const empIds = Object.values(v).flatMap((m) => m.levels.filter((l) => l.type === "EMPLOYEE").map((l) => l.value));
   const users = await prisma.user.findMany({ where: { id: { in: empIds }, isActive: true }, select: { id: true, name: true } });

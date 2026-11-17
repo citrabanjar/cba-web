@@ -44,13 +44,13 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   const add = (section: string, items: NavItem[]) => { if (items.length) admin.push({ section, items, admin: true }); };
 
   // Jadwal kerja, aturan absensi, jenis & saldo cuti: akses Absensi & Cuti.
-  // Lembur juga terbuka untuk kewenangan Surat Perintah Lembur saja.
+  // Lembur: kewenangan Lembur tersendiri (terpisah dari Absensi & Cuti).
   add("TIME", [
     ...(can("absensi") ? [
       { href: "/portal/admin/schedule", label: "Jadwal", icon: CalendarClock },
       { href: "/portal/admin/leave", label: "Cuti", icon: CalendarHeart },
     ] : []),
-    ...(can("absensi") || can("spl") ? [{ href: "/portal/admin/lembur", label: "Lembur", icon: Timer }] : []),
+    ...(can("spl") ? [{ href: "/portal/admin/lembur", label: "Lembur", icon: Timer }] : []),
     ...(can("absensi") ? [{ href: "/portal/admin/rekap", label: "Rekap", icon: ClipboardList }] : []),
   ]);
   add("FINANCE", [
@@ -63,10 +63,11 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     ...(can("prakaryawan") ? [{ href: "/portal/admin/onboarding", label: "Pra-Karyawan", icon: UserPlus }] : []),
     ...(can("karyawan") ? [{ href: "/portal/admin/karyawan", label: "Data Karyawan", icon: Users }] : []),
   ]);
-  // COMPANY: Organisasi (Super Admin) dan Workflow (semua Admin, bila fitur Workflow dinyalakan Super Admin).
+  // COMPANY: Organisasi dan Workflow (Super Admin; Workflow bila fiturnya dinyalakan). Keputusan pemilik 2026-11-17:
+  // Super Admin yang menyusun alur kewenangan perusahaan, Admin tidak lagi membuka Workflow.
   add("COMPANY", [
     ...(isSuperAdmin(role) ? [{ href: "/portal/admin/setup", label: "Organisasi", icon: Building2 }] : []),
-    ...(role === "ADMIN" && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
+    ...(isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
   ]);
   // Pengaturan: kewenangan Pengaturan, atau kewenangan Import Data (tab Import Data).
   add("PENGATURAN", can("pengaturan") || importOn ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);

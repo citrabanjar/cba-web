@@ -33,14 +33,14 @@ export default function LemburAdminClient({ canSpl, canRevise, spl, month, rows,
       <div>
         <h1 className="text-xl font-bold text-white"><T>Lembur</T></h1>
         <p className="mt-0.5 text-sm text-white/70">
-          <T>{spl ? "Surat Perintah Lembur (SPL) dibuat Admin; karyawan menjawab Bersedia / Tidak bersedia." : "SPL tidak dipakai: karyawan mengajukan lembur sendiri, diputus atasan langsung / Workflow."}</T>
+          <T>{spl ? "Surat Perintah Lembur (SPL) dibuat Admin Lembur; karyawan menjawab Bersedia / Tidak bersedia dan tidak mengajukan lembur sendiri." : "SPL tidak dipakai: karyawan mengajukan lembur sendiri, diputus atasan langsung / Workflow."}</T>
         </p>
       </div>
 
       {revisions.length > 0 && (
         <section className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-amber-800"><AlertTriangle size={16} /> {revisions.length} <T>revisi jam lembur menunggu keputusan</T></p>
-          <p className="text-xs text-amber-700"><T>Karyawan absen pulang melewati jam akhir SPL. Selama belum diputus, lembur dibayar sampai jam akhir SPL dan gaji periode itu belum bisa difinalkan.</T></p>
+          <p className="text-xs text-amber-700"><T>Karyawan absen pulang melewati jam akhir SPL. Selama belum diputus, lembur dibayar sampai jam akhir SPL dan gaji periode itu belum bisa difinalkan.</T> {!canRevise && <T>Keputusan revisi ada di Admin Payroll.</T>}</p>
           {revisions.map((r) => <RevisionCard key={r.id} item={r} canEdit={canRevise} />)}
         </section>
       )}
@@ -107,7 +107,7 @@ function Row({ r, canEdit }: { r: AdminOvertime; canEdit: boolean }) {
   );
 }
 
-function RevisionCard({ item: r, canEdit }: { item: AdminOvertime; canEdit: boolean }) {
+export function RevisionCard({ item: r, canEdit }: { item: AdminOvertime; canEdit: boolean }) {
   const t = useT();
   const [pending, start] = useTransition();
   const [note, setNote] = useState("");

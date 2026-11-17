@@ -2,23 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getAccess, requireMenu } from "@/lib/access";
-import { canEditMenu } from "@/lib/roles";
+import { requireMenu } from "@/lib/access";
 import { dinasOn, isTime, nextSplNumber, OT_BREAK_TEXT, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string };
 
-// Membuat / membatalkan SPL: hak edit Absensi & Cuti, atau hak edit Surat Perintah Lembur.
-async function requireSpl() {
-  const user = await getAccess();
-  if (!user || !(canEditMenu(user, "absensi") || canEditMenu(user, "spl"))) throw new Error("Anda tidak punya kewenangan membuat Surat Perintah Lembur.");
-  return user;
-}
+// Membuat / membatalkan SPL: hak edit Lembur. Keputusan revisi jam lembur: hak edit Gaji & Payroll.
+const requireSpl = () => requireMenu("spl");
 
 function refresh() {
-  for (const p of ["/portal/admin/lembur", "/portal/lembur", "/portal/dashboard", "/portal/profil"]) revalidatePath(p);
+  for (const p of ["/portal/admin/lembur", "/portal/admin/payroll", "/portal/lembur", "/portal/dashboard", "/portal/profil"]) revalidatePath(p);
   revalidatePath("/portal/admin/karyawan", "layout");
 }
 
@@ -79,9 +74,9 @@ export async function cancelSplItem(id: string): Promise<Result> {
   return {};
 }
 
-// Admin memutus revisi jam lembur (check-out melewati jam akhir SPL).
+// Admin Payroll memutus revisi jam lembur (check-out melewati jam akhir SPL).
 export async function decideRevision(id: string, approve: boolean, note: string): Promise<Result> {
-  const admin = await requireMenu("absensi");
+  const admin = await requireMenu("gaji");
   const o = await prisma.overtime.findUnique({ where: { id } });
   if (!o || o.revisionStatus !== "MENUNGGU") return { error: "Revisi tidak ditemukan atau sudah diputus." };
   if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };

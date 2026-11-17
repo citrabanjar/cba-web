@@ -84,9 +84,9 @@ const SETTING_SECTIONS = [
   { key: "ter", label: "Tarif TER PPh 21", Icon: Percent },
 ] as const;
 
-export default function PayrollClient({ components, settings, runs, employees, nonRoutine, bonus, taxSettings, terSettings }: {
+export default function PayrollClient({ components, settings, runs, employees, nonRoutine, bonus, taxSettings, terSettings, revisions }: {
   components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[]; bonus: BonusEntry[];
-  taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[];
+  taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[]; revisions?: React.ReactNode;
 }) {
   const t = useT();
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "kalkulator">("komponen");
@@ -107,6 +107,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
         <p className="text-xs text-gray-400 mt-0.5"><T>Tata kelola komponen gaji, BPJS, lembur, THR, dan pengaturan payroll yang mengacu pada ketentuan peraturan perundang-undangan, serta disesuaikan dengan kebijakan perusahaan.</T></p>
       </div>
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
+        {revisions}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((s) => (
             <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">

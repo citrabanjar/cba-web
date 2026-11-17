@@ -185,8 +185,8 @@ export async function loadAgent(isSuper: boolean, user?: SetupAccess | null): Pr
   // Revisi jam lembur wajib diselesaikan (gaji periode itu tidak bisa difinalkan sebelum diputus).
   const otTask: Task = {
     key: "ot-revision", title: "Putuskan revisi jam lembur",
-    hint: "Karyawan absen pulang melewati jam akhir Surat Perintah Lembur. Setujui atau tolak di menu Lembur; gaji periode itu baru bisa difinalkan setelahnya.",
-    count: otRevisions, unit: "revisi", href: "/portal/admin/lembur",
+    hint: "Karyawan absen pulang melewati jam akhir Surat Perintah Lembur. Setujui atau tolak di Payroll & Benefit; gaji periode itu baru bisa difinalkan setelahnya.",
+    count: otRevisions, unit: "revisi", href: "/portal/admin/payroll",
   };
   const onboardingTasks: Task[] = [
     { key: "profile-change", title: "Periksa perubahan data karyawan", hint: "Karyawan mengajukan perubahan data pribadi dari Profil Saya. Data baru berlaku setelah disetujui.", count: profileChanges, unit: "pengajuan", href: "/portal/persetujuan" },
@@ -208,7 +208,8 @@ export async function loadAgent(isSuper: boolean, user?: SetupAccess | null): Pr
     insights,
     agent: {
       groups: [
-        { key: "daily", label: "Harian", list: [otTask, ...keep([...insights.daily, appointedTask, ...onboardingTasks])] },
+        // Revisi jam lembur: tugas Admin Payroll.
+        { key: "daily", label: "Harian", list: [...(isSuper || hasMenu(user, "gaji") ? [otTask] : []), ...keep([...insights.daily, appointedTask, ...onboardingTasks])] },
         { key: "monthly", label: "Bulanan", list: keep(monthly) },
         { key: "payroll", label: "Payroll & Pajak", list: keep(payroll) },
         { key: "data", label: "Data Karyawan", list: keep(setupTasks) },
