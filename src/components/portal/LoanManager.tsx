@@ -60,7 +60,11 @@ function ApproveDialog({ loan, running, onClose }: { loan: LoanView; running: Lo
   const approve = () => act(() => submitLoanReview(loan.id, {
     principal: cash, tenor: Number(tenor), startPeriod: start, note,
     installment: byAmount ? Number(amount) : undefined, mergeIds: merged.map((l) => l.id),
-  }), () => { toast(t("Terkirim ke pimpinan untuk diputus"), "ok"); onClose(); });
+  }), () => {
+    // Pemberitahuan standar portal (dialog dengan tombol OK), sama seperti pengajuan approval lain.
+    showNotice(`${t("Hasil pemeriksaan dikirim ke")} ${loan.flow?.topName || t("pimpinan")} ${t("untuk keputusan.")}`);
+    onClose();
+  });
   return (
     <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
