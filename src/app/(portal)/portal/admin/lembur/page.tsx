@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { canEditMenu, hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { paidHours, plannedHours, splEnabled, syncRevisions } from "@/lib/overtime";
+import { paidHours, plannedHours, restDaysOf, restKey, splEnabled, syncRevisions } from "@/lib/overtime";
+import { getSplRules, orgChart } from "@/lib/spl";
 import LemburAdminClient, { type AdminOvertime, type EmployeePick } from "./LemburAdminClient";
 
 export const metadata: Metadata = { title: "Lembur" };
@@ -27,8 +28,10 @@ export default async function AdminLemburPage({ searchParams }: { searchParams: 
   const from = new Date(Date.UTC(y, m - 1, 1)), to = new Date(Date.UTC(y, m, 0));
 
   await syncRevisions().catch(() => 0);
-  const [spl, rows, revisions, employees] = await Promise.all([
+  const [spl, rules, org, rows, revisions, employees] = await Promise.all([
     splEnabled(),
+    getSplRules(),
+    orgChart(),
     prisma.overtime.findMany({
       where: { date: { gte: from, lte: to } },
       include: { user: { select: { name: true, employeeId: true } }, order: { select: { number: true } } },
@@ -49,17 +52,21 @@ export default async function AdminLemburPage({ searchParams }: { searchParams: 
     ? await prisma.attendance.findMany({ where: { OR: all.map((r) => ({ userId: r.userId, date: r.date })) }, select: { userId: true, date: true, checkIn: true, checkOut: true } })
     : [];
   const att = new Map(atts.map((a) => [`${a.userId}|${ymd(a.date)}`, a]));
+  const restSet = await restDaysOf(all);
   const view = (r: (typeof rows)[number]): AdminOvertime => {
     const a = att.get(`${r.userId}|${ymd(r.date)}`);
+    const rest = restSet.has(restKey(r.userId, r.date));
     return {
       id: r.id, name: r.user.name, employeeId: r.user.employeeId, date: ymd(r.date), start: r.startTime, end: r.endTime,
-      breakStart: r.breakStart, breakEnd: r.breakEnd, planned: plannedHours(r), spl: r.order?.number ?? null, status: r.status,
+      breakStart: r.breakStart, breakEnd: r.breakEnd, planned: plannedHours(r, rest), rest, spl: r.order?.number ?? null, status: r.status,
       checkOut: a?.checkOut ? new Date(a.checkOut.getTime() + 7 * 3600_000).toISOString().slice(11, 16) : null,
-      paid: ["DISETUJUI", "APPROVED"].includes(r.status) && a?.checkOut ? paidHours(r, a) : null,
+      paid: ["DISETUJUI", "APPROVED"].includes(r.status) && a?.checkOut ? paidHours(r, a, null, rest) : null,
       revisionStatus: r.revisionStatus, revisionEnd: r.revisionEnd, note: r.note, reason: r.reason,
     };
   };
-  const pickers: EmployeePick[] = employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId, department: e.department?.name ?? null }));
+  // Admin sendiri dan pimpinan puncak tidak bisa diberi SPL.
+  const pickers: EmployeePick[] = employees.filter((e) => e.id !== access.id && !org.isTop(e.id))
+    .map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId, department: e.department?.name ?? null }));
 
-  return <LemburAdminClient canSpl={canSpl} canRevise={canRevise} spl={spl} month={month} rows={rows.map(view)} revisions={revisions.map(view)} employees={pickers} />;
+  return <LemburAdminClient canSpl={canSpl} canRevise={canRevise} spl={spl} month={month} rules={rules} rows={rows.map(view)} revisions={revisions.map(view)} employees={pickers} />;
 }

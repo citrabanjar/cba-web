@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { T } from "@/components/i18n";
 import { isSuperAdmin } from "@/lib/roles";
 import { getShiftCalendar } from "@/lib/schedule";
-import { paidHours } from "@/lib/overtime";
+import { paidHours, restDaysOf, restKey } from "@/lib/overtime";
 import { estimateOvertime } from "@/lib/payroll-run";
 import { formatDate, formatRupiah } from "@/lib/utils";
 import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
@@ -56,12 +56,13 @@ export default async function KehadiranPage() {
     ? await prisma.attendance.findMany({ where: { userId: id, date: { in: inPeriod.map((o) => o.date) } }, select: { date: true, checkIn: true, checkOut: true } })
     : [];
   const att = new Map(atts.map((a) => [ymd(a.date), a]));
+  const restSet = await restDaysOf(inPeriod);
   const rows = inPeriod.map((o) => {
     const ok = ["DISETUJUI", "APPROVED"].includes(o.status);
     const a = att.get(ymd(o.date));
     return {
       id: o.id, date: o.date, time: `${o.startTime}–${o.endTime}`, spl: o.order?.number ?? null,
-      state: !ok ? "Menunggu" : !a?.checkOut ? "Belum absen pulang" : `${paidHours(o, a)} jam dibayar`,
+      state: !ok ? "Menunggu" : !a?.checkOut ? "Belum absen pulang" : `${paidHours(o, a, null, restSet.has(restKey(o.userId, o.date)))} jam dibayar`,
       revision: o.revisionStatus === "MENUNGGU",
     };
   });

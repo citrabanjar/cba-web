@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
-import { plannedHours, syncRevisions } from "@/lib/overtime";
+import { plannedHours, restDaysOf, restKey, syncRevisions } from "@/lib/overtime";
 import type { AdminOvertime } from "../lembur/LemburAdminClient";
 import OvertimeRevisions from "./OvertimeRevisions";
 import type { PayParams } from "@/lib/payroll";
@@ -48,11 +48,12 @@ export default async function PayrollPage() {
   const revAtt = revs.length
     ? await prisma.attendance.findMany({ where: { OR: revs.map((r) => ({ userId: r.userId, date: r.date })) }, select: { userId: true, date: true, checkOut: true } })
     : [];
+  const revRest = await restDaysOf(revs);
   const revisions: AdminOvertime[] = revs.map((r) => {
     const a = revAtt.find((x) => x.userId === r.userId && x.date.getTime() === r.date.getTime());
     return {
       id: r.id, name: r.user.name, employeeId: r.user.employeeId, date: r.date.toISOString().slice(0, 10), start: r.startTime, end: r.endTime,
-      breakStart: r.breakStart, breakEnd: r.breakEnd, planned: plannedHours(r), spl: r.order?.number ?? null, status: r.status,
+      breakStart: r.breakStart, breakEnd: r.breakEnd, planned: plannedHours(r, revRest.has(restKey(r.userId, r.date))), rest: revRest.has(restKey(r.userId, r.date)), spl: r.order?.number ?? null, status: r.status,
       checkOut: a?.checkOut ? new Date(a.checkOut.getTime() + 7 * 3600_000).toISOString().slice(11, 16) : null, paid: null,
       revisionStatus: r.revisionStatus, revisionEnd: r.revisionEnd, note: r.note, reason: r.reason,
     };

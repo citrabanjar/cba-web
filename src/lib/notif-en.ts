@@ -43,6 +43,8 @@ const TITLES: [RegExp, (...m: string[]) => string][] = [
   [/^Dinas luar (.+) (disetujui|ditolak)$/, (_, d, w) => `Business trip to ${d} ${ok(w)}`],
   [/^Surat Perintah Lembur (\S+)$/, (_, n) => `Overtime Order ${n}`],
   [/^Lembur (\S*) dibatalkan$/, (_, n) => `Overtime ${n} cancelled`],
+  [/^Info: Surat Perintah Lembur (\S+)$/, (_, n) => `Info: Overtime Order ${n}`],
+  [/^Info: lembur (.+) dibatalkan$/, (_, n) => `Info: overtime of ${n} cancelled`],
   [/^Revisi jam lembur (disetujui|ditolak)$/, (_, w) => `Overtime hours revision ${ok(w)}`],
   [/^Tukar shift ditolak rekan$/, () => "Shift swap rejected by colleague"],
   [/^Tukar shift (disetujui|ditolak)$/, (_, w) => `Shift swap ${ok(w)}`],

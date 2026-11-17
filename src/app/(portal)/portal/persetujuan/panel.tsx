@@ -5,7 +5,7 @@ import { actionableApprovers, APPROVAL_STATUSES, currentReviewer, readApproval, 
 import { getMasterOptions } from "@/lib/master-data";
 import { CANDIDATE_STATUS, readData, readJob } from "@/lib/onboarding";
 import { Prisma } from "@prisma/client";
-import { plannedHours } from "@/lib/overtime";
+import { plannedHours, restDaysOf, restKey } from "@/lib/overtime";
 import PersetujuanClient, { type ApprovalItem, type InterviewItem, type LoanItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
 import { loanEarlyApprover, loanReviewTurn, loanTurn, readLoanFlow } from "@/lib/loans";
 import { canEditMenu } from "@/lib/roles";
@@ -81,6 +81,7 @@ export async function loadApprovals(a: Approver) {
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 100,
     }),
   ]);
+  const otRest = await restDaysOf(ots);
 
   const person = (u: (typeof leaves)[number]["user"]) => ({
     name: u.name, employeeId: u.employeeId, position: u.position, department: u.department?.name ?? null,
@@ -111,7 +112,7 @@ export async function loadApprovals(a: Approver) {
       flow: flowOf(o.approval).steps, mine: flowOf(o.approval).mine,
       id: o.id, kind: "LEMBUR" as const, status: o.status, person: person(o.user),
       title: "Lembur", start: ymd(o.date), end: ymd(o.date), days: 0,
-      time: `${o.startTime}–${o.endTime}${o.breakStart ? ` · istirahat ${o.breakStart}–${o.breakEnd}` : ""} · ${String(plannedHours(o)).replace(".", ",")} jam`,
+      time: `${o.startTime}–${o.endTime}${o.breakStart ? ` · istirahat ${o.breakStart}–${o.breakEnd}` : ""} · ${String(plannedHours(o, otRest.has(restKey(o.userId, o.date)))).replace(".", ",")} jam`,
       halfDay: null, unpaidDays: 0, reason: o.reason ?? "", note: o.note, decidedBy: o.decidedBy,
       decidedAt: o.decidedAt?.toISOString() ?? null, createdAt: o.createdAt.toISOString(),
     })),

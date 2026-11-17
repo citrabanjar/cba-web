@@ -596,19 +596,20 @@ export async function finalizeRun(runId: string, by: string | null) {
 
 // Estimasi upah lembur karyawan di periode gaji berjalan (menu Kehadiran). Memakai mesin Proses Gaji yang sama,
 // lalu mengambil komponen upah lembur (cara hitung LEMBUR) dan komponen berparameter jam lembur (mis. uang makan lembur).
+// Periode gaji yang memuat tanggal `day` (YYYY-MM-DD) untuk karyawan bulanan / mingguan.
+function periodOf(day: string, weekly: boolean, s: PayrollSettings) {
+  if (weekly) return weekStartOf(day, s.weekStartDay);
+  const [y, m, d] = day.split("-").map(Number);
+  const next = s.periodStartDay > 1 && d >= s.periodStartDay;
+  return new Date(Date.UTC(y, m - 1 + (next ? 1 : 0), 1)).toISOString().slice(0, 7);
+}
+
 export async function estimateOvertime(userId: string, today: string) {
   const [s, user] = await Promise.all([
     getPayrollSettings(),
     prisma.user.findUnique({ where: { id: userId }, select: { paymentSchedule: true } }),
   ]);
-  let period: string;
-  if (user?.paymentSchedule === "Mingguan") period = weekStartOf(today, s.weekStartDay);
-  else {
-    const [y, m, d] = today.split("-").map(Number);
-    const next = s.periodStartDay > 1 && d >= s.periodStartDay;
-    const t = new Date(Date.UTC(y, m - 1 + (next ? 1 : 0), 1));
-    period = t.toISOString().slice(0, 7);
-  }
+  const period = periodOf(today, user?.paymentSchedule === "Mingguan", s);
   const ctx = await loadContext(period);
   // Estimasi menghitung semua lembur periode berjalan, termasuk yang dibayar mingguan untuk karyawan bulanan.
   const r = await computeLine(ctx, userId, [], undefined, { estimate: true });
@@ -619,4 +620,26 @@ export async function estimateOvertime(userId: string, today: string) {
     hoursWork: r.inputs.otWork.reduce((a, b) => a + b, 0), hoursRest: r.inputs.otRest.reduce((a, b) => a + b, 0),
     items, total: items.reduce((a, i) => a + i.amount, 0),
   };
+}
+
+// Estimasi upah satu lembur per karyawan (SPL) dengan mesin Proses Gaji yang sama: jam lembur itu saja dimasukkan
+// sebagai lembur hari kerja / hari libur, lalu diambil komponen upah lembur (cara hitung LEMBUR) dan komponen
+// berparameter jam lembur. Hasil: rupiah per baris, urutan sama dengan masukan (0 bila tanpa komponen lembur).
+export async function estimateOvertimeCost(rows: { userId: string; date: string; hours: number; rest: boolean }[]) {
+  const out: number[] = [];
+  if (!rows.length) return out;
+  const s = await getPayrollSettings();
+  const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, paymentSchedule: true } });
+  const weekly = new Map(users.map((u) => [u.id, u.paymentSchedule === "Mingguan"]));
+  const ctxs = new Map<string, Awaited<ReturnType<typeof loadContext>>>();
+  for (const r of rows) {
+    if (r.hours <= 0) { out.push(0); continue; }
+    const period = periodOf(r.date, weekly.get(r.userId) ?? false, s);
+    if (!ctxs.has(period)) ctxs.set(period, await loadContext(period));
+    const ctx = ctxs.get(period)!;
+    const otCodes = new Set(ctx.components.filter((c) => c.method === "LEMBUR" || c.param === "JAM_LEMBUR").map((c) => c.code));
+    const line = await computeLine(ctx, r.userId, [], { otWork: r.rest ? [] : [r.hours], otRest: r.rest ? [r.hours] : [], otManual: true }, { estimate: true });
+    out.push(line.items.filter((i) => otCodes.has(i.code)).reduce((a, i) => a + i.amount, 0));
+  }
+  return out;
 }

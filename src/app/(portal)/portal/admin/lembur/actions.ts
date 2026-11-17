@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMenu } from "@/lib/access";
-import { dinasOn, isTime, nextSplNumber, OT_BREAK_TEXT, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
+import { isTime, nextSplNumber, splEnabled } from "@/lib/overtime";
+import { cancelSplOvertime, checkSpl, orgChart, rupiah, SPL_RULES_KEY, type SplRowCheck, type SplRowInput, type SplRules } from "@/lib/spl";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string };
+const num = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
 // Membuat / membatalkan SPL: hak edit Lembur. Keputusan revisi jam lembur: hak edit Gaji & Payroll.
 const requireSpl = () => requireMenu("spl");
@@ -17,59 +19,74 @@ function refresh() {
   revalidatePath("/portal/admin/karyawan", "layout");
 }
 
-export type SplInput = { date: string; startTime: string; endTime: string; note: string; userIds: string[] };
+export type SplInput = { date: string; rows: SplRowInput[] };
 
-// Admin membuat SPL untuk beberapa karyawan pada satu tanggal. Karyawan mendapat notifikasi untuk menjawab.
-export async function createSpl(input: SplInput): Promise<Result & { number?: string; skipped?: string[] }> {
+// Pratinjau SPL di form: hari kerja / libur, jam efektif, istirahat, estimasi, dan masalah tiap baris.
+export async function previewSpl(input: SplInput) {
   const admin = await requireSpl();
-  if (!(await splEnabled())) return { error: "Fitur Surat Perintah Lembur belum dinyalakan Super Admin." };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Tanggal lembur wajib diisi." };
-  if (!isTime(input.startTime) || !isTime(input.endTime) || input.startTime === input.endTime) return { error: "Isi jam mulai dan jam selesai lembur." };
-  const ids = [...new Set(input.userIds)].filter(Boolean);
-  if (!ids.length) return { error: "Pilih minimal satu karyawan." };
-  const date = new Date(`${input.date}T00:00:00Z`);
-  // Istirahat lembur tetap (12:00-13:00, 18:00-19:00) dipotong otomatis.
-  const row = { date, startTime: input.startTime, endTime: input.endTime, breakStart: null, breakEnd: null };
-  if (plannedHours(row) < 1) return { error: `Lembur minimal 1 jam (di luar istirahat ${OT_BREAK_TEXT}).` };
-
-  const users = await prisma.user.findMany({ where: { id: { in: ids }, isActive: true, role: { not: "SUPER_ADMIN" } }, select: { id: true, name: true } });
-  // Karyawan yang sudah punya lembur aktif di tanggal itu dilewati.
-  const busy = new Set((await prisma.overtime.findMany({
-    where: { userId: { in: users.map((u) => u.id) }, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } }, select: { userId: true },
-  })).map((o) => o.userId));
-  // Karyawan yang sedang dinas luar di tanggal itu tidak boleh diberi SPL.
-  const dinas = await dinasOn(users.map((u) => u.id), date);
-  const onTrip = users.filter((u) => dinas.has(u.id));
-  if (onTrip.length) return { error: `Tidak bisa membuat SPL: ${onTrip.map((u) => `${u.name} (${dinas.get(u.id)})`).join(", ")} di ${formatDate(date)}. Hapus dari daftar karyawan.` };
-  // Jam lembur tidak boleh masuk jam kerja shift karyawan (hari OFF / libur bebas).
-  const clash = await shiftConflicts(users.map((u) => u.id), date, row.startTime, row.endTime);
-  const inShift = users.filter((u) => clash.has(u.id));
-  if (inShift.length) return { error: `Jam lembur bentrok dengan shift: ${inShift.map((u) => `${u.name} (${clash.get(u.id)})`).join("; ")}.` };
-  const targets = users.filter((u) => !busy.has(u.id));
-  if (!targets.length) return { error: "Semua karyawan yang dipilih sudah punya lembur di tanggal itu." };
-
-  const number = await nextSplNumber(date);
-  await prisma.overtimeOrder.create({
-    data: {
-      number, ...row, note: input.note.trim() || null, createdBy: admin.name,
-      items: { create: targets.map((u) => ({ userId: u.id, ...row, reason: input.note.trim() || null, status: "MENUNGGU_KARYAWAN", createdBy: admin.name })) },
-    },
-  });
-  await notify(targets.map((u) => u.id), `Surat Perintah Lembur ${number}`,
-    `${formatDate(date)} · ${row.startTime}–${row.endTime}. Pilih Bersedia atau Tidak bersedia.`, "/portal/lembur");
-  refresh();
-  return { number, skipped: users.filter((u) => busy.has(u.id)).map((u) => u.name) };
+  const r = await checkSpl(admin.id, input.date, input.rows, false);
+  return { error: r.error, rows: r.rows };
 }
 
-// Batalkan lembur satu karyawan dari SPL (belum dijalani).
-export async function cancelSplItem(id: string): Promise<Result> {
+// Admin Lembur membuat SPL untuk beberapa karyawan pada satu tanggal; tiap karyawan punya jam & uraian sendiri.
+// Karyawan menjawab Bersedia / Tidak bersedia; atasan mendapat info (atasan di atas atasan langsung + estimasi).
+export async function createSpl(input: SplInput): Promise<Result & { number?: string; rows?: SplRowCheck[] }> {
+  const admin = await requireSpl();
+  if (!(await splEnabled())) return { error: "Fitur Surat Perintah Lembur belum dinyalakan Super Admin." };
+  if (!input.rows.length) return { error: "Tambahkan minimal satu karyawan." };
+  const r = await checkSpl(admin.id, input.date, input.rows, true);
+  if (r.error) return { error: r.error, rows: r.rows };
+  if (r.rows.some((x) => x.problem)) return { error: "Periksa baris yang ditandai merah.", rows: r.rows };
+  const date = r.date!;
+  const rows = r.rows;
+  const number = await nextSplNumber(date);
+  const first = rows[0];
+  await prisma.overtimeOrder.create({
+    data: {
+      number, date, startTime: first.startTime, endTime: first.endTime, breakStart: null, breakEnd: null, note: null, createdBy: admin.name,
+      items: { create: rows.map((x) => ({ userId: x.userId, date, startTime: x.startTime, endTime: x.endTime, breakStart: null, breakEnd: null, reason: x.reason, status: "MENUNGGU_KARYAWAN", createdBy: admin.name })) },
+    },
+  });
+  const day = formatDate(date);
+  for (const x of rows) {
+    await notify(x.userId, `Surat Perintah Lembur ${number}`, `${day} · ${x.startTime}–${x.endTime} (${num(x.hours)} jam): ${x.reason}. Pilih Bersedia atau Tidak bersedia.`, "/portal/lembur");
+  }
+  // Info atasan: atasan langsung tanpa estimasi; atasan di atasnya sampai pimpinan puncak dengan estimasi & bisa membatalkan.
+  const org = await orgChart();
+  const direct = new Map<string, SplRowCheck[]>(), upper = new Map<string, SplRowCheck[]>();
+  for (const x of rows) {
+    org.chain(x.userId).forEach((m, i) => {
+      if (m === admin.id) return;
+      const map = i === 0 ? direct : upper;
+      map.set(m, [...(map.get(m) ?? []), x]);
+    });
+  }
+  const list = (xs: SplRowCheck[]) => xs.map((x) => `${x.name} ${x.startTime}–${x.endTime}`).join(", ");
+  for (const [m, xs] of direct) {
+    await notify(m, `Info: Surat Perintah Lembur ${number}`, `${day} · ${xs.length} karyawan langsung Anda: ${list(xs)}. Dibuat ${admin.name}.`, "/portal/lembur?tim=1");
+  }
+  for (const [m, xs] of upper) {
+    const total = xs.reduce((a, x) => a + (x.estimate ?? 0), 0);
+    await notify(m, `Info: Surat Perintah Lembur ${number}`, `${day} · ${xs.length} karyawan di bawah Anda: ${list(xs)}. Estimasi upah lembur ${rupiah(total)}. Dibuat ${admin.name}. Buka untuk membatalkan bila perlu.`, "/portal/lembur?tim=1");
+  }
+  refresh();
+  return { number };
+}
+
+// Batalkan lembur satu karyawan dari SPL (belum absen pulang). Alasan wajib; karyawan & atasan diberi tahu.
+export async function cancelSplItem(id: string, reason: string): Promise<Result> {
+  const admin = await requireSpl();
+  const r = await cancelSplOvertime(id, { id: admin.id, name: admin.name }, reason);
+  if (!r.error) refresh();
+  return r;
+}
+
+// Batas SPL (kosong = tanpa batas).
+export async function saveSplRules(input: SplRules): Promise<Result> {
   await requireSpl();
-  const o = await prisma.overtime.findUnique({ where: { id }, include: { order: { select: { number: true } } } });
-  if (!o || !o.orderId || !["MENUNGGU_KARYAWAN", "DISETUJUI"].includes(o.status)) return { error: "Lembur ini tidak bisa dibatalkan." };
-  const att = await prisma.attendance.findFirst({ where: { userId: o.userId, date: o.date, checkOut: { not: null } } });
-  if (att) return { error: "Karyawan sudah absen pulang di tanggal itu; lembur tidak bisa dibatalkan." };
-  await prisma.overtime.update({ where: { id }, data: { status: "DIBATALKAN" } });
-  await notify(o.userId, `Lembur ${o.order?.number ?? ""} dibatalkan`, `${formatDate(o.date)} · ${o.startTime}–${o.endTime}.`, "/portal/lembur");
+  if (input.maxEnd !== null && !isTime(input.maxEnd)) return { error: "Jam selesai maksimal tidak valid." };
+  if (input.maxPeople !== null && !(Number.isInteger(input.maxPeople) && input.maxPeople > 0 && input.maxPeople <= 500)) return { error: "Maksimal karyawan per SPL harus 1 sampai 500." };
+  await prisma.appSetting.upsert({ where: { key: SPL_RULES_KEY }, update: { value: input }, create: { key: SPL_RULES_KEY, value: input } });
   refresh();
   return {};
 }

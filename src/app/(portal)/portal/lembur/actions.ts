@@ -1,12 +1,14 @@
 "use server";
 
+import { cancelSplOvertime, orgChart } from "@/lib/spl";
+
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
 import { withDelegation } from "@/lib/delegation";
-import { dinasOn, isTime, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
+import { dinasOn, isTime, otBreakText, plannedHours, restDaysOf, restKey, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { formatDate } from "@/lib/utils";
 
 type Result = { error?: string; approver?: string };
@@ -48,9 +50,10 @@ export async function submitOvertime(input: { date: string; startTime: string; e
   if (input.startTime === input.endTime) return { error: "Jam selesai harus berbeda dengan jam mulai." };
   if (!input.reason.trim()) return { error: "Tulis keperluan lembur." };
   const date = new Date(`${input.date}T00:00:00Z`);
-  // Istirahat lembur tetap (12:00-13:00, 18:00-19:00) dipotong otomatis; kolom istirahat tidak dipakai lagi.
+  // Istirahat lembur dipotong otomatis (hari kerja 18:00-19:00; hari libur juga 12:00-13:00) bila tercakup penuh.
   const row = { date, startTime: input.startTime, endTime: input.endTime, breakStart: null, breakEnd: null };
-  if (plannedHours(row) < 1) return { error: "Lembur minimal 1 jam (di luar istirahat 12:00–13:00 dan 18:00–19:00)." };
+  const rest = (await restDaysOf([{ userId: u.id, date }])).has(restKey(u.id, date));
+  if (plannedHours(row, rest) < 1) return { error: `Lembur minimal 1 jam (di luar istirahat ${otBreakText(rest)}).` };
   const conflict = (await shiftConflicts([u.id], date, input.startTime, input.endTime)).get(u.id);
   if (conflict) return { error: `Jam lembur bentrok dengan ${conflict}.` };
   const clash = await prisma.overtime.findFirst({ where: { userId: u.id, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } } });
@@ -76,4 +79,16 @@ export async function cancelOvertime(id: string): Promise<Result> {
   await prisma.overtime.update({ where: { id }, data: { status: "CANCELLED" } });
   refresh();
   return {};
+}
+
+// Atasan di atas atasan langsung (sampai pimpinan puncak) membatalkan lembur SPL karyawan di bawahnya.
+export async function cancelTeamOvertime(id: string, reason: string): Promise<Result> {
+  const u = await me();
+  const o = await prisma.overtime.findUnique({ where: { id }, select: { userId: true } });
+  if (!o) return { error: "Lembur tidak ditemukan." };
+  const chain = (await orgChart()).chain(o.userId);
+  if (chain.indexOf(u.id) < 1) return { error: "Pembatalan hanya oleh atasan di atas atasan langsung karyawan." };
+  const r = await cancelSplOvertime(id, { id: u.id, name: u.name ?? "" }, reason);
+  if (!r.error) refresh();
+  return r;
 }

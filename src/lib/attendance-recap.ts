@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getShiftCalendars } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { countLeaveDays } from "@/lib/leave-balance";
-import { OT_APPROVED, paidHours, shiftWindow } from "@/lib/overtime";
+import { isRestDay, OT_APPROVED, paidHours, shiftWindow } from "@/lib/overtime";
 
 const DAY = 86_400_000;
 const keyOf = (d: Date) => d.toISOString().slice(0, 10);
@@ -72,9 +72,10 @@ export async function buildRecap(userIds: string[], from: Date, to: Date, withDa
     r.tripDays = tripOn.size;
     for (const o of ots.filter((x) => x.userId === u.id)) {
       const k = keyOf(o.date), s = myCal[k];
-      const h = paidHours(o, attBy.get(`${u.id}|${k}`), shiftWindow(o.date, s));
+      const isRest = isRestDay(s, o.date);
+      const h = paidHours(o, attBy.get(`${u.id}|${k}`), shiftWindow(o.date, s), isRest);
       r.otCount++;
-      if (s && (s.isOff || s.holiday)) r.otRestHours += h; else r.otWorkHours += h;
+      if (isRest) r.otRestHours += h; else r.otWorkHours += h;
       otOn.set(k, { text: `${o.startTime}–${o.endTime}`, paid: h });
     }
 
