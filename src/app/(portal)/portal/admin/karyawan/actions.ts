@@ -1,5 +1,6 @@
 "use server";
-import { prisma } from "@/lib/prisma";
+
+import { delegateLabel, routeTo } from "@/lib/delegation";import { prisma } from "@/lib/prisma";
 import { getAccess, requireMenu } from "@/lib/access";
 import { requireImport } from "@/lib/import-access";
 import { canEditMenu, canProposeMenu, hasMenu, isSuperAdmin } from "@/lib/roles";
@@ -139,7 +140,8 @@ export async function updateEmployee(id: string, data: EmployeeUpdate): Promise<
   // Bila bagan tidak setinggi itu, dipakai atasan tertinggi yang ada.
   const levels = await approvalLevelsFor(access.id);
   const ups = await bossChain(id, levels, new Set([access.id]));
-  const chain = ups.length ? [ups[ups.length - 1]] : [];
+  // Approver yang sedang cuti dengan delegasi → pengajuan baru dialihkan ke delegasinya.
+  const chain = ups.length ? [await routeTo(ups[ups.length - 1], access.id).then((r) => ({ id: r.id, name: delegateLabel(r) }))] : [];
   if (!chain.length) return { error: "Karyawan ini belum punya atasan aktif di bagan (selain Anda), jadi perubahan belum bisa diajukan. Isi Atasan Langsung-nya dulu." };
   const { logs } = await applyEmployeeUpdate(id, rest, { role: access.role, changedBy: "", dryRun: true });
   if (!logs.length) return { error: "Tidak ada perubahan yang diajukan." };

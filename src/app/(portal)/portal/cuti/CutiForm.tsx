@@ -33,7 +33,7 @@ export type LeaveOption = {
 
 type Request = LeaveRequest & { policy: { code: string; name: string } | null };
 
-export default function CutiForm({ requests, options, balances }: { requests: Request[]; options: LeaveOption[]; balances: BalanceRow[] }) {
+export default function CutiForm({ requests, options, balances, people = [], approver = false }: { requests: Request[]; options: LeaveOption[]; balances: BalanceRow[]; people?: { id: string; label: string }[]; approver?: boolean }) {
   const t = useT();
   const [showForm, setShowForm] = useState(false);
   const [policyId, setPolicyId] = useState("");
@@ -117,6 +117,19 @@ export default function CutiForm({ requests, options, balances }: { requests: Re
                 <Input type="date" name="endDate" required />
               </div>
             </div>
+
+            {/* Delegasi tanggung jawab (Cuti Tahunan): wajib bila pemohon memegang hak persetujuan. */}
+            {chosen?.category === "TAHUNAN" && (
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block"><T>{approver ? "Delegasi (wajib)" : "Delegasi (opsional)"}</T></label>
+                <select name="delegateId" required={approver} defaultValue=""
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white">
+                  <option value="">{t("Pilih karyawan")}</option>
+                  {people.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
+                </select>
+                {approver && <p className="mt-1 text-[11px] text-gray-400"><T>Selama cuti disetujui, pengajuan baru yang biasanya Anda putuskan akan masuk ke delegasi.</T></p>}
+              </div>
+            )}
 
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block"><T>Alasan</T></label>

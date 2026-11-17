@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
 import { LEAVE_BALANCE_KEY } from "@/lib/leave-balance";
+import { ABSENCE_KEY, MAX_BACK_DAYS } from "@/lib/absence-settings";
 import { isLeaveCategory, isLeavePeriod, isLeaveUnit, type LeavePolicyInput } from "@/lib/leave";
 import { holdForApproval } from "@/lib/approval-hold";
 import { holdDiff } from "@/lib/hold-diff";
@@ -160,5 +161,18 @@ export async function adjustLeaveBalance(userId: string, policyId: string, days:
     data: { userId, policyId, date: new Date(`${text}T00:00:00Z`), days: Math.round(days * 100) / 100, kind: "PENYESUAIAN", note: note.trim(), createdBy: access.name ?? null },
   });
   revalidatePath(PATH);
+  return {};
+}
+
+// Batas mundur "Ajukan Tidak Masuk" (menu Kehadiran karyawan), dalam hari.
+export async function saveAbsenceBackDays(days: number): Promise<Result> {
+  const access = await getAccess();
+  if (!access || !canEditMenu(access, "absensi")) return { error: "Anda hanya punya hak lihat di menu ini." };
+  const backDays = Math.min(MAX_BACK_DAYS, Math.max(0, Math.round(Number(days) || 0)));
+  await prisma.appSetting.upsert({
+    where: { key: ABSENCE_KEY }, update: { value: { backDays }, updatedBy: access.name ?? null }, create: { key: ABSENCE_KEY, value: { backDays }, updatedBy: access.name ?? null },
+  });
+  revalidatePath(PATH);
+  revalidatePath("/portal/kehadiran");
   return {};
 }

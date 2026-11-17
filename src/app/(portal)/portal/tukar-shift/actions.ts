@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { dateRange, decisionText, notify } from "@/lib/notify";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { routeTo } from "@/lib/delegation";
 import { OPEN_SWAP, activeManager, applySwap, hasAttendance, periodFinal, swapShifts } from "@/lib/shift-swap";
 
 type Result = { error?: string };
@@ -71,8 +72,13 @@ export async function respondSwap(id: string, accept: boolean, note: string): Pr
     return {};
   }
   if (await hasAttendance([r.requesterId, r.partnerId], r.date)) return { error: ATT };
-  const [ma, mb] = await Promise.all([activeManager(r.requesterId), activeManager(r.partnerId)]);
-  if (!ma || !mb) return { error: "Atasan langsung salah satu karyawan belum diatur. Hubungi HRD." };
+  const [ma0, mb0] = await Promise.all([activeManager(r.requesterId), activeManager(r.partnerId)]);
+  if (!ma0 || !mb0) return { error: "Atasan langsung salah satu karyawan belum diatur. Hubungi HRD." };
+  // Atasan yang sedang cuti dengan delegasi → dialihkan ke delegasinya.
+  const [ma, mb] = await Promise.all([
+    routeTo({ id: ma0, name: "" }, r.requesterId).then((x) => x.id),
+    routeTo({ id: mb0, name: "" }, r.partnerId).then((x) => x.id),
+  ]);
   await prisma.shiftSwapRequest.update({
     where: { id },
     data: { status: "MENUNGGU_ATASAN", partnerAt: new Date(), managerAId: ma, managerBId: mb === ma ? null : mb },

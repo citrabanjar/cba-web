@@ -13,6 +13,9 @@ import { paidHours } from "@/lib/overtime";
 import { estimateOvertime } from "@/lib/payroll-run";
 import { formatDate, formatRupiah } from "@/lib/utils";
 import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
+import AbsenceRequest from "./AbsenceRequest";
+import { getAbsenceBackDays } from "@/lib/absence-settings";
+import { eligible, hasBalance, todayDate, visibleBalances } from "@/lib/leave-balance";
 
 export const metadata: Metadata = { title: "Kehadiran" };
 
@@ -66,12 +69,24 @@ export default async function KehadiranPage() {
     };
   });
 
+  // Ajukan Tidak Masuk: pilihan yang tersedia (Cuti Tahunan berlaku untuk karyawan ini / jenis Tanpa Upah ada).
+  const [backDays, me, absencePolicies, myBalances] = await Promise.all([
+    getAbsenceBackDays(),
+    prisma.user.findUnique({ where: { id }, select: { employmentStatus: true, gender: true, joinDate: true } }),
+    prisma.leavePolicy.findMany({ where: { isActive: true, category: { in: ["TAHUNAN", "TANPA_UPAH"] } } }),
+    visibleBalances([id]),
+  ]);
+  const day0 = todayDate();
+  const can = (cat: string) => !!me && absencePolicies.some((p) => p.category === cat && (cat !== "TAHUNAN" || hasBalance(p)) && eligible(p, me, day0, myBalances.find((b) => b.policyId === p.id)?.balance ?? 0));
+
   return (
     <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
       <div>
         <h1 className="text-2xl font-bold text-white"><T>Kehadiran</T></h1>
         <p className="text-sm text-white/70"><T>Kalender kehadiran dan estimasi upah lembur periode gaji berjalan.</T></p>
       </div>
+
+      <AbsenceRequest today={ymd(day0)} minDate={ymd(new Date(day0.getTime() - backDays * 86_400_000))} annual={can("TAHUNAN")} unpaid={can("TANPA_UPAH")} />
 
       <section className="rounded-2xl border border-gray-200 bg-white p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

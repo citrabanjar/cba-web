@@ -13,7 +13,7 @@ import { T, useT } from "@/components/i18n";
 import {
   LEAVE_CATEGORIES, LEAVE_PERIODS, LEAVE_RENEWALS, LEAVE_UNITS, categoryLabel, expiryLabel, periodLabel, unitLabel, type LeavePolicyInput,
 } from "@/lib/leave";
-import { deleteLeavePolicy, saveLeavePolicy } from "./actions";
+import { deleteLeavePolicy, saveAbsenceBackDays, saveLeavePolicy } from "./actions";
 import BalanceTab from "./BalanceTab";
 import { useCanEdit } from "@/components/portal/edit-access";
 import type { BalanceRow, LeaveBalanceSwitch } from "@/lib/leave-balance";
@@ -269,7 +269,7 @@ function PolicyDialog({ policy, onClose }: { policy: Policy | "new"; onClose: ()
   );
 }
 
-export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean }) {
+export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, backDays = 3 }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; backDays?: number }) {
   const t = useT();
   const [tab, setTab] = useState<"jenis" | "saldo">("jenis");
   const [editing, setEditing] = useState<Policy | "new" | null>(null);
@@ -325,6 +325,7 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
         </div>
 
         {tab === "saldo" && <BalanceTab rows={balances} balanceSwitch={balanceSwitch} superAdmin={superAdmin} />}
+        {tab === "jenis" && <AbsenceSetting value={backDays} canEdit={canEdit} />}
         {tab === "jenis" && <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Scale size={17} /></span>
@@ -391,6 +392,27 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
         </section>}
       </main>
       {editing && <PolicyDialog policy={editing} onClose={() => setEditing(null)} />}
+    </div>
+  );
+}
+
+// Batas mundur "Ajukan Tidak Masuk" (menu Kehadiran karyawan): pengajuan mendadak tanpa batas H-x.
+function AbsenceSetting({ value, canEdit }: { value: number; canEdit: boolean }) {
+  const t = useT();
+  const [days, setDays] = useState(String(value));
+  const [pending, start] = useTransition();
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm text-gray-700">
+      <T>Pengajuan tidak masuk mendadak: boleh mundur sampai</T>
+      <input type="number" min={0} max={31} value={days} disabled={!canEdit} onChange={(e) => setDays(e.target.value)}
+        className="h-8 w-16 rounded-lg border border-gray-200 px-2 text-center text-sm" />
+      <T>hari ke belakang</T>
+      {canEdit && Number(days) !== value && (
+        <button type="button" disabled={pending} onClick={() => start(async () => {
+          const r = await saveAbsenceBackDays(Number(days));
+          if (r.error) void showNotice(t(r.error), "error"); else void showNotice(t("Batas mundur tersimpan."));
+        })} className="ml-auto inline-flex h-8 items-center rounded-full bg-ink px-4 text-xs font-semibold text-white disabled:opacity-50"><T>Simpan</T></button>
+      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ export type ApprovalItem = {
   title: string; start: string; end: string; days: number; halfDay: string | null; unpaidDays: number;
   reason: string; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string;
   flow: InterviewApproval | null; mine: boolean; // jalur menu Workflow (Level 1..3); null = atasan langsung
+  delegate?: string | null; // cuti: delegasi tanggung jawab
 };
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -158,6 +159,7 @@ export function Card({ item: i }: { item: ApprovalItem }) {
           </p>
           {i.unpaidDays > 0 && <p className="mt-1 text-xs text-amber-700">{dec(i.unpaidDays)} <T>hari melebihi saldo dan masuk cuti di luar tanggungan.</T></p>}
           <p className="mt-1.5 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">{i.reason}</p>
+          {i.delegate && <p className="mt-1 text-[11px] text-gray-500"><T>Delegasi tanggung jawab</T>: <b>{i.delegate}</b></p>}
           {i.flow && (
             <p className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
               {i.flow.steps.map((s, n) => (

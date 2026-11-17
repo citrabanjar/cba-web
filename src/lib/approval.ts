@@ -85,6 +85,8 @@ export async function isApprover(a: Approver) {
   if (canEditMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "pinjaman")) return true;
   if (await isInterviewApprover(a.id)) return true;
   if (await isWorkflowApprover(a.id)) return true;
+  // Delegasi tanggung jawab dari karyawan yang cuti.
+  if (await prisma.leaveRequest.count({ where: { delegateId: a.id, status: "APPROVED", endDate: { gte: new Date(Date.now() - 30 * 86_400_000) } } })) return true;
   // Atasan dari Admin berhak "Ajukan" yang punya pengajuan ubah data karyawan.
   if (await prisma.employeeEditRequest.count({ where: { approverId: a.id } })) return true;
   return (await prisma.user.count({ where: { managerId: a.id } })) > 0;

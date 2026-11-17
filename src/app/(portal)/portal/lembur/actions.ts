@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
+import { withDelegation } from "@/lib/delegation";
 import { dinasOn, isTime, plannedHours, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { formatDate } from "@/lib/utils";
 
@@ -56,9 +57,11 @@ export async function submitOvertime(input: { date: string; startTime: string; e
   if (clash) return { error: `Sudah ada lembur di ${formatDate(date)} (${clash.startTime}–${clash.endTime}).` };
   const dinas = (await dinasOn([u.id], date)).get(u.id);
   if (dinas) return { error: `Tanggal ${formatDate(date)} beririsan dengan ${dinas}; lembur tidak bisa diajukan saat dinas.` };
-  const { flow, error } = await workflowSteps("LEMBUR", u.id);
+  const { flow: wfFlow, error } = await workflowSteps("LEMBUR", u.id);
   if (error) return { error };
-  if (!flow && !(await hasApprover(u.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  if (!wfFlow && !(await hasApprover(u.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  // Penyetuju yang sedang cuti dengan delegasi → pengajuan baru dialihkan ke delegasinya.
+  const flow = await withDelegation(wfFlow, u.id);
   await prisma.overtime.create({
     data: { userId: u.id, ...row, reason: input.reason.trim(), status: "PENDING", createdBy: u.name, ...(flow ? { approval: flow } : {}) },
   });

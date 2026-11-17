@@ -8,6 +8,7 @@ import { nextLoanNo } from "@/lib/loan-view";
 import { activeManager, planLoan, topLeaderOf } from "@/lib/loan-flow";
 import type { EmployeeLoan } from "@prisma/client";
 import { workflowSteps } from "@/lib/workflow-settings";
+import { delegateLabel, delegateSteps, routeTo } from "@/lib/delegation";
 import { loanStepIds, type LoanFlow } from "@/lib/loans";
 
 const PATH = "/portal/pinjaman";
@@ -42,7 +43,9 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
   if (wf.error) return { error: wf.error };
   let flow: LoanFlow, stage: string;
   if (wf.flow) {
-    const steps = wf.flow.steps, last = steps[steps.length - 1];
+    const raw = wf.flow.steps, last = raw[raw.length - 1];
+    // Delegasi diterapkan ke langkah sebelum pemutus; pemutus dialihkan saat Admin mengirim hasil pemeriksaan.
+    const steps = [...(await delegateSteps({ ...wf.flow, steps: raw.slice(0, -1) }, session.user.id)).steps, last];
     const ci = steps.findIndex((x) => x.check);
     if (ci === steps.length - 1) return { error: "Pemutus pinjaman pada Workflow tidak bisa memutus pengajuannya sendiri. Hubungi HRD." };
     const checker = ci >= 0 ? steps[ci] : null;
@@ -60,7 +63,8 @@ export async function requestLoan(input: { amount: number; tenor: number; startP
     const top = (await topLeaderOf(session.user.id)) ?? manager;
     // Atasan langsung = pimpinan puncak: tahap atasan dilewati, langsung ke pemeriksaan Admin; pimpinan memutus setelahnya.
     const skip = manager.id === top.id;
-    flow = { ...(request ? { request } : {}), ...(skip ? {} : { managerId: manager.id, managerName: manager.name }), topId: top.id, topName: top.name, who: [manager.id, top.id] };
+    const m = await routeTo(manager, session.user.id);
+    flow = { ...(request ? { request } : {}), ...(skip ? {} : { managerId: m.id, managerName: delegateLabel(m) }), topId: top.id, topName: top.name, who: [m.id, top.id] };
     stage = skip ? "ADMIN" : "ATASAN";
   }
   await prisma.employeeLoan.create({

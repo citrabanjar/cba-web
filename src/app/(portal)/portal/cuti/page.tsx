@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { eligible, hasBalance, todayDate, visibleBalances } from "@/lib/leave-balance";
 import { getLeaveRequests } from "./actions";
 import CutiForm from "./CutiForm";
+import { isPersonApprover } from "@/lib/delegation";
 import { T } from "@/components/i18n";
 
 export const metadata: Metadata = { title: "Pengajuan Cuti" };
@@ -15,11 +16,14 @@ export default async function CutiPage() {
   const session = await auth();
   if (!session?.user) redirect("/portal");
 
-  const [requests, me, policies, balances] = await Promise.all([
+  const [requests, me, policies, balances, people, approver] = await Promise.all([
     getLeaveRequests(),
     prisma.user.findUnique({ where: { id: session.user.id }, select: { employmentStatus: true, gender: true, joinDate: true } }),
     prisma.leavePolicy.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     visibleBalances([session.user.id]),
+    // Pilihan delegasi tanggung jawab (Cuti Tahunan): karyawan aktif selain diri sendiri.
+    prisma.user.findMany({ where: { isActive: true, role: { not: "SUPER_ADMIN" }, id: { not: session.user.id } }, orderBy: { name: "asc" }, select: { id: true, name: true, employeeId: true } }),
+    isPersonApprover(session.user.id),
   ]);
   const today = todayDate();
   // Yang bisa dipilih karyawan: sesuai status, jenis kelamin, masa kerja. Dinas Luar punya menu
@@ -40,7 +44,8 @@ export default async function CutiPage() {
         <h2 className="font-bold text-gray-800"><T>Pengajuan Cuti</T></h2>
         <p className="text-xs text-gray-400 mt-0.5">{session.user.name}</p>
       </div>
-      <CutiForm requests={requests} options={options} balances={balances} />
+      <CutiForm requests={requests} options={options} balances={balances}
+        people={people.map((u) => ({ id: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }))} approver={approver} />
     </div>
   );
 }

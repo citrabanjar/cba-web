@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { delegateLabel, routeTo } from "@/lib/delegation";
 import { roleApprovalLevels } from "@/lib/admin-roles";
 import { sendEditRequestEmail } from "@/lib/mailer";
 
@@ -64,7 +65,9 @@ export async function holdForApproval(o: { kind: string; args: unknown[]; title:
     if (open && openKind.startsWith(`${family}.`)) return { error: "Data ini masih memiliki pengajuan yang menunggu persetujuan. Tunggu sampai pengajuan tersebut diputus." };
   }
   const ups = await bossChain(o.targetUserId ?? access.id, levels, new Set([access.id]));
-  const boss = ups[ups.length - 1];
+  const top = ups[ups.length - 1];
+  // Approver yang sedang cuti dengan delegasi → pengajuan baru dialihkan ke delegasinya.
+  const boss = top ? await routeTo(top, access.id).then((r) => ({ id: r.id, name: delegateLabel(r) })) : undefined;
   if (!boss) return { error: o.targetUserId ? "Karyawan ini belum punya atasan aktif di bagan (selain Anda), jadi perubahan belum bisa diajukan." : "Atasan Anda belum diatur di bagan, jadi perubahan belum bisa diajukan untuk approval. Hubungi Super Admin." };
   const steps = [{ id: boss.id, name: boss.name, level: ups.length, decision: "", at: "", note: "" }];
   await prisma.employeeEditRequest.create({

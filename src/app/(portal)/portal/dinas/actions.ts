@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
+import { withDelegation } from "@/lib/delegation";
 import { formatDate } from "@/lib/utils";
 
 export async function getBusinessTrips() {
@@ -22,9 +23,11 @@ export async function submitBusinessTrip(_prevState: unknown, formData: FormData
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
   // Penyetuju = Level workflow Dinas Luar bila aktif (menu Workflow); selain itu atasan langsung aktif.
-  const { flow, error: flowError } = await workflowSteps("DINAS", session.user.id);
+  const { flow: wfFlow, error: flowError } = await workflowSteps("DINAS", session.user.id);
   if (flowError) return { error: flowError };
-  if (!flow && !(await hasApprover(session.user.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  if (!wfFlow && !(await hasApprover(session.user.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  // Penyetuju yang sedang cuti dengan delegasi → pengajuan baru dialihkan ke delegasinya.
+  const flow = await withDelegation(wfFlow, session.user.id);
 
   const destination = formData.get("destination") as string;
   const purpose = formData.get("purpose") as string;

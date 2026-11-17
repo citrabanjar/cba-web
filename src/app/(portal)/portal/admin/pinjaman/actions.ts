@@ -8,6 +8,7 @@ import { getAccess } from "@/lib/access";
 import { canEditMenu, isSuperAdmin } from "@/lib/roles";
 import { buildSchedule, buildScheduleByAmount, isPeriod, readLoanFlow } from "@/lib/loans";
 import { planLoan, topLeaderOf, type PlanInput } from "@/lib/loan-flow";
+import { routeTo } from "@/lib/delegation";
 import { nextLoanNo } from "@/lib/loan-view";
 import { holdForApproval } from "@/lib/approval-hold";
 
@@ -56,11 +57,19 @@ export async function submitLoanReview(id: string, input: PlanInput & { note: st
   // Pengajuan lama (sebelum alur baru) belum punya pimpinan puncak.
   const top = flow.topId ? { id: flow.topId, name: flow.topName ?? "" } : await topLeaderOf(loan.userId);
   if (!top) return { error: "Pimpinan puncak karyawan ini tidak ditemukan. Lengkapi atasan langsung di data karyawan." };
+  // Pemutus yang sedang cuti dengan delegasi → keputusan dialihkan ke delegasinya.
+  const tops = flow.topIds?.length ? flow.topIds : [top.id];
+  const routed = await Promise.all(tops.map(async (tid) => {
+    const u = await prisma.user.findUnique({ where: { id: tid }, select: { name: true } });
+    return routeTo({ id: tid, name: u?.name ?? top.name }, loan.userId);
+  }));
+  const topIds = [...new Set(routed.map((r) => r.id))];
+  const topName = routed.length === 1 ? (routed[0].from ? `${flow.topName ?? routed[0].from} · delegasi: ${routed[0].name}` : flow.topName ?? routed[0].name) : flow.topName ?? top.name;
   await prisma.employeeLoan.update({
     where: { id },
     data: {
       stage: "PIMPINAN",
-      flow: { ...flow, topId: top.id, topName: top.name, adminId: access.id, adminName: access.name ?? "Admin", adminAt: new Date().toISOString(), adminNote: input.note.trim(), plan: p.plan },
+      flow: { ...flow, topId: topIds[0], topIds, topName, who: [...new Set([...(flow.who ?? []), ...topIds])], adminId: access.id, adminName: access.name ?? "Admin", adminAt: new Date().toISOString(), adminNote: input.note.trim(), plan: p.plan },
     },
   });
   await notify(loan.userId, "Pengajuan pinjaman sudah diperiksa Admin", `${formatRupiah(loan.principal)} · Menunggu keputusan pimpinan.`, "/portal/pinjaman");

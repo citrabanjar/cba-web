@@ -8,6 +8,8 @@ import {
 } from "@/lib/leave-balance";
 import { firstApproverName, hasApprover } from "@/lib/approval";
 import { workflowSteps } from "@/lib/workflow-settings";
+import { isPersonApprover, withDelegation } from "@/lib/delegation";
+import { getAbsenceBackDays } from "@/lib/absence-settings";
 import { formatDate } from "@/lib/utils";
 
 export async function getLeaveRequests() {
@@ -29,17 +31,45 @@ const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(
 export async function submitLeave(_prevState: unknown, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
-  const userId = session.user.id;
-  // Penyetuju = Level workflow Cuti bila aktif (menu Workflow); selain itu atasan langsung aktif, tanpa itu pengajuan tidak bisa dikirim.
-  const { flow, error: flowError } = await workflowSteps("CUTI", userId);
-  if (flowError) return { error: flowError };
-  if (!flow && !(await hasApprover(userId))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  return createLeave(session.user.id, {
+    policyId: String(formData.get("policyId") ?? ""), startDate: String(formData.get("startDate") ?? ""), endDate: String(formData.get("endDate") ?? ""),
+    reason: String(formData.get("reason") ?? "").trim(), dayPart: String(formData.get("dayPart") ?? "PENUH"), delegateId: String(formData.get("delegateId") ?? ""),
+  });
+}
 
-  const policyId = String(formData.get("policyId") ?? "");
-  const startDate = String(formData.get("startDate") ?? "");
-  const endDate = String(formData.get("endDate") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
-  const dayPart = String(formData.get("dayPart") ?? "PENUH");
+// Ajukan Tidak Masuk (menu Kehadiran): hari ini atau mundur beberapa hari (batas di Setup Cuti), tanpa batas pengajuan H-x.
+// Pilihan: potong Cuti Tahunan, atau izin tanpa upah (jenis cuti kategori Tanpa Upah). Penyetuju sama dengan Cuti.
+export async function submitAbsence(input: { date: string; kind: "TAHUNAN" | "TANPA_UPAH"; reason: string }) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
+  const userId = session.user.id;
+  const date = new Date(`${input.date}T00:00:00Z`);
+  if (isNaN(date.getTime())) return { error: "Tanggal tidak valid." };
+  const today = todayDate();
+  const back = await getAbsenceBackDays();
+  if (date > today) return { error: "Untuk tanggal yang akan datang, ajukan lewat menu Cuti." };
+  if (date.getTime() < today.getTime() - back * 86_400_000) return { error: `Pengajuan tidak masuk paling lama ${back} hari ke belakang. Hubungi HRD untuk tanggal yang lebih lama.` };
+  if (!input.reason.trim()) return { error: "Alasan wajib diisi." };
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { employmentStatus: true, gender: true, joinDate: true } });
+  const policies = await prisma.leavePolicy.findMany({ where: { isActive: true, category: input.kind }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }] });
+  const balances = await visibleBalances([userId]);
+  // Cuti Tahunan = jenis yang punya saldo (Cuti Bersama tidak termasuk, sama seperti menu Cuti).
+  const policy = me ? policies.find((p) => (p.category !== "TAHUNAN" || hasBalance(p)) && eligible(p, me, today, balances.find((r) => r.policyId === p.id)?.balance ?? 0)) : undefined;
+  if (!policy) return { error: input.kind === "TAHUNAN" ? "Cuti Tahunan belum berlaku untuk Anda. Pilih izin tanpa upah atau hubungi HRD." : "Jenis izin tanpa upah belum diatur di Setup Cuti. Hubungi HRD." };
+  return createLeave(userId, { policyId: policy.id, startDate: input.date, endDate: input.date, reason: input.reason.trim(), dayPart: "PENUH", delegateId: "" }, true);
+}
+
+type LeaveInput = { policyId: string; startDate: string; endDate: string; reason: string; dayPart: string; delegateId: string };
+
+async function createLeave(userId: string, input: LeaveInput, urgent = false) {
+  // Penyetuju = Level workflow Cuti bila aktif (menu Workflow); selain itu atasan langsung aktif, tanpa itu pengajuan tidak bisa dikirim.
+  const wf = await workflowSteps("CUTI", userId);
+  if (wf.error) return { error: wf.error };
+  if (!wf.flow && !(await hasApprover(userId))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
+  // Penyetuju yang sedang cuti dengan delegasi → pengajuan baru dialihkan ke delegasinya.
+  const flow = await withDelegation(wf.flow, userId);
+
+  const { policyId, startDate, endDate, reason, dayPart } = input;
   if (!policyId || !startDate || !endDate || !reason) return { error: "Semua field wajib diisi." };
 
   const start = new Date(`${startDate}T00:00:00Z`);
@@ -79,8 +109,22 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
   const ownBalance = hasBalance(policy) ? (await visibleBalances([userId])).find((r) => r.policyId === policy.id)?.balance ?? 0 : 0;
   if (!eligible(policy, me, today, ownBalance) || policy.category === "DINAS") return { error: "Jenis cuti ini tidak berlaku untuk Anda." };
 
-  if (policy.noticeDays > 0 && start.getTime() < today.getTime() + policy.noticeDays * 86_400_000) {
-    return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai.` };
+  if (!urgent && policy.noticeDays > 0 && start.getTime() < today.getTime() + policy.noticeDays * 86_400_000) {
+    return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai. Untuk tidak masuk hari ini, gunakan Ajukan Tidak Masuk di menu Kehadiran.` };
+  }
+
+  // Delegasi tanggung jawab (Cuti Tahunan): wajib bila pemohon seorang penyetuju, opsional untuk karyawan lain.
+  let delegate: { id: string; name: string } | null = null;
+  if (policy.category === "TAHUNAN" && !urgent) {
+    if (input.delegateId) {
+      const d = await prisma.user.findUnique({ where: { id: input.delegateId }, select: { id: true, name: true, isActive: true } });
+      if (!d?.isActive || d.id === userId) return { error: "Delegasi harus karyawan aktif selain Anda." };
+      const busy = await prisma.leaveRequest.findFirst({ where: { userId: d.id, status: { in: ["PENDING", "APPROVED"] }, startDate: { lte: end }, endDate: { gte: start } }, select: { id: true } });
+      if (busy) return { error: `${d.name} juga mengajukan / sedang cuti di tanggal itu. Pilih delegasi lain.` };
+      delegate = { id: d.id, name: d.name };
+    } else if (await isPersonApprover(userId)) {
+      return { error: "Anda memegang hak persetujuan, jadi pilih delegasi tanggung jawab selama cuti." };
+    }
   }
 
   // Shift setengah hari (mis. Sabtu) dihitung 0,5 hari.
@@ -123,10 +167,12 @@ export async function submitLeave(_prevState: unknown, formData: FormData) {
     data: {
       userId, policyId: policy.id, type: legacyType(policy.category),
       startDate: start, endDate: end, totalDays, halfDay, unpaidDays, reason, status: "PENDING", ...(flow ? { approval: flow } : {}),
+      urgent, ...(delegate ? { delegateId: delegate.id, delegateName: delegate.name } : {}),
     },
   });
 
   revalidatePath("/portal/cuti");
+  revalidatePath("/portal/kehadiran");
   revalidatePath("/portal/admin/leave");
   return { ok: true, days: fmt(totalDays), unpaid: unpaidDays > 0 ? fmt(unpaidDays) : null, approver: await firstApproverName(flow, userId) };
 }

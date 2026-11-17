@@ -55,6 +55,12 @@ export async function decideLeave(id: string, approve: boolean, note: string): P
   });
   // Alpha otomatis di tanggal cuti yang disetujui langsung dihapus.
   if (approve) await assessAttendance(req.startDate, req.endDate, [req.userId]);
+  // Delegasi tanggung jawab: pengajuan baru untuk pemohon dialihkan ke delegasi selama tanggal cuti.
+  if (approve && req.delegateId) {
+    const who = await prisma.user.findUnique({ where: { id: req.userId }, select: { name: true } });
+    await notify(req.delegateId, "Anda menjadi delegasi tanggung jawab",
+      `${who?.name ?? ""} cuti ${dateRange(req.startDate, req.endDate)}. Pengajuan baru yang biasanya ia putuskan akan masuk ke Anda selama tanggal itu.`, "/portal/notifikasi");
+  }
   await notify(req.userId, `Pengajuan ${req.policy?.name ?? "cuti"} ${approve ? "disetujui" : "ditolak"}`,
     `${dateRange(req.startDate, req.endDate)} · ${decisionText(approve, a.name, note)}`, "/portal/cuti");
   refresh();
