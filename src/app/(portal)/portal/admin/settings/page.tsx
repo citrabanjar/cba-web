@@ -102,7 +102,7 @@ async function loadAi() {
 
 // Data tab Fitur (Super Admin).
 async function loadOnboarding() {
-  const [settings, workflow, agent, agentRules, simOn, simCount, spl] = await Promise.all([getOnboardingSettings(), workflowFeatureOn(), aiFeatureOn(), getAgentSettings(), simEnabled(), countSimulated(), splEnabled()]);
+  const [settings, workflow, agent, simOn, simCount, spl] = await Promise.all([getOnboardingSettings(), workflowFeatureOn(), aiFeatureOn(), simEnabled(), countSimulated(), splEnabled()]);
   const simReq = await countSimRequests();
-  return { settings, workflow, agent, spl, setupDone: agentRules.setupDone, sim: { enabled: simOn, count: simCount, requests: simReq } };
+  return { settings, workflow, agent, spl, sim: { enabled: simOn, count: simCount, requests: simReq } };
 }

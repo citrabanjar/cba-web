@@ -67,7 +67,7 @@ export default function SettingsClient({
   bulkTargets?: number; // Super Admin: jumlah akun Karyawan & Admin (Password Massal)
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
-  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean; sim: { enabled: boolean; count: number; requests: number } } | null;
+  onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; sim: { enabled: boolean; count: number; requests: number } } | null;
   access?: { roles: AdminRole[]; people: Person[]; importEnabled: string[] } | null;
   importData?: ImportData | null;
   initialTab?: string | null; // tab yang dibuka dari tautan (mis. Setup Awal -> Import Data)

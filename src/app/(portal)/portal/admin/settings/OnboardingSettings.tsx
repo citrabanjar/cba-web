@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { T } from "@/components/i18n";
 import type { OnboardingSettings as Settings } from "@/lib/onboarding-interview";
 import { saveFeatures } from "./onboarding-actions";
-import { setSetupDone } from "./agent-actions";
 
 function Feature({ icon: Icon, title, desc, checked, onChange, children }: {
   icon: typeof GitBranch; title: string; desc: string; checked: boolean; onChange: (v: boolean) => void; children?: React.ReactNode;
@@ -29,7 +28,7 @@ function Feature({ icon: Icon, title, desc, checked, onChange, children }: {
 }
 
 // Pengaturan → Fitur (Super Admin): pilih fitur yang dipakai perusahaan.
-export default function OnboardingSettings({ settings, workflow: wf, agent: ag, spl: sp, setupDone }: { settings: Settings; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean }) {
+export default function OnboardingSettings({ settings, workflow: wf, agent: ag, spl: sp }: { settings: Settings; workflow: boolean; agent: boolean; spl: boolean }) {
   const s = settings; // isian Pra-Karyawan (alur wawancara) tetap ikut tersimpan apa adanya
   const [workflow, setWorkflow] = useState(wf);
   const [agent, setAgent] = useState(ag);
@@ -54,13 +53,6 @@ export default function OnboardingSettings({ settings, workflow: wf, agent: ag, 
 
         <Feature icon={Bot} title="Agent HRD" checked={agent} onChange={(v) => { setMsg(null); setAgent(v); }}
           desc="AI (Claude) membantu admin memeriksa data seluruh karyawan berdasarkan SOP perusahaan. Admin bisa menambahkan SOP lainnya jika dibutuhkan." />
-
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-3 text-xs text-gray-600">
-          <span><T>Panduan Setup Awal di Beranda</T>: <b><T>{setupDone ? "disembunyikan" : "tampil"}</T></b></span>
-          <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => { await setSetupDone(!setupDone); window.location.reload(); })}>
-            <T>{setupDone ? "Tampilkan lagi" : "Sembunyikan"}</T>
-          </Button>
-        </div>
 
         {msg && <p className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msg.ok && <CheckCircle2 size={14} />}<T>{msg.text}</T></p>}
         <Button disabled={pending} className="gap-1.5" onClick={() => start(async () => {
