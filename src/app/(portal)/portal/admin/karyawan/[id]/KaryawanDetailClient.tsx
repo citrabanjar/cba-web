@@ -1075,7 +1075,7 @@ export default function KaryawanDetailClient({
 
         {tab === "gaji" && (
           <SectionNav sections={[
-            canSeePay && { key: "payroll", label: "Payroll", icon: CalendarClock, content: (
+            canSeePay && { key: "payroll", label: "Payroll", icon: CalendarClock, content: (<>
               <SectionCard title="Payroll" onEdit={edit("payroll")} grid>
                 <Field label="Jadwal Bayar">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
                 {emp.paymentSchedule === "Mingguan" && (
@@ -1085,7 +1085,18 @@ export default function KaryawanDetailClient({
                   </>
                 )}
               </SectionCard>
-            ) },
+              {/* Gaji harian & pengali tercatat di riwayat gaji, jadi diisi lewat Penyesuaian Gaji (bukan Edit Payroll). */}
+              {emp.paymentSchedule === "Mingguan" && !currentSalary?.dailyWage && (
+                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="min-w-0 flex-1 text-xs text-amber-800">
+                    <T>Jadwal bayar Mingguan memakai Gaji Harian x Pengali Bulanan. Isi keduanya lewat Penyesuaian Gaji; sebelum diisi, gaji pokok mingguan dihitung Rp 0.</T>
+                  </p>
+                  {canEditTarget && canEditPay && (
+                    <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-8 px-3 text-xs"><T>Isi Gaji Harian</T></Button>
+                  )}
+                </div>
+              )}
+            </>) },
               { key: "pajak", label: "Pajak", icon: Receipt, content: (
             <SectionCard title="Pajak" onEdit={edit("pajak")} grid>
               <Field label="NPWP">{emp.npwp}</Field>

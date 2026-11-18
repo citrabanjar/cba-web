@@ -556,11 +556,14 @@ export async function addSalaryAdjustment(
   const actor = await requireMenu("gaji");
   const daily = Number(data.dailyWage) > 0 ? Number(data.dailyWage) : null;
   const factor = daily && Number(data.monthlyFactor) > 0 ? Math.min(31, Number(data.monthlyFactor)) : null;
-  if (daily && !factor) throw new Error("Pengali gaji harian wajib diisi");
+  // Pesan dikembalikan (bukan dilempar) supaya tampil apa adanya di production.
+  if (daily && !factor) return { error: "Pengali bulanan wajib diisi." };
   const basic = daily && factor ? daily * factor : data.basicSalary;
   if (!data.effectiveDate || !(basic > 0)) {
-    throw new Error("Tanggal berlaku dan gaji pokok wajib diisi");
+    return { error: data.dailyWage !== undefined && data.dailyWage !== null ? "Tanggal berlaku dan gaji harian wajib diisi." : "Tanggal berlaku dan gaji pokok wajib diisi." };
   }
+  const sameDay = await prisma.employeeSalary.findFirst({ where: { userId, effectiveDate: new Date(data.effectiveDate) }, select: { id: true } });
+  if (sameDay) return { error: "Sudah ada data gaji dengan tanggal berlaku yang sama. Pilih tanggal berlaku lain." };
   const last = await prisma.employeeSalary.findFirst({ where: { userId }, orderBy: { effectiveDate: "desc" }, select: { basicSalary: true } });
   const held = await holdForApproval({
     kind: "gaji.addSalaryAdjustment", args: [userId, data], targetUserId: userId, title: "Penyesuaian gaji",
