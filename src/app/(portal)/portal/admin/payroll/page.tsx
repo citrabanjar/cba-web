@@ -49,12 +49,6 @@ export default async function PayrollPage() {
     ? await prisma.attendance.findMany({ where: { OR: revs.map((r) => ({ userId: r.userId, date: r.date })) }, select: { userId: true, date: true, checkOut: true } })
     : [];
   const revRest = await restDaysOf(revs);
-  // PPh 21 pindahan: bukti potong pemberi kerja sebelumnya tahun lalu & tahun berjalan.
-  const slipYear = today.getUTCFullYear();
-  const prior = await prisma.priorTaxSlip.findMany({
-    where: { year: { gte: slipYear - 1 } }, orderBy: [{ year: "desc" }, { createdAt: "desc" }],
-    include: { user: { select: { name: true, employeeId: true } } },
-  });
   const revisions: AdminOvertime[] = revs.map((r) => {
     const a = revAtt.find((x) => x.userId === r.userId && x.date.getTime() === r.date.getTime());
     return {
@@ -67,8 +61,6 @@ export default async function PayrollPage() {
   return (
     <PayrollClient
       revisions={<OvertimeRevisions items={revisions} />}
-      priorSlips={prior.map((p) => ({ id: p.id, userId: p.userId, name: p.user.name, employeeId: p.user.employeeId, year: p.year, employerName: p.employerName, employerNpwp: p.employerNpwp,
-        slipNumber: p.slipNumber, kind: p.kind, monthFrom: p.monthFrom, monthTo: p.monthTo, gross: p.gross, net: p.net, pph21: p.pph21, note: p.note }))}
       components={components.map(({ employees: assigned, createdAt, updatedAt, ...c }) => ({
         ...c, params: (c.params as PayParams | null) ?? null, employeeIds: assigned.filter((e) => !e.endDate || e.endDate >= today).map((e) => e.userId), // termasuk yang mulai nanti (karyawan baru)
         createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString(),

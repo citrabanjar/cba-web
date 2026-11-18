@@ -173,6 +173,8 @@ export default async function KaryawanDetailPage({
       initialTab={(await searchParams).tab}
       initialDate={(await searchParams).tanggal}
       pph21Years={canSeePay ? await pph21YearsOf(id) : []}
+      priorSlips={canSeePay ? (await prisma.priorTaxSlip.findMany({ where: { userId: id }, orderBy: { year: "desc" } }))
+        .map((s) => ({ id: s.id, year: s.year, slipNumber: s.slipNumber, net: s.net ?? 0, pph21: s.pph21, employerName: s.employerName })) : []}
       canSeeLoans={canSeeLoans}
       loans={canSeeLoans ? (await prisma.employeeLoan.findMany({ where: { userId: id, status: { in: ["BERJALAN", "LUNAS", "DIGABUNG"] } }, orderBy: { createdAt: "desc" }, include: { installments: true } })).map(toLoanView) : []}
       master={await getMasterOptions()}

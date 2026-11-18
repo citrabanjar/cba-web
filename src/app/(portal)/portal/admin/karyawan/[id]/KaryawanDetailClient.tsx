@@ -34,6 +34,7 @@ import type { DayShift } from "@/lib/schedule";
 import type { BalanceRow } from "@/lib/leave-balance";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import Pph21Card, { type Pph21Year } from "./Pph21Card";
+import PriorTaxCard, { type PriorSlipItem } from "./PriorTaxCard";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import ProfileLoans from "@/components/portal/LoanManager";
 import type { LoanView } from "@/components/portal/LoanCard";
@@ -110,6 +111,7 @@ const TAB_LIST = [
   { key: "absensi", label: "Kehadiran & Shift" },
   { key: "cuti", label: "Cuti & Dinas" },
   { key: "gaji", label: "Payroll" },
+  { key: "pph21", label: "PPh 21" },
   { key: "pinjaman", label: "Pinjaman" },
   { key: "payslip", label: "Slip Gaji" },
 ];
@@ -683,7 +685,7 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, initialAction, initialTab, initialDate, pph21Years = [], canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
+  employee: emp, tenure, managers, initialAction, initialTab, initialDate, pph21Years = [], priorSlips = [], canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
   schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
 }: {
   employee: Employee;
@@ -692,7 +694,8 @@ export default function KaryawanDetailClient({
   initialAction?: string;
   initialTab?: string;
   initialDate?: string; // tanggal yang dibuka di kalender kehadiran (dari Laporan)
-  pph21Years?: Pph21Year[]; // data PPh 21 per tahun (tab Payroll)
+  pph21Years?: Pph21Year[]; // riwayat PPh 21 per tahun (tab PPh 21)
+  priorSlips?: PriorSlipItem[]; // PPh 21 pindahan (tab Payroll)
   canSeeLoans: boolean;
   loans: LoanView[];
   master: MasterOptions;
@@ -733,7 +736,7 @@ export default function KaryawanDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const tabs = TAB_LIST.filter(
-    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans),
+    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pph21" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans),
   );
 
   const fields = useMemo<Record<Section, FormField[]>>(() => ({
@@ -1088,6 +1091,8 @@ export default function KaryawanDetailClient({
               <Field label="Status Pajak">{emp.taxStatus}</Field>
               <Field label="Kode Objek Pajak">{emp.taxObjectCode}</Field>
             </SectionCard>
+            {/* Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali. */}
+            {canSeePay && <PriorTaxCard userId={emp.id} slips={priorSlips} />}
             <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
               <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
               <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
@@ -1113,7 +1118,6 @@ export default function KaryawanDetailClient({
 
             {emp.salaries.length > 0 && <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} />}
 
-            <Pph21Card userId={emp.id} years={pph21Years} />
             </>)}
           </div>
         )}
@@ -1281,6 +1285,8 @@ export default function KaryawanDetailClient({
           )}
           </div>
         )}
+
+        {tab === "pph21" && canSeePay && <Pph21Card userId={emp.id} years={pph21Years} />}
 
         {tab === "payslip" && canSeePay && (
           emp.payslips.length === 0 ? <Empty text="Belum ada slip gaji." /> : (
