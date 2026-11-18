@@ -22,7 +22,9 @@ export default function PortalLoginPage() {
             </span>
             <p className="mb-8 mt-6 text-sm text-white/60"><T>Masuk dengan ID karyawan atau email Anda.</T></p>
             <LoginForm />
-            <p className="mt-6 text-center text-xs text-white/55"><T>Lupa password?</T></p>
+            <p className="mt-6 text-center text-xs text-white/55">
+              <Link href="/portal/aktivasi" className="underline-offset-2 transition-colors hover:text-white hover:underline"><T>Aktivasi akun / lupa password?</T></Link>
+            </p>
           </div>
 
           <div className="hidden flex-col justify-center p-10 md:flex">

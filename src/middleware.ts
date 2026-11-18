@@ -19,6 +19,8 @@ export default auth((req) => {
 
   const isPortalPage = path.startsWith("/portal");
   const isLoginPage = path === "/portal";
+  // Aktivasi akun / lupa password: halaman publik (belum login).
+  const isPublicPortal = path === "/portal/aktivasi";
   const isComingSoonPage = path === "/coming-soon";
   const isPublicAsset =
     path.startsWith("/_next") || path.startsWith("/api") ||
@@ -28,7 +30,7 @@ export default auth((req) => {
     return NextResponse.redirect(`${origin}/coming-soon`);
   }
 
-  if (isPortalPage && !isLoginPage && !isLoggedIn) {
+  if (isPortalPage && !isLoginPage && !isPublicPortal && !isLoggedIn) {
     return NextResponse.redirect(`${origin}/portal`);
   }
   if (isLoginPage && isLoggedIn) {

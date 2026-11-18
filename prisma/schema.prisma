@@ -104,6 +104,10 @@ model User {
   // Bebas Absen (mis. direksi & keluarganya): jadwal tetap dipakai untuk hari kerja & cuti, tetapi tanpa Alpha otomatis,
   // tanpa potongan terlambat / pulang cepat, tanpa batas jam absen, dan tidak ikut peringatan absensi di Beranda.
   attendanceExempt Boolean          @default(false)
+  // Aktivasi akun / lupa password lewat OTP email: hash kode terakhir, batas berlaku, jumlah salah.
+  resetCode        String?
+  resetExpires     DateTime?
+  resetTries       Int              @default(0)
   kantorkuId       String?
   menuAccess       String[]         @default([]) // menu yang dibuka super admin untuk ADMIN
 
