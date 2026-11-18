@@ -683,7 +683,7 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, initialAction, initialTab, initialDate, pph21Years = [], priorSlips = [], canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
+  employee: emp, tenure, managers, initialAction, initialTab, initialDate, pph21Years = [], priorSlips = [], canSeeLoans, loans, master, canSeePay, isSuper, isOwner = false, canEdit: canEditTarget,
   schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
 }: {
   employee: Employee;
@@ -699,6 +699,7 @@ export default function KaryawanDetailClient({
   master: MasterOptions;
   canSeePay: boolean;
   isSuper: boolean;
+  isOwner?: boolean; // pucuk pimpinan: atasan langsung tampil "Owner"
   canEdit: boolean;
   schedules: ScheduleRow[];
   patterns: { id: string; name: string; cycleDays: number }[];
@@ -962,7 +963,7 @@ export default function KaryawanDetailClient({
               tone="emerald"
               icon={UserRound}
               label="Atasan Langsung"
-              value={emp.manager ? emp.manager.name : "—"}
+              value={emp.manager ? emp.manager.name : isOwner ? t("Owner") : "—"}
               sub={emp.manager?.employeeId ?? undefined}
             />
           </div>
@@ -1034,7 +1035,7 @@ export default function KaryawanDetailClient({
               <Field label="Departemen">{emp.department?.name}</Field>
               <Field label="Jabatan">{emp.position}</Field>
               <Field label="Atasan Langsung">
-                {emp.manager ? [emp.manager.employeeId, emp.manager.name].filter(Boolean).join(" - ") : null}
+                {emp.manager ? [emp.manager.employeeId, emp.manager.name].filter(Boolean).join(" - ") : isOwner ? <T>Owner</T> : null}
               </Field>
             </SectionCard>
               ) },

@@ -71,7 +71,9 @@ export default async function ProfilPage() {
       me={{
         id: user.id, name: user.name, employeeId: user.employeeId, image: user.image,
         status: user.employmentStatus, position: user.position, branch: user.branch, department: user.department?.name ?? null,
-        manager: user.manager ? `${user.manager.name}${user.manager.employeeId ? ` (${user.manager.employeeId})` : ""}` : null,
+        // Pucuk pimpinan (tanpa atasan, punya bawahan aktif): "Owner".
+        manager: user.manager ? `${user.manager.name}${user.manager.employeeId ? ` (${user.manager.employeeId})` : ""}`
+          : (await prisma.user.count({ where: { managerId: user.id, isActive: true } })) > 0 ? "Owner" : null,
         joinDate: user.joinDate?.toISOString() ?? null, contractEnd: user.contractEndDate?.toISOString() ?? null,
         tenure: months === null ? null : `${Math.floor(months / 12)} th ${months % 12} bln`,
         ptkp: user.ptkpStatus, bpjsTk: user.bpjsTkNumber, bpjsKes: user.bpjsKesNumber,

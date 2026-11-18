@@ -159,8 +159,12 @@ export default async function KaryawanDetailPage({
     orderBy: { name: "asc" },
   });
 
+  // Pucuk pimpinan (tanpa atasan, punya bawahan aktif) — sama dengan puncak bagan: atasan langsung tampil "Owner".
+  const isOwner = !employee.managerId && (await prisma.user.count({ where: { managerId: employee.id, isActive: true } })) > 0;
+
   return (
     <KaryawanDetailClient
+      isOwner={isOwner}
       employee={{
         ...employee,
         employeeId: employee.employeeId ?? "",
