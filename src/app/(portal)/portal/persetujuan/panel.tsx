@@ -180,6 +180,7 @@ export async function loadApprovals(a: Approver) {
   const edits = editReqs.map((r) => ({
     id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, approver: r.approverName, note: r.note,
     mine: r.status === "PENDING" && r.approverId === a.id,
+    own: r.requesterId === a.id, // pengajuan saya sendiri (Admin pengaju)
     kind: String((r.data as { __kind?: unknown } | null)?.__kind ?? ""),
     title: ((r.data as { __title?: unknown } | null)?.__title as string | undefined) ?? null,
     hasTarget: !(r.data as { __kind?: unknown } | null)?.__kind || !!(r.data as { __target?: unknown } | null)?.__target,

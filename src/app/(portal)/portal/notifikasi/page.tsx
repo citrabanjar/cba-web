@@ -91,7 +91,8 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
         module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : i.kind === "LUPA_ABSEN" ? "kehadiran" : "lembur") as NotifModule, key: `h-${i.kind}-${i.id}`, at: i.decidedAt ?? i.createdAt, card: { type: "item" as const, item: i },
       })),
     ...(data?.swaps ?? []).filter((s) => !s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `h-swap-${s.id}`, at: `${s.date}T00:00:00.000Z`, card: { type: "swap" as const, s } })),
-    ...(data?.edits ?? []).filter((e) => !e.mine && e.status !== "PENDING").map((e) => ({
+    // Pengajuan saya sendiri yang sudah diputus tidak diulang di riwayat: kabarnya sudah ada sebagai notifikasi.
+    ...(data?.edits ?? []).filter((e) => !e.mine && !e.own && e.status !== "PENDING").map((e) => ({
       module: editModule(e.kind), key: `h-edit-${e.id}`, at: e.decidedAt ?? e.createdAt, card: { type: "edit" as const, item: e },
     })),
     ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, at: p.decidedAt ?? p.createdAt, card: { type: "profile" as const, item: p } })),
