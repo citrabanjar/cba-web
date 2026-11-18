@@ -445,7 +445,8 @@ export async function setAttendanceExempt(userId: string, exempt: boolean): Prom
   if (target.attendanceExempt === exempt) return {};
   const yn = (v: boolean) => (v ? "Ya" : "Tidak");
   const held = await holdForApproval({
-    kind: "absensi.setAttendanceExempt", args: [userId, exempt], targetUserId: userId,
+    // Sama seperti perubahan Absensi lain: diputus atasan Admin pengaju (bukan atasan karyawan sasaran).
+    kind: "absensi.setAttendanceExempt", args: [userId, exempt],
     title: `Absensi: ${exempt ? "jadikan" : "cabut"} Bebas Absen ${target.name}`,
     details: [{ field: "Bebas Absen", oldValue: yn(target.attendanceExempt), newValue: yn(exempt) }],
   });
