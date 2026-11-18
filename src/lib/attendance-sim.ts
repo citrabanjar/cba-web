@@ -44,6 +44,8 @@ const addHours = (hhmm: string, hours: number) => {
   return `${String((h + hours) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 const SIM_OT_NOTE = `${SIM_TAG} Absen simulasi: lembur`;
+// Absen uji hari ini yang belum absen pulang karena jam pulangnya belum lewat; diisi ulang saat simulasi berikutnya.
+const RUNNING = " (berjalan)";
 const OT_ACTIVE = ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"];
 // Lembur uji yang sudah disetujui: mulai jam akhir shift, selesai jam bulat setelah absen pulang (dibayar sampai check-out).
 const simOvertime = (userId: string, day: Date, shiftEnd: string, outMin: number) => ({
@@ -66,7 +68,8 @@ function pick(r: number): Scenario {
 
 // Isi absen uji untuk satu tanggal. Karyawan yang sudah punya catatan absen, sedang cuti/dinas disetujui,
 // libur, atau belum ada shift (jadwal manual "?") dilewati. Alpha: tidak diisi (dinilai otomatis oleh sistem).
-export async function simulateDay(date: Date) {
+// `now` (hari ini): hanya yang jam check-in-nya sudah lewat yang diisi; check-out kosong bila jam pulangnya belum lewat.
+export async function simulateDay(date: Date, now?: number) {
   const day = new Date(`${keyOf(date)}T00:00:00Z`);
   const users = await prisma.user.findMany({
     where: { role: { not: "SUPER_ADMIN" }, isActive: true, OR: [{ joinDate: null }, { joinDate: { lte: day } }] },
@@ -81,7 +84,8 @@ export async function simulateDay(date: Date) {
     prisma.businessTrip.findMany({ where: { userId: { in: ids }, status: "APPROVED", startDate: { lte: day }, endDate: { gte: day } }, select: { userId: true } }),
   ]);
   // Alpha otomatis (belum ada absen) boleh diganti absen uji; catatan absen lain tidak disentuh.
-  const autoAlpha = existing.filter((a) => a.note === AUTO_ALPHA && !a.checkIn);
+  // Absen uji "berjalan" (belum lewat jam pulang saat dibuat) juga diganti dengan isian yang lebih baru.
+  const autoAlpha = existing.filter((a) => (a.note === AUTO_ALPHA && !a.checkIn) || (a.note?.endsWith(RUNNING) && !a.checkOut));
   const autoIds = new Set(autoAlpha.map((a) => a.userId));
   const skip = new Set([...existing.filter((a) => !autoIds.has(a.userId)), ...leaves, ...trips].map((x) => x.userId));
   const k = keyOf(day);
@@ -109,11 +113,16 @@ export async function simulateDay(date: Date) {
     const endDay = overnight ? new Date(day.getTime() + DAY) : day;
     const inMin = sc === "TERLAMBAT" ? 10 + Math.floor(rnd() * 50) : -Math.floor(rnd() * 15);
     const outMin = sc === "PULANG_CEPAT" ? -(15 + Math.floor(rnd() * 75)) : sc === "LEMBUR" ? 60 + Math.floor(rnd() * 180) : Math.floor(rnd() * 20);
-    if (sc === "LEMBUR") overtimes.push(simOvertime(id, day, s.endTime, outMin));
+    const checkIn = at(day, s.startTime, inMin);
+    if (now !== undefined && checkIn.getTime() > now) { skipped++; continue; } // belum datang
+    const planned = sc === "LUPA_PULANG" ? null : at(endDay, s.endTime, outMin);
+    const running = !!planned && now !== undefined && planned.getTime() > now; // masih bekerja
+    const checkOut = running ? null : planned;
+    if (sc === "LEMBUR" && !running) overtimes.push(simOvertime(id, day, s.endTime, outMin));
     rows.push({
-      userId: id, date: day, status: "HADIR", note: `${SIM_TAG} Absen simulasi: ${LABEL[sc]}`,
-      checkIn: at(day, s.startTime, inMin), checkOut: sc === "LUPA_PULANG" ? null : at(endDay, s.endTime, outMin),
-      checkInAddr: "Simulasi (data uji)", checkInLocation: "Simulasi", checkOutLocation: sc === "LUPA_PULANG" ? null : "Simulasi",
+      userId: id, date: day, status: "HADIR", note: `${SIM_TAG} Absen simulasi: ${LABEL[sc]}${running ? RUNNING : ""}`,
+      checkIn, checkOut,
+      checkInAddr: "Simulasi (data uji)", checkInLocation: "Simulasi", checkOutLocation: checkOut ? "Simulasi" : null,
     });
   }
   if (rows.length) {
@@ -134,12 +143,13 @@ export async function simulateDay(date: Date) {
   return { created: rows.length, skipped, scenarios, overtime: overtimes.length };
 }
 
-// Isi absen uji untuk beberapa hari terakhir (sampai kemarin, WIB).
+// Isi absen uji untuk `days` hari terakhir sampai hari ini (WIB); hari ini diisi sesuai jam sekarang.
 export async function simulateRecent(days: number) {
   const today = todayWib();
+  const now = Date.now();
   let created = 0, overtime = 0;
-  for (let i = Math.max(1, Math.min(31, days)); i >= 1; i--) {
-    const r = await simulateDay(new Date(today.getTime() - i * DAY));
+  for (let i = Math.max(1, Math.min(31, days)) - 1; i >= 0; i--) {
+    const r = await simulateDay(new Date(today.getTime() - i * DAY), i === 0 ? now : undefined);
     created += r.created; overtime += r.overtime ?? 0;
   }
   return { created, overtime };

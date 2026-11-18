@@ -13,11 +13,11 @@ import { askConfirm } from "@/components/portal/Confirm";
 export default function SimSettings({ enabled: initial, count, requests }: { enabled: boolean; count: number; requests: number }) {
   const [enabled, setEnabled] = useState(initial);
   const [reqCount, setReqCount] = useState(5); // jumlah pengajuan uji (menunggu persetujuan) per sekali isi
-  // Isi sekarang: sejak tanggal tertentu sampai kemarin (WIB), paling banyak 31 hari.
+  // Isi sekarang: sejak tanggal tertentu sampai hari ini (WIB; hari ini sesuai jam sekarang), paling banyak 31 hari.
   const DAY = 86_400_000;
-  const [yday] = useState(() => new Date(Date.now() + 7 * 3600_000 - DAY).toISOString().slice(0, 10));
+  const [today] = useState(() => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10));
   const [from, setFrom] = useState(() => new Date(Date.now() + 7 * 3600_000 - 7 * DAY).toISOString().slice(0, 10));
-  const daysFrom = (f: string) => /^\d{4}-\d{2}-\d{2}$/.test(f) ? Math.round((Date.parse(`${yday}T00:00:00Z`) - Date.parse(`${f}T00:00:00Z`)) / DAY) + 1 : 0;
+  const daysFrom = (f: string) => /^\d{4}-\d{2}-\d{2}$/.test(f) ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${f}T00:00:00Z`)) / DAY) + 1 : 0;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [, start] = useTransition();
@@ -50,14 +50,14 @@ export default function SimSettings({ enabled: initial, count, requests }: { ena
             onChange={(e) => { const v = e.target.checked; act("toggle", async () => { await setSimEnabled(v); setEnabled(v); return v ? "Absen uji otomatis dinyalakan." : "Absen uji otomatis dimatikan."; }); }} />
           <span>
             <span className="block text-sm font-semibold text-gray-800"><T>Isi otomatis tiap malam</T></span>
-            <span className="block text-xs text-gray-500"><T>Setiap malam sistem mengisi absen uji untuk hari kemarin. Matikan sebelum portal dipakai sungguhan.</T></span>
+            <span className="block text-xs text-gray-500"><T>Setiap malam sistem mengisi absen uji untuk hari kemarin. Matikan sebelum portal dipakai sungguhan.</T> <T>Isi Sekarang juga mengisi hari ini sesuai jam saat tombol ditekan: yang belum lewat jam pulang tercatat belum absen pulang.</T></span>
           </span>
         </label>
 
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
           <span className="text-gray-600"><T>Isi sekarang sejak tanggal</T></span>
           <div className="w-44"><DateInput value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-          <span className="text-gray-600"><T>sampai kemarin</T>{daysFrom(from) > 0 && <> ({daysFrom(from)} <T>hari</T>)</>}</span>
+          <span className="text-gray-600"><T>sampai hari ini</T>{daysFrom(from) > 0 && <> ({daysFrom(from)} <T>hari</T>)</>}</span>
           <span className="text-gray-600"><T>dan pengajuan uji</T></span>
           <select value={reqCount} onChange={(e) => setReqCount(Number(e.target.value))} className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm">
             {[0, 3, 5, 10, 20].map((d) => <option key={d} value={d}>{d}</option>)}
@@ -65,7 +65,7 @@ export default function SimSettings({ enabled: initial, count, requests }: { ena
           <Button size="sm" className="ml-auto gap-1.5" disabled={busy !== null}
             onClick={() => act("run", async () => {
               const days = daysFrom(from);
-              if (days < 1) throw new Error("Pilih tanggal paling lambat kemarin.");
+              if (days < 1) throw new Error("Pilih tanggal paling lambat hari ini.");
               if (days > 31) throw new Error("Paling banyak 31 hari sekali isi. Pilih tanggal yang lebih dekat.");
               const r = await runSimNow(days, reqCount);
               const req = r.requests && Object.keys(r.requests).length ? ` Pengajuan uji ${r.requestTotal}: ${Object.entries(r.requests).map(([k, v]) => `${v} ${k}`).join(", ")}.` : reqCount ? " Pengajuan uji: tidak ada yang lolos aturan pengajuan." : "";

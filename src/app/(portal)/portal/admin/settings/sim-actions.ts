@@ -26,7 +26,7 @@ export async function setSimEnabled(enabled: boolean): Promise<{ error?: string 
   return {};
 }
 
-// Isi absen uji untuk N hari terakhir (sampai kemarin), lalu nilai ulang kehadiran (alpha otomatis).
+// Isi absen uji untuk N hari terakhir (sampai hari ini, sesuai jam sekarang), lalu nilai ulang kehadiran (alpha otomatis).
 export async function runSimNow(days: number, requests = 0): Promise<{ error?: string; created?: number; overtime?: number; requests?: Record<string, number>; requestTotal?: number }> {
   await requireSuper();
   const r = await simulateRecent(days);

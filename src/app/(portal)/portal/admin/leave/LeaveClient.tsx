@@ -4,7 +4,7 @@ import { proposedText } from "@/lib/approval-text";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  BadgeCheck, CalendarHeart, ChevronDown, FileClock, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet,
+  BadgeCheck, CalendarHeart, ChevronDown, FileClock, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet, Plane,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -278,10 +278,10 @@ export type LeaveRequestRow = {
   reason: string; delegate: string | null; createdAt: string; approver: string;
 };
 
-export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, requests = [], onLeave = [], view, initialTab }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; requests?: LeaveRequestRow[]; onLeave?: LeaveRequestRow[]; view?: "pengajuan" | "sedang"; initialTab?: "pengajuan" | "saldo" }) {
+export default function LeaveClient({ policies, balances, balanceSwitch, superAdmin, requests = [], onLeave = [], trips = [], onTrip = [], view, initialTab }: { policies: Policy[]; balances: BalanceRow[]; balanceSwitch: LeaveBalanceSwitch; superAdmin: boolean; requests?: LeaveRequestRow[]; onLeave?: LeaveRequestRow[]; trips?: LeaveRequestRow[]; onTrip?: LeaveRequestRow[]; view?: "pengajuan" | "sedang"; initialTab?: "pengajuan" | "saldo" | "dinas" }) {
   const t = useT();
   const router = useRouter();
-  const [tab, setTab] = useState<"jenis" | "saldo" | "pengajuan">(initialTab ?? "jenis");
+  const [tab, setTab] = useState<"jenis" | "saldo" | "pengajuan" | "dinas">(initialTab ?? "jenis");
   const [creating, setCreating] = useState(false); // formulir jenis baru di panel kanan
   const [dirty, setDirty] = useState(false); // ada isian yang belum disimpan
   const [showForm, setShowForm] = useState(false); // formulir ubah di bawah garis: dibuka / disembunyikan
@@ -334,17 +334,19 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
         </div>
 
         <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
-          {([["jenis", "Jenis Cuti", Scale], ["saldo", "Saldo Cuti", Wallet], ["pengajuan", "Proses Cuti", FileClock]] as const).map(([k, label, Icon]) => (
-            <button key={k} type="button" onClick={() => { setTab(k); if (view) router.replace(k === "pengajuan" ? "/portal/admin/leave?tab=pengajuan" : "/portal/admin/leave"); }}
+          {([["jenis", "Jenis Cuti", Scale], ["saldo", "Saldo Cuti", Wallet], ["pengajuan", "Proses Cuti", FileClock], ["dinas", "Proses Dinas", Plane]] as const).map(([k, label, Icon]) => (
+            <button key={k} type="button" onClick={() => { setTab(k); if (view) router.replace(k === "pengajuan" || k === "dinas" ? `/portal/admin/leave?tab=${k}` : "/portal/admin/leave"); }}
               className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               <Icon size={15} /> <T>{label}</T>
               {k === "pengajuan" && requests.length + onLeave.length > 0 && <span className="text-xs opacity-70">{requests.length + onLeave.length}</span>}
+              {k === "dinas" && trips.length + onTrip.length > 0 && <span className="text-xs opacity-70">{trips.length + onTrip.length}</span>}
             </button>
           ))}
         </div>
 
         {tab === "saldo" && <BalanceTab rows={balances} balanceSwitch={balanceSwitch} superAdmin={superAdmin} />}
         {tab === "pengajuan" && <RequestsTab rows={requests} onLeave={onLeave} view={view} />}
+        {tab === "dinas" && <RequestsTab trip rows={trips} onLeave={onTrip} view={view} />}
         {tab === "jenis" && <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Scale size={17} /></span>
@@ -455,7 +457,8 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
 
 // Proses cuti: pengajuan yang menunggu persetujuan dan karyawan yang sedang cuti hari ini. Admin & Super Admin memantau;
 // keputusan tetap di penyetuju (atasan langsung / level Workflow) lewat Notifikasi. ?lihat= dari kotak kartu Beranda.
-function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave: LeaveRequestRow[]; view?: "pengajuan" | "sedang" }) {
+// trip = Proses Dinas: kolom jenis berisi tujuan dinas, alasan berisi keperluan.
+function RequestsTab({ rows, onLeave, view, trip = false }: { rows: LeaveRequestRow[]; onLeave: LeaveRequestRow[]; view?: "pengajuan" | "sedang"; trip?: boolean }) {
   const t = useT();
   const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   const num = (n: number) => String(n).replace(".", ",");
@@ -463,7 +466,7 @@ function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave
     <li key={r.id} className="flex flex-wrap items-start gap-3 px-5 py-3">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-gray-900">{r.name} <span className="text-xs font-normal text-gray-400">{[r.employeeId, r.department].filter(Boolean).join(" · ")}</span></p>
-        <p className="text-sm text-gray-700">{t(r.policy)}</p>
+        <p className="text-sm text-gray-700">{trip ? <><T>Tujuan</T>: {r.policy}</> : t(r.policy)}</p>
         <p className="text-xs text-gray-500">{fmt(r.start)}{r.end !== r.start && <> – {fmt(r.end)}</>} · {num(r.days)} <T>hari</T> · <T>Diajukan</T> {fmt(r.createdAt.slice(0, 10))}</p>
         {r.reason && <p className="mt-1 text-xs text-gray-500">{r.reason}</p>}
         {r.delegate && <p className="mt-0.5 text-[11px] text-gray-500"><T>Delegasi tanggung jawab</T>: {r.delegate}</p>}
@@ -486,10 +489,10 @@ function RequestsTab({ rows, onLeave, view }: { rows: LeaveRequestRow[]; onLeave
   );
   return (
     <div className="space-y-4">
-      {view !== "sedang" && block("Pengajuan Menunggu Persetujuan", "Pengajuan yang belum diputus beserta penyetuju yang sedang mendapat giliran.", rows,
-        "Tidak ada pengajuan cuti yang berjalan.", <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700"><T>Menunggu</T></span>, "from-amber-500 to-orange-400")}
-      {view !== "pengajuan" && block("Sedang Cuti Hari Ini", "Karyawan yang cutinya sudah disetujui dan mencakup hari ini.", onLeave,
-        "Tidak ada karyawan yang sedang cuti hari ini.", <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><T>Sedang cuti</T></span>, "from-emerald-500 to-teal-400")}
+      {view !== "sedang" && block(trip ? "Pengajuan Dinas Menunggu Persetujuan" : "Pengajuan Menunggu Persetujuan", "Pengajuan yang belum diputus beserta penyetuju yang sedang mendapat giliran.", rows,
+        trip ? "Tidak ada pengajuan dinas yang berjalan." : "Tidak ada pengajuan cuti yang berjalan.", <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700"><T>Menunggu</T></span>, "from-amber-500 to-orange-400")}
+      {view !== "pengajuan" && block(trip ? "Sedang Dinas Hari Ini" : "Sedang Cuti Hari Ini", trip ? "Karyawan yang dinas luarnya sudah disetujui dan mencakup hari ini." : "Karyawan yang cutinya sudah disetujui dan mencakup hari ini.", onLeave,
+        trip ? "Tidak ada karyawan yang sedang dinas hari ini." : "Tidak ada karyawan yang sedang cuti hari ini.", <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><T>{trip ? "Sedang dinas" : "Sedang cuti"}</T></span>, "from-emerald-500 to-teal-400")}
     </div>
   );
 }

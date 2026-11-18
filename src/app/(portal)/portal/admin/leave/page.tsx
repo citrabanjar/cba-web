@@ -19,7 +19,8 @@ export default async function LeavePage({ searchParams }: { searchParams: Promis
   if (!hasMenu(access, "absensi")) redirect("/portal/dashboard");
 
   const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date())}T00:00:00Z`);
-  const [policies, computed, balanceSwitch, pendingLeaves, onLeaveNow] = await Promise.all([
+  const tripUser = { select: { name: true, employeeId: true, department: { select: { name: true } }, manager: { select: { name: true } } } };
+  const [policies, computed, balanceSwitch, pendingLeaves, onLeaveNow, pendingTrips, onTripNow] = await Promise.all([
     prisma.leavePolicy.findMany({ orderBy: [{ sortOrder: "asc" }, { code: "asc" }] }),
     computeBalances(),
     getLeaveBalanceSwitch(),
@@ -35,6 +36,11 @@ export default async function LeavePage({ searchParams }: { searchParams: Promis
     prisma.leaveRequest.findMany({
       where: { status: "APPROVED", startDate: { lte: today }, endDate: { gte: today }, user: { isActive: true } }, orderBy: { endDate: "asc" },
       include: { policy: { select: { name: true } }, user: { select: { name: true, employeeId: true, department: { select: { name: true } } } } },
+    }),
+    // Proses Dinas: pengajuan dinas luar yang berjalan, dan yang sedang dinas hari ini.
+    prisma.businessTrip.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, include: { user: tripUser } }),
+    prisma.businessTrip.findMany({
+      where: { status: "APPROVED", startDate: { lte: today }, endDate: { gte: today }, user: { isActive: true } }, orderBy: { endDate: "asc" }, include: { user: tripUser },
     }),
   ]);
   // Penyetuju yang sedang mendapat giliran: level Workflow (nama langkah) atau atasan langsung.
@@ -54,6 +60,17 @@ export default async function LeavePage({ searchParams }: { searchParams: Promis
     days: l.totalDays, reason: l.reason, delegate: l.delegateName, createdAt: l.createdAt.toISOString(),
     approver: l.approvedBy ? `Disetujui ${l.approvedBy}` : "Disetujui",
   }));
+  // Dinas memakai baris yang sama dengan cuti: kolom jenis = tujuan, alasan = keperluan.
+  const tripRow = (x: (typeof pendingTrips)[number], approver: string) => ({
+    id: x.id, name: x.user.name, employeeId: x.user.employeeId ?? "", department: x.user.department?.name ?? null,
+    policy: x.destination, start: x.startDate.toISOString().slice(0, 10), end: x.endDate.toISOString().slice(0, 10),
+    days: x.totalDays, reason: x.purpose, delegate: null, createdAt: x.createdAt.toISOString(), approver,
+  });
+  const trips = pendingTrips.map((x) => {
+    const step = readApproval(x.approval)?.steps.find((s) => !s.decision);
+    return tripRow(x, step?.name ?? (x.user.manager ? `Atasan langsung · ${x.user.manager.name}` : "—"));
+  });
+  const onTrip = onTripNow.map((x) => tripRow(x, x.approvedBy ? `Disetujui ${x.approvedBy}` : "Disetujui"));
   const { tab, lihat } = await searchParams;
   // Super Admin selalu melihat hitungan asli (untuk menyiapkan saldo awal); admin lain mengikuti saklar.
   const superAdmin = isSuperAdmin(access.role);
@@ -66,8 +83,10 @@ export default async function LeavePage({ searchParams }: { searchParams: Promis
       superAdmin={superAdmin}
       requests={requests}
       onLeave={onLeave}
+      trips={trips}
+      onTrip={onTrip}
       view={lihat === "pengajuan" || lihat === "sedang" ? lihat : undefined}
-      initialTab={tab === "pengajuan" || tab === "saldo" ? tab : undefined}
+      initialTab={tab === "pengajuan" || tab === "saldo" || tab === "dinas" ? tab : undefined}
     />
   );
 }

@@ -171,7 +171,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const indicators: Indicator[] = [
     {
       key: "dinas-hari-ini", title: "Dinas Hari Ini", value: tripNames.length, noteValue: names(tripNames),
-      note: tripNames.length ? "sedang dinas luar" : "Tidak ada yang dinas", icon: "trip", tone: "blue", href: "/portal/persetujuan",
+      note: tripNames.length ? "sedang dinas luar" : "Tidak ada yang dinas", icon: "trip", tone: "blue", href: "/portal/admin/leave?tab=dinas&lihat=sedang",
     },
     {
       key: "terlambat-hari-ini", title: "Terlambat Hari Ini", value: late.length, noteValue: names(late),
@@ -205,7 +205,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
       note: "menunggu persetujuan", sub: waiting.uji ? `${waiting.uji} di antaranya pengajuan uji [UJI]` : undefined,
       steps: [
         { label: "Cuti", value: waiting.cuti, href: "/portal/admin/leave?tab=pengajuan&lihat=pengajuan" },
-        { label: "Dinas", value: waiting.dinas, href: "/portal/notifikasi?modul=dinas" },
+        { label: "Dinas", value: waiting.dinas, href: "/portal/admin/leave?tab=dinas&lihat=pengajuan" },
         { label: "Lembur", value: waiting.lembur, href: "/portal/admin/lembur" },
         { label: "Pinjaman", value: waiting.pinjaman, href: "/portal/admin/pinjaman" },
         { label: "Tukar Shift", value: waiting.tukar, href: "/portal/notifikasi?modul=kehadiran" },
