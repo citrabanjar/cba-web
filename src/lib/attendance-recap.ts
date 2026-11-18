@@ -16,7 +16,7 @@ const hm = (d: Date | null) => (d ? new Date(d.getTime() + 7 * 3600_000).toISOSt
 const LEGACY: Record<string, string> = { TAHUNAN: "Cuti Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan", PENTING: "Keperluan Penting", LAINNYA: "Lainnya" };
 
 export type RecapRow = {
-  userId: string; name: string; employeeId: string | null; department: string | null;
+  userId: string; name: string; employeeId: string | null; department: string | null; exempt: boolean;
   workDays: number; present: number; late: number; lateMinutes: number; early: number; earlyHours: number;
   noCheckout: number; alpha: number; izin: number; sakit: number;
   leaveDays: number; leaveByType: Record<string, number>; tripDays: number;
@@ -30,7 +30,7 @@ export type RecapDay = {
 export async function buildRecap(userIds: string[], from: Date, to: Date, withDays = false) {
   if (!userIds.length) return { rows: [] as RecapRow[], days: [] as RecapDay[] };
   const [users, cal, atts, leaves, trips, ots] = await Promise.all([
-    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, employeeId: true, department: { select: { name: true } } }, orderBy: [{ employeeNo: "asc" }, { name: "asc" }] }),
+    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, employeeId: true, attendanceExempt: true, department: { select: { name: true } } }, orderBy: [{ employeeNo: "asc" }, { name: "asc" }] }),
     getShiftCalendars(userIds, from, to),
     prisma.attendance.findMany({ where: { userId: { in: userIds }, date: { gte: from, lte: to } }, select: { userId: true, date: true, checkIn: true, checkOut: true, status: true } }),
     prisma.leaveRequest.findMany({
@@ -50,7 +50,7 @@ export async function buildRecap(userIds: string[], from: Date, to: Date, withDa
   const rows: RecapRow[] = [];
   for (const u of users) {
     const r: RecapRow = {
-      userId: u.id, name: u.name, employeeId: u.employeeId, department: u.department?.name ?? null,
+      userId: u.id, name: u.name, employeeId: u.employeeId, department: u.department?.name ?? null, exempt: u.attendanceExempt,
       workDays: 0, present: 0, late: 0, lateMinutes: 0, early: 0, earlyHours: 0, noCheckout: 0, alpha: 0, izin: 0, sakit: 0,
       leaveDays: 0, leaveByType: {}, tripDays: 0, otCount: 0, otWorkHours: 0, otRestHours: 0,
     };
@@ -85,12 +85,12 @@ export async function buildRecap(userIds: string[], from: Date, to: Date, withDa
       if (working) r.workDays++;
       if (a?.status === "HADIR") {
         r.present++;
-        if (a.checkIn && !a.checkOut) r.noCheckout++;
+        if (a.checkIn && !a.checkOut && !u.attendanceExempt) r.noCheckout++;
       }
       if (a?.status === "ALPHA") r.alpha++;
       if (a?.status === "IZIN") r.izin++;
       if (a?.status === "SAKIT") r.sakit++;
-      const p = a && (a.status === "HADIR") ? dayPenalty(s, k, a.checkIn, a.checkOut) : null;
+      const p = a && a.status === "HADIR" && !u.attendanceExempt ? dayPenalty(s, k, a.checkIn, a.checkOut) : null;
       if (p?.late) { r.late++; r.lateMinutes += p.lateMinutes; }
       if (p && p.earlyHours > 0) { r.early++; r.earlyHours += p.earlyHours; }
       if (withDays) {

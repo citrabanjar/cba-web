@@ -101,6 +101,9 @@ model User {
   bankAccount      String?
   bankHolder       String?
   isActive         Boolean          @default(true)
+  // Bebas Absen (mis. direksi & keluarganya): jadwal tetap dipakai untuk hari kerja & cuti, tetapi tanpa Alpha otomatis,
+  // tanpa potongan terlambat / pulang cepat, tanpa batas jam absen, dan tidak ikut peringatan absensi di Beranda.
+  attendanceExempt Boolean          @default(false)
   kantorkuId       String?
   menuAccess       String[]         @default([]) // menu yang dibuka super admin untuk ADMIN
 

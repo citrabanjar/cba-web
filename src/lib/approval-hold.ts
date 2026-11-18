@@ -102,6 +102,7 @@ const REGISTRY: Record<string, () => Promise<Fn>> = {
   "gaji.savePayAssignment": async () => (await import("@/app/(portal)/portal/admin/karyawan/actions")).savePayAssignment as Fn,
   "gaji.removePayAssignment": async () => (await import("@/app/(portal)/portal/admin/karyawan/actions")).removePayAssignment as Fn,
   // Absensi & Cuti: parameter (tempel jadwal ke karyawan tidak ditahan).
+  "absensi.setAttendanceExempt": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).setAttendanceExempt as Fn,
   "absensi.saveShift": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).saveShift as Fn,
   "absensi.deleteShift": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).deleteShift as Fn,
   "absensi.savePattern": async () => (await import("@/app/(portal)/portal/admin/schedule/actions")).savePattern as Fn,

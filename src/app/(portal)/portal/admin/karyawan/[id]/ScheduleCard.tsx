@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
-import { assignSchedule, deleteEmployeeSchedule } from "../../schedule/actions";
+import { assignSchedule, deleteEmployeeSchedule, setAttendanceExempt } from "../../schedule/actions";
+import { proposedText } from "@/lib/approval-text";
 import { toast } from "@/components/portal/Toast";
-import { askConfirm } from "@/components/portal/Confirm";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
 export type ScheduleRow = {
   id: string; type: string; effectiveDate: Date; note: string | null; createdBy: string | null;
@@ -22,9 +23,10 @@ const label = (s: ScheduleRow) => (s.type === "MANUAL" ? "Jadwal Manual" : s.pat
 
 // Jadwal kerja karyawan: jadwal yang berlaku sekarang, riwayatnya, dan form untuk mengganti.
 export default function ScheduleCard({
-  userId, schedules, patterns, canEdit, placing = false, onPlace,
+  userId, schedules, patterns, canEdit, placing = false, onPlace, exempt = false,
 }: {
   userId: string; schedules: ScheduleRow[]; patterns: PatternOption[]; canEdit: boolean;
+  exempt?: boolean; // Bebas Absen
   placing?: boolean; onPlace?: () => void; // Jadwal Manual: aktifkan kartu shift di Kalender Kehadiran
 }) {
   const t = useT();
@@ -111,6 +113,34 @@ export default function ScheduleCard({
           )}
         </>
       )}
+
+      {/* Bebas Absen: absen opsional, gaji tidak dipotong karena absen. */}
+      <div className="mt-4 border-t border-gray-100 pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-gray-900"><T>Bebas Absen</T></span>
+            <span className="block text-[11px] leading-snug text-gray-500">
+              <T>Tanpa Alpha otomatis dan tanpa potongan terlambat / pulang cepat. Jadwal tetap dipakai untuk hari kerja dan cuti.</T>
+            </span>
+          </span>
+          <button type="button" role="switch" aria-checked={exempt} disabled={!canEdit || pending} aria-label={t("Bebas Absen")}
+            onClick={async () => {
+              const on = !exempt;
+              if (!await askConfirm(t(on
+                ? "Jadikan karyawan ini Bebas Absen? Alpha otomatis dan potongan terlambat / pulang cepat tidak berlaku lagi."
+                : "Cabut Bebas Absen? Absensi karyawan ini kembali dinilai seperti karyawan lain."))) return;
+              start(async () => {
+                const r = await setAttendanceExempt(userId, on);
+                if (r.error) showNotice(t(r.error), "error");
+                else if (r.proposed) showNotice(proposedText(r.proposed));
+                else showNotice(t(on ? "Karyawan sekarang Bebas Absen." : "Bebas Absen dicabut."));
+              });
+            }}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${exempt ? "bg-emerald-500" : "bg-gray-300"}`}>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${exempt ? "left-[22px]" : "left-0.5"}`} />
+          </button>
+        </div>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

@@ -122,7 +122,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   const components = ctx.components.filter((c) => tempel.has(c.code)
     && (opts.only ? opts.only.has(c.code) : ctx.weekly || opts.estimate || !weeklyCodes.has(c.code)));
   const [user, salary, trips, leaves] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true, taxability: true, paymentSchedule: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true, taxability: true, paymentSchedule: true, attendanceExempt: true } }),
     prisma.employeeSalary.findFirst({ where: { userId, effectiveDate: { lte: end } }, orderBy: { effectiveDate: "desc" }, include: { components: true } }),
     prisma.businessTrip.findMany({ where: { userId, status: "APPROVED", startDate: { lte: end }, endDate: { gte: start } }, select: { startDate: true, endDate: true } }),
     prisma.leaveRequest.findMany({
@@ -156,7 +156,8 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     prisma.attendance.findMany({ where: { userId, date: { gte: start, lte: end }, checkIn: { not: null } }, select: { date: true, checkIn: true, checkOut: true } }),
     getShiftCalendar(userId, start, end),
   ]);
-  const penalties = attTimes.map((a) => {
+  // Bebas Absen: tidak ada potongan terlambat / pulang cepat.
+  const penalties = (user?.attendanceExempt ? [] : attTimes).map((a) => {
     const k = a.date.toISOString().slice(0, 10);
     return { t: utc(a.date).getTime(), p: dayPenalty(shiftCal[k], k, a.checkIn, a.checkOut) };
   });

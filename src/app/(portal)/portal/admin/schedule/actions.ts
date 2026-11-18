@@ -435,3 +435,26 @@ export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result &
   revalidatePath("/portal/admin/karyawan", "layout");
   return { count: valid.length, marked };
 }
+
+// Bebas Absen (mis. direksi & keluarganya): tanpa Alpha otomatis, tanpa potongan terlambat / pulang cepat,
+// tanpa batas jam absen. Jadwal kerja tetap dipakai untuk menghitung hari kerja dan cuti.
+export async function setAttendanceExempt(userId: string, exempt: boolean): Promise<Result> {
+  await requireMenuApply("absensi");
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, attendanceExempt: true } });
+  if (!target) return { error: "Karyawan tidak ditemukan." };
+  if (target.attendanceExempt === exempt) return {};
+  const yn = (v: boolean) => (v ? "Ya" : "Tidak");
+  const held = await holdForApproval({
+    kind: "absensi.setAttendanceExempt", args: [userId, exempt], targetUserId: userId,
+    title: `Absensi: ${exempt ? "jadikan" : "cabut"} Bebas Absen ${target.name}`,
+    details: [{ field: "Bebas Absen", oldValue: yn(target.attendanceExempt), newValue: yn(exempt) }],
+  });
+  if (held) return held;
+  await prisma.user.update({ where: { id: userId }, data: { attendanceExempt: exempt } });
+  // Alpha otomatis 62 hari terakhir dinilai ulang (periode gaji yang sudah final tidak berubah).
+  const today = new Date(new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10) + "T00:00:00Z");
+  const { assessAttendance } = await import("@/lib/attendance-assess");
+  await assessAttendance(new Date(today.getTime() - 62 * 86_400_000), today, [userId]);
+  revalidatePath("/portal/admin/karyawan", "layout");
+  return {};
+}

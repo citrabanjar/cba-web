@@ -60,6 +60,7 @@ export async function loadInsights() {
       where: {
         date: { gte: addDays(today, -30), lt: today },
         OR: [{ checkIn: { not: null }, checkOut: null }, { checkIn: null, checkOut: { not: null } }],
+        user: { attendanceExempt: false }, // Bebas Absen: absen opsional
       },
       orderBy: { date: "asc" }, select: { userId: true },
     }),
@@ -80,7 +81,10 @@ export async function loadInsights() {
 
   // Karyawan yang hari ini terjadwal masuk (bukan libur) tapi belum ada catatan absensi.
   const checkedIn = new Set(attendanceToday.map((a) => a.userId));
+  // Karyawan Bebas Absen tidak dipantau absennya.
+  const exempt = new Set((await prisma.user.findMany({ where: { attendanceExempt: true }, select: { id: true } })).map((u) => u.id));
   const scheduledToday = thisMonth.rows.filter((r) => {
+    if (exempt.has(r.id)) return false;
     const d = r.days[todayKey];
     return d && !d.isOff && !d.manual && !d.holiday;
   });
@@ -135,7 +139,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
     // Absen masuk hari ini.
     prisma.attendance.findMany({
       where: { date: today, checkIn: { not: null }, user: active },
-      orderBy: { checkIn: "asc" }, select: { userId: true, checkIn: true, checkOut: true, user: { select: { name: true } } },
+      orderBy: { checkIn: "asc" }, select: { userId: true, checkIn: true, checkOut: true, user: { select: { name: true, attendanceExempt: true } } },
     }),
     // Dinas luar disetujui yang mencakup hari ini.
     prisma.businessTrip.findMany({
@@ -156,6 +160,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const cal = checkIns.length ? await getShiftCalendars(checkIns.map((a) => a.userId), today, today) : {};
   const late: string[] = [], onTime: string[] = [];
   for (const a of checkIns) {
+    if (a.user.attendanceExempt) continue; // Bebas Absen: tidak dinilai
     const p = dayPenalty(cal[a.userId]?.[todayKey], todayKey, a.checkIn, a.checkOut);
     if (!p) continue; // tanpa shift / libur: tidak dinilai
     (p.late ? late : onTime).push(a.user.name);

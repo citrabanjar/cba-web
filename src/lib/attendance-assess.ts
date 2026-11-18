@@ -47,7 +47,11 @@ export async function checkInWorkDate(userId: string, now = Date.now()) {
 const atWib = (date: Date, hhmm: string, nextDay = false) => date.getTime() + toMin(hhmm) * 60_000 - 7 * 3600_000 + (nextDay ? DAY : 0);
 export const clockWib = (t: number) => { const d = new Date(t + 7 * 3600_000); return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`; };
 const dayLabel = (t: number, ref: Date) => (wibToday(t).getTime() === ref.getTime() ? "" : " besok");
-const shiftOn = async (userId: string, date: Date) => (await getShiftCalendar(userId, date, date))[key(date)];
+// Karyawan Bebas Absen: absen bersifat opsional, tanpa batas jam dan tanpa peringatan potongan.
+const shiftOn = async (userId: string, date: Date) => {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { attendanceExempt: true } });
+  return u?.attendanceExempt ? undefined : (await getShiftCalendar(userId, date, date))[key(date)];
+};
 const HALF_DAY_HINT = "Potongan gaji Anda akan besar. Gunakan cuti setengah hari sebagai alternatif.";
 
 // Absen masuk pada tanggal kerja `date`: error bila belum dibuka.
@@ -116,7 +120,7 @@ export async function assessAttendance(from: Date, to: Date, userIds?: string[])
 
   const users = await prisma.user.findMany({
     where: { role: { not: "SUPER_ADMIN" }, ...(userIds ? { id: { in: userIds } } : { OR: [{ isActive: true }, { resignDate: { gte: from } }] }) },
-    select: { id: true, joinDate: true, resignDate: true, isActive: true },
+    select: { id: true, joinDate: true, resignDate: true, isActive: true, attendanceExempt: true },
   });
   if (!users.length) return { created: 0, removed: 0 };
   const ids = users.map((u) => u.id);
@@ -140,7 +144,7 @@ export async function assessAttendance(from: Date, to: Date, userIds?: string[])
       const att = attBy.get(`${u.id}|${k}`);
       const employed = (!u.joinDate || u.joinDate.getTime() <= t) && (!u.resignDate || u.resignDate.getTime() > t);
       const day = calendars[u.id]?.[k];
-      const working = employed && !!day && !day.isOff && !day.manual && !!day.startTime;
+      const working = employed && !u.attendanceExempt && !!day && !day.isOff && !day.manual && !!day.startTime;
       const excused = covered(leaves, u.id, t) || covered(trips, u.id, t);
       const isAuto = att && att.status === "ALPHA" && att.note === AUTO_ALPHA && !att.checkIn;
       if (isAuto && (!working || excused)) remove.push(att.id);

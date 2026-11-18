@@ -50,7 +50,7 @@ export default async function KaryawanDetailPage({
       employmentStatus: true, position: true, branch: true, joinDate: true,
       contractEndDate: true, resignDate: true, paymentSchedule: true,
       spkNumber: true, spkDate: true,
-      bankName: true, bankAccount: true, bankHolder: true, isActive: true,
+      bankName: true, bankAccount: true, bankHolder: true, isActive: true, attendanceExempt: true,
       idType: true, ktpNumber: true, address: true, currentAddress: true,
       addressSameAsId: true, birthPlace: true, birthDate: true,
       addressRegion: true, addressRegionName: true, currentRegion: true, currentRegionName: true,

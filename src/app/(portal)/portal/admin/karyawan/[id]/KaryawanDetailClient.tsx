@@ -53,7 +53,7 @@ type Employee = {
   resignDate: Date | null; paymentSchedule: string | null;
   spkNumber: string | null; spkDate: Date | null;
   bankName: string | null; bankAccount: string | null; bankHolder: string | null;
-  isActive: boolean; idType: string | null; ktpNumber: string | null; address: string | null;
+  isActive: boolean; attendanceExempt?: boolean; idType: string | null; ktpNumber: string | null; address: string | null;
   currentAddress: string | null; addressSameAsId: boolean;
   addressRegion: string | null; addressRegionName: string | null; currentRegion: string | null; currentRegionName: string | null;
   addressPostal: string | null; currentPostal: string | null;
@@ -1189,7 +1189,7 @@ export default function KaryawanDetailClient({
             { key: "kalender", label: "Kalender & Jadwal", icon: CalendarDays, content: (
           <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
             shiftEdit={canEditTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
-            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} />} />
+            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} />} />
             ) },
             { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
           emp.attendances.length === 0 ? <Empty text="Belum ada data absensi." /> : (

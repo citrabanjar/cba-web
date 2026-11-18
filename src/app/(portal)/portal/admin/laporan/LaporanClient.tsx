@@ -24,14 +24,16 @@ const KINDS: [ReportKind, string, typeof LayoutGrid][] = [["semua", "Semua", Lay
 
 // Nama karyawan: tautan ke tab profil sesuai jenis laporan (bila punya akses Data Karyawan) —
 // Kehadiran / Semua → Kehadiran & Shift, Cuti → Cuti & Dinas, Lembur → kalender kehadiran di tanggal lembur.
-function EmpName({ id, name, employeeId, department, canProfile, tab, date }: {
+function EmpName({ id, name, employeeId, department, canProfile, tab, date, exempt }: {
   id: string; name: string; employeeId: string | null; department: string | null; canProfile: boolean; tab: "absensi" | "cuti"; date?: string;
+  exempt?: boolean; // Bebas Absen
 }) {
   return (
     <>
       {canProfile
         ? <Link href={`/portal/admin/karyawan/${id}?tab=${tab}${date ? `&tanggal=${date}` : ""}`} className="font-medium text-gray-800 hover:text-brand hover:underline">{name}</Link>
         : <span className="font-medium text-gray-800">{name}</span>}
+      {exempt && <span className="ml-1.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><T>Bebas Absen</T></span>}
       <p className="text-[11px] text-gray-400">{employeeId}{department ? ` · ${department}` : ""}</p>
     </>
   );
@@ -234,7 +236,7 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
                 <tbody className="divide-y divide-gray-50">
                   {rows.map((r) => (
                     <tr key={r.userId} className="hover:bg-gray-50/60">
-                      <td className="px-4 py-2"><EmpName canProfile={canProfile} tab="absensi" date={from} id={r.userId} name={r.name} employeeId={r.employeeId} department={r.department} /></td>
+                      <td className="px-4 py-2"><EmpName canProfile={canProfile} tab="absensi" date={from} id={r.userId} name={r.name} employeeId={r.employeeId} department={r.department} exempt={r.exempt} /></td>
                       <td className={td}>{r.workDays}</td>
                       <td className={td}>{r.present}</td>
                       <td className={td}>{r.late ? <>{r.late}<span className="text-[11px] text-gray-400"> · {r.lateMinutes} <T>mnt</T></span></> : "-"}</td>
