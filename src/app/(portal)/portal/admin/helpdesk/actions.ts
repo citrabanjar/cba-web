@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMenuApply } from "@/lib/access";
 import { notify } from "@/lib/notify";
 import { DEFAULT_HELP_ARTICLES } from "@/lib/helpdesk-defaults";
+import { GREETING_KEY } from "@/lib/helpdesk";
 
 const PATH = "/portal/admin/helpdesk";
 export type ArticleInput = { title: string; body: string; keywords: string; isActive: boolean };
@@ -25,6 +26,17 @@ export async function saveArticle(id: string | null, input: ArticleInput): Promi
 export async function deleteArticle(id: string): Promise<{ error?: string }> {
   await requireMenuApply("pengaturan");
   await prisma.helpArticle.delete({ where: { id } }).catch(() => null);
+  revalidatePath(PATH);
+  return {};
+}
+
+// Sapaan pembuka robot. Kosong = kembali ke sapaan bawaan.
+export async function saveGreeting(text: string): Promise<{ error?: string }> {
+  const user = await requireMenuApply("pengaturan");
+  const value = text.trim().slice(0, 500);
+  await prisma.appSetting.upsert({
+    where: { key: GREETING_KEY }, update: { value: { text: value }, updatedBy: user.name ?? null }, create: { key: GREETING_KEY, value: { text: value }, updatedBy: user.name ?? null },
+  });
   revalidatePath(PATH);
   return {};
 }

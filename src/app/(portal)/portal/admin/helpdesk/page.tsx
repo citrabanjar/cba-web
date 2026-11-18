@@ -6,6 +6,7 @@ import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import HelpDeskClient from "./HelpDeskClient";
+import { getGreeting } from "@/lib/helpdesk";
 
 export const metadata: Metadata = { title: "Help Desk" };
 
@@ -14,17 +15,19 @@ export default async function HelpDeskPage({ searchParams }: { searchParams: Pro
   const access = await getAccess();
   if (!access) redirect("/portal");
   if (!hasMenu(access, "pengaturan")) redirect("/portal/dashboard");
-  const [articles, questions] = await Promise.all([
+  const [articles, questions, greeting] = await Promise.all([
     prisma.helpArticle.findMany({ orderBy: [{ isActive: "desc" }, { title: "asc" }] }),
     prisma.helpQuestion.findMany({
       where: { answeredAt: null }, orderBy: [{ asked: "desc" }, { createdAt: "desc" }], take: 200,
       include: { user: { select: { name: true, employeeId: true } } },
     }),
+    getGreeting(),
   ]);
   const { tab } = await searchParams;
   return (
     <HelpDeskClient
       initialTab={tab === "pertanyaan" ? "pertanyaan" : "artikel"}
+      greeting={greeting}
       articles={articles.map((a) => ({ id: a.id, title: a.title, body: a.body, keywords: a.keywords, isActive: a.isActive, hits: a.hits }))}
       questions={questions.map((q) => ({ id: q.id, question: q.question, asked: q.asked, createdAt: q.createdAt.toISOString(), who: `${q.user.name}${q.user.employeeId ? ` (${q.user.employeeId})` : ""}` }))}
     />

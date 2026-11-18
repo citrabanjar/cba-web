@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notify";
 import { canEditMenu } from "@/lib/roles";
-import { answerQuestion, type HelpAnswer } from "@/lib/helpdesk";
+import { answerQuestion, getGreeting, type HelpAnswer } from "@/lib/helpdesk";
 
 // Chat Help Desk karyawan (tombol di pojok kanan bawah portal).
 export async function askHelpDesk(question: string): Promise<HelpAnswer | { error: string }> {
@@ -12,6 +12,14 @@ export async function askHelpDesk(question: string): Promise<HelpAnswer | { erro
   if (!session?.user?.id) return { error: "Sesi berakhir. Silakan masuk lagi." };
   if (!question.trim()) return { error: "Silakan tulis pertanyaan Anda." };
   return answerQuestion(session.user.id, question.slice(0, 1000));
+}
+
+// Sapaan pembuka chat, sudah berisi nama depan karyawan.
+export async function helpDeskGreeting(): Promise<string> {
+  const session = await auth();
+  const first = (session?.user?.name ?? "").trim().split(/\s+/)[0] ?? "";
+  const name = first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : "";
+  return (await getGreeting()).replace(/\{nama\}/gi, name).replace(/\s+([!,.])/g, "$1").replace(/\s{2,}/g, " ").trim();
 }
 
 // "Tanya HRD": pertanyaan yang tidak terjawab robot diteruskan ke Admin pengelola Help Desk (kewenangan Pengaturan).

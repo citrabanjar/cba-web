@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Bot, ChevronDown, Loader2, MessageCircle, Send, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import type { HelpAnswer } from "@/lib/helpdesk";
-import { askHelpDesk, forwardToHrd } from "@/app/(portal)/helpdesk-actions";
+import { askHelpDesk, forwardToHrd, helpDeskGreeting } from "@/app/(portal)/helpdesk-actions";
 
 type Msg = { from: "me" | "bot"; text: string; answer?: HelpAnswer; forwarded?: boolean };
 const SUGGEST = ["Berapa sisa cuti saya?", "Jadwal shift saya besok?", "Status pengajuan saya", "Cara mengajukan cuti", "Aturan lembur"];
@@ -18,6 +18,7 @@ export default function HelpDeskChat() {
   const [text, setText] = useState("");
   const [more, setMore] = useState<string | null>(null); // artikel lain yang sedang dibuka
   const [pending, start] = useTransition();
+  const [greeting, setGreeting] = useState<string | null>(null); // sapaan dari Admin, dimuat saat chat pertama kali dibuka
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, pending]);
 
@@ -40,7 +41,7 @@ export default function HelpDeskChat() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-label={t("Help Desk")}
+      <button type="button" onClick={() => { setOpen((v) => !v); if (greeting === null) helpDeskGreeting().then(setGreeting).catch(() => setGreeting("")); }} aria-label={t("Help Desk")}
         className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand to-rose-400 text-white shadow-xl shadow-black/30 transition-transform hover:scale-105">
         {open ? <ChevronDown size={24} /> : <MessageCircle size={24} />}
       </button>
@@ -56,7 +57,7 @@ export default function HelpDeskChat() {
           </div>
           <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-3 text-sm">
             <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-gray-700 shadow-sm">
-              <T>Halo! Silakan tanyakan seputar cuti, absensi, lembur, jadwal, slip gaji, pinjaman, atau SOP perusahaan.</T>
+              {greeting === null ? <Loader2 size={14} className="animate-spin text-gray-400" /> : <span className="whitespace-pre-line">{greeting || t("Halo! Silakan tanyakan seputar cuti, absensi, lembur, jadwal, slip gaji, pinjaman, atau SOP perusahaan.")}</span>}
             </div>
             {msgs.length === 0 && (
               <div className="flex flex-wrap gap-1.5">

@@ -1,21 +1,21 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { BookOpen, ChevronRight, Download, Loader2, MessageCircleQuestion, Plus, Save, Send, Trash2, X } from "lucide-react";
+import { Bot, BookOpen, ChevronRight, Download, Loader2, MessageCircleQuestion, Plus, Save, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 import { formatDate } from "@/lib/utils";
-import { answerQuestionAdmin, deleteArticle, dismissQuestion, loadDefaultArticles, saveArticle } from "./actions";
+import { answerQuestionAdmin, deleteArticle, dismissQuestion, loadDefaultArticles, saveArticle, saveGreeting } from "./actions";
 
 type Article = { id: string; title: string; body: string; keywords: string; isActive: boolean; hits: number };
 type Question = { id: string; question: string; asked: boolean; createdAt: string; who: string };
 const area = "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none disabled:bg-gray-50";
 const label = "mb-1 block text-xs font-medium text-gray-500";
 
-export default function HelpDeskClient({ articles, questions, initialTab }: { articles: Article[]; questions: Question[]; initialTab: "artikel" | "pertanyaan" }) {
+export default function HelpDeskClient({ articles, questions, initialTab, greeting }: { articles: Article[]; questions: Question[]; initialTab: "artikel" | "pertanyaan"; greeting: string }) {
   const [tab, setTab] = useState(initialTab);
   return (
     <div className="min-h-full bg-gray-50">
@@ -24,6 +24,7 @@ export default function HelpDeskClient({ articles, questions, initialTab }: { ar
         <p className="mt-0.5 text-xs text-gray-400"><T>Robot Help Desk menjawab pertanyaan karyawan dari data portal dan Basis Pengetahuan. Pertanyaan yang belum terjawab dicatat agar jawabannya dapat ditambahkan.</T></p>
       </div>
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
+        <GreetingCard initial={greeting} />
         <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
           {([["artikel", "Basis Pengetahuan", BookOpen, articles.length], ["pertanyaan", "Pertanyaan Belum Terjawab", MessageCircleQuestion, questions.length]] as const).map(([k, l, Icon, n]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
@@ -175,6 +176,33 @@ function Questions({ rows }: { rows: Question[] }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+// Sapaan pembuka robot; {nama} diganti nama depan karyawan saat chat dibuka.
+function GreetingCard({ initial }: { initial: string }) {
+  const t = useT();
+  const canEdit = useCanEdit("pengaturan");
+  const [text, setText] = useState(initial);
+  const [pending, start] = useTransition();
+  const save = () => start(async () => {
+    const r = await saveGreeting(text);
+    showNotice(r.error ? t(r.error) : t("Sapaan robot disimpan."), r.error ? "error" : "ok");
+  });
+  return (
+    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Bot size={17} /></span>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-gray-900"><T>Sapaan Robot</T></h3>
+          <p className="text-xs text-gray-400"><T>{"Kalimat pembuka saat karyawan membuka chat Help Desk. Tulis {nama} untuk menyebut nama depan karyawan. Kosongkan untuk memakai sapaan bawaan."}</T></p>
+        </div>
+      </div>
+      <textarea value={text} disabled={!canEdit} rows={3} maxLength={500} onChange={(e) => setText(e.target.value)} className={area} />
+      {canEdit && (
+        <Button size="sm" onClick={save} disabled={pending} className="gap-1.5">{pending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} <T>Simpan Sapaan</T></Button>
+      )}
     </section>
   );
 }

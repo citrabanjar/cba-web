@@ -117,3 +117,12 @@ export async function answerQuestion(userId: string, question: string): Promise<
   const row = await prisma.helpQuestion.create({ data: { userId, question: question.trim().slice(0, 1000) } });
   return { text: "Maaf, saya belum menemukan jawaban untuk pertanyaan tersebut. Pertanyaan Anda sudah dicatat. Anda dapat meneruskannya ke HRD agar dijawab langsung.", questionId: row.id, unanswered: true };
 }
+
+// Sapaan pembuka robot (diubah Admin di menu Help Desk). {nama} diganti nama depan karyawan.
+export const GREETING_KEY = "helpdesk.greeting";
+export const DEFAULT_GREETING = "Halo {nama}! Silakan tanyakan seputar cuti, absensi, lembur, jadwal, slip gaji, pinjaman, atau SOP perusahaan.";
+export async function getGreeting(): Promise<string> {
+  const row = await prisma.appSetting.findUnique({ where: { key: GREETING_KEY } });
+  const v = (row?.value as { text?: unknown } | null)?.text;
+  return typeof v === "string" && v.trim() ? v : DEFAULT_GREETING;
+}
