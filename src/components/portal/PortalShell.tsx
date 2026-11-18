@@ -8,7 +8,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, CalendarClock, CalendarHeart, Timer, ClipboardList, Landmark, ChevronLeft, ChevronRight,
-  Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Smartphone, Megaphone,
+  Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Smartphone, Megaphone, Bot,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -16,6 +16,7 @@ import { hasMenu, isManagement, isSuperAdmin, roleLabel } from "@/lib/roles";
 import type { StorageInfo } from "@/lib/storage";
 import { EditAccessProvider } from "@/components/portal/edit-access";
 import NotificationBell from "@/components/portal/NotificationBell";
+import HelpDeskChat from "@/components/portal/HelpDeskChat";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number; match?: string[] };
 type NavSection = { section: string; items: NavItem[]; admin?: boolean };
@@ -73,6 +74,8 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
   add("PENGATURAN", [
     // Pengumuman untuk Beranda karyawan: kewenangan Pengaturan.
     ...(can("pengaturan") ? [{ href: "/portal/admin/pengumuman", label: "Pengumuman", icon: Megaphone }] : []),
+    // Help Desk: Basis Pengetahuan robot & pertanyaan karyawan.
+    ...(can("pengaturan") ? [{ href: "/portal/admin/helpdesk", label: "Help Desk", icon: Bot }] : []),
     ...(can("pengaturan") || importOn ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []),
   ]);
 
@@ -428,6 +431,8 @@ export default function PortalShell({ user, storage, approvals = null, unread = 
       </main>
       <Toaster />
       <ConfirmHost />
+      {/* Robot Help Desk: karyawan & Admin (Super Admin bukan karyawan). */}
+      {!isSuperAdmin(user.role) && <HelpDeskChat />}
     </div>
   );
 }

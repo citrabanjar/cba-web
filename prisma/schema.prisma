@@ -179,6 +179,7 @@ model User {
   profileChanges   ProfileChangeRequest[]
   editRequests     EmployeeEditRequest[]
   notifications    Notification[]
+  helpQuestions    HelpQuestion[]
   overtimes        Overtime[]
   swapsRequested   ShiftSwapRequest[]     @relation("SwapRequester")
   swapsPartnered   ShiftSwapRequest[]     @relation("SwapPartner")
@@ -1087,4 +1088,33 @@ model Announcement {
   updatedAt DateTime  @updatedAt
 
   @@index([startDate])
+}
+
+// Help Desk (robot gratis berbasis kata kunci): artikel SOP / tanya-jawab yang ditulis Admin.
+model HelpArticle {
+  id        String   @id @default(cuid())
+  title     String
+  body      String   @db.Text
+  keywords  String   @default("") // kata kunci dipisah koma, mis. "cuti, saldo, sisa cuti"
+  isActive  Boolean  @default(true)
+  hits      Int      @default(0) // berapa kali dipakai menjawab
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Pertanyaan karyawan yang belum terjawab robot (dicatat otomatis) atau diteruskan ke HRD (asked = true).
+model HelpQuestion {
+  id         String    @id @default(cuid())
+  userId     String
+  question   String    @db.Text
+  asked      Boolean   @default(false) // karyawan menekan "Tanya HRD"
+  answer     String?   @db.Text
+  answeredBy String?
+  answeredAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([answeredAt])
 }
