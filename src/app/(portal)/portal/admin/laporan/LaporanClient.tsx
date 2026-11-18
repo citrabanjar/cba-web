@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, CalendarDays, CalendarHeart, ClipboardList, Download, Filter, HandCoins, LayoutGrid, Loader2, Plane, Timer, Users, X } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, ChevronRight, CalendarHeart, ClipboardList, Download, Filter, HandCoins, LayoutGrid, Loader2, Plane, Timer, Users, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
@@ -56,10 +56,11 @@ function EmpName({ id, name, employeeId, department, canProfile, tab, date, exem
   );
 }
 
-export default function LaporanClient({ kind, status = "", stage = "", canLoan = false, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, trips = [], swaps = [], loans = [], canProfile }: {
+export default function LaporanClient({ kind, status = "", stage = "", canLoan = false, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, trips = [], swaps = [], loans = [], pending = {}, canProfile }: {
   kind: ReportKind; status?: ReportStatus; stage?: string; canLoan?: boolean; from: string; to: string; picked: string[]; tooLong: boolean; employees: Emp[];
   rows: RecapRow[]; days: RecapDay[]; leaves: LeaveReportRow[]; overtimes: OvertimeReportRow[];
   trips?: TripReportRow[]; swaps?: SwapReportRow[]; loans?: LoanReportRow[]; canProfile: boolean;
+  pending?: Partial<Record<ReportKind, number>>; // jumlah belum selesai per modul (daftar kiri)
 }) {
   const t = useT();
   const router = useRouter();
@@ -134,17 +135,29 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
         <p className="mt-0.5 text-xs text-gray-400"><T>Papan kerja Admin: pekerjaan yang belum selesai dan laporan kehadiran, cuti, dinas, tukar shift, lembur, serta pinjaman untuk rentang tanggal dan karyawan yang dipilih.</T></p>
       </div>
 
-      <main className="max-w-7xl space-y-5 px-4 py-5 sm:px-6">
-        {/* Jenis laporan */}
-        <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-2">
-          {KINDS.filter(([k]) => k !== "pinjaman" || canLoan).map(([k, label, Icon]) => (
-            <button key={k} type="button" disabled={loading} onClick={() => go(k)}
-              className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${kind === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
-              <Icon size={15} /> <T>{label}</T>
-            </button>
-          ))}
-        </div>
-
+      <main className="max-w-7xl px-4 py-5 sm:px-6">
+        {/* Pola standar portal: daftar modul di kiri, filter & isi laporan di kanan (di HP daftar di atas). */}
+        <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
+        <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          {KINDS.filter(([k]) => k !== "pinjaman" || canLoan).map(([k, label, Icon]) => {
+            const on = kind === k;
+            const n = pending[k] ?? 0;
+            return (
+              <button key={k} type="button" disabled={loading} onClick={() => go(k)}
+                className={`flex w-full items-center gap-2.5 border-b border-gray-100 px-4 py-2.5 text-left last:border-b-0 ${on ? "bg-brand/10" : "hover:bg-gray-50"}`}>
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${on ? "bg-gradient-to-br from-brand to-rose-400 text-white" : "bg-gray-100 text-gray-500"}`}>
+                  <Icon size={14} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-sm ${on ? "font-semibold text-brand" : "text-gray-700"}`}><T>{label}</T></span>
+                  {n > 0 && <span className="block truncate text-[11px] font-medium text-amber-600">{n} <T>belum selesai</T></span>}
+                </span>
+                <ChevronRight size={14} className={on ? "text-brand" : "text-gray-300"} />
+              </button>
+            );
+          })}
+        </nav>
+        <div className="min-w-0 space-y-5">
         {/* Filter rentang & karyawan */}
         <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
           <div className="flex flex-wrap items-end gap-3">
@@ -438,6 +451,8 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
             </div>
           </section>
         )}
+        </div>
+        </div>
       </main>
     </div>
   );

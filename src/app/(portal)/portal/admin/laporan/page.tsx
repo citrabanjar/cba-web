@@ -49,8 +49,18 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
   const swaps = ok && kind === "tukar" ? await buildSwapReport(ids, from, to, status) : [];
   const loans = ok && kind === "pinjaman" ? await buildLoanReport(ids, from, to, status, stage) : [];
 
+  // Jumlah pekerjaan belum selesai per modul, tampil di daftar modul kiri.
+  const [pCuti, pDinas, pTukar, pLembur, pPinjaman] = await Promise.all([
+    prisma.leaveRequest.count({ where: { status: "PENDING" } }),
+    prisma.businessTrip.count({ where: { status: "PENDING" } }),
+    prisma.shiftSwapRequest.count({ where: { status: { in: ["MENUNGGU_REKAN", "MENUNGGU_ATASAN"] } } }),
+    prisma.overtime.count({ where: { status: { in: ["PENDING", "MENUNGGU_KARYAWAN"] } } }),
+    canLoan ? prisma.employeeLoan.count({ where: { status: "PENDING", isOpening: false } }) : Promise.resolve(0),
+  ]);
+
   return (
     <LaporanClient
+      pending={{ cuti: pCuti, dinas: pDinas, tukar: pTukar, lembur: pLembur, pinjaman: pPinjaman }}
       kind={kind} status={status} stage={stage} canLoan={canLoan} from={from.toISOString().slice(0, 10)} to={to.toISOString().slice(0, 10)} picked={picked} tooLong={tooLong}
       employees={employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId, department: e.department?.name ?? null }))}
       rows={recap.rows} days={recap.days} leaves={leaves} overtimes={overtimes} trips={trips} swaps={swaps} loans={loans}
