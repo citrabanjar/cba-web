@@ -75,7 +75,8 @@ export default async function ProfilPage() {
         manager: user.manager ? `${user.manager.name}${user.manager.employeeId ? ` (${user.manager.employeeId})` : ""}`
           : (await prisma.user.count({ where: { managerId: user.id, isActive: true } })) > 0 ? "Owner" : null,
         joinDate: user.joinDate?.toISOString() ?? null, contractEnd: user.contractEndDate?.toISOString() ?? null,
-        tenure: months === null ? null : `${Math.floor(months / 12)} th ${months % 12} bln`,
+        // Masa kerja ditulis lengkap: "1 tahun 3 bulan", "7 bulan", "2 tahun".
+        tenure: months === null ? null : [Math.floor(months / 12) ? `${Math.floor(months / 12)} tahun` : "", months % 12 || !Math.floor(months / 12) ? `${months % 12} bulan` : ""].filter(Boolean).join(" "),
         ptkp: user.ptkpStatus, bpjsTk: user.bpjsTkNumber, bpjsKes: user.bpjsKesNumber,
       }}
       salary={salary ? {

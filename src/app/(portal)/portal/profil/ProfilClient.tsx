@@ -158,7 +158,6 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
             <Row label="Tanggal Masuk" value={d(me.joinDate)} />
             <Row label="Masa Kerja" value={me.tenure} />
             {me.status === "KONTRAK" && <Row label="Akhir Kontrak" value={d(me.contractEnd)} />}
-            <p className="mt-2 text-[11px] text-gray-400"><T>Data pekerjaan diatur HRD.</T></p>
           </Section>
           ) },
           { key: "gaji", label: "Gaji & Tunjangan", icon: Banknote, content: (
