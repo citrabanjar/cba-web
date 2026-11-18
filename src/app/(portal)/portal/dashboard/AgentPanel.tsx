@@ -209,7 +209,8 @@ export default function AgentPanel({ groups, setup, reminders, ai = [], canHideS
         <div className="task-track -mx-2 h-[20rem] overflow-hidden">
           <div className={run ? "task-marquee" : ""} style={{ ["--marquee-duration" as string]: `${total * 4}s` }}>
             {(run ? [...items, ...items] : items).map((it, idx) => (
-              <div key={`${it.key}-${idx}`} aria-hidden={idx >= total || undefined} inert={idx >= total || undefined} className="border-b border-gray-50">
+              // Salinan kedua (untuk putaran running text) tetap bisa diklik; hanya disembunyikan dari pembaca layar.
+              <div key={`${it.key}-${idx}`} aria-hidden={idx >= total || undefined} className="border-b border-gray-50">
                 {it.node}
               </div>
             ))}
