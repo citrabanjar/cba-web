@@ -52,6 +52,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
       name={session.user.name ?? ""}
       employeeId={session.user.employeeId ?? session.user.email ?? ""}
       role={session.user.role}
+      bulkTargets={isSuperAdmin(session.user.role) ? await prisma.user.count({ where: { role: { not: "SUPER_ADMIN" } } }) : undefined}
     />
   );
 }

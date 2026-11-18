@@ -54,3 +54,14 @@ export async function saveHiddenIndicators(hidden: string[]): Promise<{ error?: 
   revalidatePath("/portal/admin/settings");
   return {};
 }
+
+// Password massal (Pengaturan → Akun, khusus Super Admin): satu password untuk semua akun Karyawan & Admin.
+// Akun Super Admin tidak diubah. Password diketik sendiri oleh Super Admin di portal.
+export async function setBulkPassword(password: string): Promise<{ error?: string; count?: number }> {
+  const access = await getAccess();
+  if (!access || !isSuperAdmin(access.role)) return { error: "Hanya Super Admin yang dapat melakukan ini." };
+  if (typeof password !== "string" || password.length < 8) return { error: "Password minimal 8 karakter." };
+  const hash = await bcrypt.hash(password, 12);
+  const r = await prisma.user.updateMany({ where: { role: { not: "SUPER_ADMIN" } }, data: { passwordHash: hash } });
+  return { count: r.count };
+}

@@ -15,6 +15,7 @@ import type { AdminRole } from "@/lib/admin-roles";
 import AgentSettings from "./AgentSettings";
 import OnboardingSettings from "./OnboardingSettings";
 import SimSettings from "./SimSettings";
+import BulkPasswordCard from "./BulkPasswordCard";
 import type { OnboardingSettings as OnboardingSettingsValue } from "@/lib/onboarding-interview";
 import AiSettings, { type AiNoteView, type AiRunView } from "./AiSettings";
 import type { AiSettings as AiSettingsValue } from "@/lib/ai-checker-settings";
@@ -61,8 +62,9 @@ function PasswordField({
 }
 
 export default function SettingsClient({
-  name, employeeId, role, indicatorHidden, agentSettings, ai, onboarding, access, importData, initialTab = null,
+  name, employeeId, role, indicatorHidden, agentSettings, ai, onboarding, access, importData, initialTab = null, bulkTargets,
 }: {
+  bulkTargets?: number; // Super Admin: jumlah akun Karyawan & Admin (Password Massal)
   name: string; employeeId: string; role: string; indicatorHidden: string[] | null; agentSettings: AgentSettingsValue | null;
   ai: { settings: AiSettingsValue; hasKey: boolean; hasCron: boolean; notes: AiNoteView[]; runs: AiRunView[] } | null;
   onboarding: { settings: OnboardingSettingsValue; workflow: boolean; agent: boolean; spl: boolean; setupDone: boolean; sim: { enabled: boolean; count: number; requests: number } } | null;
@@ -179,6 +181,7 @@ export default function SettingsClient({
           </form>
         </CardContent>
       </Card>
+      {role === "SUPER_ADMIN" && bulkTargets !== undefined && <BulkPasswordCard targets={bulkTargets} />}
       </div>
       )}
     </div>
