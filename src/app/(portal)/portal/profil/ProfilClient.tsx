@@ -18,6 +18,7 @@ import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
 import { cancelProfileChange, changeMyPassword, submitProfileChange } from "./actions";
 import RegionSelect from "@/components/RegionSelect";
 import SectionNav from "@/components/portal/SectionNav";
+import { showNotice } from "@/components/portal/Confirm";
 
 type Me = {
   id: string; name: string; employeeId: string | null; image: string | null; status: string; position: string | null; branch: string | null;
@@ -26,7 +27,7 @@ type Me = {
 };
 type Salary = { effectiveDate: string; basic: number; dailyWage: number | null; monthlyFactor: number | null; allowances: { name: string; amount: number }[] };
 type Loan = { no: number; principal: number; status: string; remaining: number; left: number; tenor: number; monthly: number; next: string | null };
-type Req = { id: string; status: string; changes: ProfileChanges; family: FamilyRow[] | null; reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string };
+export type Req = { id: string; status: string; changes: ProfileChanges; family: FamilyRow[] | null; reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string };
 type CalendarProps = React.ComponentProps<typeof AttendanceCalendar>;
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -94,12 +95,10 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
           <p className="text-lg font-bold text-gray-900">{me.name}</p>
           <p className="text-sm text-gray-500">{[me.employeeId, me.position, me.department].filter(Boolean).join(" · ")}</p>
         </div>
-        <Button size="sm" disabled={!!pending} className="gap-1.5" onClick={() => setEditing(true)}>
+        <Button size="sm" disabled={!!pending} title={pending ? t("Masih ada pengajuan yang menunggu persetujuan Admin. Lihat atau batalkan di Notifikasi.") : undefined} className="gap-1.5" onClick={() => setEditing(true)}>
           <Pencil size={14} /> <T>Ajukan Perubahan Data</T>
         </Button>
       </div>
-
-      {pending && <RequestCard r={pending} />}
 
       <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-1.5">
         {tabs.map(({ key, label, icon: Icon }) => (
@@ -246,7 +245,7 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
   );
 }
 
-function RequestCard({ r, compact }: { r: Req; compact?: boolean }) {
+export function RequestCard({ r, compact }: { r: Req; compact?: boolean }) {
   const t = useT();
   const [pending, start] = useTransition();
   const st = STATUS[r.status] ?? { label: r.status, cls: "bg-gray-100 text-gray-600" };
@@ -283,7 +282,9 @@ function ChangeDialog({ values, family, onClose }: { values: Record<string, stri
   const familyChanged = JSON.stringify(rows) !== JSON.stringify(family);
   const submit = () => start(async () => {
     const r = await submitProfileChange({ values: form, family: familyChanged ? rows : null, reason });
-    if (r.error) setError(r.error); else onClose();
+    if (r.error) { setError(r.error); return; }
+    onClose();
+    showNotice(t("Pengajuan perubahan data terkirim dan menunggu persetujuan Admin. Status dan pembatalannya dapat dilihat di Notifikasi."));
   });
   const field = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
   return (

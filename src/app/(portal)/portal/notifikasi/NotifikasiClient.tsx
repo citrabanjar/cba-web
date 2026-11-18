@@ -12,6 +12,7 @@ import { OT_STATUS } from "@/lib/overtime-status";
 import { respondSwap } from "@/app/(portal)/portal/tukar-shift/actions";
 import { Card, EditCard, InterviewCard, LoanApprovalCard, ProfileCard, SwapCard, type ApprovalItem, type EditItem, type InterviewItem, type LoanItem, type OfferMaster, type ProfileItem, type SwapItem } from "@/app/(portal)/portal/persetujuan/PersetujuanClient";
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
+import { RequestCard, type Req } from "@/app/(portal)/portal/profil/ProfilClient";
 
 // action: notifikasi yang dijawab langsung di halaman ini (SPL: Bersedia / Tidak bersedia).
 type Action = { kind: "spl"; id: string; status: string };
@@ -22,7 +23,7 @@ type Partner = { type: "partner"; id: string; date: string; requester: string; r
 export type PendingCard = {
   module: NotifModule; key: string; at?: string; // at: tanggal untuk urutan riwayat
   card: { type: "item"; item: ApprovalItem } | { type: "swap"; s: SwapItem } | { type: "edit"; item: EditItem } | { type: "profile"; item: ProfileItem }
-    | { type: "interview"; item: InterviewItem } | { type: "loan"; item: LoanItem } | Partner;
+    | { type: "interview"; item: InterviewItem } | { type: "loan"; item: LoanItem } | { type: "myprofile"; item: Req } | Partner;
 };
 
 const PER_PAGE = 30;
@@ -72,6 +73,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
       : c.type === "profile" ? <ProfileCard key={key} item={c.item} />
       : c.type === "interview" ? <InterviewCard key={key} item={c.item} master={master} />
       : c.type === "loan" ? <LoanApprovalCard key={key} item={c.item} />
+      : c.type === "myprofile" ? <RequestCard key={key} r={c.item} />
       : <PartnerCard key={key} c={c} />;
 
   const choose = (k: NotifModule) => {
@@ -133,7 +135,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
           )}
           {watched.length > 0 && (
             <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-3">
-              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{mod === "pinjaman" ? "Sedang diproses" : "Menunggu persetujuan atasan"}</T> · {watched.length}</p>
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{mod === "pinjaman" ? "Sedang diproses" : mod === "profil" ? "Pengajuan saya" : "Menunggu persetujuan atasan"}</T> · {watched.length}</p>
               {watched.map(renderCard)}
             </div>
           )}

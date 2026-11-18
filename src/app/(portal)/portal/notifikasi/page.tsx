@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import type { FamilyRow, ProfileChanges } from "@/lib/profile-change";
 import { isApprover } from "@/lib/approval";
 import { moduleOf, NOTIF_MODULES, type NotifModule } from "@/lib/notif-modules";
 import { loadApprovals } from "../persetujuan/panel";
@@ -22,7 +23,7 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
   const access = await getAccess();
   if (!access) redirect("/portal");
   const approver = { id: access.id, role: access.role, menuAccess: access.menuAccess };
-  const [rows, canApprove, partnerSwaps, myEdits] = await Promise.all([
+  const [rows, canApprove, partnerSwaps, myEdits, myProfileReqs] = await Promise.all([
     prisma.notification.findMany({ where: { userId: access.id }, orderBy: { createdAt: "desc" }, take: 500 }),
     isApprover(approver),
     // Tukar shift yang menunggu jawaban saya sebagai rekan.
@@ -32,6 +33,8 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     }),
     // Pengajuan perubahan data yang saya ajukan (Admin wajib approval): ikut tampil supaya bisa dipantau.
     prisma.employeeEditRequest.count({ where: { requesterId: access.id } }),
+    // Pengajuan perubahan data diri saya yang masih menunggu (dibatalkan dari sini).
+    prisma.profileChangeRequest.findMany({ where: { userId: access.id, status: "PENDING" }, orderBy: { createdAt: "desc" } }),
   ]);
   const data = canApprove || myEdits > 0 ? await loadApprovals(approver) : null;
 
@@ -66,6 +69,13 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
   ];
   // Perubahan data yang masih menunggu keputusan orang lain (dipantau Super Admin & Admin Data Karyawan).
   const watching: PendingCard[] = [
+    ...myProfileReqs.map((r) => ({
+      module: "profil" as NotifModule, key: `my-profile-${r.id}`,
+      card: { type: "myprofile" as const, item: {
+        id: r.id, status: r.status, changes: r.changes as ProfileChanges, family: (r.family as FamilyRow[] | null) ?? null, reason: r.reason,
+        note: r.note, decidedBy: r.decidedBy, decidedAt: r.decidedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
+      } },
+    })),
     ...(data?.edits ?? []).filter((e) => e.status === "PENDING" && !e.mine).map((e) => ({
       module: editModule(e.kind), key: `w-edit-${e.id}`, card: { type: "edit" as const, item: e },
     })),
