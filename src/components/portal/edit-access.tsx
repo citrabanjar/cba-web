@@ -8,27 +8,12 @@
 import { createContext, useContext } from "react";
 import { usePathname } from "next/navigation";
 import { canEditMenu, canProposeMenu, hasMenu, type MenuKey } from "@/lib/roles";
+import { pageMenu } from "@/lib/page-menu";
+export { pageMenu };
 
 type Access = { role: string; menuAccess: string[] };
 const Ctx = createContext<Access | null>(null);
 
-// Menu admin yang menguasai sebuah alamat halaman.
-const PAGE_MENU: [string, MenuKey][] = [
-  ["/portal/admin/karyawan", "karyawan"],
-  ["/portal/admin/schedule", "absensi"],
-  ["/portal/admin/jadwal", "absensi"],
-  ["/portal/admin/leave", "absensi"],
-  ["/portal/admin/lembur", "spl"],
-  ["/portal/admin/rekap", "absensi"],
-  ["/portal/admin/laporan", "absensi"],
-  ["/portal/admin/payroll", "gaji"],
-  ["/portal/admin/pinjaman", "pinjaman"],
-  ["/portal/admin/onboarding", "prakaryawan"],
-  ["/portal/admin/settings", "pengaturan"],
-  ["/portal/admin/pengumuman", "pengaturan"],
-  ["/portal/admin/helpdesk", "pengaturan"],
-];
-export const pageMenu = (path: string) => PAGE_MENU.find(([p]) => path === p || path.startsWith(p + "/"))?.[1] ?? null;
 
 export function EditAccessProvider({ access, children }: { access: Access; children: React.ReactNode }) {
   return <Ctx.Provider value={access}>{children}</Ctx.Provider>;

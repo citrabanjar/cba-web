@@ -4,6 +4,8 @@ import { getAccess } from "@/lib/access";
 import { T } from "@/components/i18n";
 import IndicatorCards from "./IndicatorCards";
 import AgentPanel from "./AgentPanel";
+import { pageMenu } from "@/lib/page-menu";
+import { hasMenu } from "@/lib/roles";
 import { loadAgent } from "./agent";
 import { assessRecent } from "@/lib/attendance-assess";
 
@@ -159,9 +161,10 @@ export default async function AdminDashboard({ isSuper, announcement }: { isSupe
   // Alpha otomatis 7 hari terakhir (paling sering sekali per jam; cadangan selama cron malam belum aktif).
   await assessRecent().catch(() => null);
 
-  const [{ insights, agent }, active, byStatus, expiring] =
+  const access = await getAccess();
+  const [{ insights, agent: rawAgent }, active, byStatus, expiring] =
     await Promise.all([
-      loadAgent(isSuper, await getAccess()),
+      loadAgent(isSuper, access),
       prisma.user.count({ where: { ...employee, isActive: true } }),
       prisma.user.groupBy({ by: ["employmentStatus"], where: { ...employee, isActive: true }, _count: { _all: true } }),
       prisma.user.count({
@@ -179,6 +182,18 @@ export default async function AdminDashboard({ isSuper, announcement }: { isSupe
     }))
     .filter((p) => p.value > 0 || p.label !== "Probation");
 
+  // Task Admin disaring sesuai kewenangan: tugas yang tautannya ke menu yang tidak dimiliki Admin tidak ditampilkan
+  // (mis. Admin Payroll tidak melihat tugas cuti / Pra-Karyawan). Super Admin melihat semua.
+  const allowed = (href?: string | null) => {
+    if (isSuper || !href) return true;
+    const menu = pageMenu(href.split("?")[0]);
+    return !menu || hasMenu(access, menu);
+  };
+  const agent = {
+    ...rawAgent,
+    groups: rawAgent.groups.map((g) => ({ ...g, list: g.list.filter((t) => allowed(t.href)) })),
+    ai: rawAgent.ai.filter((f) => allowed(f.href)),
+  };
   const hasTasks = agent.ai.length > 0 || agent.reminders.length > 0 || agent.groups.some((g) => g.list.some((t) => t.count > 0))
     || (isSuper && !!agent.setup?.some((x) => !x.optional && !x.done)); // Setup Awal: pekerjaan Super Admin
   const showTasks = isSuper || hasTasks || !announcement;

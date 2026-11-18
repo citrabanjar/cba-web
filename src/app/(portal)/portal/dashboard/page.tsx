@@ -4,12 +4,9 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
-import { getAccess } from "@/lib/access";
-import { hasMenu, isSuperAdmin } from "@/lib/roles";
+import { isSuperAdmin } from "@/lib/roles";
 import { T } from "@/components/i18n";
 import AdminDashboard from "./AdminDashboard";
-import IndicatorCards from "./IndicatorCards";
-import { loadIndicators } from "./insights";
 import { prisma } from "@/lib/prisma";
 import { activeAnnouncements } from "@/lib/announcement";
 import AnnouncementPanel from "./AnnouncementPanel";
@@ -20,11 +17,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const user = session.user;
   const greeting = getGreeting();
-  const access = await getAccess();
-  const isAdmin = hasMenu(access, "karyawan");
   const superAdmin = isSuperAdmin(user.role);
-  // Running indikator: Super Admin dan semua Admin. Admin tanpa menu Data Karyawan tidak membuka panel admin, jadi kartunya dimuat di sini.
-  const indicatorOnly = !isAdmin && (user.role === "ADMIN" || superAdmin) ? await loadIndicators() : null;
+  // Beranda versi Admin (running indikator, Task Admin sesuai kewenangan, Status Karyawan) untuk semua Admin dan Super Admin.
+  const isAdmin = superAdmin || user.role === "ADMIN";
   const swapAsks = !superAdmin && user.id ? await prisma.shiftSwapRequest.count({ where: { partnerId: user.id, status: "MENUNGGU_REKAN" } }) : 0;
 
   // Pengumuman untuk semua karyawan, termasuk Admin (Super Admin bukan karyawan). Menu pribadi lewat Tombol HP.
@@ -52,24 +47,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </Link>
       )}
 
-      {indicatorOnly && indicatorOnly.length > 0 && (
-        <div className="mb-6">
-          <IndicatorCards items={indicatorOnly} />
-        </div>
-      )}
-
       {isAdmin && (
         <div className="mb-6">
           <AdminDashboard isSuper={superAdmin} announcement={announcements ? <AnnouncementPanel items={announcements} openId={openAnnouncement} /> : undefined} />
         </div>
       )}
 
-      {/* Karyawan dan Admin tanpa panel Admin di Beranda: kotak Pengumuman. Panel Admin mengatur sendiri posisinya. */}
-      {announcements && !isAdmin && (
-        <div className={user.role === "ADMIN" ? "grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]" : ""}>
-          <AnnouncementPanel items={announcements} openId={openAnnouncement} />
-        </div>
-      )}
+      {/* Karyawan: kotak Pengumuman. Untuk Admin posisinya diatur panel Admin. */}
+      {announcements && !isAdmin && <AnnouncementPanel items={announcements} openId={openAnnouncement} />}
     </div>
   );
 }
