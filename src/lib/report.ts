@@ -2,7 +2,7 @@
 // - Kehadiran / Semua: ringkasan per karyawan dari lib/attendance-recap.ts.
 // - Cuti: setiap pengajuan cuti yang beririsan dengan rentang (semua status).
 // - Lembur: setiap lembur (SPL / pengajuan) dalam rentang, dengan jam dibayar dan cek fisik.
-// - Dinas, Tukar Shift, Pinjaman: setiap pengajuan dalam rentang.
+// - Dinas, Tukar Shift, Lupa Absen, Pinjaman: setiap pengajuan dalam rentang.
 // Saringan status: "menunggu" = semua pekerjaan yang belum selesai (tanpa melihat rentang tanggal), supaya Laporan
 // menjadi papan kerja Admin; "disetujui" / "ditolak" mengikuti rentang tanggal.
 import { prisma } from "@/lib/prisma";
@@ -151,5 +151,23 @@ export async function buildLoanReport(userIds: string[], from: Date, to: Date, s
     id: r.id, userId: r.userId, name: r.user.name, employeeId: r.user.employeeId, department: r.user.department?.name ?? null,
     principal: r.principal, tenor: r.tenor, startPeriod: r.startPeriod, purpose: r.purpose, status: r.status,
     stage: r.status === "PENDING" ? (r.stage || "ADMIN") : null, decidedBy: r.approvedBy, createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+// Lupa Absen: pengajuan jam check-in / check-out yang tanggal absennya di dalam rentang.
+export type FixReportRow = {
+  id: string; userId: string; name: string; employeeId: string | null; department: string | null;
+  date: string; checkIn: string | null; checkOut: string | null; reason: string; status: string; decidedBy: string | null; turn: string | null; createdAt: string;
+};
+export async function buildFixReport(userIds: string[], from: Date, to: Date, status: ReportStatus = ""): Promise<FixReportRow[]> {
+  if (!userIds.length) return [];
+  const rows = await prisma.attendanceCorrection.findMany({
+    where: { userId: { in: userIds }, ...(inRange(status) ? { date: { gte: from, lte: to } } : {}), ...(status ? { status: { in: LEAVE_ST[status] } } : {}) },
+    include: { user: userSel }, orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((r) => ({
+    id: r.id, userId: r.userId, name: r.user.name, employeeId: r.user.employeeId, department: r.user.department?.name ?? null,
+    date: keyOf(r.date), checkIn: hm(r.checkIn), checkOut: hm(r.checkOut), reason: r.reason, status: r.status,
+    decidedBy: r.decidedBy, turn: r.status === "PENDING" ? turnOf(r.approval, r.user.manager) : null, createdAt: r.createdAt.toISOString(),
   }));
 }

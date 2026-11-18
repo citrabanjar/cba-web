@@ -12,6 +12,7 @@ import { dateRange, decisionText, notify } from "@/lib/notify";
 import { loanPreStep, loanTurn, readLoanFlow } from "@/lib/loans";
 import { applyPlan, loanReviewers, planLoan } from "@/lib/loan-flow";
 import { formatRupiah } from "@/lib/utils";
+import { applyFix, fixRefresh, hmWib } from "@/lib/attendance-fix";
 
 // Keputusan per level menu Workflow. Hasil null = bukan jalur workflow (pakai atasan langsung).
 function workflowDecision(raw: unknown, userId: string, approve: boolean, note: string, name: string | null) {
@@ -114,6 +115,31 @@ export async function decideOvertime(id: string, approve: boolean, note: string)
     `${dateRange(o.date, o.date)} · ${o.startTime}–${o.endTime} · ${decisionText(approve, a.name, note)}`, "/portal/lembur");
   refresh();
   revalidatePath("/portal/lembur");
+  return {};
+}
+
+// Lupa Absen: atasan langsung / Workflow modul Lupa Absen. Disetujui level terakhir → jam langsung dicatat di kehadiran.
+export async function decideFix(id: string, approve: boolean, note: string): Promise<Result> {
+  const a = await approver();
+  const f = await prisma.attendanceCorrection.findUnique({ where: { id } });
+  if (!f || f.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
+  if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const wf = workflowDecision(f.approval, a.id, approve, note, a.name);
+  if (wf && "error" in wf) return { error: wf.error };
+  if (wf && !wf.rejected && !wf.done) {
+    await prisma.attendanceCorrection.update({ where: { id }, data: { approval: wf.approval } });
+    fixRefresh();
+    return {};
+  }
+  if (!wf && !(await canDecide(a, f.userId))) return { error: "Anda bukan penyetuju pengajuan ini." };
+  await prisma.attendanceCorrection.update({
+    where: { id },
+    data: { status: approve ? "APPROVED" : "REJECTED", decidedBy: a.name, decidedAt: new Date(), note: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
+  });
+  if (approve) await applyFix(f, a.name);
+  const jam = [f.checkIn && `masuk ${hmWib(f.checkIn)}`, f.checkOut && `pulang ${hmWib(f.checkOut)}`].filter(Boolean).join(" · ");
+  await notify(f.userId, `Lupa absen ${approve ? "disetujui" : "ditolak"}`, `${dateRange(f.date, f.date)} · ${jam} · ${decisionText(approve, a.name, note)}`, "/portal/lupa-absen");
+  fixRefresh();
   return {};
 }
 

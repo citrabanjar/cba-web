@@ -1,12 +1,12 @@
 "use client";
 
-import { askConfirm } from "@/components/portal/Confirm";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
 import { useEffect, useState, useTransition } from "react";
 import { MapPin, LogIn, LogOut, Loader2, AlertTriangle, CheckCircle2, Navigation, XCircle, Plane } from "lucide-react";
 import { checkIn, checkOut } from "./actions";
 import type { Attendance } from "@prisma/client";
-import { T } from "@/components/i18n";
+import { T, useT } from "@/components/i18n";
 import { nearestLocation, type AllowedLocation } from "@/lib/work-location-client";
 import AbsenMap from "./AbsenMap";
 
@@ -36,6 +36,7 @@ export default function AbsensiClient({ today, week, locations, onTrip }: Props)
   );
   const [message, setMessage] = useState<{ type: "ok" | "warn" | "err"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const t = useT();
 
   // Pantau posisi GPS selama halaman terbuka.
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function AbsensiClient({ today, week, locations, onTrip }: Props)
       }
       if ("warn" in res) return;
       if ("error" in res) {
-        setMessage({ type: "err", text: res.error ?? "" });
+        void showNotice(t(res.error ?? ""), "error");
       } else {
         setMessage({
           type: "ok",
@@ -92,7 +93,7 @@ export default function AbsensiClient({ today, week, locations, onTrip }: Props)
       }
       if ("warn" in res) return;
       if ("error" in res) {
-        setMessage({ type: "err", text: res.error ?? "" });
+        void showNotice(t(res.error ?? ""), "error");
       } else {
         setMessage({ type: "ok", text: "Check-out berhasil! Sampai jumpa besok." });
       }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowLeftRight, Briefcase, CalendarDays, ChevronRight, GitBranch, HandCoins, Loader2, Plus, Save, Timer, Trash2, UserPen, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarDays, ChevronRight, GitBranch, HandCoins, Loader2, Plus, Save, Timer, Trash2, UserPen, type LucideIcon, ClockAlert } from "lucide-react";
 import { showNotice } from "@/components/portal/Confirm";
 import { Button } from "@/components/ui/button";
 import { T, useT } from "@/components/i18n";
@@ -14,7 +14,7 @@ import { useCanEdit } from "@/components/portal/edit-access";
 
 type UserOption = { id: string; name: string; employeeId: string };
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
-const ICONS: Record<WorkflowKey, LucideIcon> = { CUTI: CalendarDays, DINAS: Briefcase, LEMBUR: Timer, PINJAMAN: HandCoins, TUKAR_SHIFT: ArrowLeftRight, PERUBAHAN_DATA: UserPen };
+const ICONS: Record<WorkflowKey, LucideIcon> = { CUTI: CalendarDays, DINAS: Briefcase, LEMBUR: Timer, LUPA_ABSEN: ClockAlert, PINJAMAN: HandCoins, TUKAR_SHIFT: ArrowLeftRight, PERUBAHAN_DATA: UserPen };
 
 // Workflow per modul (Admin): Level 1..3, approver berdasarkan jabatan, hak akses, atau karyawan tertentu.
 export default function WorkflowClient({ settings, users, groups = [] }: { settings: WorkflowSettings; users: UserOption[]; groups?: { id: string; name: string }[] }) {

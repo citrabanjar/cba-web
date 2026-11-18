@@ -313,7 +313,7 @@ function HistoryRow({ h }: { h: PendingCard }) {
   if (c.type === "item") {
     const i = c.item;
     title = `${t(i.title)} · ${who(i.person)}`;
-    body = [i.kind === "LEMBUR" ? `${formatDate(i.start)} · ${i.time ?? ""}` : `${range(i.start, i.end)} · ${num(i.days)} ${t("hari")}`, i.reason].filter(Boolean).join(" · ");
+    body = [(i.kind === "LEMBUR" || i.kind === "LUPA_ABSEN") ? `${formatDate(i.start)} · ${i.time ?? ""}` : `${range(i.start, i.end)} · ${num(i.days)} ${t("hari")}`, i.reason].filter(Boolean).join(" · ");
     status = i.status;
     by = i.flow ? i.flow.steps.filter((s) => s.decision).map((s) => s.name).join(", ") : i.decidedBy ?? "";
   } else if (c.type === "swap") {

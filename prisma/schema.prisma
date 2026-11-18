@@ -181,6 +181,7 @@ model User {
   notifications    Notification[]
   helpQuestions    HelpQuestion[]
   overtimes        Overtime[]
+  attendanceFixes  AttendanceCorrection[]
   swapsRequested   ShiftSwapRequest[]     @relation("SwapRequester")
   swapsPartnered   ShiftSwapRequest[]     @relation("SwapPartner")
 
@@ -240,24 +241,24 @@ enum LeaveType {
 }
 
 model LeaveRequest {
-  id         String      @id @default(cuid())
-  userId     String
-  type       LeaveType
-  startDate  DateTime    @db.Date
-  endDate    DateTime    @db.Date
-  totalDays  Float
-  halfDay    String? // setengah hari: AWAL (masuk setelah istirahat) | AKHIR (pulang saat istirahat)
-  unpaidDays Float       @default(0) // bagian yang melebihi saldo, masuk cuti di luar tanggungan
-  reason     String      @db.Text
-  status     LeaveStatus @default(PENDING)
-  approvedBy String?
-  approvedAt DateTime?
-  note       String?
-  policyId   String? // jenis cuti dari Setup Leave; kosong untuk pengajuan lama
-  approval   Json? // jejak approval menu Workflow (Level 1..3); kosong = atasan langsung
+  id           String      @id @default(cuid())
+  userId       String
+  type         LeaveType
+  startDate    DateTime    @db.Date
+  endDate      DateTime    @db.Date
+  totalDays    Float
+  halfDay      String? // setengah hari: AWAL (masuk setelah istirahat) | AKHIR (pulang saat istirahat)
+  unpaidDays   Float       @default(0) // bagian yang melebihi saldo, masuk cuti di luar tanggungan
+  reason       String      @db.Text
+  status       LeaveStatus @default(PENDING)
+  approvedBy   String?
+  approvedAt   DateTime?
+  note         String?
+  policyId     String? // jenis cuti dari Setup Leave; kosong untuk pengajuan lama
+  approval     Json? // jejak approval menu Workflow (Level 1..3); kosong = atasan langsung
   delegateId   String? // delegasi tanggung jawab (Cuti Tahunan): menerima pengajuan baru selama cuti disetujui
   delegateName String?
-  urgent       Boolean @default(false) // diajukan lewat "Ajukan Tidak Masuk" (hari ini / mundur), tanpa batas H-x
+  urgent       Boolean     @default(false) // diajukan lewat "Ajukan Tidak Masuk" (hari ini / mundur), tanpa batas H-x
 
   user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   policy LeavePolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
@@ -1118,4 +1119,27 @@ model HelpQuestion {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([answeredAt])
+}
+
+// Pengajuan Lupa Absen (keputusan pemilik 2026-11-18): karyawan yang lupa / terlambat check-in atau check-out (lewat
+// batas jam absen) mengajukan jam sebenarnya. Diputus atasan langsung, atau Workflow modul "Lupa Absen" bila aktif;
+// setelah level terakhir menyetujui, jam itu langsung dicatat di Attendance (tanpa pemeriksaan Admin).
+model AttendanceCorrection {
+  id        String    @id @default(cuid())
+  userId    String
+  date      DateTime  @db.Date // tanggal kerja (tanggal mulai shift)
+  checkIn   DateTime? // jam masuk yang diajukan (kosong = check-in sudah tercatat)
+  checkOut  DateTime? // jam pulang yang diajukan (kosong = check-out sudah tercatat)
+  reason    String    @db.Text
+  status    String    @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED
+  approval  Json? // jejak Workflow modul Lupa Absen
+  decidedBy String?
+  decidedAt DateTime?
+  note      String?   @db.Text
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([status])
 }

@@ -9,6 +9,7 @@ import { plannedHours, restDaysOf, restKey } from "@/lib/overtime";
 import PersetujuanClient, { type ApprovalItem, type InterviewItem, type LoanItem, type ProfileItem, type SwapItem } from "./PersetujuanClient";
 import { loanEarlyApprover, loanReviewTurn, loanTurn, readLoanFlow } from "@/lib/loans";
 import { canEditMenu } from "@/lib/roles";
+import { hmWib } from "@/lib/attendance-fix";
 
 const LEGACY: Record<string, string> = { TAHUNAN: "Cuti Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan", PENTING: "Keperluan Penting", LAINNYA: "Lainnya" };
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -25,7 +26,7 @@ export async function loadApprovals(a: Approver) {
   // Pemantau (Super Admin & Admin Data Karyawan) melihat semua perubahan data yang masih menunggu, tanpa tombol putus.
   const monitor = reviewer || a.role === "SUPER_ADMIN";
   const loanAdmin = canEditMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "pinjaman");
-  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots, loanReqs] = await Promise.all([
+  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots, loanReqs, fixes] = await Promise.all([
     // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
       where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
@@ -81,6 +82,11 @@ export async function loadApprovals(a: Approver) {
       },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 100,
     }),
+    // Lupa Absen: atasan langsung / Workflow modul Lupa Absen.
+    prisma.attendanceCorrection.findMany({
+      where: { OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
+      include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
+    }),
   ]);
   const otRest = await restDaysOf(ots);
 
@@ -116,6 +122,14 @@ export async function loadApprovals(a: Approver) {
       time: `${o.startTime}–${o.endTime}${o.breakStart ? ` · istirahat ${o.breakStart}–${o.breakEnd}` : ""} · ${String(plannedHours(o, otRest.has(restKey(o.userId, o.date)))).replace(".", ",")} jam`,
       halfDay: null, unpaidDays: 0, reason: o.reason ?? "", note: o.note, decidedBy: o.decidedBy,
       decidedAt: o.decidedAt?.toISOString() ?? null, createdAt: o.createdAt.toISOString(),
+    })),
+    ...fixes.filter((f) => flowOf(f.approval).show).map((f) => ({
+      flow: flowOf(f.approval).steps, mine: flowOf(f.approval).mine,
+      id: f.id, kind: "LUPA_ABSEN" as const, status: f.status, person: person(f.user),
+      title: "Lupa Absen", start: ymd(f.date), end: ymd(f.date), days: 0,
+      time: [f.checkIn && `masuk ${hmWib(f.checkIn)}`, f.checkOut && `pulang ${hmWib(f.checkOut)}`].filter(Boolean).join(" · "),
+      halfDay: null, unpaidDays: 0, reason: f.reason, note: f.note, decidedBy: f.decidedBy,
+      decidedAt: f.decidedAt?.toISOString() ?? null, createdAt: f.createdAt.toISOString(),
     })),
   ];
 

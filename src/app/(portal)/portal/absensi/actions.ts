@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getAllowedLocations, isOnApprovedTrip, nearestLocation } from "@/lib/work-location";
 import { checkInBlocked, checkInWarning, checkInWorkDate, checkOutBlocked, checkOutWarning, openAttendance, wibToday } from "@/lib/attendance-assess";
+import { unfinishedCheckout } from "@/lib/attendance-fix";
 
 // Cek lokasi absen. Saat Dinas Luar disetujui, absen boleh di mana saja (lokasinya tetap
 // disimpan). Selain itu, absen di luar radius semua lokasi yang diizinkan ditolak.
@@ -72,6 +73,9 @@ export async function checkIn(lat: number, lng: number, confirmed = false) {
     where: { userId_date: { userId: session.user.id, date: today } },
   });
   if (existing?.checkIn) return { error: "Anda sudah check-in hari ini." };
+  // Check-out sebelumnya belum selesai: selesaikan dulu lewat Lupa Absen.
+  const unfinished = await unfinishedCheckout(session.user.id, today);
+  if (unfinished) return { error: unfinished };
   // Batas jam absen masuk terhadap jam masuk shift (Jadwal → Shift).
   const blockedIn = await checkInBlocked(session.user.id, today);
   if (blockedIn) return { error: blockedIn };
@@ -120,7 +124,7 @@ export async function checkOut(lat: number, lng: number, confirmed = false) {
     const yesterday = new Date(wibToday().getTime() - 86_400_000);
     const y = await prisma.attendance.findUnique({ where: { userId_date: { userId: session.user.id, date: yesterday } }, select: { checkIn: true, checkOut: true } });
     const late = y?.checkIn && !y.checkOut ? await checkOutBlocked(session.user.id, yesterday) : null;
-    return { error: late ?? "Anda belum check-in hari ini." };
+    return { error: late ?? "Check-in belum dilakukan, silakan gunakan menu Lupa Absen." };
   }
   if (record.checkOut) return { error: "Anda sudah check-out hari ini." };
   // Batas jam absen pulang terhadap jam pulang shift (Jadwal → Shift).

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeftRight, Briefcase, CalendarCheck, CalendarDays, Clock, FileText, HandCoins, Receipt, Timer, UserCheck } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarCheck, CalendarDays, Clock, ClockAlert, FileText, HandCoins, Receipt, Timer, UserCheck } from "lucide-react";
 import { isSecurity } from "@/lib/overtime-check";
 import { auth } from "@/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ export const metadata: Metadata = { title: "Tombol HP" };
 const HP_BUTTONS = [
   { href: "/portal/absensi", icon: Clock, label: "Absensi", desc: "Check-in & Check-out" },
   { href: "/portal/kehadiran", icon: CalendarCheck, label: "Kehadiran", desc: "Kalender & estimasi lembur" },
+  { href: "/portal/lupa-absen", icon: ClockAlert, label: "Lupa Absen", desc: "Pengajuan check-in / check-out" },
   { href: "/portal/cuti", icon: CalendarDays, label: "Cuti", desc: "Pengajuan cuti" },
   { href: "/portal/dinas", icon: Briefcase, label: "Dinas Luar", desc: "Pengajuan dinas" },
   { href: "/portal/tukar-shift", icon: ArrowLeftRight, label: "Tukar Shift", desc: "Tukar shift dengan rekan" },

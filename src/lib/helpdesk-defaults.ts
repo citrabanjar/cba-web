@@ -13,8 +13,8 @@ export const DEFAULT_HELP_ARTICLES: { title: string; keywords: string; body: str
   },
   {
     title: "Aturan absen masuk dan pulang",
-    keywords: "absen, absensi, check in, check-in, check out, check-out, terlambat, lokasi absen, gps, lupa absen",
-    body: "1. Absen dilakukan melalui menu Absensi dengan GPS aktif dan berada di dalam radius lokasi absen yang ditetapkan.\n2. Absen masuk dibuka beberapa menit sebelum jam masuk shift sesuai pengaturan shift. Absen yang sangat terlambat atau pulang jauh lebih awal akan menampilkan peringatan potongan gaji; gunakan cuti setengah hari sebagai alternatif.\n3. Absen pulang ditutup beberapa menit setelah jam pulang shift. Bila lupa absen pulang, hubungi Admin untuk diproses.",
+    keywords: "absen, absensi, check in, check-in, check out, check-out, terlambat, lokasi absen, gps, lupa absen, lupa check-out, batas absen",
+    body: "1. Absen dilakukan melalui menu Absensi dengan GPS aktif dan berada di dalam radius lokasi absen yang ditetapkan.\n2. Absen masuk dibuka beberapa menit sebelum jam masuk shift sesuai pengaturan shift. Absen yang sangat terlambat atau pulang jauh lebih awal akan menampilkan peringatan potongan gaji; gunakan cuti setengah hari sebagai alternatif.\n3. Absen pulang ditutup beberapa menit setelah jam pulang shift (atau jam akhir SPL). Bila lupa check-in / check-out atau batas absen terlewat, ajukan melalui menu Lupa Absen; setelah disetujui atasan, jam absen langsung tercatat.\n4. Check-out yang belum selesai harus diajukan melalui Lupa Absen sebelum dapat check-in di hari berikutnya.",
   },
   {
     title: "Lembur dan Surat Perintah Lembur (SPL)",

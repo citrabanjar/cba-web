@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, Briefcase, Calendar, Check, ChevronRight, Clock, HandCoins, Inbox, Loader2, UserPen, X } from "lucide-react";
+import { ArrowLeftRight, Briefcase, Calendar, Check, ChevronRight, Clock, HandCoins, Inbox, Loader2, UserPen, X, ClockAlert } from "lucide-react";
 import Link from "next/link";
 import { InterviewDecision, InterviewSummary, ReviewForm, type CandidateBrief } from "@/components/portal/InterviewPanel";
 import { latestOffer, type Interview, type InterviewApproval, type Review } from "@/lib/onboarding-interview";
@@ -13,7 +13,7 @@ import { formatDate, formatRupiah } from "@/lib/utils";
 import { LOAN_STAGE, LOAN_STATUS, periodShort, type LoanFlow } from "@/lib/loans";
 import { LoanRequestSummary, LoanTrail } from "@/components/portal/LoanCard";
 import { halfDayLabel } from "@/lib/leave";
-import { decideLeave, decideLoan, decideOvertime, decideTrip } from "./actions";
+import { decideFix, decideLeave, decideLoan, decideOvertime, decideTrip } from "./actions";
 import { decideProfileChange } from "../profil/actions";
 import { decideSwap } from "../tukar-shift/actions";
 import { decideEmployeeEdit } from "../admin/karyawan/actions";
@@ -22,7 +22,7 @@ import { SWAP_STATUS } from "@/lib/shift-swap-status";
 import { fieldLabel, isRegionCode, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 
 export type ApprovalItem = {
-  id: string; kind: "CUTI" | "DINAS" | "LEMBUR"; status: string; time?: string;
+  id: string; kind: "CUTI" | "DINAS" | "LEMBUR" | "LUPA_ABSEN"; status: string; time?: string;
   person: { name: string; employeeId: string | null; position: string | null; department: string | null };
   title: string; start: string; end: string; days: number; halfDay: string | null; unpaidDays: number;
   reason: string; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string;
@@ -141,17 +141,17 @@ export function Card({ item: i }: { item: ApprovalItem }) {
   const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState("");
   const st = STATUS[i.status] ?? { label: i.status, cls: "bg-gray-100 text-gray-600" };
-  const Icon = i.kind === "CUTI" ? Calendar : i.kind === "LEMBUR" ? Clock : Briefcase;
+  const Icon = i.kind === "CUTI" ? Calendar : i.kind === "LEMBUR" ? Clock : i.kind === "LUPA_ABSEN" ? ClockAlert : Briefcase;
   const decide = (approve: boolean) => start(async () => {
     setError("");
-    const fn = i.kind === "CUTI" ? decideLeave : i.kind === "LEMBUR" ? decideOvertime : decideTrip;
+    const fn = i.kind === "CUTI" ? decideLeave : i.kind === "LEMBUR" ? decideOvertime : i.kind === "LUPA_ABSEN" ? decideFix : decideTrip;
     const r = await fn(i.id, approve, note);
     if (r.error) setError(r.error);
   });
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-start gap-3">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${i.kind === "CUTI" ? "bg-violet-100 text-violet-700" : i.kind === "LEMBUR" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"}`}><Icon size={17} /></span>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${i.kind === "CUTI" ? "bg-violet-100 text-violet-700" : i.kind === "LEMBUR" ? "bg-amber-100 text-amber-700" : i.kind === "LUPA_ABSEN" ? "bg-rose-100 text-rose-700" : "bg-sky-100 text-sky-700"}`}><Icon size={17} /></span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-900">{i.person.name} <span className="text-xs font-normal text-gray-400">{[i.person.employeeId, i.person.position, i.person.department].filter(Boolean).join(" · ")}</span></p>
           <p className="mt-0.5 text-sm text-gray-800">{t(i.title)}</p>

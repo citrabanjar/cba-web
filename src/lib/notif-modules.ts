@@ -1,6 +1,6 @@
 // Pengelompokan notifikasi per modul (aman dipakai di server dan browser). Modul ditentukan dari tautan notifikasi.
 export const NOTIF_MODULES = [
-  { key: "kehadiran", label: "Kehadiran", paths: ["/portal/absensi", "/portal/kehadiran", "/portal/tukar-shift", "/portal/admin/schedule"] },
+  { key: "kehadiran", label: "Kehadiran", paths: ["/portal/absensi", "/portal/kehadiran", "/portal/tukar-shift", "/portal/lupa-absen", "/portal/admin/schedule"] },
   { key: "lembur", label: "Lembur", paths: ["/portal/lembur", "/portal/admin/lembur"] },
   { key: "cuti", label: "Cuti", paths: ["/portal/cuti", "/portal/admin/leave"] },
   { key: "dinas", label: "Dinas", paths: ["/portal/dinas"] },

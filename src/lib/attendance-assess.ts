@@ -77,15 +77,18 @@ async function limitsOf(s: DayShift) {
   });
   return { n: off?.checkInEarliest ?? null, m: off?.checkOutLatest ?? null };
 }
-// Batas akhir absen pulang (ms) untuk shift `s` pada tanggal `date`; null = tidak dibatasi.
-async function checkOutCloseAt(userId: string, date: Date, s: DayShift) {
+// Batas akhir absen pulang (ms) untuk shift `s` pada tanggal `date`; null = tidak dibatasi. spl = batas ditentukan jam SPL.
+async function checkOutLimit(userId: string, date: Date, s: DayShift) {
   if (s.manual) return null;
   const spl = await splWindow(userId, date);
-  const ends = [...(working(s) ? [atWib(date, s.endTime!, crossesMidnight(s))] : []), ...(spl ? [spl.end] : [])];
-  if (!ends.length) return null;
+  const shiftEnd = working(s) ? atWib(date, s.endTime!, crossesMidnight(s)) : null;
+  if (shiftEnd == null && !spl) return null;
   const { m } = await limitsOf(s);
-  return m == null ? null : Math.max(...ends) + m * 60_000;
+  if (m == null) return null;
+  const bySpl = !!spl && (shiftEnd == null || spl.end > shiftEnd);
+  return { at: (bySpl ? spl!.end : shiftEnd!) + m * 60_000, spl: bySpl };
 }
+const checkOutCloseAt = async (userId: string, date: Date, s: DayShift) => (await checkOutLimit(userId, date, s))?.at ?? null;
 
 // Absen masuk pada tanggal kerja `date`: error bila belum dibuka.
 export async function checkInBlocked(userId: string, date: Date, now = Date.now()) {
@@ -115,8 +118,12 @@ export async function checkInWarning(userId: string, date: Date, now = Date.now(
 export async function checkOutBlocked(userId: string, date: Date, now = Date.now()) {
   const s = await shiftOn(userId, date);
   if (!s) return null;
-  const close = await checkOutCloseAt(userId, date, s);
-  if (close != null && now > close) return `Batas absen pulang sudah lewat (pukul ${clockWib(close)}). Hubungi Admin untuk lupa absen pulang.`;
+  const close = await checkOutLimit(userId, date, s);
+  if (close && now > close.at) {
+    return close.spl
+      ? "Waktu check-out tidak sesuai dengan SPL, silakan hubungi atasan Anda dan gunakan menu Lupa Absen."
+      : "Batas waktu check-out telah habis, gunakan menu Lupa Absen.";
+  }
   return null;
 }
 // Peringatan bila check-out akan kena potongan pulang cepat (lebih awal dari jam pulang − toleransi pulang cepat).

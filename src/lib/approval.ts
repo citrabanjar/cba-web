@@ -13,12 +13,13 @@ const withWorkflow = { approval: { not: Prisma.DbNull } };
 
 // Cuti/dinas lewat menu Workflow yang menunggu keputusan user ini (giliran levelnya).
 async function pendingWorkflowRequests(userId: string) {
-  const [leaves, trips, ots] = await Promise.all([
+  const [leaves, trips, ots, fixes] = await Promise.all([
     prisma.leaveRequest.findMany({ where: { status: "PENDING", ...withWorkflow }, select: { approval: true } }),
     prisma.businessTrip.findMany({ where: { status: "PENDING", ...withWorkflow }, select: { approval: true } }),
     prisma.overtime.findMany({ where: { status: "PENDING", ...withWorkflow }, select: { approval: true } }),
+    prisma.attendanceCorrection.findMany({ where: { status: "PENDING", ...withWorkflow }, select: { approval: true } }),
   ]);
-  return [...leaves, ...trips, ...ots].filter((r) => actionableApprovers(readApproval(r.approval)).includes(userId)).length;
+  return [...leaves, ...trips, ...ots, ...fixes].filter((r) => actionableApprovers(readApproval(r.approval)).includes(userId)).length;
 }
 
 // Jalur persetujuan cuti & dinas luar (keputusan pemilik 2026-11-10): penyetuju = ATASAN LANGSUNG
@@ -57,7 +58,7 @@ export async function canDecide(a: Approver, requesterId: string) {
 // Jumlah pengajuan yang menunggu keputusan penyetuju ini (untuk badge menu).
 export async function pendingApprovals(a: Approver) {
   const user = requesterFilter(a);
-  const [leaves, trips, profiles, swaps, interviews, workflow, edits, ots, loans] = await Promise.all([
+  const [leaves, trips, profiles, swaps, interviews, workflow, edits, ots, loans, fixes] = await Promise.all([
     prisma.leaveRequest.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     prisma.businessTrip.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     // Perubahan data: tanpa Workflow → Admin Data Karyawan; dengan Workflow → penyetuju level yang sedang berjalan.
@@ -76,8 +77,9 @@ export async function pendingApprovals(a: Approver) {
       const admin = canEditMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "pinjaman");
       return list.filter((l) => { const f = readLoanFlow(l.flow); return loanTurn(l.status, l.stage, f, a.id) || loanReviewTurn(l.status, l.stage, f, a.id, l.userId, admin); }).length;
     }),
+    prisma.attendanceCorrection.count({ where: { status: "PENDING", user, ...noWorkflow } }),
   ]);
-  return leaves + trips + profiles + swaps + interviews + workflow + edits + ots + loans;
+  return leaves + trips + profiles + swaps + interviews + workflow + edits + ots + loans + fixes;
 }
 
 // Menu Persetujuan tampil untuk atasan (punya bawahan langsung) dan Admin Data Karyawan (perubahan data).
