@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Disetujui oleh": "Approved by",
+  "Ditolak oleh": "Rejected by",
   "tampilkan langkah setup awal di Task Admin": "show initial setup steps in Admin Tasks",
   "Setup Awal diaktifkan.": "Initial Setup enabled.",
   "Setup Awal dinonaktifkan.": "Initial Setup disabled.",

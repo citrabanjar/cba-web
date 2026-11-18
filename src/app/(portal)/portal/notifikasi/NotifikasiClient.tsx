@@ -348,7 +348,7 @@ function HistoryRow({ h }: { h: PendingCard }) {
           <p className="text-sm text-gray-700">{title}</p>
           {st && <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>}
         </div>
-        {(body || by) && <p className="text-xs text-gray-500">{[body, by && `${t("Diputus oleh")} ${by}`].filter(Boolean).join(" · ")}</p>}
+        {(body || by) && <p className="text-xs text-gray-500">{[body, by && `${t(["REJECTED", "DITOLAK"].includes(status) ? "Ditolak oleh" : "Disetujui oleh")} ${by}`].filter(Boolean).join(" · ")}</p>}
         {h.at && <p className="mt-0.5 text-[11px] text-gray-400">{formatDateTime(h.at)}</p>}
       </div>
     </div>

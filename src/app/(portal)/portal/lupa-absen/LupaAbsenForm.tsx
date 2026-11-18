@@ -118,7 +118,7 @@ export default function LupaAbsenForm({ today, initialDate, incomplete, records,
                       {f.checkIn && <><T>Masuk</T> {f.checkIn}</>}{f.checkIn && f.checkOut && " · "}{f.checkOut && <><T>Pulang</T> {f.checkOut}</>}
                     </p>
                     <p className="mt-1 line-clamp-2 text-xs text-gray-400">{f.reason}</p>
-                    {f.decidedBy && <p className="mt-1 text-[11px] text-gray-400"><T>Diputus</T> {f.decidedBy}{f.note ? ` · ${f.note}` : ""}</p>}
+                    {f.decidedBy && <p className="mt-1 text-[11px] text-gray-400"><T>{f.status === "REJECTED" ? "Ditolak oleh" : "Disetujui oleh"}</T> {f.decidedBy}{f.note ? ` · ${f.note}` : ""}</p>}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[f.status]?.tone ?? "bg-gray-100 text-gray-500"}`}><T>{STATUS[f.status]?.label ?? f.status}</T></span>
