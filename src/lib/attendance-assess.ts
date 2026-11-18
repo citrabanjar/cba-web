@@ -42,7 +42,8 @@ export async function checkInWorkDate(userId: string, now = Date.now()) {
 // ─── Batas jam absen per shift (Jadwal → Shift) ─────────────────────────────
 // N = "absen masuk dibuka sebelum jam masuk": check-in sebelum jam masuk − N ditolak; check-in lewat jam masuk + N
 // boleh tetapi diberi peringatan dulu. M = "absen pulang ditutup setelah jam pulang": check-out lewat jam pulang + M
-// ditolak; check-out sebelum jam pulang − M diberi peringatan. Hari tanpa jam shift (libur, jadwal manual) tidak dibatasi.
+// ditolak. Check-out lebih dari 30 menit sebelum jam pulang diberi peringatan. SPL "Bersedia" melonggarkan/menggeser
+// batas ini (lihat splWindow). Hari tanpa jam shift (libur, jadwal manual) tidak dibatasi.
 // Waktu absolut jam "HH:MM" WIB pada tanggal kerja `date` (+1 hari bila nextDay).
 const atWib = (date: Date, hhmm: string, nextDay = false) => date.getTime() + toMin(hhmm) * 60_000 - 7 * 3600_000 + (nextDay ? DAY : 0);
 export const clockWib = (t: number) => { const d = new Date(t + 7 * 3600_000); return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`; };
@@ -52,13 +53,38 @@ const shiftOn = async (userId: string, date: Date) => {
   const u = await prisma.user.findUnique({ where: { id: userId }, select: { attendanceExempt: true } });
   return u?.attendanceExempt ? undefined : (await getShiftCalendar(userId, date, date))[key(date)];
 };
-const HALF_DAY_HINT = "Potongan gaji Anda akan besar. Gunakan cuti setengah hari sebagai alternatif.";
+// Surat Perintah Lembur (SPL) pada tanggal kerja `date` yang sudah dijawab "Bersedia" (keputusan pemilik 2026-11-18):
+// absen masuk dibuka 30 menit sebelum jam mulai lembur (bila lebih awal dari batas shift), dan bila lembur berakhir
+// setelah jam pulang, batas absen pulang = 30 menit setelah jam akhir lembur (menggantikan parameter shift).
+const SPL_MARGIN = 30 * 60_000;
+// Peringatan pulang cepat hanya bila check-out lebih dari 30 menit sebelum jam pulang.
+const EARLY_LEAVE_WARN = 30 * 60_000;
+async function splWindow(userId: string, date: Date) {
+  const rows = await prisma.overtime.findMany({
+    where: { userId, date, orderId: { not: null }, status: "DISETUJUI" },
+    select: { startTime: true, endTime: true },
+  });
+  if (!rows.length) return null;
+  const starts = rows.map((r) => atWib(date, r.startTime));
+  const ends = rows.map((r) => atWib(date, r.endTime, toMin(r.endTime) <= toMin(r.startTime)));
+  return { start: Math.min(...starts), end: Math.max(...ends) };
+}
+// Batas akhir absen pulang (ms) untuk shift `s` pada tanggal `date`; null = tidak dibatasi.
+async function checkOutCloseAt(userId: string, date: Date, s: DayShift) {
+  if (s.isOff || !s.endTime) return null;
+  const end = atWib(date, s.endTime, crossesMidnight(s));
+  const spl = await splWindow(userId, date);
+  if (spl && spl.end > end) return spl.end + SPL_MARGIN;
+  return s.checkOutClose == null ? null : end + s.checkOutClose * 60_000;
+}
 
 // Absen masuk pada tanggal kerja `date`: error bila belum dibuka.
 export async function checkInBlocked(userId: string, date: Date, now = Date.now()) {
   const s = await shiftOn(userId, date);
   if (!s || s.isOff || !s.startTime || s.checkInOpen == null) return null;
-  const open = atWib(date, s.startTime) - s.checkInOpen * 60_000;
+  let open = atWib(date, s.startTime) - s.checkInOpen * 60_000;
+  const spl = await splWindow(userId, date);
+  if (spl) open = Math.min(open, spl.start - SPL_MARGIN);
   if (now < open) return `Absen masuk baru dibuka pukul ${clockWib(open)}${dayLabel(open, wibToday(now))} (shift ${s.startTime}).`;
   return null;
 }
@@ -68,24 +94,24 @@ export async function checkInWarning(userId: string, date: Date, now = Date.now(
   if (!s || s.isOff || !s.startTime || s.checkInOpen == null) return null;
   const start = atWib(date, s.startTime);
   if (now <= start + s.checkInOpen * 60_000) return null;
-  return `Anda check-in pukul ${clockWib(now)}, lewat lebih dari ${s.checkInOpen} menit dari jam masuk (${s.startTime}). ${HALF_DAY_HINT} Tetap lanjut check-in?`;
+  return "Waktu check-in Anda telah melewati batas, gunakan cuti setengah hari untuk menghindari potongan. Tetap lanjut check-in?";
 }
 
 // Absen pulang untuk absen tanggal `date`: error bila lewat batas.
 export async function checkOutBlocked(userId: string, date: Date, now = Date.now()) {
   const s = await shiftOn(userId, date);
-  if (!s || s.isOff || !s.endTime || s.checkOutClose == null) return null;
-  const close = atWib(date, s.endTime, crossesMidnight(s)) + s.checkOutClose * 60_000;
-  if (now > close) return `Batas absen pulang sudah lewat (pukul ${clockWib(close)}). Hubungi Admin untuk lupa absen pulang.`;
+  if (!s) return null;
+  const close = await checkOutCloseAt(userId, date, s);
+  if (close != null && now > close) return `Batas absen pulang sudah lewat (pukul ${clockWib(close)}). Hubungi Admin untuk lupa absen pulang.`;
   return null;
 }
-// Peringatan sebelum check-out yang jauh lebih awal (sebelum jam pulang − M menit).
+// Peringatan sebelum check-out lebih dari 30 menit sebelum jam pulang.
 export async function checkOutWarning(userId: string, date: Date, now = Date.now()) {
   const s = await shiftOn(userId, date);
-  if (!s || s.isOff || !s.endTime || s.checkOutClose == null) return null;
+  if (!s || s.isOff || !s.endTime) return null;
   const end = atWib(date, s.endTime, crossesMidnight(s));
-  if (now >= end - s.checkOutClose * 60_000) return null;
-  return `Anda check-out pukul ${clockWib(now)}, lebih dari ${s.checkOutClose} menit sebelum jam pulang (${s.endTime}). ${HALF_DAY_HINT} Tetap lanjut check-out?`;
+  if (now >= end - EARLY_LEAVE_WARN) return null;
+  return "Waktu check-out Anda lebih awal dari jam pulang, gunakan cuti setengah hari untuk menghindari potongan. Tetap lanjut check-out?";
 }
 
 // Absen yang sedang berjalan untuk absen pulang: hari ini, atau shift malam kemarin yang belum check-out,
@@ -103,7 +129,10 @@ export async function openAttendance(userId: string, now = Date.now()) {
     const ys = cal[key(yesterday)];
     if (crossesMidnight(ys)) return yAtt;
     // Lembur lewat tengah malam: masih boleh absen pulang untuk kemarin selama belum melewati batas absen pulang.
-    if (!todayAtt?.checkIn && ys && !ys.isOff && ys.endTime && ys.checkOutClose != null && now <= atWib(yesterday, ys.endTime) + ys.checkOutClose * 60_000) return yAtt;
+    if (!todayAtt?.checkIn && ys) {
+      const close = await checkOutCloseAt(userId, yesterday, ys);
+      if (close != null && now <= close) return yAtt;
+    }
   }
   return todayAtt;
 }

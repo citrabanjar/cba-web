@@ -252,10 +252,10 @@ function ShiftForm({ shift, onClose, onDirty }: { shift: Shift | "new"; onClose:
                 <div className="grid gap-3 sm:grid-cols-2">
                   <NumberField label="Absen masuk dibuka sebelum jam masuk" value={form.checkInEarliest ?? NaN}
                     onChange={(n) => set("checkInEarliest", Number.isFinite(n) ? n : null)}
-                    hint="Contoh 180: check-in mulai 3 jam sebelum jam masuk. Check-in lebih dari 3 jam setelah jam masuk mendapat peringatan potongan gaji." />
+                    hint="Batas paling awal check-in. Check-in lewat jam masuk ditambah menit ini mendapat peringatan potongan. Karyawan dengan SPL dapat check-in 30 menit sebelum lembur dimulai." />
                   <NumberField label="Absen pulang ditutup setelah jam pulang" value={form.checkOutLatest ?? NaN}
                     onChange={(n) => set("checkOutLatest", Number.isFinite(n) ? n : null)}
-                    hint="Contoh 360: check-out paling lambat 6 jam setelah jam pulang. Check-out lebih dari 6 jam sebelum jam pulang mendapat peringatan potongan gaji." />
+                    hint="Batas paling akhir check-out. Karyawan dengan SPL mengikuti jam akhir lembur ditambah 30 menit." />
                 </div>
               </div>
 
