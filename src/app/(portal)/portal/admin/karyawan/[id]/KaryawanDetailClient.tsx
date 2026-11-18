@@ -3,10 +3,7 @@
 import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
-  BadgeCheck, BriefcaseBusiness, Building2, Cake, CalendarClock, CalendarDays, CalendarX, ChevronDown,
-  ChevronRight, CreditCard, FileText, Hash, Heart, History, Home, Hourglass, IdCard, KeyRound, Landmark,
-  Loader2, Mail, MapPin, MessageCircle, Network, Pencil, Phone, Plus, Receipt, ShieldCheck, Sparkles,
-  Trash2, UserRound, Users,
+  BadgeCheck, BriefcaseBusiness, Building2, Cake, CalendarClock, CalendarDays, CalendarX, ChevronDown, ChevronRight, CreditCard, FileText, Hash, Heart, History, Home, Hourglass, IdCard, KeyRound, Landmark, Loader2, Mail, MapPin, MessageCircle, Network, Pencil, Phone, Plus, Receipt, ShieldCheck, Sparkles, Trash2, UserRound, Users, FileStack, Layers, Plane, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +32,7 @@ import type { BalanceRow } from "@/lib/leave-balance";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import Pph21Card, { type Pph21Year } from "./Pph21Card";
 import PriorTaxCard, { type PriorSlipItem } from "./PriorTaxCard";
+import SectionNav from "@/components/portal/SectionNav";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import ProfileLoans from "@/components/portal/LoanManager";
 import type { LoanView } from "@/components/portal/LoanCard";
@@ -1015,7 +1013,8 @@ export default function KaryawanDetailClient({
         </div>
 
         {tab === "pekerjaan" && (
-          <div className="section-stack space-y-5">
+          <SectionNav sections={[
+              { key: "detail", label: "Detail Pekerjaan", icon: BriefcaseBusiness, content: (
             <SectionCard title="Detail Pekerjaan" onEdit={edit("detail")} grid>
               <Field label="Employee ID">{emp.employeeId}</Field>
               <Field label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</Field>
@@ -1028,7 +1027,8 @@ export default function KaryawanDetailClient({
               <Field label="Masa Kerja">{tenure}</Field>
               {emp.resignDate && <Field label="Tanggal Berhenti">{fmtDate(emp.resignDate)}</Field>}
             </SectionCard>
-
+              ) },
+              { key: "unit", label: "Unit Perusahaan", icon: Building2, content: (
             <SectionCard title="Unit Perusahaan" onEdit={edit("unit")} grid>
               <Field label="Cabang">{emp.branch}</Field>
               <Field label="Departemen">{emp.department?.name}</Field>
@@ -1037,7 +1037,8 @@ export default function KaryawanDetailClient({
                 {emp.manager ? [emp.manager.employeeId, emp.manager.name].filter(Boolean).join(" - ") : null}
               </Field>
             </SectionCard>
-
+              ) },
+              { key: "riwayat", label: "Riwayat Pekerjaan", icon: History, content: (
             <SectionCard title="Riwayat Pekerjaan">
               {emp.employmentEvents.length === 0 ? (
                 <p className="py-4 text-sm text-gray-400"><T>Belum ada riwayat pekerjaan.</T></p>
@@ -1068,12 +1069,13 @@ export default function KaryawanDetailClient({
                 </Table>
               )}
             </SectionCard>
-          </div>
+              ) },
+          ]} />
         )}
 
         {tab === "gaji" && (
-          <div className="section-stack space-y-5">
-            {canSeePay && (
+          <SectionNav sections={[
+            canSeePay && { key: "payroll", label: "Payroll", icon: CalendarClock, content: (
               <SectionCard title="Payroll" onEdit={edit("payroll")} grid>
                 <Field label="Jadwal Bayar">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
                 {emp.paymentSchedule === "Mingguan" && (
@@ -1083,7 +1085,8 @@ export default function KaryawanDetailClient({
                   </>
                 )}
               </SectionCard>
-            )}
+            ) },
+              { key: "pajak", label: "Pajak", icon: Receipt, content: (
             <SectionCard title="Pajak" onEdit={edit("pajak")} grid>
               <Field label="NPWP">{emp.npwp}</Field>
               <Field label="Status PTKP">{emp.ptkpStatus}</Field>
@@ -1091,16 +1094,18 @@ export default function KaryawanDetailClient({
               <Field label="Status Pajak">{emp.taxStatus}</Field>
               <Field label="Kode Objek Pajak">{emp.taxObjectCode}</Field>
             </SectionCard>
-            {/* Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali. */}
-            {canSeePay && <PriorTaxCard userId={emp.id} slips={priorSlips} />}
+              ) },
+            // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
+            canSeePay && { key: "pindahan", label: "PPh 21 Pindahan", icon: FileStack, content: <PriorTaxCard userId={emp.id} slips={priorSlips} /> },
+              { key: "bpjs", label: "BPJS", icon: ShieldCheck, content: (
             <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
               <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
               <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
               <Field label="No BPJS Kesehatan">{emp.bpjsKesNumber}</Field>
               <Field label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
             </SectionCard>
-            {canSeePay && (<>
-
+              ) },
+            canSeePay && { key: "gaji", label: "Gaji Saat Ini", icon: Wallet, content: (
             <SectionCard
               title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
               action={canEditTarget && canEditPay ? (
@@ -1113,19 +1118,17 @@ export default function KaryawanDetailClient({
                 ? <SalaryCard salary={currentSalary} />
                 : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
             </SectionCard>
-
-            <PayComponentsCard userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} />
-
-            {emp.salaries.length > 0 && <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} />}
-
-            </>)}
-          </div>
+            ) },
+            canSeePay && { key: "komponen", label: "Komponen Gaji", icon: Layers, content: <PayComponentsCard userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
+            canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", label: "Riwayat Gaji", icon: History, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
+          ]} />
         )}
 
         {tab === "pinjaman" && canSeeLoans && <ProfileLoans loans={loans} />}
 
         {tab === "pribadi" && (
-          <div className="section-stack space-y-5">
+          <SectionNav sections={[
+              { key: "pribadi", label: "Data Pribadi", icon: UserRound, content: (
             <SectionCard title="Data Pribadi" onEdit={edit("pribadi")} grid>
               <Field label="Nama Lengkap">{emp.name}</Field>
               <Field label="Phone Number">{emp.phone}</Field>
@@ -1138,12 +1141,14 @@ export default function KaryawanDetailClient({
               <Field label="Status Perkawinan">{emp.maritalStatus && normalizeChoice("maritalStatus", emp.maritalStatus)}</Field>
               <Field label="Agama">{emp.religion && normalizeChoice("religion", emp.religion)}</Field>
             </SectionCard>
-
+              ) },
+              { key: "alamat", label: "Tempat Tinggal", icon: Home, content: (
             <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")} grid>
               <Field label="Alamat sesuai Identitas">{[emp.address, emp.addressRegionName, emp.addressPostal].filter(Boolean).join(", ") || null}</Field>
               <Field label="Alamat Saat Ini">{(emp.addressSameAsId ? [emp.address, emp.addressRegionName, emp.addressPostal] : [emp.currentAddress, emp.currentRegionName, emp.currentPostal]).filter(Boolean).join(", ") || null}</Field>
             </SectionCard>
-
+              ) },
+              { key: "keluarga", label: "Keluarga", icon: Users, content: (
             <SectionCard title="Keluarga" onEdit={canEdit ? () => setFamilyOpen(true) : undefined}>
               {emp.family.length === 0 ? (
                 <p className="py-4 text-sm text-gray-400"><T>Belum ada data keluarga.</T></p>
@@ -1168,23 +1173,25 @@ export default function KaryawanDetailClient({
                 </Table>
               )}
             </SectionCard>
-
+              ) },
+              { key: "bank", label: "Rekening Bank", icon: Landmark, content: (
             <SectionCard title="Rekening Bank" onEdit={edit("bank")} grid>
               <Field label="Nama Bank">{emp.bankName}</Field>
               <Field label="No Rekening">{emp.bankAccount}</Field>
               <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
             </SectionCard>
-
-          </div>
+              ) },
+          ]} />
         )}
 
         {tab === "absensi" && (
+          <SectionNav initial={initialDate ? "kalender" : undefined} sections={[
+            { key: "kalender", label: "Kalender & Jadwal", icon: CalendarDays, content: (
           <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
             shiftEdit={canEditTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} />} />
-        )}
-
-        {tab === "absensi" && (
+            ) },
+            { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
           emp.attendances.length === 0 ? <Empty text="Belum ada data absensi." /> : (
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1215,12 +1222,16 @@ export default function KaryawanDetailClient({
               </Table>
             </div>
           )
+            ) },
+          ]} />
         )}
 
         {tab === "cuti" && (
-          <div className="space-y-5">
+          <SectionNav sections={[
+            { key: "saldo", label: "Saldo Cuti", icon: Wallet, content: (
           <LeaveBalanceCard rows={leaveBalances} />
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Cuti</T></p>
+            ) },
+            { key: "cuti", label: "Riwayat Cuti", icon: CalendarDays, content: (<>
           {emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1249,12 +1260,8 @@ export default function KaryawanDetailClient({
               </Table>
             </div>
           )}
-          </div>
-        )}
-
-        {tab === "cuti" && (
-          <div className="mt-5 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Dinas Luar</T></p>
+            </>) },
+            { key: "dinas", label: "Riwayat Dinas Luar", icon: Plane, content: (<>
           {emp.businessTrips.length === 0 ? <Empty text="Belum ada pengajuan dinas luar." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1283,7 +1290,8 @@ export default function KaryawanDetailClient({
               </Table>
             </div>
           )}
-          </div>
+            </>) },
+          ]} />
         )}
 
         {tab === "pph21" && canSeePay && <Pph21Card userId={emp.id} years={pph21Years} />}

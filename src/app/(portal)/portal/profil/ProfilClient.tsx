@@ -17,6 +17,7 @@ import type { DayShift } from "@/lib/schedule";
 import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
 import { cancelProfileChange, changeMyPassword, submitProfileChange } from "./actions";
 import RegionSelect from "@/components/RegionSelect";
+import SectionNav from "@/components/portal/SectionNav";
 
 type Me = {
   id: string; name: string; employeeId: string | null; image: string | null; status: string; position: string | null; branch: string | null;
@@ -77,7 +78,12 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
   const [tab, setTab] = useState("data");
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
+    <div className="min-h-full bg-gray-50">
+      <div className="border-b border-gray-100 bg-white px-6 py-4">
+        <h2 className="font-bold text-gray-800"><T>Profil Saya</T></h2>
+        <p className="mt-0.5 text-xs text-gray-400"><T>Data diri, pekerjaan, kehadiran, saldo, dan akun Anda.</T></p>
+      </div>
+    <div className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
       {/* Kepala profil */}
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
         {me.image
@@ -105,10 +111,9 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
       </div>
 
       {tab === "data" && (
-        <>
-          <div className="grid gap-5 lg:grid-cols-2">
-            {groups.map((g) => (
-              <Section key={g} icon={g === "Rekening & Pajak" ? KeyRound : User} title={g}>
+        <SectionNav sections={[
+          ...groups.map((g) => ({ key: g, label: g, icon: g === "Rekening & Pajak" ? KeyRound : User, content: (
+              <Section icon={g === "Rekening & Pajak" ? KeyRound : User} title={g}>
                 {g === "Data Diri" && <Row label="Nama Lengkap" value={me.name} />}
                 {PROFILE_FIELDS.filter((f) => f.group === g && f.type !== "region"
                   && !((f.key === "currentAddress" || f.key === "currentRegionName" || f.key === "currentPostal") && values.addressSameAsId === "true")).map((f) => (
@@ -122,7 +127,8 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
                   </>
                 )}
               </Section>
-            ))}
+          ) })),
+          { key: "keluarga", label: "Keluarga", icon: Users, content: (
             <Section icon={Users} title="Keluarga">
               {family.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada data keluarga.</T></p> : (
                 <div className="divide-y divide-gray-100">
@@ -136,12 +142,13 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
                 </div>
               )}
             </Section>
-          </div>
-        </>
+          ) },
+        ]} />
       )}
 
       {tab === "kerja" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <SectionNav sections={[
+          { key: "kerja", label: "Pekerjaan", icon: Briefcase, content: (
           <Section icon={Briefcase} title="Pekerjaan">
             <Row label="Jabatan" value={me.position} />
             <Row label="Departemen" value={me.department} />
@@ -153,6 +160,8 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
             {me.status === "KONTRAK" && <Row label="Akhir Kontrak" value={d(me.contractEnd)} />}
             <p className="mt-2 text-[11px] text-gray-400"><T>Data pekerjaan diatur HRD.</T></p>
           </Section>
+          ) },
+          { key: "gaji", label: "Gaji & Tunjangan", icon: Banknote, content: (
           <Section icon={Banknote} title="Gaji & Tunjangan">
             {!salary ? <p className="text-sm text-gray-400"><T>Belum ada data gaji (hubungi HRD).</T></p> : (
               <>
@@ -167,14 +176,18 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
               </>
             )}
           </Section>
-        </div>
+          ) },
+        ]} />
       )}
 
       {tab === "saldo" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <SectionNav sections={[
+          { key: "cuti", label: "Saldo Cuti", icon: CalendarHeart, content: (
           <Section icon={CalendarHeart} title="Saldo Cuti" action={<Link href="/portal/cuti" className="text-xs font-semibold text-brand"><T>Ajukan Cuti →</T></Link>}>
             {balances.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada saldo cuti.</T></p> : <LeaveBalanceCard rows={balances} compact />}
           </Section>
+          ) },
+          { key: "pinjaman", label: "Saldo Pinjaman", icon: HandCoins, content: (
           <Section icon={HandCoins} title="Saldo Pinjaman" action={<Link href="/portal/pinjaman" className="text-xs font-semibold text-brand"><T>Lihat Pinjaman →</T></Link>}>
             {loans.length === 0 ? <p className="text-sm text-gray-400"><T>Tidak ada pinjaman berjalan.</T></p> : (
               <>
@@ -194,6 +207,8 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
               </>
             )}
           </Section>
+          ) },
+          { key: "slip", label: "Slip Gaji Terakhir", icon: FileText, content: (
           <Section icon={FileText} title="Slip Gaji Terakhir" action={<Link href="/portal/payslip" className="text-xs font-semibold text-brand"><T>Semua Slip →</T></Link>}>
             {!lastSlip ? <p className="text-sm text-gray-400"><T>Belum ada slip gaji.</T></p> : (
               <>
@@ -203,7 +218,8 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
               </>
             )}
           </Section>
-        </div>
+          ) },
+        ]} />
       )}
 
       {tab === "hadir" && (
@@ -211,17 +227,22 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
       )}
 
       {tab === "akun" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <SectionNav sections={[
+          { key: "password", label: "Ganti Password", icon: KeyRound, content: (
           <PasswordCard />
+          ) },
+          { key: "riwayat", label: "Riwayat Pengajuan Perubahan", icon: Clock, content: (
           <Section icon={Clock} title="Riwayat Pengajuan Perubahan">
             {requests.filter((r) => r.status !== "PENDING").length === 0
               ? <p className="text-sm text-gray-400"><T>Belum ada.</T></p>
               : <div className="space-y-3">{requests.filter((r) => r.status !== "PENDING").map((r) => <RequestCard key={r.id} r={r} compact />)}</div>}
           </Section>
-        </div>
+          ) },
+        ]} />
       )}
 
       {editing && <ChangeDialog values={values} family={family} onClose={() => setEditing(false)} />}
+    </div>
     </div>
   );
 }
