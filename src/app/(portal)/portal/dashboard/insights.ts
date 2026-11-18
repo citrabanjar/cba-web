@@ -171,46 +171,46 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const indicators: Indicator[] = [
     {
       key: "dinas-hari-ini", title: "Dinas Hari Ini", value: tripNames.length, noteValue: names(tripNames),
-      note: tripNames.length ? "sedang dinas luar" : "Tidak ada yang dinas", icon: "trip", tone: "blue", href: "/portal/admin/leave?tab=dinas&lihat=sedang",
+      note: tripNames.length ? "sedang dinas luar" : "Tidak ada yang dinas", icon: "trip", tone: "blue", href: `/portal/admin/laporan?jenis=dinas&status=disetujui&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
       key: "terlambat-hari-ini", title: "Terlambat Hari Ini", value: late.length, noteValue: names(late),
-      note: late.length ? "terlambat masuk" : "Belum ada yang terlambat", icon: "late", tone: "rose", href: "/portal/admin/schedule",
+      note: late.length ? "terlambat masuk" : "Belum ada yang terlambat", icon: "late", tone: "rose", href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
       key: "tepat-waktu-hari-ini", title: "Tepat Waktu Hari Ini", value: onTime.length, noteValue: late.length + onTime.length,
-      note: "sudah check-in", icon: "present", tone: "emerald", href: "/portal/admin/schedule",
+      note: "sudah check-in", icon: "present", tone: "emerald", href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
       // Proses cuti: pengajuan yang menunggu persetujuan dan karyawan yang sedang cuti hari ini (sudah disetujui).
       key: "cuti-berjalan", title: "Proses Cuti", value: leaveRunning.length, note: "pengajuan menunggu persetujuan",
       steps: [
-        { label: "Pengajuan", value: leaveRunning.length, href: "/portal/admin/leave?tab=pengajuan&lihat=pengajuan" },
-        { label: "Sedang cuti", value: leaveNames.length, href: "/portal/admin/leave?tab=pengajuan&lihat=sedang" },
+        { label: "Pengajuan", value: leaveRunning.length, href: "/portal/admin/laporan?jenis=cuti&status=menunggu" },
+        { label: "Sedang cuti", value: leaveNames.length, href: `/portal/admin/laporan?jenis=cuti&status=disetujui&dari=${todayKey}&sampai=${todayKey}` },
       ],
-      icon: "leave", tone: "violet", href: "/portal/admin/leave?tab=pengajuan", actionable: true,
+      icon: "leave", tone: "violet", href: "/portal/admin/laporan?jenis=cuti&status=menunggu", actionable: true,
     },
     {
       key: "proses-pinjaman", title: "Proses Pinjaman", value: loanPending.length, note: "pengajuan berjalan",
       steps: [
-        { label: "Atasan", value: loanStage("ATASAN"), href: "/portal/admin/pinjaman?tahap=ATASAN" },
-        { label: "Admin", value: loanStage("ADMIN"), href: "/portal/admin/pinjaman?tahap=ADMIN" },
-        { label: "Pemutus", value: loanStage("PIMPINAN"), href: "/portal/admin/pinjaman?tahap=PIMPINAN" },
-        { label: "Selesai", value: loanDone, href: "/portal/admin/pinjaman?tahap=SELESAI" },
+        { label: "Atasan", value: loanStage("ATASAN"), href: "/portal/admin/laporan?jenis=pinjaman&tahap=ATASAN" },
+        { label: "Admin", value: loanStage("ADMIN"), href: "/portal/admin/laporan?jenis=pinjaman&tahap=ADMIN" },
+        { label: "Pemutus", value: loanStage("PIMPINAN"), href: "/portal/admin/laporan?jenis=pinjaman&tahap=PIMPINAN" },
+        { label: "Selesai", value: loanDone, href: `/portal/admin/laporan?jenis=pinjaman&tahap=SELESAI&dari=${todayKey}&sampai=${todayKey}` },
       ],
-      icon: "loan", tone: "amber", href: "/portal/admin/pinjaman", actionable: true,
+      icon: "loan", tone: "amber", href: "/portal/admin/laporan?jenis=pinjaman&status=menunggu", actionable: true,
     },
     {
       key: "pengajuan-menunggu", title: "Pengajuan Menunggu", value: waiting.total,
       note: "menunggu persetujuan", sub: waiting.uji ? `${waiting.uji} di antaranya pengajuan uji [UJI]` : undefined,
       steps: [
-        { label: "Cuti", value: waiting.cuti, href: "/portal/admin/leave?tab=pengajuan&lihat=pengajuan" },
-        { label: "Dinas", value: waiting.dinas, href: "/portal/admin/leave?tab=dinas&lihat=pengajuan" },
-        { label: "Lembur", value: waiting.lembur, href: "/portal/admin/lembur" },
-        { label: "Pinjaman", value: waiting.pinjaman, href: "/portal/admin/pinjaman" },
-        { label: "Tukar Shift", value: waiting.tukar, href: "/portal/notifikasi?modul=kehadiran" },
+        { label: "Cuti", value: waiting.cuti, href: "/portal/admin/laporan?jenis=cuti&status=menunggu" },
+        { label: "Dinas", value: waiting.dinas, href: "/portal/admin/laporan?jenis=dinas&status=menunggu" },
+        { label: "Lembur", value: waiting.lembur, href: "/portal/admin/laporan?jenis=lembur&status=menunggu" },
+        { label: "Pinjaman", value: waiting.pinjaman, href: "/portal/admin/laporan?jenis=pinjaman&status=menunggu" },
+        { label: "Tukar Shift", value: waiting.tukar, href: "/portal/admin/laporan?jenis=tukar&status=menunggu" },
       ].filter((x) => x.value > 0), // kotak yang 0 disembunyikan
-      icon: "users", tone: "amber", href: "/portal/persetujuan", actionable: true,
+      icon: "users", tone: "amber", href: "/portal/admin/laporan?jenis=cuti&status=menunggu", actionable: true,
     },
     {
       key: "perubahan-data", title: "Perubahan Data Belum Disetujui", value: adminEdits + profileEdits,

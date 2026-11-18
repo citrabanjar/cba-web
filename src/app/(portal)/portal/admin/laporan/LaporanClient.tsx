@@ -3,16 +3,16 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CalendarHeart, ClipboardList, Download, Filter, LayoutGrid, Loader2, Timer, Users, X } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, CalendarHeart, ClipboardList, Download, Filter, HandCoins, LayoutGrid, Loader2, Plane, Timer, Users, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
 import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
 import type { RecapDay, RecapRow } from "@/lib/attendance-recap";
-import type { LeaveReportRow, OvertimeReportRow } from "@/lib/report";
+import type { LeaveReportRow, LoanReportRow, OvertimeReportRow, ReportStatus, SwapReportRow, TripReportRow } from "@/lib/report";
 
-export type ReportKind = "semua" | "kehadiran" | "cuti" | "lembur";
+export type ReportKind = "semua" | "kehadiran" | "cuti" | "dinas" | "tukar" | "lembur" | "pinjaman";
 type Emp = { id: string; name: string; employeeId: string | null; department: string | null };
 const num = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 const STATUS: Record<string, string> = { HADIR: "Hadir", IZIN: "Izin", SAKIT: "Sakit", ALPHA: "Alpha", CUTI: "Cuti", DINAS: "Dinas" };
@@ -20,7 +20,24 @@ const LEAVE_STATUS: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "Menunggu", cls: "bg-amber-50 text-amber-700" }, APPROVED: { label: "Disetujui", cls: "bg-emerald-50 text-emerald-700" },
   REJECTED: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" }, CANCELLED: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-600" },
 };
-const KINDS: [ReportKind, string, typeof LayoutGrid][] = [["semua", "Semua", LayoutGrid], ["kehadiran", "Kehadiran", CalendarDays], ["cuti", "Cuti", CalendarHeart], ["lembur", "Lembur", Timer]];
+const KINDS: [ReportKind, string, typeof LayoutGrid][] = [
+  ["semua", "Semua", LayoutGrid], ["kehadiran", "Kehadiran", CalendarDays], ["cuti", "Cuti", CalendarHeart], ["dinas", "Dinas", Plane],
+  ["tukar", "Tukar Shift", ArrowLeftRight], ["lembur", "Lembur", Timer], ["pinjaman", "Pinjaman", HandCoins],
+];
+const SWAP_STATUS: Record<string, { label: string; cls: string }> = {
+  MENUNGGU_REKAN: { label: "Menunggu rekan", cls: "bg-amber-50 text-amber-700" }, MENUNGGU_ATASAN: { label: "Menunggu atasan", cls: "bg-amber-50 text-amber-700" },
+  DISETUJUI: { label: "Disetujui", cls: "bg-emerald-50 text-emerald-700" }, DITOLAK: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" }, DIBATALKAN: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-600" },
+};
+const LOAN_STATUS: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: "Menunggu", cls: "bg-amber-50 text-amber-700" }, DISETUJUI: { label: "Belum dicairkan", cls: "bg-sky-50 text-sky-700" },
+  BERJALAN: { label: "Berjalan", cls: "bg-emerald-50 text-emerald-700" }, LUNAS: { label: "Lunas", cls: "bg-gray-100 text-gray-600" },
+  DITOLAK: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" }, BATAL: { label: "Batal", cls: "bg-gray-100 text-gray-600" },
+};
+// Sama dengan LOAN_STAGE di lib/report (lib itu memakai database, jadi tidak diimpor ke browser).
+const LOAN_STAGE: Record<string, string> = { ATASAN: "Atasan", ADMIN: "Pemeriksaan Admin", PIMPINAN: "Pimpinan" };
+const STATUS_TABS: [ReportStatus, string][] = [["", "Semua status"], ["menunggu", "Belum selesai"], ["disetujui", "Disetujui"], ["ditolak", "Ditolak / batal"]];
+const rupiah = (n: number) => `Rp\u00a0${Math.round(n).toLocaleString("id-ID")}`;
+const pill = (m: Record<string, { label: string; cls: string }>, st: string) => m[st] ?? { label: st, cls: "bg-gray-100 text-gray-600" };
 
 // Nama karyawan: tautan ke tab profil sesuai jenis laporan (bila punya akses Data Karyawan) —
 // Kehadiran / Semua → Kehadiran & Shift, Cuti → Cuti & Dinas, Lembur → kalender kehadiran di tanggal lembur.
@@ -39,9 +56,10 @@ function EmpName({ id, name, employeeId, department, canProfile, tab, date, exem
   );
 }
 
-export default function LaporanClient({ kind, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, canProfile }: {
-  kind: ReportKind; from: string; to: string; picked: string[]; tooLong: boolean; employees: Emp[];
-  rows: RecapRow[]; days: RecapDay[]; leaves: LeaveReportRow[]; overtimes: OvertimeReportRow[]; canProfile: boolean;
+export default function LaporanClient({ kind, status = "", stage = "", canLoan = false, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, trips = [], swaps = [], loans = [], canProfile }: {
+  kind: ReportKind; status?: ReportStatus; stage?: string; canLoan?: boolean; from: string; to: string; picked: string[]; tooLong: boolean; employees: Emp[];
+  rows: RecapRow[]; days: RecapDay[]; leaves: LeaveReportRow[]; overtimes: OvertimeReportRow[];
+  trips?: TripReportRow[]; swaps?: SwapReportRow[]; loans?: LoanReportRow[]; canProfile: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -54,12 +72,18 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
   const depts = useMemo(() => [...new Set(employees.map((e) => e.department).filter(Boolean))].sort() as string[], [employees]);
   const shown = employees.filter((e) => (!dept || e.department === dept) && (!q || `${e.name} ${e.employeeId ?? ""}`.toLowerCase().includes(q.toLowerCase())));
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const go = (k: ReportKind) => start(() => router.push(`/portal/admin/laporan?jenis=${k}&dari=${f.from}&sampai=${f.to}${sel.size ? `&karyawan=${[...sel].join(",")}` : ""}`));
+  // Ganti jenis: status ikut dibawa (papan kerja "Belum selesai" tetap); tahap hanya untuk pinjaman.
+  const go = (k: ReportKind, st: ReportStatus = status, tahap = "") => start(() => router.push(
+    `/portal/admin/laporan?jenis=${k}&dari=${f.from}&sampai=${f.to}${st && k !== "semua" && k !== "kehadiran" ? `&status=${st}` : ""}${tahap ? `&tahap=${tahap}` : ""}${sel.size ? `&karyawan=${[...sel].join(",")}` : ""}`));
+  const perItem = kind !== "semua" && kind !== "kehadiran";
 
   const total = (k: keyof RecapRow) => rows.reduce((a, r) => a + (typeof r[k] === "number" ? (r[k] as number) : 0), 0);
   const leaveText = (r: RecapRow) => Object.entries(r.leaveByType).map(([k, v]) => `${k} ${num(v)}`).join(", ");
-  const count = kind === "cuti" ? leaves.length : kind === "lembur" ? overtimes.length : rows.length;
-  const title = `${t("Laporan")} ${t(KINDS.find((k) => k[0] === kind)![1])} ${formatDate(from)} – ${formatDate(to)}`;
+  const count = kind === "cuti" ? leaves.length : kind === "lembur" ? overtimes.length : kind === "dinas" ? trips.length : kind === "tukar" ? swaps.length : kind === "pinjaman" ? loans.length : rows.length;
+  const kindLabel = t(KINDS.find((k) => k[0] === kind)![1]);
+  const title = status === "menunggu" || (stage && stage !== "SELESAI")
+    ? `${kindLabel} ${t("belum selesai")}${stage && stage !== "SELESAI" ? ` · ${t("tahap")} ${t(LOAN_STAGE[stage])}` : ""}`
+    : `${t("Laporan")} ${kindLabel}${stage === "SELESAI" ? ` ${t("selesai diputus")}` : ""} ${formatDate(from)} – ${formatDate(to)}`;
 
   const exportXlsx = () => {
     const wb = XLSX.utils.book_new();
@@ -71,6 +95,15 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
     if (kind === "cuti") {
       sheet("Cuti", ["ID Karyawan", "Nama", "Departemen", "Jenis", "Mulai", "Selesai", "Hari", "Status", "Alasan", "Delegasi", "Diputus oleh"],
         leaves.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", r.policy, formatDate(r.start), formatDate(r.end), r.days, LEAVE_STATUS[r.status]?.label ?? r.status, r.reason, r.delegate ?? "", r.decidedBy ?? ""]));
+    } else if (kind === "dinas") {
+      sheet("Dinas", ["ID Karyawan", "Nama", "Departemen", "Tujuan", "Keperluan", "Mulai", "Selesai", "Hari", "Status", "Giliran / Diputus oleh"],
+        trips.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", r.destination, r.purpose, formatDate(r.start), formatDate(r.end), r.days, LEAVE_STATUS[r.status]?.label ?? r.status, r.turn ?? r.decidedBy ?? ""]));
+    } else if (kind === "tukar") {
+      sheet("Tukar Shift", ["ID Karyawan", "Pemohon", "Departemen", "Rekan", "Tanggal", "Shift pemohon", "Shift rekan", "Alasan", "Status", "Giliran / Diputus oleh"],
+        swaps.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", r.partner, formatDate(r.date), r.requesterShift, r.partnerShift, r.reason ?? "", SWAP_STATUS[r.status]?.label ?? r.status, r.turn ?? r.decidedBy ?? ""]));
+    } else if (kind === "pinjaman") {
+      sheet("Pinjaman", ["ID Karyawan", "Nama", "Departemen", "Diajukan", "Jumlah", "Tenor", "Potongan mulai", "Keperluan", "Status", "Tahap", "Diputus oleh"],
+        loans.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", formatDate(r.createdAt.slice(0, 10)), r.principal, r.tenor, r.startPeriod, r.purpose ?? "", LOAN_STATUS[r.status]?.label ?? r.status, r.stage ? LOAN_STAGE[r.stage] ?? r.stage : "", r.decidedBy ?? ""]));
     } else if (kind === "lembur") {
       sheet("Lembur", ["ID Karyawan", "Nama", "Departemen", "Tanggal", "Hari", "Jam", "Sumber", "Uraian", "Status", "Jam efektif", "Absen pulang", "Jam dibayar", "Cek fisik", "Konfirmasi atasan"],
         overtimes.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", formatDate(r.date), r.rest ? "Hari libur" : "Hari kerja", `${r.start}-${r.end}`, r.source, r.reason ?? "",
@@ -98,13 +131,13 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
     <div className="min-h-full bg-gray-50">
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Laporan</T></h2>
-        <p className="mt-0.5 text-xs text-gray-400"><T>Laporan kehadiran, cuti, dan lembur untuk rentang tanggal dan karyawan yang dipilih.</T></p>
+        <p className="mt-0.5 text-xs text-gray-400"><T>Papan kerja Admin: pekerjaan yang belum selesai dan laporan kehadiran, cuti, dinas, tukar shift, lembur, serta pinjaman untuk rentang tanggal dan karyawan yang dipilih.</T></p>
       </div>
 
       <main className="max-w-7xl space-y-5 px-4 py-5 sm:px-6">
         {/* Jenis laporan */}
         <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-2">
-          {KINDS.map(([k, label, Icon]) => (
+          {KINDS.filter(([k]) => k !== "pinjaman" || canLoan).map(([k, label, Icon]) => (
             <button key={k} type="button" disabled={loading} onClick={() => go(k)}
               className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${kind === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               <Icon size={15} /> <T>{label}</T>
@@ -154,6 +187,24 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
               </div>
             </div>
           )}
+          {perItem && (
+            <div className="flex flex-wrap items-center gap-1">
+              {STATUS_TABS.map(([st, label]) => (
+                <button key={st || "semua"} type="button" disabled={loading} onClick={() => go(kind, st)}
+                  className={`h-8 rounded-full px-3 text-xs font-semibold ${status === st && !stage ? (st === "menunggu" ? "bg-amber-500 text-white" : "bg-ink text-white") : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                  <T>{label}</T>
+                </button>
+              ))}
+              {stage && (
+                <button type="button" onClick={() => go(kind, status)} className="inline-flex h-8 items-center gap-1 rounded-full bg-brand/10 px-3 text-xs font-semibold text-brand">
+                  <T>Tahap</T>: <T>{stage === "SELESAI" ? "Selesai diputus" : LOAN_STAGE[stage]}</T> <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
+          {(status === "menunggu" || (stage && stage !== "SELESAI")) && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"><T>Belum selesai: semua pengajuan yang belum diputus ditampilkan tanpa melihat rentang tanggal.</T></p>
+          )}
           <p className="text-[11px] text-gray-400"><T>Kosongkan pilihan karyawan untuk menampilkan semua. Pilih satu karyawan untuk melihat rincian per hari (Semua / Kehadiran).</T>{canProfile && <> <T>Klik nama untuk membuka profil karyawan (Kehadiran / Cuti sesuai jenis laporan).</T></>}</p>
         </section>
 
@@ -161,9 +212,9 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
           <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-5 py-3">
             <ClipboardList size={16} className="text-brand" />
             <h3 className="flex-1 text-sm font-semibold text-gray-800">{title}</h3>
-            <span className="text-xs text-gray-500">{count} <T>{kind === "cuti" ? "pengajuan" : kind === "lembur" ? "lembur" : "karyawan"}</T></span>
+            <span className="text-xs text-gray-500">{count} <T>{perItem ? (kind === "lembur" ? "lembur" : "pengajuan") : "karyawan"}</T></span>
           </div>
-          {tooLong ? (
+          {tooLong && status !== "menunggu" ? (
             <p className="px-5 py-8 text-center text-sm text-rose-600"><T>Rentang tanggal paling lama 1 tahun.</T></p>
           ) : count === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-gray-400"><T>Tidak ada data.</T></p>
@@ -182,13 +233,90 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
                         <td className="px-3 py-2">{t(r.policy)}{r.halfDay && <span className="text-[11px] text-gray-400"> · ½ <T>hari</T></span>}</td>
                         <td className="px-3 py-2">{formatDate(r.start)}{r.end !== r.start && <> – {formatDate(r.end)}</>}</td>
                         <td className={td}>{num(r.days)}</td>
-                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{r.decidedBy && <p className="mt-0.5 text-[11px] text-gray-400">{r.decidedBy}</p>}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
                         <td className="max-w-64 truncate px-3 py-2 text-gray-600" title={r.reason}>{r.reason}</td>
                         <td className="px-3 py-2 text-gray-600">{r.delegate ?? "-"}</td>
                       </tr>
                     );
                   })}
                 </tbody>
+              </table>
+            </div>
+          ) : kind === "dinas" ? (
+            <div className="max-h-[65vh] overflow-auto">
+              <table className="w-full whitespace-nowrap text-sm">
+                <thead className="sticky top-0 z-10 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                  <tr><th className={`${thl} pl-4`}><T>Karyawan</T></th><th className={thl}><T>Tujuan</T></th><th className={thl}><T>Tanggal</T></th><th className={th}><T>Hari</T></th><th className={thl}><T>Status</T></th><th className={thl}><T>Keperluan</T></th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {trips.map((r) => {
+                    const st = pill(LEAVE_STATUS, r.status);
+                    return (
+                      <tr key={r.id} className="align-top hover:bg-gray-50/60">
+                        <td className="px-4 py-2"><EmpName canProfile={canProfile} tab="cuti" id={r.userId} name={r.name} employeeId={r.employeeId} department={r.department} /></td>
+                        <td className="px-3 py-2">{r.destination}</td>
+                        <td className="px-3 py-2">{formatDate(r.start)}{r.end !== r.start && <> – {formatDate(r.end)}</>}</td>
+                        <td className={td}>{r.days}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="max-w-64 truncate px-3 py-2 text-gray-600" title={r.purpose}>{r.purpose}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : kind === "tukar" ? (
+            <div className="max-h-[65vh] overflow-auto">
+              <table className="w-full whitespace-nowrap text-sm">
+                <thead className="sticky top-0 z-10 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                  <tr><th className={`${thl} pl-4`}><T>Pemohon</T></th><th className={thl}><T>Rekan</T></th><th className={thl}><T>Tanggal</T></th><th className={thl}><T>Shift</T></th><th className={thl}><T>Status</T></th><th className={thl}><T>Alasan</T></th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {swaps.map((r) => {
+                    const st = pill(SWAP_STATUS, r.status);
+                    return (
+                      <tr key={r.id} className="align-top hover:bg-gray-50/60">
+                        <td className="px-4 py-2"><EmpName canProfile={canProfile} tab="absensi" date={r.date} id={r.userId} name={r.name} employeeId={r.employeeId} department={r.department} /></td>
+                        <td className="px-3 py-2">{r.partner}</td>
+                        <td className="px-3 py-2">{formatDate(r.date)}</td>
+                        <td className="px-3 py-2 font-mono text-xs">{r.requesterShift} ⇄ {r.partnerShift}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="max-w-64 truncate px-3 py-2 text-gray-600" title={r.reason ?? ""}>{r.reason ?? "-"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : kind === "pinjaman" ? (
+            <div className="max-h-[65vh] overflow-auto">
+              <table className="w-full whitespace-nowrap text-sm">
+                <thead className="sticky top-0 z-10 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                  <tr><th className={`${thl} pl-4`}><T>Karyawan</T></th><th className={thl}><T>Diajukan</T></th><th className={th}><T>Jumlah</T></th><th className={th}><T>Tenor</T></th><th className={thl}><T>Status</T></th><th className={thl}><T>Keperluan</T></th><th className={thl} /></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {loans.map((r) => {
+                    const st = pill(LOAN_STATUS, r.status);
+                    return (
+                      <tr key={r.id} className="align-top hover:bg-gray-50/60">
+                        <td className="px-4 py-2"><EmpName canProfile={canProfile} tab="cuti" id={r.userId} name={r.name} employeeId={r.employeeId} department={r.department} /></td>
+                        <td className="px-3 py-2">{formatDate(r.createdAt.slice(0, 10))}</td>
+                        <td className={td}>{rupiah(r.principal)}</td>
+                        <td className={td}>{r.tenor}x<p className="text-[11px] text-gray-400"><T>mulai</T> {r.startPeriod}</p></td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.stage || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.stage ? <><T>Tahap</T>: <T>{LOAN_STAGE[r.stage] ?? r.stage}</T></> : r.decidedBy}</p>}</td>
+                        <td className="max-w-56 truncate px-3 py-2 text-gray-600" title={r.purpose ?? ""}>{r.purpose ?? "-"}</td>
+                        <td className="px-3 py-2 text-right">
+                          {(r.status === "PENDING" || r.status === "DISETUJUI") && (
+                            <Link href={`/portal/admin/pinjaman${r.stage ? `?tahap=${r.stage}` : ""}`} className="text-xs font-semibold text-brand hover:underline"><T>Proses</T> →</Link>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="sticky bottom-0 border-t border-gray-200 bg-gray-50 font-semibold text-gray-800">
+                  <tr><td className="px-4 py-2" colSpan={2}><T>Total</T></td><td className={td}>{rupiah(loans.reduce((a, r) => a + r.principal, 0))}</td><td colSpan={4} /></tr>
+                </tfoot>
               </table>
             </div>
           ) : kind === "lembur" ? (
@@ -270,7 +398,7 @@ export default function LaporanClient({ kind, from, to, picked, tooLong, employe
             </div>
           )}
           <p className="border-t border-gray-100 px-5 py-2 text-[11px] text-gray-400">
-            <T>{kind === "cuti" ? "Semua pengajuan cuti yang tanggalnya beririsan dengan rentang, termasuk yang menunggu, ditolak, dan dibatalkan." : kind === "lembur" ? "Jam dibayar per 1 jam penuh sampai absen pulang, di luar istirahat. Cek fisik oleh security bila shiftnya beririsan." : "Cuti = cuti disetujui dalam hari kerja (setengah hari = 0,5). Lembur = jam dibayar (per 1 jam penuh sampai absen pulang, di luar istirahat). HK = hari kerja, HL = hari libur / OFF."}</T>
+            <T>{kind === "dinas" ? "Pengajuan dinas luar yang tanggalnya beririsan dengan rentang. Keputusan tetap di penyetuju lewat Notifikasi." : kind === "tukar" ? "Pengajuan tukar shift yang tanggal tukarnya di dalam rentang. Keputusan di rekan dan atasan lewat Notifikasi." : kind === "pinjaman" ? "Pengajuan pinjaman yang dibuat di dalam rentang (saldo awal tidak termasuk). Klik Proses untuk memeriksa dokumen atau mencairkan di menu Pinjaman Karyawan." : kind === "cuti" ? "Semua pengajuan cuti yang tanggalnya beririsan dengan rentang, termasuk yang menunggu, ditolak, dan dibatalkan." : kind === "lembur" ? "Jam dibayar per 1 jam penuh sampai absen pulang, di luar istirahat. Cek fisik oleh security bila shiftnya beririsan." : "Cuti = cuti disetujui dalam hari kerja (setengah hari = 0,5). Lembur = jam dibayar (per 1 jam penuh sampai absen pulang, di luar istirahat). HK = hari kerja, HL = hari libur / OFF."}</T>
           </p>
         </section>
 
