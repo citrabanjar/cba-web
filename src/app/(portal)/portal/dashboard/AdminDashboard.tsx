@@ -151,7 +151,9 @@ function Donut({ parts }: { parts: { label: string; value: number }[] }) {
   );
 }
 
-export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) {
+// announcement: kotak Pengumuman (Admin). Bila Task Admin sedang kosong, Pengumuman menempati posisinya;
+// bila ada tugas, Task Admin tampil dan Pengumuman di bawahnya.
+export default async function AdminDashboard({ isSuper, announcement }: { isSuper: boolean; announcement?: React.ReactNode }) {
   const today = todayDate();
   const employee = { role: { not: "SUPER_ADMIN" as const } };
   // Alpha otomatis 7 hari terakhir (paling sering sekali per jam; cadangan selama cron malam belum aktif).
@@ -177,6 +179,11 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
     }))
     .filter((p) => p.value > 0 || p.label !== "Probation");
 
+  const hasTasks = agent.ai.length > 0 || agent.reminders.length > 0 || agent.groups.some((g) => g.list.some((t) => t.count > 0))
+    || (isSuper && !!agent.setup?.some((x) => !x.optional && !x.done)); // Setup Awal: pekerjaan Super Admin
+  const showTasks = isSuper || hasTasks || !announcement;
+  const grid = "grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]";
+
   return (
     <div className="space-y-5">
       {/* Indikator dinamis: kartu jadwal selalu pertama, sisanya bergantian */}
@@ -184,8 +191,8 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
         items={insights.indicators}
       />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <AgentPanel groups={agent.groups} setup={agent.setup} reminders={agent.reminders} ai={agent.ai} canHideSetup={isSuper} />
+      <div className={grid}>
+        {showTasks ? <AgentPanel groups={agent.groups} setup={agent.setup} reminders={agent.reminders} ai={agent.ai} canHideSetup={isSuper} /> : announcement}
 
         <Panel icon={PieChart} tone="violet" title="Status Karyawan" subtitle="Komposisi karyawan aktif menurut status kerja">
           {active ? <Donut parts={statusParts} /> : <Empty text="Belum ada karyawan aktif." />}
@@ -197,6 +204,7 @@ export default async function AdminDashboard({ isSuper }: { isSuper: boolean }) 
         </Panel>
       </div>
 
+      {showTasks && announcement && <div className={grid}>{announcement}</div>}
     </div>
   );
 }

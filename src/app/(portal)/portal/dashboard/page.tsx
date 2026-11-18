@@ -60,12 +60,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       {isAdmin && (
         <div className="mb-6">
-          <AdminDashboard isSuper={superAdmin} />
+          <AdminDashboard isSuper={superAdmin} announcement={announcements ? <AnnouncementPanel items={announcements} openId={openAnnouncement} /> : undefined} />
         </div>
       )}
 
-      {/* Admin: kotak Pengumuman selebar Task Admin, di bawahnya. */}
-      {announcements && (
+      {/* Karyawan dan Admin tanpa panel Admin di Beranda: kotak Pengumuman. Panel Admin mengatur sendiri posisinya. */}
+      {announcements && !isAdmin && (
         <div className={user.role === "ADMIN" ? "grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]" : ""}>
           <AnnouncementPanel items={announcements} openId={openAnnouncement} />
         </div>

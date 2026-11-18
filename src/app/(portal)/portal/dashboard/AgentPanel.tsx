@@ -143,7 +143,7 @@ export default function AgentPanel({ groups, setup, reminders, ai = [], canHideS
   const run = total > 3;
   const greeting = setup && setupLeft > 0
     ? `Setup awal tinggal ${setupLeft} langkah lagi.`
-    : total > 0 ? `Ada ${total} hal yang perlu perhatian.` : anyCheck ? "Semua beres, tidak ada yang terlewat." : "Belum ada pengecekan yang dinyalakan.";
+    : total > 0 ? `Ada ${total} hal yang perlu perhatian.` : anyCheck ? "Tidak ada tugas pending." : "Belum ada pengecekan yang dinyalakan.";
 
   return (
     <section className="relative overflow-hidden rounded-2xl border bg-white p-5">
@@ -172,8 +172,8 @@ export default function AgentPanel({ groups, setup, reminders, ai = [], canHideS
       ) : total === 0 ? (
         <div className="flex h-[18rem] flex-col items-center justify-center gap-2 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check size={22} strokeWidth={3} /></span>
-          <p className="text-sm font-semibold text-gray-800"><T>Semua beres</T></p>
-          <p className="text-xs text-gray-400"><T>Tidak ada pekerjaan yang terlewat.</T></p>
+          <p className="text-sm font-semibold text-gray-800"><T>Tidak ada tugas pending</T></p>
+          <p className="text-xs text-gray-400"><T>Tugas baru akan muncul di sini.</T></p>
         </div>
       ) : (
         // Berjalan ke atas seperti running text, berhenti saat disorot supaya admin bisa memilih.
