@@ -7,7 +7,8 @@ export type ComboboxOption = { value: string; label: string };
 
 // Daftar ikut alur halaman di bawah isian, jadi selalu membuka ke bawah dan tidak
 // terpotong oleh dialog. Pencarian mencocokkan nilai maupun nama, dan isian tetap
-// boleh berisi teks di luar daftar.
+// boleh berisi teks di luar daftar. Nilai yang cocok dengan pilihan bernama tampil
+// "ID - Nama" (nilai yang dikirim tetap ID-nya saja).
 export default function EmployeeCombobox({
   id, value, options, onChange, placeholder, className,
 }: {
@@ -20,6 +21,19 @@ export default function EmployeeCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+
+  // Pilihan yang sudah dipilih (atau diketik persis) tampil lengkap dengan namanya.
+  const chosen = options.find((o) => o.label && o.value === value);
+  const display = chosen ? `${chosen.value} - ${chosen.label}` : value;
+  // Mengetik di atas isian lengkap: hapus = kosongkan, ketik = mulai cari dari huruf baru.
+  function edit(e: React.ChangeEvent<HTMLInputElement>) {
+    let text = e.target.value;
+    if (chosen) {
+      const deleting = (e.nativeEvent as InputEvent).inputType?.startsWith("delete");
+      text = deleting ? "" : text.startsWith(display) ? text.slice(display.length) : text;
+    }
+    onChange(text); setOpen(true); setActive(0);
+  }
 
   const query = value.trim().toLowerCase();
   // Isian yang sudah cocok dengan satu pilihan tetap menampilkan seluruh daftar.
@@ -63,9 +77,9 @@ export default function EmployeeCombobox({
         autoComplete="off"
         placeholder={placeholder}
         className={className}
-        value={value}
-        onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
-        onFocus={() => setOpen(true)}
+        value={display}
+        onChange={edit}
+        onFocus={(e) => { setOpen(true); if (chosen) e.target.select(); }}
         // Dialog memfokuskan isian pertama saat dibuka, jadi klik juga harus membuka daftar.
         onClick={() => setOpen(true)}
         onBlur={() => setOpen(false)}
