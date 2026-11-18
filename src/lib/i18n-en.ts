@@ -140,7 +140,7 @@ export const en: Record<string, string> = {
   "Buat peran dulu di tab Peran Admin.": "Create a role first in the Admin Roles tab.",
   "Tambahkan karyawan ke peran dengan Employee ID. Anggota otomatis menjadi Admin; karyawan yang tidak ikut peran mana pun kembali menjadi karyawan biasa.": "Add employees to a role by Employee ID. Members automatically become Admins; employees in no role go back to regular employees.",
   "Peran Admin menetapkan cakupan kewenangan setiap Admin atas menu portal beserta mekanisme persetujuan atas perubahan data yang dilakukannya.": "Admin Roles define each Admin's scope of authority over portal menus, along with the approval mechanism for the data changes they make.",
-  "Peran ini punya anggota. Hapus peran? Anggota kehilangan kewenangan dari peran ini.": "This role has members. Delete it? Members lose this role's permissions.",
+  "Peran ini memiliki anggota. Hapus peran ini? Anggota akan kehilangan kewenangan dari peran ini.": "This role has members. Delete it? Members lose this role's permissions.",
   "Hapus peran ini?": "Delete this role?",
   "Nama peran, mis. Admin Absen": "Role name, e.g. Attendance Admin",
   "Keterangan (opsional)": "Description (optional)",

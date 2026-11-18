@@ -12,6 +12,7 @@ import { hasImportRight } from "@/lib/import-kinds";
 import type { AdminRole } from "@/lib/admin-roles";
 import { saveRoles } from "./role-actions";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
+import { askConfirm } from "@/components/portal/Confirm";
 
 export type Person = { id: string; employeeId: string | null; name: string; position: string | null };
 const label = (p: Pick<Person, "employeeId" | "name">) => `${p.employeeId ?? "-"} - ${p.name}`;
@@ -129,9 +130,9 @@ export function RolesSettings({ roles: initial, importEnabled = [] }: { roles: A
                 )}
               </div>
               <Button size="sm" variant="outline" className="h-9 gap-1.5 rounded-full text-red-600 hover:text-red-700"
-                onClick={() => {
-                  const warn = r.members.length ? t("Peran ini punya anggota. Hapus peran? Anggota kehilangan kewenangan dari peran ini.") : t("Hapus peran ini?");
-                  if (confirm(warn)) { s.setMsg(null); s.setRoles((prev) => prev.filter((x) => x.id !== r.id)); setSel(null); }
+                onClick={async () => {
+                  const warn = r.members.length ? t("Peran ini memiliki anggota. Hapus peran ini? Anggota akan kehilangan kewenangan dari peran ini.") : t("Hapus peran ini?");
+                  if (await askConfirm(warn)) { s.setMsg(null); s.setRoles((prev) => prev.filter((x) => x.id !== r.id)); setSel(null); }
                 }}>
                 <Trash2 size={14} /> <T>Hapus</T>
               </Button>
