@@ -62,13 +62,14 @@ function coveredDays(ranges: Range[], status: string, map: Map<string, string>, 
 }
 
 export default function AttendanceCalendar({
-  attendances, leaves, trips, shiftDays = {}, side, editUserId, overtimes = [], shiftEdit,
+  attendances, leaves, trips, shiftDays = {}, side, editUserId, overtimes = [], shiftEdit, initialDate,
 }: {
   // Jadwal Manual: palet shift yang diseret ke tanggal (atau dipilih lalu klik / sapu tanggal), lalu Simpan.
   // Tanggal yang sudah berisi shift (tersimpan) dikunci; koreksi melalui Jadwal → Jadwal Bulanan.
   shiftEdit?: { userId: string; shifts: { id: string; code: string; name: string; color: string }[]; onDone?: () => void };
   attendances: Attendance[]; leaves: Leave[]; trips: Trip[]; shiftDays?: Record<string, DayShift>;
   overtimes?: { date: string; start: string; end: string; status: string }[]; // lembur (SPL bersedia / pengajuan); tertempel di jadwal
+  initialDate?: string; // YYYY-MM-DD: bulan & tanggal yang dibuka pertama kali
   editUserId?: string; // Super Admin (masa testing): boleh ubah/tambah absen sampai hari ini
   side?: React.ReactNode; // kartu tambahan di kolom kanan (mis. Jadwal Kerja)
 }) {
@@ -78,8 +79,10 @@ export default function AttendanceCalendar({
   const todayKey = nowJakarta.toISOString().slice(0, 10);
   // Super Admin (masa testing) boleh mengisi absen sampai akhir bulan berjalan.
   const monthEndKey = new Date(Date.UTC(nowJakarta.getUTCFullYear(), nowJakarta.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
-  const [month, setMonth] = useState({ y: nowJakarta.getUTCFullYear(), m: nowJakarta.getUTCMonth() });
-  const [selected, setSelected] = useState<string | null>(todayKey);
+  // Dibuka dari Laporan dengan ?tanggal=YYYY-MM-DD: kalender langsung di bulan & tanggal itu.
+  const start = initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : null;
+  const [month, setMonth] = useState(() => (start ? { y: Number(start.slice(0, 4)), m: Number(start.slice(5, 7)) - 1 } : { y: nowJakarta.getUTCFullYear(), m: nowJakarta.getUTCMonth() }));
+  const [selected, setSelected] = useState<string | null>(start ?? todayKey);
   const router = useRouter();
   const [edits, setEdits] = useState<Record<string, string | null>>({});
   const [brush, setBrush] = useState<string | null>(null); // shift terpilih untuk klik / sapu ("" = kosongkan)

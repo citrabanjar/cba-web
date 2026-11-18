@@ -29,7 +29,7 @@ export default async function KaryawanDetailPage({
   params, searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ aksi?: string; tab?: string }>;
+  searchParams: Promise<{ aksi?: string; tab?: string; tanggal?: string }>;
 }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
@@ -170,6 +170,7 @@ export default async function KaryawanDetailPage({
       managers={managers}
       initialAction={(await searchParams).aksi}
       initialTab={(await searchParams).tab}
+      initialDate={(await searchParams).tanggal}
       canSeeLoans={canSeeLoans}
       loans={canSeeLoans ? (await prisma.employeeLoan.findMany({ where: { userId: id, status: { in: ["BERJALAN", "LUNAS", "DIGABUNG"] } }, orderBy: { createdAt: "desc" }, include: { installments: true } })).map(toLoanView) : []}
       master={await getMasterOptions()}

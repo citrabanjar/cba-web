@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Klik nama untuk membuka profil karyawan (Kehadiran / Cuti sesuai jenis laporan).": "Click a name to open the employee profile (Attendance / Leave by report type).",
   "Laporan": "Reports",
   "Laporan kehadiran, cuti, dan lembur untuk rentang tanggal dan karyawan yang dipilih.": "Attendance, leave and overtime reports for the selected date range and employees.",
   "Kosongkan pilihan karyawan untuk menampilkan semua. Pilih satu karyawan untuk melihat rincian per hari (Semua / Kehadiran).": "Leave the employee selection empty to show everyone. Select one employee to see daily details (All / Attendance).",

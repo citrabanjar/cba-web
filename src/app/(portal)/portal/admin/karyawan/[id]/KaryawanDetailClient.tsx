@@ -682,7 +682,7 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, initialAction, initialTab, canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
+  employee: emp, tenure, managers, initialAction, initialTab, initialDate, canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
   schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
 }: {
   employee: Employee;
@@ -690,6 +690,7 @@ export default function KaryawanDetailClient({
   managers: { id: string; name: string; employeeId: string | null }[];
   initialAction?: string;
   initialTab?: string;
+  initialDate?: string; // tanggal yang dibuka di kalender kehadiran (dari Laporan)
   canSeeLoans: boolean;
   loans: LoanView[];
   master: MasterOptions;
@@ -1170,7 +1171,7 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "absensi" && (
-          <AttendanceCalendar attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
+          <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
             shiftEdit={canEditTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} />} />
         )}
