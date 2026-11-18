@@ -25,7 +25,7 @@ const refresh = (userId?: string) => {
   if (userId) revalidatePath(`/portal/admin/karyawan/${userId}`);
 };
 const cleanFamily = (rows: FamilyRow[]) =>
-  rows.map((r) => ({ name: r.name.trim(), idNumber: r.idNumber.trim(), relation: r.relation })).filter((r) => r.name);
+  rows.map((r) => ({ name: r.name.trim().toUpperCase(), idNumber: r.idNumber.trim(), relation: r.relation })).filter((r) => r.name);
 
 // Karyawan mengajukan perubahan data pribadi. Hanya field yang benar-benar berubah yang disimpan.
 export async function submitProfileChange(input: { values: Record<string, string>; family: FamilyRow[] | null; reason: string }): Promise<Result> {

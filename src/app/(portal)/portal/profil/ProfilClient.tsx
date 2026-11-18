@@ -336,7 +336,7 @@ function ChangeDialog({ values, family, onClose }: { values: Record<string, stri
           <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-400"><T>Keluarga</T></p>
           {rows.map((r, i) => (
             <div key={i} className="grid grid-cols-[1fr_120px_1fr_28px] items-center gap-2">
-              <Input placeholder={t("Nama")} value={r.name} className="h-9" onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, name: e.target.value } : y)))} />
+              <Input placeholder={t("Nama")} value={r.name} autoComplete="off" className="h-9" onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, name: e.target.value.toUpperCase() } : y)))} />
               <select className={field} value={r.relation} onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, relation: e.target.value } : y)))}>
                 <option value="">—</option>
                 {FAMILY_RELATIONS.map((o) => <option key={o} value={o}>{t(o)}</option>)}

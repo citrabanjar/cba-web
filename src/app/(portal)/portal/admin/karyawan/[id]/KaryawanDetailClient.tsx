@@ -508,8 +508,8 @@ function FamilyDialog({ employee, onClose }: { employee: Employee; onClose: () =
           {error && <div className="text-sm px-4 py-3 rounded-lg bg-red-50 text-red-700">{error}</div>}
           {rows.map((r, i) => (
             <div key={i} className="grid grid-cols-[1fr_1fr_120px_auto] gap-2 items-center">
-              <Input value={r.name} placeholder="Nama" aria-label="Nama"
-                onChange={(e) => patch(i, { name: e.target.value })} />
+              <Input value={r.name} placeholder="Nama" aria-label="Nama" autoComplete="off"
+                onChange={(e) => patch(i, { name: e.target.value.toUpperCase() })} />
               <Input value={r.idNumber} placeholder="ID Number" aria-label="ID Number"
                 onChange={(e) => patch(i, { idNumber: e.target.value })} />
               <select value={r.relation} aria-label="Jenis Anggota Keluarga"

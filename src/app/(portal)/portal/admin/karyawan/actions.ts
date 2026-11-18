@@ -489,7 +489,7 @@ export async function saveFamily(id: string, rows: FamilyInput[]) {
   if (!target) throw new Error("Not found");
 
   const family = rows.map((r) => ({
-    name: r.name.trim(), idNumber: r.idNumber.trim() || null, relation: r.relation,
+    name: r.name.trim().toUpperCase(), idNumber: r.idNumber.trim() || null, relation: r.relation,
   }));
   if (family.some((r) => !r.name || !FAMILY_RELATIONS.includes(r.relation))) {
     throw new Error("Nama dan jenis anggota keluarga wajib diisi");
