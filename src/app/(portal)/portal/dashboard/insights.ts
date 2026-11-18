@@ -200,10 +200,10 @@ export async function loadIndicators(): Promise<Indicator[]> {
       note: "menunggu persetujuan", sub: waiting.uji ? `${waiting.uji} di antaranya pengajuan uji [UJI]` : undefined,
       steps: [
         { label: "Cuti", value: waiting.cuti, href: "/portal/admin/leave?tab=pengajuan&lihat=pengajuan" },
-        { label: "Dinas", value: waiting.dinas, href: "/portal/persetujuan" },
+        { label: "Dinas", value: waiting.dinas, href: "/portal/notifikasi?modul=dinas" },
         { label: "Lembur", value: waiting.lembur, href: "/portal/admin/lembur" },
         { label: "Pinjaman", value: waiting.pinjaman, href: "/portal/admin/pinjaman" },
-        { label: "Tukar Shift", value: waiting.tukar, href: "/portal/persetujuan" },
+        { label: "Tukar Shift", value: waiting.tukar, href: "/portal/notifikasi?modul=kehadiran" },
       ].filter((x) => x.value > 0), // kotak yang 0 disembunyikan
       icon: "users", tone: "amber", href: "/portal/persetujuan", actionable: true,
     },
