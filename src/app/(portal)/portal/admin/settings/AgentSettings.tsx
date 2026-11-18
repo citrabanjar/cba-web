@@ -50,7 +50,7 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
         {/* Setup Awal: langkah estafet Super Admin → Admin Absensi & Cuti → Data Karyawan → Payroll di Task Admin. */}
         <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={setup} disabled={!canEdit || pending} className="h-4 w-4 accent-[var(--color-brand)]"
-            onChange={(e) => { const v = e.target.checked; run(() => setSetupDone(!v), v ? "Setup Awal diaktifkan." : "Setup Awal dinonaktifkan.", () => setSetup(v)); }} />
+            onChange={(e) => setSetup(e.target.checked)} />
           <span className="font-semibold"><T>Setup Awal</T></span>
           <span className="text-xs text-gray-400">· <T>tampilkan langkah setup awal di Task Admin</T></span>
         </label>
@@ -74,8 +74,12 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
           {canEdit && (
             <div className="flex justify-end">
               <Button size="sm" disabled={pending} className="gap-1.5"
-                onClick={() => run(() => saveAgentRules({ enabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) }), "Pengaturan Task Admin tersimpan.")}>
-                {pending && <Loader2 size={14} className="animate-spin" />} <T>Simpan Pengecekan</T>
+                onClick={() => run(async () => {
+                  // Saklar Setup Awal ikut tersimpan bersama pengecekan.
+                  const r = await saveAgentRules({ enabled, contractDays: Number(contractDays), payrollRemindDays: Number(remindDays) });
+                  return r.error ? r : setSetupDone(!setup);
+                }, "Pengaturan Task Admin tersimpan.")}>
+                {pending && <Loader2 size={14} className="animate-spin" />} <T>Simpan</T>
               </Button>
             </div>
           )}
