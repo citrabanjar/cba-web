@@ -27,9 +27,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const indicatorOnly = !isAdmin && (user.role === "ADMIN" || superAdmin) ? await loadIndicators() : null;
   const swapAsks = !superAdmin && user.id ? await prisma.shiftSwapRequest.count({ where: { partnerId: user.id, status: "MENUNGGU_REKAN" } }) : 0;
 
-  // Karyawan biasa: Beranda berisi Pengumuman. Menu pribadi (Absensi, Cuti, dll.) lewat Tombol HP.
-  const staff = superAdmin || user.role === "ADMIN";
-  const announcements = staff ? null : await activeAnnouncements();
+  // Pengumuman untuk semua karyawan, termasuk Admin (Super Admin bukan karyawan). Menu pribadi lewat Tombol HP.
+  const announcements = superAdmin ? null : await activeAnnouncements();
   const openAnnouncement = (await searchParams).pengumuman;
 
   return (
@@ -65,7 +64,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
       )}
 
-      {announcements && <AnnouncementPanel items={announcements} openId={openAnnouncement} />}
+      {/* Admin: kotak Pengumuman selebar Task Admin, di bawahnya. */}
+      {announcements && (
+        <div className={user.role === "ADMIN" ? "grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]" : ""}>
+          <AnnouncementPanel items={announcements} openId={openAnnouncement} />
+        </div>
+      )}
     </div>
   );
 }
