@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import type { HolidayType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireMenu, requireMenuApply } from "@/lib/access";
+import { getAccess, requireMenu, requireMenuApply } from "@/lib/access";
 import { holdForApproval } from "@/lib/approval-hold";
 import { holdDiff } from "@/lib/hold-diff";
 
@@ -439,18 +439,12 @@ export async function saveShiftDays(changes: ShiftDayChange[]): Promise<Result &
 // Bebas Absen (mis. direksi & keluarganya): tanpa Alpha otomatis, tanpa potongan terlambat / pulang cepat,
 // tanpa batas jam absen. Jadwal kerja tetap dipakai untuk menghitung hari kerja dan cuti.
 export async function setAttendanceExempt(userId: string, exempt: boolean): Promise<Result> {
-  await requireMenuApply("absensi");
-  const target = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, attendanceExempt: true } });
+  // Khusus Super Admin (keputusan pemilik 2026-11-18): Admin dan karyawan tidak dapat mengubah Bebas Absen.
+  const access = await getAccess();
+  if (access?.role !== "SUPER_ADMIN") return { error: "Hanya Super Admin yang dapat mengubah Bebas Absen." };
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { attendanceExempt: true } });
   if (!target) return { error: "Karyawan tidak ditemukan." };
   if (target.attendanceExempt === exempt) return {};
-  const yn = (v: boolean) => (v ? "Ya" : "Tidak");
-  const held = await holdForApproval({
-    // Sama seperti perubahan Absensi lain: diputus atasan Admin pengaju (bukan atasan karyawan sasaran).
-    kind: "absensi.setAttendanceExempt", args: [userId, exempt],
-    title: `Absensi: ${exempt ? "jadikan" : "cabut"} Bebas Absen ${target.name}`,
-    details: [{ field: "Bebas Absen", oldValue: yn(target.attendanceExempt), newValue: yn(exempt) }],
-  });
-  if (held) return held;
   await prisma.user.update({ where: { id: userId }, data: { attendanceExempt: exempt } });
   // Alpha otomatis 62 hari terakhir dinilai ulang (periode gaji yang sudah final tidak berubah).
   const today = new Date(new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10) + "T00:00:00Z");

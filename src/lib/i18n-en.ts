@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Karyawan ini Bebas Absen (ditetapkan Super Admin).": "This employee is attendance exempt (set by the Super Admin).",
+  "Hanya Super Admin yang dapat mengubah Bebas Absen.": "Only the Super Admin can change attendance exemption.",
   "Tugas baru akan muncul di sini.": "New tasks will appear here.",
   "Tidak ada tugas pending": "No pending tasks",
   "Tidak ada tugas pending.": "No pending tasks.",

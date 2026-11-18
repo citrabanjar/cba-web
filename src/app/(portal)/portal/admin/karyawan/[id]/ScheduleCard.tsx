@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
 import { assignSchedule, deleteEmployeeSchedule, setAttendanceExempt } from "../../schedule/actions";
-import { proposedText } from "@/lib/approval-text";
 import { toast } from "@/components/portal/Toast";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
@@ -23,10 +22,11 @@ const label = (s: ScheduleRow) => (s.type === "MANUAL" ? "Jadwal Manual" : s.pat
 
 // Jadwal kerja karyawan: jadwal yang berlaku sekarang, riwayatnya, dan form untuk mengganti.
 export default function ScheduleCard({
-  userId, schedules, patterns, canEdit, placing = false, onPlace, exempt = false,
+  userId, schedules, patterns, canEdit, placing = false, onPlace, exempt = false, canExempt = false,
 }: {
   userId: string; schedules: ScheduleRow[]; patterns: PatternOption[]; canEdit: boolean;
   exempt?: boolean; // Bebas Absen
+  canExempt?: boolean; // saklar Bebas Absen hanya untuk Super Admin
   placing?: boolean; onPlace?: () => void; // Jadwal Manual: aktifkan kartu shift di Kalender Kehadiran
 }) {
   const t = useT();
@@ -114,8 +114,11 @@ export default function ScheduleCard({
         </>
       )}
 
-      {/* Bebas Absen: absen opsional, gaji tidak dipotong karena absen. */}
-      <div className="mt-4 border-t border-gray-100 pt-3">
+      {/* Bebas Absen: absen opsional, gaji tidak dipotong karena absen. Saklar khusus Super Admin; Admin hanya melihat statusnya. */}
+      {!canExempt && exempt && (
+        <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800"><T>Karyawan ini Bebas Absen (ditetapkan Super Admin).</T></p>
+      )}
+      {canExempt && <div className="mt-4 border-t border-gray-100 pt-3">
         <div className="flex items-center justify-between gap-3">
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-gray-900"><T>Bebas Absen</T></span>
@@ -123,7 +126,7 @@ export default function ScheduleCard({
               <T>Tanpa Alpha otomatis dan tanpa potongan terlambat / pulang cepat. Jadwal tetap dipakai untuk hari kerja dan cuti.</T>
             </span>
           </span>
-          <button type="button" role="switch" aria-checked={exempt} disabled={!canEdit || pending} aria-label={t("Bebas Absen")}
+          <button type="button" role="switch" aria-checked={exempt} disabled={pending} aria-label={t("Bebas Absen")}
             onClick={async () => {
               const on = !exempt;
               if (!await askConfirm(t(on
@@ -132,7 +135,6 @@ export default function ScheduleCard({
               start(async () => {
                 const r = await setAttendanceExempt(userId, on);
                 if (r.error) showNotice(t(r.error), "error");
-                else if (r.proposed) showNotice(proposedText(r.proposed));
                 else showNotice(t(on ? "Karyawan sekarang Bebas Absen." : "Bebas Absen dicabut."));
               });
             }}
@@ -140,7 +142,7 @@ export default function ScheduleCard({
             <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${exempt ? "left-[22px]" : "left-0.5"}`} />
           </button>
         </div>
-      </div>
+      </div>}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

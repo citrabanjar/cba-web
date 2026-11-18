@@ -1200,7 +1200,7 @@ export default function KaryawanDetailClient({
             { key: "kalender", label: "Kalender & Jadwal", icon: CalendarDays, content: (
           <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
             shiftEdit={canEditTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
-            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} />} />
+            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} canExempt={isSuper} />} />
             ) },
             { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
           emp.attendances.length === 0 ? <Empty text="Belum ada data absensi." /> : (
