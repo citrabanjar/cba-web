@@ -43,7 +43,7 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
     <div className="min-h-full bg-gray-50">
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="flex items-center gap-2 font-bold text-gray-800"><GitBranch size={18} /> <T>Workflow</T></h2>
-        <p className="mt-0.5 text-xs text-gray-400"><T>Atur siapa yang menyetujui pengajuan per modul. Modul yang aktif menggantikan atasan langsung di profil karyawan; yang tidak aktif tetap ke atasan langsung.</T></p>
+        <p className="mt-0.5 text-xs text-gray-400"><T>Mengatur penyetuju pengajuan untuk setiap modul. Modul yang aktif menggantikan persetujuan atasan langsung.</T></p>
       </div>
       <main className="grid max-w-6xl gap-4 px-4 py-5 sm:px-6 md:grid-cols-[18rem_1fr]">
         <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -88,8 +88,8 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                     onChange={(e) => setMod(m.key, { enabled: e.target.checked, levels: e.target.checked && !mod.levels.length ? [newLevel()] : mod.levels })}
                     className="h-4 w-4 accent-[#BE353F]" />
                   <span className="min-w-0">
-                    <span className="block font-medium text-gray-800"><T>Pakai workflow untuk modul ini</T></span>
-                    <span className="block text-xs text-gray-400"><T>bila tidak dicentang, pengajuan ke atasan langsung</T></span>
+                    <span className="block font-medium text-gray-800"><T>Gunakan workflow untuk modul ini</T></span>
+                    <span className="block text-xs text-gray-400"><T>{m.key === "PERUBAHAN_DATA" ? "Jika tidak aktif, pengajuan diputus Admin Data Karyawan." : "Jika tidak aktif, pengajuan diputus atasan langsung."}</T></span>
                   </span>
                 </label>
 
@@ -133,9 +133,22 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                   </div>
                 )}
 
-                <p className="border-t border-gray-100 pt-3 text-[11px] leading-relaxed text-gray-500">
-                  <T>Berdasarkan hak akses: penyetuju dicari di antara anggota peran yang berada di atas pemohon pada bagan organisasi (yang terdekat), tidak menyeberang ke departemen lain. Bila pemohon sendiri anggota peran itu, levelnya dilewati; bila tidak ada anggota di atas pemohon, pengajuan ditolak. Orang yang sama tidak memutus dua kali. Pemeriksa dokumen (Pinjaman): semua anggota perannya boleh memeriksa, dan levelnya harus tepat sebelum level terakhir (pemutus).</T>
-                </p>
+                {/* Ketentuan singkat per modul. */}
+                <div className="border-t border-gray-100 pt-3 text-[11px] leading-relaxed text-gray-500">
+                  <p className="font-semibold text-gray-600"><T>Ketentuan</T></p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {(m.key === "PERUBAHAN_DATA" ? [
+                      "Level berdasarkan hak akses dapat diputus oleh semua anggota peran tersebut, tanpa melihat bagan organisasi.",
+                      "Perubahan data diterapkan setelah level terakhir menyetujui.",
+                      "Satu orang tidak memutus dua kali.",
+                    ] : [
+                      "Level berdasarkan hak akses diputus oleh anggota peran terdekat di atas pemohon pada bagan organisasi.",
+                      "Jika pemohon termasuk anggota peran tersebut, level itu dilewati.",
+                      "Satu orang tidak memutus dua kali.",
+                      ...(m.key === "PINJAMAN" ? ["Pemeriksa dokumen dapat dikerjakan semua anggota perannya dan ditempatkan tepat sebelum level terakhir."] : []),
+                    ]).map((x) => <li key={x}><T>{x}</T></li>)}
+                  </ul>
+                </div>
 
                 {canEdit && (
                   <div className="flex justify-end">

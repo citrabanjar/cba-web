@@ -68,6 +68,11 @@ export async function workflowSteps(module: WorkflowKey, requesterId: string): P
       continue;
     }
     if (holders.some((h) => h.id === requesterId)) continue;
+    // Perubahan Data: penyetuju bukan atasan pemohon (Admin / Kepala HRD), jadi semua anggota peran boleh memutus.
+    if (module === "PERUBAHAN_DATA" && l.type !== "EMPLOYEE") {
+      raw.push({ id: holders[0].id, name: title, decision: "", at: "", note: "", ids: holders.map((h) => h.id) });
+      continue;
+    }
     if (l.type === "EMPLOYEE") {
       raw.push({ id: holders[0].id, name: title, decision: "", at: "", note: "" });
       continue;

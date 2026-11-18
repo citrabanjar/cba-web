@@ -135,7 +135,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
           )}
           {watched.length > 0 && (
             <div className="space-y-3 border-b border-gray-100 bg-gray-50/70 p-3">
-              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{mod === "pinjaman" ? "Sedang diproses" : mod === "profil" ? "Pengajuan saya" : "Menunggu persetujuan atasan"}</T> · {watched.length}</p>
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{mod === "pinjaman" ? "Sedang diproses" : mod === "profil" ? "Pengajuan saya" : mod === "karyawan" ? "Menunggu persetujuan" : "Menunggu persetujuan atasan"}</T> · {watched.length}</p>
               {watched.map(renderCard)}
             </div>
           )}

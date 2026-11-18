@@ -63,12 +63,14 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     ...(data?.edits ?? []).filter((e) => e.mine).map((e) => ({
       module: editModule(e.kind), key: `edit-${e.id}`, card: { type: "edit" as const, item: e },
     })),
-    ...(data?.profiles ?? []).filter((p) => p.status === "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `profile-${p.id}`, card: { type: "profile" as const, item: p } })),
+    ...(data?.profiles ?? []).filter((p) => p.status === "PENDING" && p.mine !== false).map((p) => ({ module: "karyawan" as NotifModule, key: `profile-${p.id}`, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `iv-${i.id}`, card: { type: "interview" as const, item: i } })),
     ...(data?.loans ?? []).filter((l) => l.mine).map((l) => ({ module: "pinjaman" as NotifModule, key: `loan-${l.id}`, card: { type: "loan" as const, item: l } })),
   ];
   // Perubahan data yang masih menunggu keputusan orang lain (dipantau Super Admin & Admin Data Karyawan).
   const watching: PendingCard[] = [
+    // Perubahan data yang sedang di level penyetuju lain (Workflow).
+    ...(data?.profiles ?? []).filter((p) => p.status === "PENDING" && p.mine === false).map((p) => ({ module: "karyawan" as NotifModule, key: `w-profile-${p.id}`, card: { type: "profile" as const, item: p } })),
     ...myProfileReqs.map((r) => ({
       module: "profil" as NotifModule, key: `my-profile-${r.id}`,
       card: { type: "myprofile" as const, item: {

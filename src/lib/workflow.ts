@@ -12,10 +12,10 @@ export const WORKFLOW_MODULES = [
   // Pra-Karyawan tidak lagi di sini: pewawancara & approver diatur Admin di menu Pra-Karyawan → Alur.
   { key: "CUTI", label: "Cuti", desc: "Pengajuan cuti dan izin karyawan." },
   { key: "DINAS", label: "Dinas Luar", desc: "Pengajuan dinas luar karyawan." },
-  { key: "LEMBUR", label: "Lembur", desc: "Pengajuan lembur karyawan (bila Surat Perintah Lembur tidak dipakai)." },
-  { key: "PINJAMAN", label: "Pinjaman", desc: "Pengajuan pinjaman karyawan. Level terakhir memutus setelah Admin memeriksa dokumen fisik; level sebelumnya memutus lebih dulu." },
-  { key: "TUKAR_SHIFT", label: "Tukar Shift", desc: "Pengajuan tukar shift antarkaryawan (menyusul).", soon: true },
-  { key: "PERUBAHAN_DATA", label: "Perubahan Data", desc: "Perubahan data pribadi dari Profil Saya (menyusul).", soon: true },
+  { key: "LEMBUR", label: "Lembur", desc: "Pengajuan lembur karyawan bila Surat Perintah Lembur tidak digunakan." },
+  { key: "PINJAMAN", label: "Pinjaman", desc: "Pengajuan pinjaman karyawan. Level terakhir memutus setelah Admin memeriksa dokumen." },
+  { key: "TUKAR_SHIFT", label: "Tukar Shift", desc: "Pengajuan tukar shift antarkaryawan.", soon: true },
+  { key: "PERUBAHAN_DATA", label: "Perubahan Data", desc: "Pengajuan perubahan data pribadi dari Profil Saya." },
 ] as const;
 export type WorkflowKey = (typeof WORKFLOW_MODULES)[number]["key"];
 

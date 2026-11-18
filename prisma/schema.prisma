@@ -894,6 +894,7 @@ model ProfileChangeRequest {
   decidedBy String?
   decidedAt DateTime?
   createdAt DateTime  @default(now())
+  approval  Json? // jejak approval menu Workflow "Perubahan Data" (Level 1..3); kosong = Admin Data Karyawan
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

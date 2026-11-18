@@ -60,7 +60,9 @@ export async function pendingApprovals(a: Approver) {
   const [leaves, trips, profiles, swaps, interviews, workflow, edits, ots, loans] = await Promise.all([
     prisma.leaveRequest.count({ where: { status: "PENDING", user, ...noWorkflow } }),
     prisma.businessTrip.count({ where: { status: "PENDING", user, ...noWorkflow } }),
-    reviewsProfiles(a) ? prisma.profileChangeRequest.count({ where: { status: "PENDING", userId: { not: a.id } } }) : 0,
+    // Perubahan data: tanpa Workflow → Admin Data Karyawan; dengan Workflow → penyetuju level yang sedang berjalan.
+    prisma.profileChangeRequest.findMany({ where: { status: "PENDING", userId: { not: a.id } }, select: { approval: true } })
+      .then((list) => list.filter((r) => { const f = readApproval(r.approval); return f ? actionableApprovers(f).includes(a.id) : reviewsProfiles(a); }).length),
     pendingSwapApprovals(a.id),
     pendingInterviewApprovals(a.id),
     pendingWorkflowRequests(a.id),

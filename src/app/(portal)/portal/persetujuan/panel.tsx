@@ -36,10 +36,11 @@ export async function loadApprovals(a: Approver) {
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
     }),
     // Perubahan data pribadi dari Profil Saya (Admin Data Karyawan).
-    reviewer ? prisma.profileChangeRequest.findMany({
+    // Dengan Workflow "Perubahan Data": penyetuju level (dicek per baris di bawah).
+    prisma.profileChangeRequest.findMany({
       where: { userId: { not: a.id }, OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }] },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
-    }) : Promise.resolve([]),
+    }),
     // Tukar shift: atasan langsung pemohon (A) dan atasan langsung rekan (B).
     prisma.shiftSwapRequest.findMany({
       where: { OR: [{ managerAId: a.id }, { managerBId: a.id }], status: { in: ["MENUNGGU_ATASAN", "DISETUJUI", "DITOLAK"] }, createdAt: { gte: since } },
@@ -118,10 +119,19 @@ export async function loadApprovals(a: Approver) {
     })),
   ];
 
-  const profiles: ProfileItem[] = profileReqs.map((r) => ({
-    id: r.id, status: r.status, person: person(r.user), changes: r.changes as ProfileChanges, family: (r.family as FamilyRow[] | null) ?? null,
-    reason: r.reason, note: r.note, decidedBy: r.decidedBy, decidedAt: r.decidedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
-  }));
+  // Tanpa Workflow: Admin Data Karyawan memutus. Dengan Workflow: tampil untuk penyetuju di jejaknya (memutus bila levelnya
+  // sedang berjalan) dan untuk pemantau (Super Admin & Admin Data Karyawan).
+  const profiles: ProfileItem[] = profileReqs.flatMap((r) => {
+    const flow = readApproval(r.approval);
+    const inFlow = !!flow?.steps.some((s) => stepCandidates(s).includes(a.id));
+    if (flow ? !inFlow && !monitor : !reviewer) return [];
+    return [{
+      id: r.id, status: r.status, person: person(r.user), changes: r.changes as ProfileChanges, family: (r.family as FamilyRow[] | null) ?? null,
+      reason: r.reason, note: r.note, decidedBy: r.decidedBy, decidedAt: r.decidedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
+      mine: r.status === "PENDING" && (flow ? actionableApprovers(flow).includes(a.id) : reviewer),
+      flow: flow ? flow.steps.map((s) => ({ name: s.name, decision: s.decision, by: s.by ?? "" })) : null,
+    }];
+  });
 
   const swaps: SwapItem[] = swapReqs.map((s) => ({
     id: s.id, date: ymd(s.date), status: s.status, requester: person(s.requester), partner: person(s.partner),
@@ -179,7 +189,7 @@ export async function loadApprovals(a: Approver) {
       mine: review || loanTurn(l.status, l.stage, flow, a.id),
     };
   });
-  return { items, profiles: reviewer ? profiles : null, swaps, interviews, master, edits, loans };
+  return { items, profiles: profiles.length || reviewer ? profiles : null, swaps, interviews, master, edits, loans };
 }
 
 export type ApprovalData = Awaited<ReturnType<typeof loadApprovals>>;

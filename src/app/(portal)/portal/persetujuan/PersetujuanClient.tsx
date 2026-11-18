@@ -40,6 +40,8 @@ const dec = (n: number) => String(n).replace(".", ",");
 export type ProfileItem = {
   id: string; status: string; person: ApprovalItem["person"]; changes: ProfileChanges; family: FamilyRow[] | null;
   reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string;
+  mine?: boolean; // level / giliran pengguna ini memutus
+  flow?: { name: string; decision: string; by: string }[] | null; // jejak Workflow Perubahan Data
 };
 
 export type SwapItem = {
@@ -253,11 +255,20 @@ export function ProfileCard({ item: p }: { item: ProfileItem }) {
             </table>
           </div>
           {p.reason && <p className="mt-1.5 text-xs text-gray-600"><T>Alasan</T>: {p.reason}</p>}
+          {p.flow && (
+            <p className="mt-1.5 text-[11px] text-gray-500">
+              {p.flow.map((s, i) => (
+                <span key={i}>{i > 0 && " → "}<span className={s.decision === "SETUJU" ? "text-emerald-700" : s.decision === "TOLAK" ? "text-rose-600" : "text-gray-500"}>
+                  Level {i + 1}: {s.name}{s.decision ? ` (${t(s.decision === "SETUJU" ? "disetujui" : "ditolak")}${s.by ? ` ${s.by}` : ""})` : ""}
+                </span></span>
+              ))}
+            </p>
+          )}
           {p.status !== "PENDING" && <p className="mt-1.5 text-[11px] text-gray-400">{p.decidedBy ?? "—"}{p.decidedAt && <> · {formatDate(new Date(p.decidedAt))}</>}{p.note && <> · <T>Catatan</T>: {p.note}</>}</p>}
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>
       </div>
-      {p.status === "PENDING" && (
+      {p.status === "PENDING" && p.mine !== false && (
         <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
           <input value={note} onChange={(e) => setNote(e.target.value)}
             placeholder={t(rejecting ? "Alasan penolakan (wajib)" : "Catatan untuk karyawan (opsional)")}
@@ -275,7 +286,7 @@ export function ProfileCard({ item: p }: { item: ProfileItem }) {
               <>
                 <button type="button" disabled={pending} onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"><X size={13} /> <T>Tolak</T></button>
                 <button type="button" disabled={pending} onClick={() => decide(true)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                  {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Setujui & terapkan</T>
+                  {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>{p.flow && p.flow.filter((x) => !x.decision).length > 1 ? "Setujui" : "Setujui & terapkan"}</T>
                 </button>
               </>
             )}
