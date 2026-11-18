@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ClipboardList, CheckCircle2, ListChecks, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, CheckCircle2, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,18 +48,12 @@ export default function AgentSettings({ settings }: { settings: Settings }) {
       </CardHeader>
       <CardContent className="space-y-5">
         {/* Setup Awal: langkah estafet Super Admin → Admin Absensi & Cuti → Data Karyawan → Payroll di Task Admin. */}
-        <section className={`rounded-2xl border p-4 ${setup ? "border-brand/40" : "border-gray-200"}`}>
-          <label className="flex cursor-pointer items-start gap-3">
-            <input type="checkbox" checked={setup} disabled={!canEdit || pending} className="mt-1 h-4 w-4 accent-[var(--color-brand)]"
-              onChange={(e) => { const v = e.target.checked; run(() => setSetupDone(!v), v ? "Setup Awal diaktifkan." : "Setup Awal dinonaktifkan.", () => setSetup(v)); }} />
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2 font-semibold text-gray-900"><ListChecks size={16} /> <T>Setup Awal</T>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${setup ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}><T>{setup ? "Aktif" : "Nonaktif"}</T></span>
-              </span>
-              <span className="block text-xs text-gray-500"><T>Aktif: Task Admin menampilkan langkah Setup Awal secara berurutan sesuai kewenangan (Super Admin, Admin Absensi & Cuti, Admin Data Karyawan, Admin Payroll). Nonaktif: langkah Setup Awal tidak ditampilkan.</T></span>
-            </span>
-          </label>
-        </section>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={setup} disabled={!canEdit || pending} className="h-4 w-4 accent-[var(--color-brand)]"
+            onChange={(e) => { const v = e.target.checked; run(() => setSetupDone(!v), v ? "Setup Awal diaktifkan." : "Setup Awal dinonaktifkan.", () => setSetup(v)); }} />
+          <span className="font-semibold"><T>Setup Awal</T></span>
+          <span className="text-xs text-gray-400">· <T>tampilkan langkah setup awal di Task Admin</T></span>
+        </label>
 
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-600"><T>Pengecekan yang dipantau</T></p>
