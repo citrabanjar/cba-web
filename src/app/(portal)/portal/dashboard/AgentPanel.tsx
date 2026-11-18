@@ -33,19 +33,7 @@ function SetupList({ steps, canHide }: { steps: SetupStep[]; canHide: boolean })
           return (
             <div key={s.key}>
               {head && <p className="mt-2 px-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400"><T>{head}</T></p>}
-              <Link href={s.href} className="group flex items-start gap-3 rounded-xl px-3 py-2 hover:bg-gray-50">
-                <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${s.done ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-400"}`}>
-                  {s.done ? <Check size={13} strokeWidth={3} /> : <Circle size={10} />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-semibold ${s.done ? "text-gray-500" : "text-gray-900"}`}>
-                    <T>{s.title}</T>{s.optional && <span className="ml-1 text-[10px] font-normal text-gray-400">(<T>opsional</T>)</span>}
-                  </span>
-                  {s.note && <span className="block text-xs text-gray-500">{s.note}</span>}
-                  {!s.done && <span className="block text-[11px] text-gray-400"><T>{s.hint}</T></span>}
-                </span>
-                {!s.done && <ArrowRight size={15} className="mt-1 shrink-0 text-gray-300 group-hover:text-brand" />}
-              </Link>
+              <StepRow s={s} />
             </div>
           );
         })}
@@ -59,6 +47,30 @@ function SetupList({ steps, canHide }: { steps: SetupStep[]; canHide: boolean })
       </div>}
     </div>
   );
+}
+
+// Satu langkah Setup Awal. Langkah milik pihak lain tampil abu-abu (tidak bisa diklik) dengan nama pelaksananya.
+function StepRow({ s }: { s: SetupStep }) {
+  const body = (
+    <>
+      <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${s.done ? "bg-emerald-100 text-emerald-600" : s.next ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-400"}`}>
+        {s.done ? <Check size={13} strokeWidth={3} /> : <Circle size={10} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-sm font-semibold ${s.done || !s.mine ? "text-gray-500" : "text-gray-900"}`}>
+          <T>{s.title}</T>{s.optional && <span className="ml-1 text-[10px] font-normal text-gray-400">(<T>opsional</T>)</span>}
+          {s.next && <span className="ml-1.5 rounded-full bg-amber-50 px-1.5 py-px align-middle text-[10px] font-semibold text-amber-700"><T>Langkah berikutnya</T></span>}
+        </span>
+        <span className="block text-[11px] text-gray-400"><T>Pelaksana</T>: {s.owner}</span>
+        {s.note && <span className="block text-xs text-gray-500">{s.note}</span>}
+        {!s.done && s.mine && <span className="block text-[11px] text-gray-400"><T>{s.hint}</T></span>}
+      </span>
+      {!s.done && s.mine && <ArrowRight size={15} className="mt-1 shrink-0 text-gray-300 group-hover:text-brand" />}
+    </>
+  );
+  return s.mine && !s.done
+    ? <Link href={s.href} className="group flex items-start gap-3 rounded-xl px-3 py-2 hover:bg-gray-50">{body}</Link>
+    : <div className={`flex items-start gap-3 rounded-xl px-3 py-2 ${s.mine ? "" : "opacity-60"}`}>{body}</div>;
 }
 
 // Pengingat SOP sebagai satu baris di running list, dengan tombol Selesai.
@@ -133,7 +145,24 @@ const Tag = ({ label }: { label: string }) => (
 export default function AgentPanel({ groups, setup, reminders, ai = [], canHideSetup = false }: { groups: { key: string; label: string; list: Task[] }[]; setup: SetupStep[] | null; reminders: DueReminder[]; ai?: AiFindingView[]; canHideSetup?: boolean }) {
   const setupLeft = setup ? setup.filter((s) => !s.optional && !s.done).length : 0;
   const [showSetup, setShowSetup] = useState(false);
+  // Setup Awal langsung tampil di daftar tugas: langkah milik sendiri yang belum selesai; bila langkah berikutnya
+  // milik pihak lain, satu baris keterangan pelaksananya.
+  // Estafet: langkah milik sendiri muncul saat langkah berikutnya milik sendiri; setelah semua langkah wajib selesai,
+  // langkah opsional milik sendiri yang belum dikerjakan tetap ditawarkan.
+  const nextStep = setup?.find((s) => s.next);
+  const mySetup = (setup ?? []).filter((s) => s.mine && !s.done && (nextStep ? nextStep.mine && !s.optional : s.optional));
+  const nextOther = nextStep && !nextStep.mine ? nextStep : undefined;
   const items = [
+    ...mySetup.map((s) => ({ key: `setup-${s.key}`, node: <StepRow s={s} /> })),
+    ...(nextOther && setupLeft > 0 ? [{ key: "setup-wait", node: (
+      <div className="flex items-start gap-3 rounded-xl px-3 py-2.5 opacity-70">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400"><Circle size={11} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-gray-600"><T>Setup Awal</T>: <T>{nextOther.title}</T> <Tag label="Setup Awal" /></span>
+          <span className="block text-[11px] text-gray-400"><T>Sedang dikerjakan oleh</T> {nextOther.owner}</span>
+        </span>
+      </div>
+    ) }] : []),
     ...ai.map((f) => ({ key: `ai-${f.id}`, node: <AiRow f={f} /> })),
     ...groups.flatMap((g) => g.list.filter((t) => t.count > 0).map((t) => ({ key: `${g.key}-${t.key}`, node: <Row task={t} tag={<Tag label={g.label} />} /> }))),
     ...reminders.map((r) => ({ key: `sop-${r.id}`, node: <ReminderRow r={r} /> })),

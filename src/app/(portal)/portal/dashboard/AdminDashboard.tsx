@@ -195,7 +195,7 @@ export default async function AdminDashboard({ isSuper, announcement }: { isSupe
     ai: rawAgent.ai.filter((f) => allowed(f.href)),
   };
   const hasTasks = agent.ai.length > 0 || agent.reminders.length > 0 || agent.groups.some((g) => g.list.some((t) => t.count > 0))
-    || (isSuper && !!agent.setup?.some((x) => !x.optional && !x.done)); // Setup Awal: pekerjaan Super Admin
+    || !!agent.setup?.some((x) => x.next && x.mine); // langkah Setup Awal berikutnya milik sendiri
   const showTasks = isSuper || hasTasks || !announcement;
   const grid = "grid gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]";
 

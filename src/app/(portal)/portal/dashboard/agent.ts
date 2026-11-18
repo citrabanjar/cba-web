@@ -6,7 +6,8 @@ import { TAX_SETTING_KEY } from "@/lib/pph21";
 import { loadInsights, type Task } from "./insights";
 import { getOnboardingSettings } from "@/lib/onboarding-settings";
 import { aiFeatureOn } from "@/lib/ai-checker";
-import { hasMenu } from "@/lib/roles";
+import { MENUS, canEditMenu, hasMenu, type MenuKey } from "@/lib/roles";
+import { notify } from "@/lib/notify";
 
 const DAY = 86_400_000;
 const todayKey = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -17,20 +18,27 @@ export async function getAgentSettings(): Promise<AgentSettings> {
 }
 
 // Satu langkah panduan Setup Awal (SOP migrasi). Selesai/belum dideteksi dari data portal.
-export type SetupStep = { key: string; phase: string; title: string; hint: string; done: boolean; note?: string; href: string; optional?: boolean };
+// owner = pelaksana (Super Admin atau Admin pemegang kewenangannya); mine = langkah milik pengguna yang membuka;
+// next = langkah wajib pertama yang belum selesai (langkah berikutnya untuk seluruh tim).
+export type SetupStep = {
+  key: string; phase: string; title: string; hint: string; done: boolean; note?: string; href: string; optional?: boolean;
+  owner: string; mine: boolean; next?: boolean;
+};
 
-// Setup Awal dibagi peran (prinsip: Super Admin menyiapkan dasar, Admin mengurus detail):
-// - Super Admin: parameter organisasi (rumah karyawan), import data karyawan, lalu menentukan Admin.
-// - Admin: lokasi absen, shift, libur, jenis & saldo cuti, payroll & PPh 21, foto, saldo pinjaman, gaji pertama
-//   (hanya langkah yang menjadi kewenangannya).
+// Setup Awal dikerjakan berurutan seperti estafet (keputusan pemilik 2026-11-18):
+// Super Admin (organisasi, import karyawan, Admin) -> Admin Absensi & Cuti (kehadiran, cuti) -> Admin Data Karyawan (foto)
+// -> Admin Payroll (payroll, PPh 21, gaji pertama). Semua pihak melihat urutan lengkap; langkah milik pihak lain tampil abu-abu.
+// Saat langkah berikutnya berpindah ke pelaksana lain, pelaksana itu menerima notifikasi.
 const IMPORT_TAB = "/portal/admin/settings?tab=import";
-type SetupAccess = { role: string; menuAccess: string[] };
+const SETUP_NEXT_KEY = "setup.next";
+type SetupAccess = { id?: string; role: string; menuAccess: string[] };
+type StepDef = Omit<SetupStep, "owner" | "mine" | "next"> & { menu: MenuKey | "SUPER" };
 
 async function loadSetup(user: SetupAccess): Promise<SetupStep[]> {
   const year = Number(todayKey().slice(0, 4));
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
   const [branches, depts, positions, locations, shifts, holidays, policies, components, payrollSetting, taxSetting,
-    employees, noPhoto, admins, leaveOpening, loanOpening, finalRuns] = await Promise.all([
+    employees, noPhoto, admins, leaveOpening, loanOpening, finalRuns, staff] = await Promise.all([
     prisma.branch.count(), prisma.department.count(), prisma.position.count(),
     prisma.workLocation.count({ where: { isActive: true } }),
     prisma.workShift.count(),
@@ -45,42 +53,67 @@ async function loadSetup(user: SetupAccess): Promise<SetupStep[]> {
     prisma.leaveBalanceEntry.count({ where: { kind: "SALDO_AWAL" } }),
     prisma.employeeLoan.count({ where: { isOpening: true } }),
     prisma.payrollRun.count({ where: { status: "FINAL" } }),
+    prisma.user.findMany({ where: { isActive: true, role: { in: ["ADMIN", "SUPER_ADMIN"] } }, select: { id: true, name: true, role: true, menuAccess: true }, orderBy: { name: "asc" } }),
   ]);
   const taxYears = Object.keys((taxSetting?.value ?? {}) as Record<string, unknown>);
 
-  if (user.role === "SUPER_ADMIN") return [
-    { key: "org", phase: "1. Rumah karyawan", title: "Parameter organisasi", hint: "Import Parameter Organisasi (cabang, departemen, jabatan) di Pengaturan → Import Data, atau isi di menu Organisasi.",
+  const defs: StepDef[] = [
+    { menu: "SUPER", key: "org", phase: "1. Rumah karyawan", title: "Parameter organisasi", hint: "Import Parameter Organisasi (cabang, departemen, jabatan) di Pengaturan → Import Data, atau isi di menu Organisasi.",
       done: branches > 0 && depts > 0 && positions > 0, note: `${branches} cabang · ${depts} departemen · ${positions} jabatan`, href: IMPORT_TAB },
-    { key: "employees", phase: "2. Data karyawan", title: "Import data karyawan", hint: "Import Data Karyawan (termasuk gaji pokok) di Pengaturan → Import Data.",
+    { menu: "SUPER", key: "employees", phase: "2. Data karyawan", title: "Import data karyawan", hint: "Import Data Karyawan (termasuk gaji pokok) di Pengaturan → Import Data.",
       done: employees > 0, note: `${employees} karyawan aktif`, href: IMPORT_TAB },
-    { key: "admins", phase: "3. Admin", title: "Tentukan Admin", hint: "Buat Peran Admin dan kewenangannya, lalu tambahkan anggotanya di Anggota Admin.",
+    { menu: "SUPER", key: "admins", phase: "3. Admin", title: "Tentukan Admin", hint: "Buat Peran Admin dan kewenangannya, lalu tambahkan anggotanya di Anggota Admin.",
       done: admins > 0, note: `${admins} Admin`, href: "/portal/admin/settings?tab=peran" },
-  ];
-
-  const can = (m: Parameters<typeof hasMenu>[1]) => hasMenu(user, m);
-  const steps: (SetupStep | false)[] = [
-    can("absensi") && { key: "location", phase: "1. Kehadiran", title: "Lokasi absen (GPS)", hint: "Titik lokasi dan radius untuk absensi.",
+    { menu: "absensi", key: "location", phase: "4. Kehadiran", title: "Lokasi absen (GPS)", hint: "Titik lokasi dan radius untuk absensi.",
       done: locations > 0, note: `${locations} lokasi`, href: "/portal/admin/schedule" },
-    can("absensi") && { key: "shift", phase: "1. Kehadiran", title: "Shift & pola kerja", hint: "Shift kerja dan pola jadwal, lalu tempel ke karyawan.",
+    { menu: "absensi", key: "shift", phase: "4. Kehadiran", title: "Shift & pola kerja", hint: "Shift kerja dan pola jadwal, lalu tempel ke karyawan.",
       done: shifts > 0, note: `${shifts} shift`, href: "/portal/admin/schedule" },
-    can("absensi") && { key: "holiday", phase: "1. Kehadiran", title: `Kalender libur ${year}`, hint: "Libur nasional, cuti bersama, dan libur perusahaan.",
+    { menu: "absensi", key: "holiday", phase: "4. Kehadiran", title: `Kalender libur ${year}`, hint: "Libur nasional, cuti bersama, dan libur perusahaan.",
       done: holidays > 0, note: `${holidays} hari libur`, href: "/portal/admin/schedule" },
-    can("absensi") && { key: "leave", phase: "2. Cuti", title: "Jenis cuti", hint: "Kebijakan cuti dan jatahnya.",
+    { menu: "absensi", key: "leave", phase: "5. Cuti", title: "Jenis cuti", hint: "Kebijakan cuti dan jatahnya.",
       done: policies > 0, note: `${policies} jenis cuti`, href: "/portal/admin/leave" },
-    can("absensi") && { key: "leave-balance", phase: "2. Cuti", title: "Saldo awal cuti", hint: "Import Saldo dari aplikasi lama di Cuti → Saldo Cuti.",
+    { menu: "absensi", key: "leave-balance", phase: "5. Cuti", title: "Saldo awal cuti", hint: "Import Saldo dari aplikasi lama di Cuti → Saldo Cuti.",
       done: leaveOpening > 0, note: `${leaveOpening} baris saldo awal`, href: "/portal/admin/leave" },
-    can("gaji") && { key: "pay", phase: "3. Payroll", title: "Komponen gaji & pengaturan payroll", hint: "Komponen gaji, periode gaji, tanggal gajian, jadwal THR / Bonus.",
-      done: components > 0 && !!payrollSetting, note: payrollSetting ? `${components} komponen` : "Pengaturan Payroll belum disimpan", href: "/portal/admin/payroll" },
-    can("gaji") && { key: "tax", phase: "3. Payroll", title: `PTKP & tarif PPh 21 tahun ${year}`, hint: "Simpan Pengaturan PPh 21 tahun berjalan (dan cek tarif TER).",
-      done: taxYears.includes(String(year)), href: "/portal/admin/payroll" },
-    can("pinjaman") && { key: "loan-balance", phase: "3. Payroll", title: "Saldo awal pinjaman", hint: "Upload Saldo Awal pinjaman yang masih berjalan di aplikasi lama (menu Pinjaman, bila ada).",
-      done: loanOpening > 0, note: `${loanOpening} pinjaman saldo awal`, href: "/portal/admin/pinjaman", optional: true },
-    can("karyawan") && { key: "photo", phase: "4. Data pelengkap", title: "Foto karyawan", hint: "Upload Foto di Data Karyawan; nama file = Employee ID.",
+    { menu: "karyawan", key: "photo", phase: "6. Data pelengkap", title: "Foto karyawan", hint: "Upload Foto di Data Karyawan; nama file = Employee ID.",
       done: employees > 0 && noPhoto === 0, note: employees ? `${employees - noPhoto}/${employees} sudah ada foto` : undefined, href: "/portal/admin/karyawan", optional: true },
-    can("gaji") && { key: "first-run", phase: "5. Mulai jalan", title: "Proses Gaji pertama difinalkan", hint: "Hitung, cek, lalu finalkan gaji pertama di portal.",
+    { menu: "gaji", key: "pay", phase: "7. Payroll", title: "Komponen gaji & pengaturan payroll", hint: "Komponen gaji, periode gaji, tanggal gajian, jadwal THR / Bonus.",
+      done: components > 0 && !!payrollSetting, note: payrollSetting ? `${components} komponen` : "Pengaturan Payroll belum disimpan", href: "/portal/admin/payroll" },
+    { menu: "gaji", key: "tax", phase: "7. Payroll", title: `PTKP & tarif PPh 21 tahun ${year}`, hint: "Simpan Pengaturan PPh 21 tahun berjalan (dan cek tarif TER).",
+      done: taxYears.includes(String(year)), href: "/portal/admin/payroll" },
+    { menu: "pinjaman", key: "loan-balance", phase: "7. Payroll", title: "Saldo awal pinjaman", hint: "Upload Saldo Awal pinjaman yang masih berjalan di aplikasi lama (menu Pinjaman, bila ada).",
+      done: loanOpening > 0, note: `${loanOpening} pinjaman saldo awal`, href: "/portal/admin/pinjaman", optional: true },
+    { menu: "gaji", key: "first-run", phase: "8. Mulai jalan", title: "Proses Gaji pertama difinalkan", hint: "Hitung, cek, lalu finalkan gaji pertama di portal.",
       done: finalRuns > 0, href: "/portal/admin/payroll" },
   ];
-  return steps.filter((x): x is SetupStep => !!x);
+
+  // Pelaksana tiap langkah: Super Admin, atau Admin yang memegang hak Edit menu langkah itu.
+  const holders = (menu: StepDef["menu"]) => menu === "SUPER"
+    ? staff.filter((u) => u.role === "SUPER_ADMIN")
+    : staff.filter((u) => u.role === "ADMIN" && canEditMenu(u, menu));
+  const ownerLabel = (menu: StepDef["menu"]) => {
+    if (menu === "SUPER") return "Super Admin";
+    const names = holders(menu).map((u) => u.name.split(" ")[0]);
+    const label = MENUS.find((m) => m.key === menu)?.label ?? menu;
+    return names.length ? `${names.slice(0, 2).join(", ")}${names.length > 2 ? ` +${names.length - 2}` : ""} (Admin ${label})` : `Admin ${label} (belum ditentukan)`;
+  };
+  const mine = (menu: StepDef["menu"]) => (menu === "SUPER" ? user.role === "SUPER_ADMIN" : user.role === "ADMIN" && hasMenu(user, menu));
+  const nextIdx = defs.findIndex((d) => !d.optional && !d.done);
+  const steps: SetupStep[] = defs.map(({ menu, ...d }, i) => ({ ...d, owner: ownerLabel(menu), mine: mine(menu), next: i === nextIdx }));
+
+  // Estafet: beri tahu pelaksana langkah berikutnya bila langkahnya berganti (sekali per orang).
+  if (nextIdx >= 0) {
+    const to = holders(defs[nextIdx].menu).map((u) => u.id);
+    const row = await prisma.appSetting.findUnique({ where: { key: SETUP_NEXT_KEY } });
+    const prev = (row?.value as { key?: string; to?: string[] } | null) ?? {};
+    if (prev.key !== defs[nextIdx].key) {
+      const fresh = to.filter((id) => !(prev.to ?? []).includes(id));
+      await prisma.appSetting.upsert({
+        where: { key: SETUP_NEXT_KEY }, update: { value: { key: defs[nextIdx].key, to } }, create: { key: SETUP_NEXT_KEY, value: { key: defs[nextIdx].key, to } },
+      });
+      if (fresh.length) await notify(fresh, `Setup Awal siap dilanjutkan: ${defs[nextIdx].title}`, defs[nextIdx].hint, "/portal/dashboard?setup=1");
+    }
+  }
+  return steps;
 }
 
 // Pengecekan Payroll & Pajak.
