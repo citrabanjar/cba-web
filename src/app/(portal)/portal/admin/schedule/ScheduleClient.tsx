@@ -4,7 +4,7 @@ import { proposedText } from "@/lib/approval-text";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CalendarClock, CalendarOff, CalendarRange, ChevronDown, ChevronRight, Clock, Coffee, GripVertical, Layers, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
+  CalendarClock, CalendarOff, CalendarRange, ChevronDown, ChevronRight, Clock, Coffee, GripVertical, Loader2, MapPin, Pencil, Plus, Repeat, Scale, Timer, Trash2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -799,7 +799,6 @@ export default function ScheduleClient({
     { label: "Pola Kerja", value: patterns.length, icon: Repeat, tone: "from-sky-500 to-indigo-400" },
     { label: `Libur ${year}`, value: holidays.filter((h) => h.date.startsWith(year)).length, icon: CalendarOff, tone: "from-amber-500 to-orange-400" },
     { label: "Lokasi Absen", value: locations.filter((l) => l.isActive).length, icon: MapPin, tone: "from-rose-500 to-pink-400" },
-    { label: "Lembur", value: rule.overtimeNeedsApproval ? "Disetujui" : "Otomatis", icon: Layers, tone: "from-emerald-500 to-teal-400" },
   ];
 
   return (
@@ -812,7 +811,7 @@ export default function ScheduleClient({
       </div>
 
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((s) => (
             <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
               <div className="flex items-center justify-between">
