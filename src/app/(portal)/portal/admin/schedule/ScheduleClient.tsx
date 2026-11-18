@@ -244,21 +244,25 @@ function ShiftForm({ shift, onClose, onDirty }: { shift: Shift | "new"; onClose:
                   </button>
                 </div>
               </div>
+            </>
+          )}
 
-              {/* Batas jam absen shift ini: di luar batas tidak bisa absen; angka yang sama menjadi patokan peringatan. */}
-              <div>
-                <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900"><CalendarClock size={15} /> <T>Batas Jam Absen</T></p>
-                <p className="mb-2 text-[11px] text-gray-400"><T>Kosongkan jika tidak dibatasi.</T></p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <NumberField label="Absen masuk dibuka sebelum jam masuk" value={form.checkInEarliest ?? NaN}
-                    onChange={(n) => set("checkInEarliest", Number.isFinite(n) ? n : null)}
-                    hint="Batas paling awal check-in. Check-in lewat jam masuk ditambah menit ini mendapat peringatan potongan. Karyawan dengan SPL dapat check-in 30 menit sebelum lembur dimulai." />
-                  <NumberField label="Absen pulang ditutup setelah jam pulang" value={form.checkOutLatest ?? NaN}
-                    onChange={(n) => set("checkOutLatest", Number.isFinite(n) ? n : null)}
-                    hint="Batas paling akhir check-out. Karyawan dengan SPL mengikuti jam akhir lembur ditambah 30 menit." />
-                </div>
-              </div>
+          {/* Batas jam absen: dari jam shift, atau dari jam SPL bila ada SPL "Bersedia" (shift OFF: hanya jam SPL). */}
+          <div>
+            <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900"><CalendarClock size={15} /> <T>Batas Jam Absen</T></p>
+            <p className="mb-2 text-[11px] text-gray-400"><T>{form.isOff ? "Berlaku untuk lembur (SPL) di hari libur. Kosongkan jika tidak dibatasi." : "Kosongkan jika tidak dibatasi."}</T></p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <NumberField label={form.isOff ? "Absen masuk dibuka sebelum jam lembur" : "Absen masuk dibuka sebelum jam masuk"} value={form.checkInEarliest ?? NaN}
+                onChange={(n) => set("checkInEarliest", Number.isFinite(n) ? n : null)}
+                hint="Batas paling awal check-in." />
+              <NumberField label={form.isOff ? "Absen pulang ditutup setelah jam lembur" : "Absen pulang ditutup setelah jam pulang"} value={form.checkOutLatest ?? NaN}
+                onChange={(n) => set("checkOutLatest", Number.isFinite(n) ? n : null)}
+                hint="Batas paling akhir check-out." />
+            </div>
+          </div>
 
+          {!form.isOff && (
+            <>
               <div>
                 <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900"><Timer size={15} /> <T>Toleransi</T></p>
                 <div className="grid gap-3 sm:grid-cols-2">

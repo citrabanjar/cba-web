@@ -85,7 +85,7 @@ export async function saveShift(id: string | null, input: ShiftInput): Promise<R
     code, name, color: input.color || "#10b981", isOff: input.isOff,
     startTime: input.isOff ? null : input.startTime, endTime: input.isOff ? null : input.endTime,
     breaks, lateTolerance: input.lateTolerance, earlyLeaveTolerance: input.earlyLeaveTolerance,
-    checkInEarliest: input.isOff ? null : input.checkInEarliest, checkOutLatest: input.isOff ? null : input.checkOutLatest,
+    checkInEarliest: input.checkInEarliest, checkOutLatest: input.checkOutLatest,
     overtimeStartAfter: input.overtimeStartAfter, overtimeMinimum: input.overtimeMinimum,
     overtimeRounding: input.overtimeRounding, isActive: input.isActive,
   };

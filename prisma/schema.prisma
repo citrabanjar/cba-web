@@ -460,8 +460,8 @@ model WorkShift {
   breaks              Json     @default("[]") // [{ "start": "12:00", "end": "13:00" }]
   lateTolerance       Int      @default(5) // menit
   earlyLeaveTolerance Int      @default(0) // menit
-  checkInEarliest     Int? // absen masuk dibuka sekian menit sebelum jam masuk; check-in lebih dari sekian menit setelah jam masuk diberi peringatan (kosong = tanpa batas)
-  checkOutLatest      Int? // absen pulang ditutup sekian menit setelah jam pulang (kosong = tanpa batas); SPL "Bersedia" yang lewat jam pulang: jam akhir lembur + 30 menit
+  checkInEarliest     Int? // absen masuk dibuka sekian menit sebelum jam masuk (atau jam mulai SPL bila lebih awal); check-in lebih dari sekian menit setelah jam masuk diberi peringatan (kosong = tanpa batas). Shift OFF: dipakai untuk SPL di hari libur
+  checkOutLatest      Int? // absen pulang ditutup sekian menit setelah jam pulang (atau jam akhir SPL bila lebih akhir) (kosong = tanpa batas). Shift OFF: dipakai untuk SPL di hari libur
   overtimeStartAfter  Int      @default(30) // lembur dihitung setelah X menit dari jam pulang
   overtimeMinimum     Int      @default(60) // lembur minimal X menit
   overtimeRounding    Int      @default(30) // pembulatan ke bawah per X menit
