@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { availableYears } from "@/lib/form1721a1";
 import { getMasterOptions } from "@/lib/master-data";
 import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
 import { getShiftCalendar } from "@/lib/schedule";
@@ -171,6 +172,7 @@ export default async function KaryawanDetailPage({
       initialAction={(await searchParams).aksi}
       initialTab={(await searchParams).tab}
       initialDate={(await searchParams).tanggal}
+      pph21Years={canSeePay ? await pph21YearsOf(id) : []}
       canSeeLoans={canSeeLoans}
       loans={canSeeLoans ? (await prisma.employeeLoan.findMany({ where: { userId: id, status: { in: ["BERJALAN", "LUNAS", "DIGABUNG"] } }, orderBy: { createdAt: "desc" }, include: { installments: true } })).map(toLoanView) : []}
       master={await getMasterOptions()}
@@ -205,4 +207,23 @@ export default async function KaryawanDetailPage({
       }))}
     />
   );
+}
+
+// Data PPh 21 per tahun untuk tab Payroll: Proses Gaji bulanan FINAL + bukti potong pemberi kerja sebelumnya (3 tahun terakhir).
+async function pph21YearsOf(userId: string) {
+  const since = new Date(Date.now() + 7 * 3600_000).getUTCFullYear() - 2;
+  const [lines, slips, done] = await Promise.all([
+    prisma.payrollLine.findMany({
+      where: { userId, run: { status: "FINAL", frequency: "BULANAN", period: { gte: `${since}-01` } } },
+      select: { gross: true, pph21: true, run: { select: { period: true } } }, orderBy: { run: { period: "asc" } },
+    }),
+    prisma.priorTaxSlip.findMany({ where: { userId, year: { gte: since } }, orderBy: { monthFrom: "asc" } }),
+    availableYears(userId),
+  ]);
+  const years = [...new Set([...lines.map((l) => Number(l.run.period.slice(0, 4))), ...slips.map((s) => s.year)])].sort((a, b) => b - a);
+  return years.map((year) => ({
+    year, complete: done.includes(year),
+    months: lines.filter((l) => l.run.period.startsWith(`${year}-`)).map((l) => ({ period: l.run.period, gross: l.gross, pph21: l.pph21 })),
+    prior: slips.filter((s) => s.year === year).map((s) => ({ slipNumber: s.slipNumber, kind: s.kind, employerName: s.employerName, monthFrom: s.monthFrom, monthTo: s.monthTo, gross: s.gross, pph21: s.pph21 })),
+  }));
 }

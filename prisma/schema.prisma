@@ -151,6 +151,7 @@ model User {
   manager          User?                  @relation("Atasan", fields: [managerId], references: [id], onDelete: SetNull)
   reports          User[]                 @relation("Atasan")
   salaries         EmployeeSalary[]
+  priorTaxSlips    PriorTaxSlip[]
   changeLogs       EmployeeChangeLog[]
   family           FamilyMember[]
   photo            EmployeePhoto?
@@ -1037,4 +1038,29 @@ model OvertimeCheck {
   overtime Overtime @relation(fields: [overtimeId], references: [id], onDelete: Cascade)
 
   @@index([overtimeId])
+}
+
+// Bukti potong PPh 21 dari pemberi kerja sebelumnya (karyawan pindahan di tahun pajak yang sama), diterbitkan
+// pemberi kerja lama lewat Coretax: BPA1 (tahunan / saat keluar) atau BPMP (bulanan). Dipakai di hitung ulang PPh 21
+// masa pajak terakhir dan baris "pemotongan sebelumnya" pada 1721-A1 (PMK 168/2023).
+model PriorTaxSlip {
+  id           String   @id @default(cuid())
+  userId       String
+  year         Int
+  employerName String
+  employerNpwp String?
+  slipNumber   String // nomor bukti pemotongan
+  kind         String   @default("BPA1") // BPA1 | BPMP
+  monthFrom    Int
+  monthTo      Int
+  gross        Float // penghasilan bruto
+  net          Float? // penghasilan neto (bila tercantum; kosong = dihitung bruto - biaya jabatan)
+  pph21        Float // PPh 21 yang sudah dipotong
+  note         String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, year])
 }

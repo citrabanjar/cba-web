@@ -368,3 +368,59 @@ export async function saveBonusSchedule(input: BonusEntry[]): Promise<Result> {
   revalidatePath(PATH);
   return {};
 }
+
+// ─── Bukti potong PPh 21 pemberi kerja sebelumnya (karyawan pindahan) ──────
+export type PriorSlipInput = {
+  userId: string; year: number; employerName: string; employerNpwp: string; slipNumber: string; kind: string;
+  monthFrom: number; monthTo: number; gross: number; net: number | null; pph21: number; note: string;
+};
+const SLIP_LABELS: Record<string, string> = {
+  year: "Tahun pajak", employerName: "Pemberi kerja sebelumnya", employerNpwp: "NPWP pemberi kerja", slipNumber: "Nomor bukti potong", kind: "Jenis",
+  monthFrom: "Masa awal", monthTo: "Masa akhir", gross: "Penghasilan bruto", net: "Penghasilan neto", pph21: "PPh 21 dipotong", note: "Catatan",
+};
+export async function savePriorSlip(id: string | null, input: PriorSlipInput): Promise<Result> {
+  const access = await requirePayroll();
+  const year = Math.round(Number(input.year));
+  if (!input.userId) return { error: "Pilih karyawan." };
+  if (!(year >= 2020 && year <= 2100)) return { error: "Tahun pajak tidak valid." };
+  if (!input.employerName.trim()) return { error: "Nama pemberi kerja sebelumnya wajib diisi." };
+  if (!input.slipNumber.trim()) return { error: "Nomor bukti potong wajib diisi." };
+  const mf = Math.round(Number(input.monthFrom)), mt = Math.round(Number(input.monthTo));
+  if (!(mf >= 1 && mt <= 12 && mf <= mt)) return { error: "Masa pajak tidak valid." };
+  const gross = Number(input.gross), pph = Number(input.pph21), net = input.net === null || input.net === undefined || Number.isNaN(Number(input.net)) ? null : Number(input.net);
+  if (!(gross > 0)) return { error: "Penghasilan bruto wajib diisi." };
+  if (!(pph >= 0)) return { error: "PPh 21 dipotong tidak valid (isi 0 bila tidak ada)." };
+  const user = await prisma.user.findUnique({ where: { id: input.userId }, select: { name: true } });
+  if (!user) return { error: "Karyawan tidak ditemukan." };
+  const data = {
+    userId: input.userId, year, employerName: input.employerName.trim().toUpperCase(), employerNpwp: input.employerNpwp.trim() || null,
+    slipNumber: input.slipNumber.trim(), kind: input.kind === "BPMP" ? "BPMP" : "BPA1", monthFrom: mf, monthTo: mt,
+    gross: Math.round(gross), net: net === null ? null : Math.round(net), pph21: Math.round(pph), note: input.note.trim() || null,
+  };
+  const before = id ? await prisma.priorTaxSlip.findUnique({ where: { id } }) : null;
+  const held = await holdForApproval({
+    kind: "gaji.savePriorSlip", args: [id, input], targetUserId: input.userId,
+    title: `Payroll: bukti potong pemberi kerja sebelumnya ${user.name} (${year})`,
+    details: diff(SLIP_LABELS, before as unknown as Record<string, unknown> | null, data as unknown as Record<string, unknown>),
+  });
+  if (held) return held;
+  if (id) await prisma.priorTaxSlip.update({ where: { id }, data });
+  else await prisma.priorTaxSlip.create({ data: { ...data, createdBy: access.name ?? null } });
+  revalidatePath(PATH);
+  revalidatePath("/portal/admin/karyawan", "layout");
+  return {};
+}
+export async function deletePriorSlip(id: string): Promise<Result> {
+  await requirePayroll();
+  const s = await prisma.priorTaxSlip.findUnique({ where: { id }, include: { user: { select: { name: true } } } });
+  if (!s) return { error: "Bukti potong tidak ditemukan." };
+  const held = await holdForApproval({
+    kind: "gaji.deletePriorSlip", args: [id], targetUserId: s.userId,
+    title: `Payroll: hapus bukti potong ${s.slipNumber} (${s.user.name}, ${s.year})`, details: [{ field: "Nomor bukti potong", oldValue: s.slipNumber, newValue: null }],
+  });
+  if (held) return held;
+  await prisma.priorTaxSlip.delete({ where: { id } });
+  revalidatePath(PATH);
+  revalidatePath("/portal/admin/karyawan", "layout");
+  return {};
+}

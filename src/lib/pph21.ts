@@ -125,14 +125,17 @@ export function pasal17(pkp: number, cfg: TaxYearConfig = DEFAULT_TAX_YEAR) {
 
 // Masa pajak terakhir: PPh 21 setahun dikurangi PPh 21 yang sudah dipotong (TER) bulan-bulan sebelumnya.
 // grossYear = bruto setahun; pensionDeductYear = iuran JHT + JP yang dibayar karyawan setahun.
+// priorNet / priorTax = neto & PPh 21 dari bukti potong pemberi kerja sebelumnya (karyawan pindahan, PMK 168/2023).
 export function pph21Final(opts: {
   grossYear: number; pensionDeductYear: number; months: number; status: string | null | undefined; withheld: number; cfg?: TaxYearConfig;
+  priorNet?: number; priorTax?: number;
 }) {
   const cfg = opts.cfg ?? DEFAULT_TAX_YEAR;
   const jobCost = Math.min((opts.grossYear * cfg.jobCostRate) / 100, cfg.jobCostMaxMonthly * opts.months);
-  const net = opts.grossYear - jobCost - opts.pensionDeductYear;
+  const net = opts.grossYear - jobCost - opts.pensionDeductYear + (opts.priorNet ?? 0);
   const ptkp = ptkpOf(opts.status, cfg);
   const pkp = Math.max(0, Math.floor((net - ptkp) / 1000) * 1000); // dibulatkan ke bawah ribuan
   const yearTax = pasal17(pkp, cfg);
-  return { jobCost, net, ptkp, pkp, yearTax, tax: Math.max(0, yearTax - opts.withheld), refund: Math.max(0, opts.withheld - yearTax) };
+  const paid = opts.withheld + (opts.priorTax ?? 0);
+  return { jobCost, net, ptkp, pkp, yearTax, tax: Math.max(0, yearTax - paid), refund: Math.max(0, opts.withheld - Math.max(0, yearTax - (opts.priorTax ?? 0))) };
 }

@@ -33,6 +33,7 @@ import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
 import type { DayShift } from "@/lib/schedule";
 import type { BalanceRow } from "@/lib/leave-balance";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
+import Pph21Card, { type Pph21Year } from "./Pph21Card";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import ProfileLoans from "@/components/portal/LoanManager";
 import type { LoanView } from "@/components/portal/LoanCard";
@@ -682,7 +683,7 @@ function SalaryDialog({
 }
 
 export default function KaryawanDetailClient({
-  employee: emp, tenure, managers, initialAction, initialTab, initialDate, canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
+  employee: emp, tenure, managers, initialAction, initialTab, initialDate, pph21Years = [], canSeeLoans, loans, master, canSeePay, isSuper, canEdit: canEditTarget,
   schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
 }: {
   employee: Employee;
@@ -691,6 +692,7 @@ export default function KaryawanDetailClient({
   initialAction?: string;
   initialTab?: string;
   initialDate?: string; // tanggal yang dibuka di kalender kehadiran (dari Laporan)
+  pph21Years?: Pph21Year[]; // data PPh 21 per tahun (tab Payroll)
   canSeeLoans: boolean;
   loans: LoanView[];
   master: MasterOptions;
@@ -1110,6 +1112,8 @@ export default function KaryawanDetailClient({
             <PayComponentsCard userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} />
 
             {emp.salaries.length > 0 && <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} />}
+
+            <Pph21Card userId={emp.id} years={pph21Years} />
             </>)}
           </div>
         )}

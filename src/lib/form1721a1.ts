@@ -3,6 +3,7 @@ import type { LineItem } from "@/lib/payroll-run";
 import type { PayParams } from "@/lib/payroll";
 import { pasal17, ptkpOf, taxYearConfig } from "@/lib/pph21";
 import { getPayrollSettings, getTaxSettings } from "@/lib/payroll-settings";
+import { priorSlips, priorTotals } from "@/lib/prior-tax";
 
 // Bukti Pemotongan PPh 21 Pegawai Tetap (formulir 1721-A1 / BPA1) per tahun, disusun dari Proses Gaji
 // bulanan yang sudah FINAL. Tersedia setelah proses akhir tahun selesai: Proses Gaji Desember tahun itu
@@ -19,6 +20,8 @@ export type Form1721A1 = {
   employer: { name: string; npwp: string; signerName: string; signerId: string };
   employee: { name: string; employeeId: string | null; npwp: string | null; nik: string | null; address: string | null; gender: string | null; ptkp: string; position: string | null };
   rows: A1Rows; diff: number; // diff = r20 - r19 (positif = lebih dipotong)
+  final: boolean; // false = tahun belum selesai (Desember / bulan keluar belum final): dokumen sementara
+  prior: { employerName: string; employerNpwp: string | null; slipNumber: string; kind: string; monthFrom: number; monthTo: number }[];
 };
 
 const ROW_OF: Record<string, keyof A1Rows> = {
@@ -42,9 +45,11 @@ export async function availableYears(userId: string) {
   return years.map(Number).sort((a, b) => b - a);
 }
 
-export async function build1721A1(userId: string, year: number): Promise<Form1721A1 | null> {
-  if (!(await availableYears(userId)).includes(year)) return null;
-  const [user, lines, components, settings, taxAll] = await Promise.all([
+// opts.provisional: boleh dibuat sebelum akhir tahun (preview admin, ditandai sementara) selama sudah ada Proses Gaji final.
+export async function build1721A1(userId: string, year: number, opts: { provisional?: boolean } = {}): Promise<Form1721A1 | null> {
+  const final = (await availableYears(userId)).includes(year);
+  if (!final && !opts.provisional) return null;
+  const [user, lines, components, settings, taxAll, slips] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { name: true, employeeId: true, employeeNo: true, npwp: true, ktpNumber: true, address: true, gender: true, ptkpStatus: true, position: true } }),
     prisma.payrollLine.findMany({
       where: { userId, run: { status: "FINAL", frequency: "BULANAN", period: { startsWith: `${year}-` } } },
@@ -53,6 +58,7 @@ export async function build1721A1(userId: string, year: number): Promise<Form172
     prisma.payComponent.findMany({ select: { code: true, category: true, params: true } }),
     getPayrollSettings(),
     getTaxSettings(),
+    priorSlips([userId], year),
   ]);
   if (!user || !lines.length) return null;
   const cfg = taxYearConfig(taxAll, year);
@@ -83,12 +89,13 @@ export async function build1721A1(userId: string, year: number): Promise<Form172
   rows.r10 = Math.round(rows.r10);
   rows.r11 = rows.r9 + rows.r10;
   rows.r12 = rows.r8 - rows.r11;
-  rows.r13 = 0; // neto dari pemberi kerja sebelumnya (belum dicatat portal)
+  const before = priorTotals(slips, cfg).get(userId);
+  rows.r13 = before?.net ?? 0; // neto dari bukti potong pemberi kerja sebelumnya
   rows.r14 = rows.r12 + rows.r13;
   rows.r15 = ptkpOf(user.ptkpStatus, cfg);
   rows.r16 = Math.max(0, Math.floor((rows.r14 - rows.r15) / 1000) * 1000);
   rows.r17 = pasal17(rows.r16, cfg);
-  rows.r18 = 0; // PPh 21 dari bukti potong pemberi kerja sebelumnya
+  rows.r18 = before?.pph21 ?? 0; // PPh 21 dari bukti potong pemberi kerja sebelumnya
   rows.r19 = Math.max(0, rows.r17 - rows.r18);
   rows.r20 = Math.round(rows.r20);
   for (const k of Object.keys(rows) as (keyof A1Rows)[]) rows[k] = Math.round(rows[k]);
@@ -100,6 +107,7 @@ export async function build1721A1(userId: string, year: number): Promise<Form172
     number: `1.1-${String(last).padStart(2, "0")}.${String(year).slice(2)}-${String(user.employeeNo ?? 0).padStart(7, "0")}`,
     employer: { name: settings.companyName, npwp: settings.companyNpwp, signerName: settings.signerName, signerId: settings.signerId },
     employee: { name: user.name, employeeId: user.employeeId, npwp: user.npwp, nik: user.ktpNumber, address: user.address, gender: user.gender, ptkp: user.ptkpStatus ?? "TK/0", position: user.position },
-    rows, diff: rows.r20 - rows.r19,
+    rows, diff: rows.r20 - rows.r19, final,
+    prior: slips.map((s) => ({ employerName: s.employerName, employerNpwp: s.employerNpwp, slipNumber: s.slipNumber, kind: s.kind, monthFrom: s.monthFrom, monthTo: s.monthTo })),
   };
 }

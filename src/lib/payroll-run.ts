@@ -5,6 +5,7 @@ import { getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payrol
 import { countLeaveDays } from "@/lib/leave-balance";
 import { overtimeForPayroll, pendingRevisions, syncRevisions } from "@/lib/overtime";
 import { pendingVerifications } from "@/lib/overtime-check";
+import { priorSlips, priorTotals } from "@/lib/prior-tax";
 import { getShiftCalendar, workDaysPerWeekOf } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
@@ -82,7 +83,7 @@ async function loadContext(period: string) {
   for (let t = start.getTime(); t <= end.getTime(); t += DAY) {
     if (new Date(t + DAY).getUTCDate() === 1) { monthEnd = true; if (weekly) loanPeriod = iso(new Date(t)).slice(0, 7); }
   }
-  const [components, priorLines, taxAll, terAll, bonus] = await Promise.all([
+  const [components, priorLines, taxAll, terAll, bonus, priorTaxSlips] = await Promise.all([
     prisma.payComponent.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
     // Gaji final bulan-bulan sebelumnya di tahun yang sama (untuk hitung ulang PPh 21 Desember).
     weekly || separate ? Promise.resolve([]) : prisma.payrollLine.findMany({
@@ -92,9 +93,11 @@ async function loadContext(period: string) {
     getTaxSettings(),
     getTerSettings(),
     getBonusSchedule(),
+    // Bukti potong pemberi kerja sebelumnya (karyawan pindahan) untuk hitung ulang masa pajak terakhir.
+    weekly || separate ? Promise.resolve([]) : priorSlips(null, year),
   ]);
   return {
-    period, settings, start, end, year, weekly, separate, monthEnd: separate ? false : !weekly || monthEnd, loanPeriod, components, priorLines, bonus,
+    period, settings, start, end, year, weekly, separate, monthEnd: separate ? false : !weekly || monthEnd, loanPeriod, components, priorLines, bonus, priorTaxSlips,
     tax: taxYearConfig(taxAll, year), ter: terVersionAt(terAll, iso(end)),
   };
 }
@@ -406,13 +409,15 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
       return { tax: t.tax, rate: t.rate as number | null, refund: 0, detail: `TER harian ${t.rate}% · rata-rata ${Math.round(t.perDay).toLocaleString("id-ID")} sehari`, refundDetail: "" };
     }
     if (lastMonth) {
+      const before = priorTotals(ctx.priorTaxSlips.filter((s) => s.userId === userId), ctx.tax).get(userId);
       const f = pph21Final({
         grossYear: prior.reduce((a, l) => a + l.gross, 0) + g, pensionDeductYear: priorPension + pension, months,
         status: user?.ptkpStatus, withheld: prior.reduce((a, l) => a + l.pph21, 0), cfg: ctx.tax,
+        priorNet: before?.net, priorTax: before?.pph21,
       });
       return {
         tax: f.tax, rate: null as number | null, refund: f.refund,
-        detail: `hitung ulang setahun (${months} bulan), PTKP ${f.ptkp.toLocaleString("id-ID")}, PKP ${f.pkp.toLocaleString("id-ID")}`,
+        detail: `hitung ulang setahun (${months} bulan${before ? `, + pemberi kerja sebelumnya neto ${Math.round(before.net).toLocaleString("id-ID")} / PPh ${Math.round(before.pph21).toLocaleString("id-ID")}` : ""}), PTKP ${f.ptkp.toLocaleString("id-ID")}, PKP ${f.pkp.toLocaleString("id-ID")}`,
         refundDetail: `pajak setahun ${f.yearTax.toLocaleString("id-ID")}, sudah dipotong ${Math.round(f.yearTax + f.refund).toLocaleString("id-ID")}`,
       };
     }

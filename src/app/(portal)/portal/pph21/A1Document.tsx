@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import type { A1Rows, Form1721A1 } from "@/lib/form1721a1";
 
@@ -42,9 +42,12 @@ export default function A1Document({ form: f }: { form: Form1721A1 }) {
   let no = 0;
   return (
     <div className="space-y-3">
-      <div className="flex justify-end print:hidden">
-        <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-ink/85">
-          <Printer size={15} /> <T>Cetak / Simpan PDF</T>
+      <div className="flex justify-end gap-2 print:hidden">
+        <a href={`/api/pph21/a1?tahun=${f.year}&unduh=1`} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-ink/85">
+          <Download size={15} /> <T>Unduh PDF</T>
+        </a>
+        <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+          <Printer size={15} /> <T>Cetak</T>
         </button>
       </div>
       <article className="rounded-2xl border border-gray-200 bg-white p-6 text-xs text-gray-800 print:rounded-none print:border-0 print:p-0">
@@ -94,7 +97,7 @@ export default function A1Document({ form: f }: { form: Form1721A1 }) {
         </table>
         {f.diff !== 0 && (
           <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-gray-600">
-            {f.diff > 0 ? <T>PPh 21 lebih dipotong</T> : <T>PPh 21 kurang dipotong</T>}: <b>Rp{rp(Math.abs(f.diff))}</b>
+            {f.diff > 0 ? <T>PPh 21 lebih dipotong</T> : <T>PPh 21 kurang dipotong</T>}: <b>Rp&nbsp;{rp(Math.abs(f.diff))}</b>
           </p>
         )}
 
