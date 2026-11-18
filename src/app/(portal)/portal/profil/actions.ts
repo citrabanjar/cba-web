@@ -11,7 +11,7 @@ import { FAMILY_RELATIONS } from "@/lib/personal-info";
 import { PROFILE_FIELDS, PROFILE_KEYS, profileValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 import { saveFamily, updateEmployee } from "../admin/karyawan/actions";
 import { workflowSteps, decideStep } from "@/lib/workflow-settings";
-import { actionableApprovers, readApproval, stepCandidates, type InterviewApproval } from "@/lib/onboarding-interview";
+import { actionableApprovers, readApproval, type InterviewApproval } from "@/lib/onboarding-interview";
 import { approvedRun } from "@/lib/approval-hold";
 import type { Prisma } from "@prisma/client";
 
@@ -67,7 +67,7 @@ export async function submitProfileChange(input: { values: Record<string, string
   await prisma.profileChangeRequest.create({
     data: { userId, changes, family: family ?? undefined, reason: input.reason.trim() || null, ...(wf.flow ? { approval: wf.flow as unknown as Prisma.InputJsonValue } : {}) },
   });
-  if (wf.flow) await notify(stepCandidates(wf.flow.steps[0]), `Pengajuan perubahan data dari ${session.user.name ?? "karyawan"}`, null, "/portal/notifikasi?modul=karyawan");
+  // Penyetuju cukup melihat kartu "Menunggu keputusan Anda" + angka di lonceng (sama seperti modul lain), tanpa notifikasi ganda.
   refresh();
   return {};
 }
@@ -103,9 +103,7 @@ export async function decideProfileChange(id: string, approve: boolean, note: st
     // Masih ada level berikutnya: simpan jejak, beri tahu penyetuju berikutnya.
     if (!r.rejected && !r.done) {
       await prisma.profileChangeRequest.update({ where: { id }, data: { approval: trail as unknown as Prisma.InputJsonValue } });
-      const next = trail.steps.find((s) => !s.decision);
-      const who = await prisma.user.findUnique({ where: { id: req.userId }, select: { name: true } });
-      if (next) await notify(stepCandidates(next), `Pengajuan perubahan data dari ${who?.name ?? "karyawan"}`, `Disetujui ${access.name} di level sebelumnya.`, "/portal/notifikasi?modul=karyawan");
+      // Penyetuju level berikutnya melihat kartunya di Notifikasi (angka lonceng ikut bertambah).
       refresh(req.userId);
       return {};
     }
