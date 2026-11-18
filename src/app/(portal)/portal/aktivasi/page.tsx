@@ -19,7 +19,7 @@ export default function AktivasiPage() {
           </span>
           <h1 className="mt-6 text-xl font-bold text-white"><T>Aktivasi Akun / Lupa Password</T></h1>
           <p className="mb-6 mt-1 text-sm text-white/65">
-            <T>Masukkan Employee ID atau email Anda. Kode OTP akan dikirim ke email yang tercatat di data karyawan, lalu Anda dapat membuat password baru.</T>
+            <T>Masukkan Employee ID atau email Anda. Kode OTP akan dikirim ke email yang tercatat di data karyawan, lalu lanjutkan dengan membuat password baru.</T>
           </p>
           <AktivasiForm />
         </div>

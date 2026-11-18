@@ -1080,7 +1080,7 @@ export const en: Record<string, string> = {
   "Kehadiran": "Attendance",
   "Aktivasi akun / lupa password?": "Activate account / forgot password?",
   "Aktivasi Akun / Lupa Password": "Account Activation / Forgot Password",
-  "Masukkan Employee ID atau email Anda. Kode OTP akan dikirim ke email yang tercatat di data karyawan, lalu Anda dapat membuat password baru.": "Enter your Employee ID or email. An OTP code will be sent to the email on your employee record, then you can create a new password.",
+  "Masukkan Employee ID atau email Anda. Kode OTP akan dikirim ke email yang tercatat di data karyawan, lalu lanjutkan dengan membuat password baru.": "Enter your Employee ID or email. An OTP code will be sent to the email on your employee record, then continue by creating a new password.",
   "← Kembali ke halaman masuk": "← Back to sign in",
   "Employee ID atau email": "Employee ID or email",
   "Kode OTP sudah dikirim ke": "The OTP code has been sent to",
