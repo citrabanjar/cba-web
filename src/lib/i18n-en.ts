@@ -1830,7 +1830,7 @@ export const en: Record<string, string> = {
   "dobel": "duplicate",
   "Upload Parameter": "Upload Parameters",
   "Upload Parameter Organisasi": "Upload Organization Parameters",
-  "Pakai template Excel (sheet Cabang, Departemen, Jabatan). Nama yang sudah ada dilewati; hanya nama baru yang ditambahkan.": "Use the Excel template (Branch, Department, Position sheets). Existing names are skipped; only new names are added.",
+  "Gunakan templat Excel yang memuat sheet Cabang, Departemen, dan Jabatan. Nama yang telah terdaftar akan dilewati, sehingga hanya nama baru yang ditambahkan.": "Use the Excel template (Branch, Department, Position sheets). Existing names are skipped; only new names are added.",
   "baris": "rows",
   "baru": "new",
   "sudah ada": "already exist",

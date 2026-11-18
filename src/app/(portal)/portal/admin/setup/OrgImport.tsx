@@ -72,7 +72,7 @@ export default function OrgImport({ existing, onClose }: { existing: Existing; o
         <Dialog open onOpenChange={(o: boolean) => { if (!o) onClose(); }}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader><DialogTitle><T>Upload Parameter Organisasi</T></DialogTitle></DialogHeader>
-            <p className="-mt-2 text-xs text-gray-500"><T>Pakai template Excel (sheet Cabang, Departemen, Jabatan). Nama yang sudah ada dilewati; hanya nama baru yang ditambahkan.</T></p>
+            <p className="-mt-2 text-xs text-gray-500"><T>Gunakan templat Excel yang memuat sheet Cabang, Departemen, dan Jabatan. Nama yang telah terdaftar akan dilewati, sehingga hanya nama baru yang ditambahkan.</T></p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={template}><Download size={14} /> <T>Download Template</T></Button>
               <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-input px-3 text-sm hover:bg-gray-50">
