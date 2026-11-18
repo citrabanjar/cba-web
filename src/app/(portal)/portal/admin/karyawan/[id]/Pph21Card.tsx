@@ -7,7 +7,7 @@ import { T, useT } from "@/components/i18n";
 export type Pph21Year = {
   year: number;
   months: { period: string; gross: number; pph21: number }[]; // Proses Gaji bulanan FINAL
-  prior: { slipNumber: string; kind: string; employerName: string; monthFrom: number; monthTo: number; gross: number; pph21: number }[];
+  prior: { slipNumber: string; employerName: string; net: number; pph21: number }[];
   complete: boolean; // Desember / bulan keluar sudah final
 };
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -25,7 +25,7 @@ export default function Pph21Card({ userId, years }: { userId: string; years: Pp
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><Receipt size={17} /></span>
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-gray-900"><T>PPh 21</T></h3>
-          <p className="text-xs text-gray-400"><T>Penghasilan bruto dan PPh 21 dari Proses Gaji yang sudah final, ditambah bukti potong pemberi kerja sebelumnya.</T></p>
+          <p className="text-xs text-gray-400"><T>Penghasilan bruto dan PPh 21 dari Proses Gaji yang sudah final, ditambah PPh 21 pindahan dari pemberi kerja sebelumnya.</T></p>
         </div>
         {years.length > 1 && (
           <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm">
@@ -64,10 +64,10 @@ export default function Pph21Card({ userId, years }: { userId: string; years: Pp
           )}
           {y.prior.length > 0 && (
             <div className="rounded-xl border border-gray-200 p-3">
-              <p className="text-xs font-semibold text-gray-700"><T>Bukti potong pemberi kerja sebelumnya</T></p>
+              <p className="text-xs font-semibold text-gray-700"><T>PPh 21 pindahan (BPA1 pemberi kerja sebelumnya)</T></p>
               {y.prior.map((p) => (
                 <p key={p.slipNumber} className="mt-1 text-xs text-gray-600">
-                  {p.slipNumber} ({p.kind}) · {p.employerName} · {t(MONTHS[p.monthFrom - 1])}{p.monthTo !== p.monthFrom && <> – {t(MONTHS[p.monthTo - 1])}</>} · <T>bruto</T> {rp(p.gross)} · PPh {rp(p.pph21)}
+                  BPA1 {p.slipNumber}{p.employerName && <> · {p.employerName}</>} · <T>neto</T> {rp(p.net)} · PPh {rp(p.pph21)}
                 </p>
               ))}
             </div>

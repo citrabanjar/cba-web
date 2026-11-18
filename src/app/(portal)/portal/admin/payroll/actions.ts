@@ -375,32 +375,30 @@ export type PriorSlipInput = {
   monthFrom: number; monthTo: number; gross: number; net: number | null; pph21: number; note: string;
 };
 const SLIP_LABELS: Record<string, string> = {
-  year: "Tahun pajak", employerName: "Pemberi kerja sebelumnya", employerNpwp: "NPWP pemberi kerja", slipNumber: "Nomor bukti potong", kind: "Jenis",
-  monthFrom: "Masa awal", monthTo: "Masa akhir", gross: "Penghasilan bruto", net: "Penghasilan neto", pph21: "PPh 21 dipotong", note: "Catatan",
+  year: "Tahun pajak", slipNumber: "Nomor BPA1 sebelumnya", net: "Penghasilan neto masa sebelumnya", pph21: "PPh 21 dipotong masa sebelumnya", employerName: "Pemberi kerja sebelumnya",
 };
 export async function savePriorSlip(id: string | null, input: PriorSlipInput): Promise<Result> {
   const access = await requirePayroll();
   const year = Math.round(Number(input.year));
   if (!input.userId) return { error: "Pilih karyawan." };
   if (!(year >= 2020 && year <= 2100)) return { error: "Tahun pajak tidak valid." };
-  if (!input.employerName.trim()) return { error: "Nama pemberi kerja sebelumnya wajib diisi." };
-  if (!input.slipNumber.trim()) return { error: "Nomor bukti potong wajib diisi." };
-  const mf = Math.round(Number(input.monthFrom)), mt = Math.round(Number(input.monthTo));
-  if (!(mf >= 1 && mt <= 12 && mf <= mt)) return { error: "Masa pajak tidak valid." };
-  const gross = Number(input.gross), pph = Number(input.pph21), net = input.net === null || input.net === undefined || Number.isNaN(Number(input.net)) ? null : Number(input.net);
-  if (!(gross > 0)) return { error: "Penghasilan bruto wajib diisi." };
-  if (!(pph >= 0)) return { error: "PPh 21 dipotong tidak valid (isi 0 bila tidak ada)." };
+  // Sesuai BPA1 Coretax: cukup nomor BPA1 sebelumnya, penghasilan neto, dan PPh 21 yang telah dipotong masa sebelumnya.
+  if (!input.slipNumber.trim()) return { error: "Nomor BPA1 pemberi kerja sebelumnya wajib diisi." };
+  const mf = Math.round(Number(input.monthFrom)) || 1, mt = Math.round(Number(input.monthTo)) || 12;
+  const gross = Number(input.gross) || 0, pph = Number(input.pph21), net = Number(input.net);
+  if (!(net > 0)) return { error: "Penghasilan neto masa sebelumnya wajib diisi." };
+  if (!(pph >= 0)) return { error: "PPh 21 masa sebelumnya tidak valid (isi 0 bila tidak ada)." };
   const user = await prisma.user.findUnique({ where: { id: input.userId }, select: { name: true } });
   if (!user) return { error: "Karyawan tidak ditemukan." };
   const data = {
     userId: input.userId, year, employerName: input.employerName.trim().toUpperCase(), employerNpwp: input.employerNpwp.trim() || null,
     slipNumber: input.slipNumber.trim(), kind: input.kind === "BPMP" ? "BPMP" : "BPA1", monthFrom: mf, monthTo: mt,
-    gross: Math.round(gross), net: net === null ? null : Math.round(net), pph21: Math.round(pph), note: input.note.trim() || null,
+    gross: Math.round(gross), net: Math.round(net), pph21: Math.round(pph), note: input.note.trim() || null,
   };
   const before = id ? await prisma.priorTaxSlip.findUnique({ where: { id } }) : null;
   const held = await holdForApproval({
     kind: "gaji.savePriorSlip", args: [id, input], targetUserId: input.userId,
-    title: `Payroll: bukti potong pemberi kerja sebelumnya ${user.name} (${year})`,
+    title: `Payroll: PPh 21 pindahan ${user.name} (${year})`,
     details: diff(SLIP_LABELS, before as unknown as Record<string, unknown> | null, data as unknown as Record<string, unknown>),
   });
   if (held) return held;

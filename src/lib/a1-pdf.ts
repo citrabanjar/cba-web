@@ -125,10 +125,10 @@ export async function build1721A1Pdf(f: Form1721A1) {
     y -= 14;
   }
   if (f.prior.length) {
-    text("Nomor bukti pemotongan sebelumnya (pemberi kerja sebelumnya):", M + 6, y, { size: 7.5, color: GREY });
+    text("Bekerja pada lebih dari satu pemberi kerja dalam tahun kalender: Ya. Nomor BPA1 pemberi kerja sebelumnya:", M + 6, y, { size: 7.5, color: GREY });
     y -= 11;
     for (const p of f.prior) {
-      text(`- ${p.slipNumber} (${p.kind}) · ${p.employerName}${p.employerNpwp ? ` · NPWP ${p.employerNpwp}` : ""} · ${MONTHS[p.monthFrom - 1]}${p.monthTo !== p.monthFrom ? ` - ${MONTHS[p.monthTo - 1]}` : ""}`, M + 12, y, { size: 7.5 });
+      text(`- ${p.slipNumber}${p.employerName ? ` · ${p.employerName}` : ""}`, M + 12, y, { size: 7.5 });
       y -= 10;
     }
     y -= 4;

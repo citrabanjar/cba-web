@@ -224,6 +224,6 @@ async function pph21YearsOf(userId: string) {
   return years.map((year) => ({
     year, complete: done.includes(year),
     months: lines.filter((l) => l.run.period.startsWith(`${year}-`)).map((l) => ({ period: l.run.period, gross: l.gross, pph21: l.pph21 })),
-    prior: slips.filter((s) => s.year === year).map((s) => ({ slipNumber: s.slipNumber, kind: s.kind, employerName: s.employerName, monthFrom: s.monthFrom, monthTo: s.monthTo, gross: s.gross, pph21: s.pph21 })),
+    prior: slips.filter((s) => s.year === year).map((s) => ({ slipNumber: s.slipNumber, employerName: s.employerName, net: s.net ?? 0, pph21: s.pph21 })),
   }));
 }
