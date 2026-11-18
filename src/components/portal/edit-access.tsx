@@ -25,6 +25,7 @@ const PAGE_MENU: [string, MenuKey][] = [
   ["/portal/admin/pinjaman", "pinjaman"],
   ["/portal/admin/onboarding", "prakaryawan"],
   ["/portal/admin/settings", "pengaturan"],
+  ["/portal/admin/pengumuman", "pengaturan"],
 ];
 export const pageMenu = (path: string) => PAGE_MENU.find(([p]) => path === p || path.startsWith(p + "/"))?.[1] ?? null;
 

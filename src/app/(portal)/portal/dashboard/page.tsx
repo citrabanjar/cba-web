@@ -2,12 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import {
-  Clock, CalendarDays, Briefcase, FileText,
-  Receipt, AlertCircle, ArrowLeftRight, Timer, CalendarCheck,
-} from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { getAccess } from "@/lib/access";
 import { hasMenu, isSuperAdmin } from "@/lib/roles";
 import { T } from "@/components/i18n";
@@ -15,8 +11,10 @@ import AdminDashboard from "./AdminDashboard";
 import IndicatorCards from "./IndicatorCards";
 import { loadIndicators } from "./insights";
 import { prisma } from "@/lib/prisma";
+import { activeAnnouncements } from "@/lib/announcement";
+import AnnouncementPanel from "./AnnouncementPanel";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ pengumuman?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect("/portal");
 
@@ -29,54 +27,10 @@ export default async function DashboardPage() {
   const indicatorOnly = !isAdmin && (user.role === "ADMIN" || superAdmin) ? await loadIndicators() : null;
   const swapAsks = !superAdmin && user.id ? await prisma.shiftSwapRequest.count({ where: { partnerId: user.id, status: "MENUNGGU_REKAN" } }) : 0;
 
-  // Admin & Super Admin memakai menu Tombol HP; kartu menu karyawan dan info bantuan hanya untuk karyawan biasa.
+  // Karyawan biasa: Beranda berisi Pengumuman. Menu pribadi (Absensi, Cuti, dll.) lewat Tombol HP.
   const staff = superAdmin || user.role === "ADMIN";
-  const menuItems = [
-    ...(staff ? [] : [
-    {
-      href: "/portal/absensi",
-      icon: Clock,
-      label: "Absensi",
-      desc: "Check-in & Check-out",
-    },
-    {
-      href: "/portal/kehadiran",
-      icon: CalendarCheck,
-      label: "Kehadiran",
-      desc: "Kalender & estimasi lembur",
-    },
-    {
-      href: "/portal/cuti",
-      icon: CalendarDays,
-      label: "Cuti",
-      desc: "Pengajuan cuti",
-    },
-    {
-      href: "/portal/dinas",
-      icon: Briefcase,
-      label: "Dinas Luar",
-      desc: "Pengajuan dinas",
-    },
-    {
-      href: "/portal/lembur",
-      icon: Timer,
-      label: "Lembur",
-      desc: "SPL & pengajuan lembur",
-    },
-    {
-      href: "/portal/payslip",
-      icon: FileText,
-      label: "Slip Gaji",
-      desc: "Riwayat pembayaran",
-    },
-    {
-      href: "/portal/pph21",
-      icon: Receipt,
-      label: "PPh 21",
-      desc: "Bukti potong pajak",
-    },
-    ]),
-  ];
+  const announcements = staff ? null : await activeAnnouncements();
+  const openAnnouncement = (await searchParams).pengumuman;
 
   return (
     <div className={`p-4 sm:p-6 ${isAdmin ? "max-w-7xl" : "max-w-4xl"}`}>
@@ -111,33 +65,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Menu */}
-      {menuItems.length > 0 && <div>
-        <p className="text-xs font-semibold text-white/70 uppercase tracking-wide mb-3">
-          <T>Menu</T>
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {menuItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border-gray-200 border-l-4 border-l-brand">
-                <CardContent className="pt-4 pb-4">
-                  <item.icon size={24} className="text-brand mb-3" />
-                  <p className="font-semibold text-gray-800 text-sm"><T>{item.label}</T></p>
-                  <p className="text-xs text-gray-400 mt-0.5"><T>{item.desc}</T></p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </div>}
-
-      {/* Info */}
-      {!staff && <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 mt-6">
-        <AlertCircle size={18} className="text-brand mt-0.5 shrink-0" />
-        <p className="text-xs text-gray-600">
-          <T>Butuh bantuan? Hubungi HRD melalui email atau datang langsung ke kantor.</T>
-        </p>
-      </div>}
+      {announcements && <AnnouncementPanel items={announcements} openId={openAnnouncement} />}
     </div>
   );
 }

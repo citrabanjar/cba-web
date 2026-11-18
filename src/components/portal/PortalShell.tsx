@@ -8,7 +8,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Home, CalendarClock, CalendarHeart, Timer, ClipboardList, Landmark, ChevronLeft, ChevronRight,
-  Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Smartphone,
+  Users, LogOut, Menu, X, Settings, Network, Building2, HandCoins, UserPlus, CircleUserRound, GitBranch, ShieldCheck, Smartphone, Megaphone,
 } from "lucide-react";
 import { logoutAction } from "@/app/(portal)/auth-actions";
 import { LanguageSwitcher, T, useT } from "@/components/i18n";
@@ -70,7 +70,11 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
     ...(isSuperAdmin(role) && workflowOn ? [{ href: "/portal/admin/workflow", label: "Workflow", icon: GitBranch }] : []),
   ]);
   // Pengaturan: kewenangan Pengaturan, atau kewenangan Import Data (tab Import Data).
-  add("PENGATURAN", can("pengaturan") || importOn ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []);
+  add("PENGATURAN", [
+    // Pengumuman untuk Beranda karyawan: kewenangan Pengaturan.
+    ...(can("pengaturan") ? [{ href: "/portal/admin/pengumuman", label: "Pengumuman", icon: Megaphone }] : []),
+    ...(can("pengaturan") || importOn ? [{ href: "/portal/admin/settings", label: "Pengaturan", icon: Settings }] : []),
+  ]);
 
   return [...sections, ...admin];
 }

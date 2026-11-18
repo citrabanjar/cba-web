@@ -1071,3 +1071,20 @@ model PriorTaxSlip {
 
   @@index([userId, year])
 }
+
+// Pengumuman perusahaan untuk semua karyawan (Beranda karyawan). Dikelola Admin dengan kewenangan Pengaturan.
+// Tayang mulai `startDate` sampai `endDate` (kosong = tanpa batas); `pinned` tampil paling atas.
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  body      String    @db.Text
+  pinned    Boolean   @default(false)
+  startDate DateTime  @db.Date
+  endDate   DateTime? @db.Date
+  notified  Boolean   @default(false) // notifikasi lonceng sudah dikirim ke karyawan
+  createdBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([startDate])
+}
