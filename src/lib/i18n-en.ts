@@ -1078,7 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
-  "Cuti untuk hari ini atau tanggal yang sudah lewat tidak bisa diajukan di sini. Gunakan menu Pengajuan Absen (Potong Cuti Tahunan atau Izin Tanpa Hak Cuti).": "Leave for today or past dates cannot be requested here. Use the Attendance Request menu (Deduct Annual Leave or Unpaid Leave).",
+  "Cuti hari ini atau tanggal lewat diajukan di menu Pengajuan Absen.": "Leave for today or past dates is requested in the Attendance Request menu.",
   "Tanggal itu tidak ada jam masuk maupun jam pulang. Lupa Absen hanya untuk salah satunya; hubungi atasan Anda.": "That date has neither check-in nor check-out. Missed Attendance covers only one of them; contact your supervisor.",
   "Jam masuk belum tercatat, jadi yang bisa diajukan hanya jam masuk.": "No check-in is recorded yet, so only the check-in time can be requested.",
   "Jam masuk belum tercatat: ajukan jam masuk saja. Check-out dilakukan seperti biasa di menu Absensi.": "No check-in recorded: request the check-in time only. Check out as usual in the Attendance menu.",

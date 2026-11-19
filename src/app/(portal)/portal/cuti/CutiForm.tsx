@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { showNotice } from "@/components/portal/Confirm";
+import { useRouter } from "next/navigation";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { Loader2, CheckCircle2, X } from "lucide-react";
 import { submitLeave, cancelLeave } from "./actions";
@@ -40,10 +41,13 @@ export default function CutiForm({ requests, options, balances, people = [], app
   const [delegateText, setDelegateText] = useState("");
   const delegate = people.find((p) => p.employeeId && p.employeeId.toLowerCase() === delegateText.trim().toLowerCase());
   const [policyId, setPolicyId] = useState("");
+  const router = useRouter();
   const [, formAction, isPending] = useActionState(async (prev: unknown, fd: FormData) => {
     // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal), bukan kotak tetap.
     const r = await submitLeave(prev, fd);
-    if ("error" in r && r.error) void showNotice(t(r.error), "error");
+    // Cuti hari ini / tanggal lewat: tawarkan lanjut ke menu Pengajuan Absen.
+    if ("goAbsence" in r && r.goAbsence) { if (await askConfirm(t(r.error))) router.push("/portal/lupa-absen"); }
+    else if ("error" in r && r.error) void showNotice(t(r.error), "error");
     else if ("days" in r) {
       void showNotice(`${t("Pengajuan cuti")} ${r.days} ${t("hari diajukan ke")} ${r.approver} ${t("untuk approval.")}` + (r.unpaid ? ` ${r.unpaid} ${t("hari melebihi saldo dan masuk cuti di luar tanggungan.")}` : ""));
       setPolicyId(""); setDelegateText("");
