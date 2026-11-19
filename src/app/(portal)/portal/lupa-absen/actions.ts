@@ -33,11 +33,15 @@ export async function submitAbsence(input: AbsenceInput) {
   if (!input.startDate || !input.endDate) return { error: "Pilih tanggal tidak masuk." };
   if (!input.reason.trim()) return { error: "Tulis alasan tidak masuk." };
   const policies = await prisma.leavePolicy.findMany({ where: { isActive: true, category: input.kind }, orderBy: { sortOrder: "asc" } });
-  const policy = input.kind === "TAHUNAN" ? policies.find((p) => hasBalance(p)) : policies[0];
+  // Cuti Tahunan: jenis bersaldo yang memang dimiliki karyawan ini (bisa lebih dari satu jenis TAHUNAN di Setup Cuti).
+  const rows = input.kind === "TAHUNAN" ? await visibleBalances([session.user.id]) : [];
+  const policy = input.kind === "TAHUNAN"
+    ? policies.find((p) => hasBalance(p) && rows.some((r) => r.policyId === p.id)) ?? policies.find((p) => hasBalance(p))
+    : policies[0];
   if (!policy) return { error: input.kind === "TAHUNAN" ? "Cuti Tahunan belum diatur di Setup Cuti. Hubungi HRD." : "Izin Tanpa Hak Cuti belum diatur di Setup Cuti. Hubungi HRD." };
   // Cek saldo dulu: saldo habis / belum ada → arahkan ke Izin Tanpa Hak Cuti.
   if (input.kind === "TAHUNAN") {
-    const row = (await visibleBalances([session.user.id])).find((b) => b.policyId === policy.id);
+    const row = rows.find((b) => b.policyId === policy.id);
     const available = row && !row.problem ? Math.max(0, row.balance - row.pending) : 0;
     if (available <= 0) return { error: "Saldo Cuti Tahunan Anda 0 hari. Ajukan sebagai Izin Tanpa Hak Cuti." };
   }

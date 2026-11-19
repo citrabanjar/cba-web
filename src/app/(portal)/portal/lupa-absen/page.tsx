@@ -34,8 +34,9 @@ export default async function LupaAbsenPage({ searchParams }: { searchParams: Pr
     visibleBalances([id]),
     prisma.leavePolicy.findMany({ where: { isActive: true, category: "TAHUNAN" }, orderBy: { sortOrder: "asc" } }),
   ]);
-  const annualPolicy = annualPolicies.find((p) => hasBalance(p));
-  const annualRow = annualPolicy ? balances.find((b) => b.policyId === annualPolicy.id) : undefined;
+  // Saldo Cuti Tahunan milik karyawan ini (jenis TAHUNAN bersaldo yang memang ia punya, sama dengan halaman Cuti).
+  const annualIds = new Set(annualPolicies.filter((p) => hasBalance(p)).map((p) => p.id));
+  const annualRow = balances.find((b) => annualIds.has(b.policyId));
   // Absen tidak lengkap 31 hari terakhir (lupa check-in atau check-out, selain hari ini) sebagai pilihan cepat.
   const incomplete = atts.filter((a) => a.date < today && !!a.checkIn !== !!a.checkOut);
   const covered = new Set((await prisma.attendanceCorrection.findMany({ where: { userId: id, status: { in: FIX_LIVE }, date: { gte: since } }, select: { date: true } })).map((f) => ymd(f.date)));
