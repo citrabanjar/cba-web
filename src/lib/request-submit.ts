@@ -218,7 +218,14 @@ export async function submitTripFor(u: Who, input: TripInput) {
     return { error: `Tanggal beririsan dengan dinas luar ${trip.destination} (${range(trip.startDate, trip.endDate)}) yang ${trip.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}. Pilih tanggal lain atau batalkan pengajuan itu dulu.` };
   }
   if (leave) {
-    return { error: `Tanggal beririsan dengan cuti (${range(leave.startDate, leave.endDate)}) yang ${leave.status === "PENDING" ? "sedang diajukan" : "sudah disetujui"}.` };
+    // Cuti yang sudah disetujui: karyawan sedang / akan cuti → arahkan ke HRD.
+    if (leave.status === "APPROVED") {
+      const now = todayDate().getTime();
+      return { error: leave.startDate.getTime() <= now && now <= leave.endDate.getTime()
+        ? "Anda sedang cuti hari ini, silakan hubungi HRD."
+        : `Anda cuti pada tanggal ${range(leave.startDate, leave.endDate)}, silakan hubungi HRD.` };
+    }
+    return { error: `Tanggal beririsan dengan cuti (${range(leave.startDate, leave.endDate)}) yang sedang diajukan.` };
   }
   if (att) {
     return { error: `Tanggal ${formatDate(att.date)} sudah tercatat ${att.status === "DINAS" ? "Dinas" : "Cuti"} di kehadiran Anda.` };
