@@ -151,15 +151,10 @@ export default function CutiForm({ requests, options, balances, people = [], app
         </div>
       )}
 
-      {/* Riwayat pengajuan */}
-      <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3"><T>Riwayat Pengajuan</T></p>
-        {requests.length === 0 ? (
-          <div className="bg-gray-50 rounded-2xl p-8 text-center">
-            <CalendarDays size={32} className="text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400"><T>Belum ada pengajuan cuti</T></p>
-          </div>
-        ) : (
+      {/* Pengajuan yang masih diproses (riwayat cuti ada di Profil Saya → Kehadiran) */}
+      {requests.length > 0 && <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3"><T>Pengajuan Diproses</T></p>
+        {(
           <div className="space-y-3">
             {requests.map((req) => (
               <div key={req.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -195,7 +190,7 @@ export default function CutiForm({ requests, options, balances, people = [], app
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -9,8 +9,9 @@ export async function getLeaveRequests() {
   const session = await auth();
   if (!session?.user?.id) return [];
 
+  // Halaman pengajuan hanya memuat pengajuan yang masih diproses; riwayat cuti ada di Profil Saya → Kehadiran.
   return prisma.leaveRequest.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, status: "PENDING" },
     orderBy: { createdAt: "desc" },
     include: { policy: { select: { code: true, name: true } } },
   });
