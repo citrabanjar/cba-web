@@ -325,6 +325,7 @@ export function LoanDialog({ kind, loan, running = [], onClose }: { kind: "appro
 // readOnly: Profil Saya (karyawan sendiri) — tanpa aksi Admin, keperluan & jejak approval hanya selama berproses.
 export default function ProfileLoans({ loans, readOnly = false }: { loans: LoanView[]; readOnly?: boolean }) {
   const [dialog, setDialog] = useState<{ kind: "approve" | "disburse" | "schedule"; loan: LoanView } | null>(null);
+  const [showDone, setShowDone] = useState(false); // pinjaman selesai disembunyikan, dibuka lewat tautan
   const month = thisMonth();
   const running = loans.filter((l) => l.status === "BERJALAN");
   const outstanding = running.reduce((a, l) => a + loanSummary(l.principal, l.installments).remaining, 0);
@@ -350,9 +351,20 @@ export default function ProfileLoans({ loans, readOnly = false }: { loans: LoanV
       {LOAN_GROUPS.map((g) => {
         const list = loans.filter((l) => (g.statuses as readonly string[]).includes(l.status));
         if (!list.length) return null;
+        // Pinjaman selesai (Lunas / Digabung) tidak ditampilkan sebagai kartu; cukup tautan untuk melihatnya.
+        if (g.key === "selesai" && !showDone) return (
+          <button key={g.key} type="button" onClick={() => setShowDone(true)} className="text-xs font-semibold text-brand hover:underline">
+            <T>Lihat pinjaman selesai</T> ({list.length})
+          </button>
+        );
         return (
           <section key={g.key} className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{g.label}</T> <span className="text-gray-300">{list.length}</span></h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{g.label}</T> <span className="text-gray-300">{list.length}</span></h3>
+              {g.key === "selesai" && (
+                <button type="button" onClick={() => setShowDone(false)} className="text-xs font-semibold text-brand hover:underline"><T>Sembunyikan pinjaman selesai</T></button>
+              )}
+            </div>
             <div className="grid gap-3 lg:grid-cols-2">
               {list.map((l) => <LoanCard key={l.id} loan={l} processOnly={readOnly} actions={readOnly ? undefined : <LoanActions loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />} />)}
             </div>

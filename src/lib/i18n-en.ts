@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Lihat pinjaman selesai": "View completed loans",
+  "Sembunyikan pinjaman selesai": "Hide completed loans",
   "Pengajuan Diproses": "Requests in Process",
   "Slip & Pajak": "Payslip & Tax",
   "Data diri, pekerjaan, kehadiran, cuti, gaji, dan akun Anda.": "Your personal data, job, attendance, leave, pay, and account.",
