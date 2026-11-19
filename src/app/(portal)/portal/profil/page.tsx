@@ -53,7 +53,7 @@ export default async function ProfilPage() {
     // Pinjaman yang masih berjalan / disetujui (belum lunas).
     prisma.employeeLoan.findMany({
       where: { userId: id, status: { in: ["DISETUJUI", "BERJALAN"] } }, orderBy: { createdAt: "asc" },
-      select: { seqNo: true, principal: true, status: true, installments: { select: { amount: true, status: true, period: true }, orderBy: { seq: "asc" } } },
+      select: { seqNo: true, principal: true, status: true, installments: { select: { seq: true, amount: true, status: true, period: true }, orderBy: { seq: "asc" } } },
     }),
     prisma.payslip.findFirst({ where: { userId: id }, orderBy: [{ createdAt: "desc" }, { period: "desc" }], select: { periodLabel: true, netPay: true } }),
     prisma.overtime.findMany({
@@ -89,6 +89,7 @@ export default async function ProfilPage() {
         return {
           no: l.seqNo ?? 0, principal: l.principal, status: l.status, remaining: left.reduce((n, i) => n + i.amount, 0),
           left: left.length, tenor: l.installments.length, monthly: left[0]?.amount ?? l.installments[0]?.amount ?? 0, next: left[0]?.period ?? null,
+          schedule: l.installments.map((i) => ({ seq: i.seq, period: i.period, amount: i.amount, paid: i.status === "LUNAS" })),
         };
       })}
       lastSlip={lastSlip}

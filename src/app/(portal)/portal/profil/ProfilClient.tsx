@@ -26,7 +26,7 @@ type Me = {
   ptkp: string | null; bpjsTk: string | null; bpjsKes: string | null;
 };
 type Salary = { effectiveDate: string; basic: number; dailyWage: number | null; monthlyFactor: number | null; allowances: { name: string; amount: number }[] };
-type Loan = { no: number; principal: number; status: string; remaining: number; left: number; tenor: number; monthly: number; next: string | null };
+type Loan = { no: number; principal: number; status: string; remaining: number; left: number; tenor: number; monthly: number; next: string | null; schedule: { seq: number; period: string; amount: number; paid: boolean }[] };
 export type Req = { id: string; status: string; changes: ProfileChanges; family: FamilyRow[] | null; reason: string | null; note: string | null; decidedBy: string | null; decidedAt: string | null; createdAt: string };
 type CalendarProps = React.ComponentProps<typeof AttendanceCalendar>;
 
@@ -77,6 +77,7 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
     { key: "akun", label: "Akun", icon: UserCog },
   ];
   const [tab, setTab] = useState("data");
+  const [showInst, setShowInst] = useState<number | null>(null); // pinjaman yang jadwal angsurannya dibuka (Saldo Pinjaman)
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -186,15 +187,42 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
           </Section>
           ) },
           { key: "pinjaman", label: "Saldo Pinjaman", icon: HandCoins, content: (
-          <Section icon={HandCoins} title="Saldo Pinjaman" action={<Link href="/portal/pinjaman" className="text-xs font-semibold text-brand"><T>Lihat Pinjaman →</T></Link>}>
+          // Cukup jadwal angsuran per pinjaman di sini; tidak ada tautan ke menu pengajuan pinjaman.
+          <Section icon={HandCoins} title="Saldo Pinjaman">
             {loans.length === 0 ? <p className="text-sm text-gray-400"><T>Tidak ada pinjaman berjalan.</T></p> : (
               <>
                 {loans.map((l, i) => (
                   <div key={i} className="border-b border-gray-100 py-2 last:border-b-0">
-                    <p className="text-sm font-semibold text-gray-900"><T>Pinjaman ke-</T>{l.no} · {formatRupiah(l.principal)}{l.status === "DISETUJUI" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"><T>Belum dicairkan</T></span>}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-gray-900"><T>Pinjaman ke-</T>{l.no} · {formatRupiah(l.principal)}{l.status === "DISETUJUI" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"><T>Belum dicairkan</T></span>}</p>
+                      {l.schedule.length > 0 && (
+                        <button type="button" onClick={() => setShowInst((v) => (v === i ? null : i))} className="text-xs font-semibold text-brand">
+                          <T>{showInst === i ? "Sembunyikan Angsuran" : "Lihat Angsuran"}</T>
+                        </button>
+                      )}
+                    </div>
                     <Row label="Sisa pinjaman" value={formatRupiah(l.remaining)} />
                     <Row label="Angsuran per bulan" value={formatRupiah(l.monthly)} />
                     <Row label="Sisa angsuran" value={`${l.left} / ${l.tenor}${l.next ? ` · ${t("mulai")} ${l.next}` : ""}`} />
+                    {showInst === i && (
+                      <div className="mt-2 overflow-hidden rounded-xl border border-gray-100">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                            <tr><th className="px-3 py-1.5 text-left font-medium"><T>Ke</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Periode</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Angsuran</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Status</T></th></tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {l.schedule.map((s) => (
+                              <tr key={s.seq}>
+                                <td className="px-3 py-1.5 text-gray-600">{s.seq}</td>
+                                <td className="px-3 py-1.5 text-gray-800">{s.period}</td>
+                                <td className="px-3 py-1.5 text-right tabular-nums text-gray-800">{formatRupiah(s.amount)}</td>
+                                <td className="px-3 py-1.5"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.paid ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}><T>{s.paid ? "Terpotong" : "Belum"}</T></span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {loans.length > 1 && (
