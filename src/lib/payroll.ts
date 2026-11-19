@@ -48,6 +48,8 @@ export const PAY_PARAMS = [
   { key: "JAM_TELAT_PULANG_CEPAT", label: "Jam terlambat + pulang cepat", unit: "jam" },
   { key: "JAM_LEMBUR", label: "Jam lembur", unit: "jam" },
   { key: "HARI_DINAS", label: "Hari dinas luar", unit: "hari" },
+  // Hari Jumat di periode gaji selama karyawan bekerja (mis. natura susu tiap Jumat; keputusan pemilik 2026-11-19).
+  { key: "HARI_JUMAT", label: "Jumlah hari Jumat", unit: "hari" },
 ] as const;
 export const NEEDS_PARAM = ["PER_SATUAN", "PRORATA", "PER_JAM"];
 export const NEEDS_BASE = ["PERSEN", "PRORATA", "LEMBUR", "THR", "PER_JAM"];

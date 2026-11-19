@@ -103,6 +103,13 @@ async function loadContext(period: string) {
   };
 }
 
+// Jumlah hari Jumat dari tanggal a sampai b (tanggal UTC tengah malam).
+function fridaysBetween(a: Date, b: Date) {
+  let n = 0;
+  for (let t = a.getTime(); t <= b.getTime(); t += DAY) if (new Date(t).getUTCDay() === 5) n++;
+  return n;
+}
+
 // Hitung gaji satu karyawan dari komponen yang ditempel ke karyawan itu.
 // Komponen bertanda "Karyawan bulanan: dibayar mingguan".
 const weeklyCodesOf = (ctx: Ctx) => new Set(ctx.components.filter((c) => (c.params as PayParams | null)?.weeklyForMonthly).map((c) => c.code));
@@ -279,6 +286,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
       // Hari mangkir = alpha + cuti di luar tanggungan (cuti tanpa upah / melebihi saldo).
       HARI_HADIR: inputs.daysPresent, HARI_MANGKIR: inputs.absentDays + (inputs.unpaidLeaveDays ?? 0), MASA_KERJA: inputs.monthsOfService,
       HARI_DINAS: inputs.tripDays,
+      HARI_JUMAT: fridaysBetween(from, to),
       ...penaltyQty(start, end),
     },
     periodDays: calDays,

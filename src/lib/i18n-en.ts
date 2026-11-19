@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Jumlah hari Jumat": "Number of Fridays",
   "Reimbursement Pengobatan": "Medical Reimbursement",
   "Reimbursement": "Reimbursement",
   "Penggantian biaya pengobatan": "Medical expense reimbursement",
