@@ -142,7 +142,8 @@ export default function ComponentsTab({ components, employees, workDaysPerWeek }
       ) : (
       // Daftar komponen di kiri (per jenis), rincian komponen terpilih di kanan (seperti halaman Organisasi).
       <div className="grid gap-4 p-4 md:grid-cols-[18rem_1fr]">
-        <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        {/* Daftar panjang: di layar lebar punya scroll sendiri dan tetap menempel saat halaman di-scroll. */}
+        <nav className="h-fit overflow-hidden rounded-2xl border border-gray-200 bg-white md:sticky md:top-20 md:max-h-[calc(100vh-6rem)] md:overflow-y-auto">
           {PAY_KINDS.map((k) => {
             const list = components.filter((c) => c.kind === k.key);
             if (list.length === 0) return null;
