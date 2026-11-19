@@ -222,8 +222,8 @@ export async function submitTripFor(u: Who, input: TripInput) {
     if (leave.status === "APPROVED") {
       const now = todayDate().getTime();
       return { error: leave.startDate.getTime() <= now && now <= leave.endDate.getTime()
-        ? "Anda sedang cuti hari ini, silakan hubungi HRD."
-        : `Anda cuti pada tanggal ${range(leave.startDate, leave.endDate)}, silakan hubungi HRD.` };
+        ? "Anda sedang cuti hari ini, silakan hubungi Admin HRD."
+        : `Anda cuti pada tanggal ${range(leave.startDate, leave.endDate)}, silakan hubungi Admin HRD.` };
     }
     return { error: `Tanggal beririsan dengan cuti (${range(leave.startDate, leave.endDate)}) yang sedang diajukan.` };
   }

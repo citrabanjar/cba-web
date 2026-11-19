@@ -1078,7 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
-  "Anda sedang cuti hari ini, silakan hubungi HRD.": "You are on leave today, please contact HR.",
+  "Anda sedang cuti hari ini, silakan hubungi Admin HRD.": "You are on leave today, please contact the HR Admin.",
   "Foto atau PDF, maksimal 3 berkas.": "Photo or PDF, up to 3 files.",
   "Wajib": "Required",
   "Cuti hari ini diajukan melalui menu Pengajuan Absen.": "Today's leave is requested through the Attendance Request menu.",
