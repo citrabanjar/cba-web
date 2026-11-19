@@ -116,5 +116,5 @@ export async function unfinishedCheckout(userId: string, workDate: Date) {
   const when = yesterday ? "kemarin" : `tanggal ${formatDate(prev.date)}`;
   // Masih bisa check-out biasa (shift malam / lembur lewat tengah malam dalam batas absen pulang).
   if ((await openAttendance(userId))?.id === prev.id) return `Selesaikan terlebih dahulu check-out ${when}.`;
-  return `Selesaikan terlebih dahulu check-out ${when} melalui menu Lupa Absen.`;
+  return `Selesaikan terlebih dahulu check-out ${when} melalui menu Pengajuan Absen.`;
 }

@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Tombol HP" };
 const HP_BUTTONS = [
   { href: "/portal/absensi", icon: Clock, label: "Absensi", desc: "Check-in & Check-out" },
   { href: "/portal/kehadiran", icon: CalendarCheck, label: "Kehadiran", desc: "Kalender & estimasi lembur" },
-  { href: "/portal/lupa-absen", icon: ClockAlert, label: "Lupa Absen", desc: "Pengajuan check-in / check-out" },
+  { href: "/portal/lupa-absen", icon: ClockAlert, label: "Pengajuan Absen", desc: "Lupa absen, potong cuti, atau izin tanpa hak cuti" },
   { href: "/portal/cuti", icon: CalendarDays, label: "Cuti", desc: "Pengajuan cuti" },
   { href: "/portal/dinas", icon: Briefcase, label: "Dinas Luar", desc: "Pengajuan dinas" },
   { href: "/portal/tukar-shift", icon: ArrowLeftRight, label: "Tukar Shift", desc: "Tukar shift dengan rekan" },

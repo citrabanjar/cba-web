@@ -44,5 +44,6 @@ export async function cancelLeave(id: string) {
   });
 
   revalidatePath("/portal/cuti");
+  revalidatePath("/portal/lupa-absen");
   return { ok: true };
 }

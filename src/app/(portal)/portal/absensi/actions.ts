@@ -124,7 +124,7 @@ export async function checkOut(lat: number, lng: number, confirmed = false) {
     const yesterday = new Date(wibToday().getTime() - 86_400_000);
     const y = await prisma.attendance.findUnique({ where: { userId_date: { userId: session.user.id, date: yesterday } }, select: { checkIn: true, checkOut: true } });
     const late = y?.checkIn && !y.checkOut ? await checkOutBlocked(session.user.id, yesterday) : null;
-    return { error: late ?? "Check-in belum dilakukan, silakan gunakan menu Lupa Absen." };
+    return { error: late ?? "Check-in belum dilakukan, silakan gunakan menu Pengajuan Absen." };
   }
   if (record.checkOut) return { error: "Anda sudah check-out hari ini." };
   // Batas jam absen pulang terhadap jam pulang shift (Jadwal → Shift).

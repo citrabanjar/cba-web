@@ -22,7 +22,9 @@ const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(
 // ─── Cuti ───
 export type LeaveInput = { policyId: string; startDate: string; endDate: string; reason: string; dayPart: string; delegateId: string };
 
-export async function createLeave(userId: string, input: LeaveInput) {
+// opts.absence = diajukan lewat menu Pengajuan Absen (Potong Cuti Tahunan / Izin Tanpa Hak Cuti): hanya hari ini atau
+// tanggal yang sudah lewat (31 hari terakhir), tanpa batas H-x dan tanpa delegasi; tetap lewat penyetuju cuti dan cek saldo.
+export async function createLeave(userId: string, input: LeaveInput, opts: { absence?: boolean } = {}) {
   // Penyetuju = Level workflow Cuti bila aktif (menu Workflow); selain itu atasan langsung aktif, tanpa itu pengajuan tidak bisa dikirim.
   const wf = await workflowSteps("CUTI", userId);
   if (wf.error) return { error: wf.error };
@@ -70,13 +72,17 @@ export async function createLeave(userId: string, input: LeaveInput) {
   const ownBalance = hasBalance(policy) ? (await visibleBalances([userId])).find((r) => r.policyId === policy.id)?.balance ?? 0 : 0;
   if (!eligible(policy, me, today, ownBalance) || policy.category === "DINAS") return { error: "Jenis cuti ini tidak berlaku untuk Anda." };
 
-  if (policy.noticeDays > 0 && start.getTime() < today.getTime() + policy.noticeDays * 86_400_000) {
+  if (opts.absence) {
+    if (end > today) return { error: "Pengajuan Absen hanya untuk hari ini atau tanggal yang sudah lewat. Untuk tanggal mendatang gunakan menu Cuti." };
+    if (start.getTime() < today.getTime() - 31 * 86_400_000) return { error: "Pengajuan Absen hanya untuk 31 hari terakhir. Hubungi Admin untuk tanggal yang lebih lama." };
+    if ((await periodFinal(start)) || (await periodFinal(end))) return { error: "Periode gaji bulan itu sudah final." };
+  } else if (policy.noticeDays > 0 && start.getTime() < today.getTime() + policy.noticeDays * 86_400_000) {
     return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai.` };
   }
 
   // Delegasi tanggung jawab (Cuti Tahunan): wajib bila pemohon seorang penyetuju, opsional untuk karyawan lain.
   let delegate: { id: string; name: string } | null = null;
-  if (policy.category === "TAHUNAN") {
+  if (policy.category === "TAHUNAN" && !opts.absence) {
     if (input.delegateId) {
       const d = await prisma.user.findUnique({ where: { id: input.delegateId }, select: { id: true, name: true, isActive: true } });
       if (!d?.isActive || d.id === userId) return { error: "Delegasi harus karyawan aktif selain Anda." };
@@ -131,6 +137,7 @@ export async function createLeave(userId: string, input: LeaveInput) {
     data: {
       userId, policyId: policy.id, type: legacyType(policy.category),
       startDate: start, endDate: end, totalDays, halfDay, unpaidDays, reason, status: "PENDING", ...(flow ? { approval: flow } : {}),
+      urgent: !!opts.absence,
       ...(delegate ? { delegateId: delegate.id, delegateName: delegate.name } : {}),
     },
   });
@@ -151,6 +158,7 @@ export async function createLeave(userId: string, input: LeaveInput) {
   }
 
   revalidatePath("/portal/cuti");
+  revalidatePath("/portal/lupa-absen");
   revalidatePath("/portal/kehadiran");
   revalidatePath("/portal/admin/leave");
   return { ok: true, days: fmt(totalDays), unpaid: unpaidDays > 0 ? fmt(unpaidDays) : null, approver };

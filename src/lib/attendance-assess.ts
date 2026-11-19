@@ -121,8 +121,8 @@ export async function checkOutBlocked(userId: string, date: Date, now = Date.now
   const close = await checkOutLimit(userId, date, s);
   if (close && now > close.at) {
     return close.spl
-      ? "Waktu check-out tidak sesuai dengan SPL, silakan hubungi atasan Anda dan gunakan menu Lupa Absen."
-      : "Batas waktu check-out telah habis, gunakan menu Lupa Absen.";
+      ? "Waktu check-out tidak sesuai dengan SPL, silakan hubungi atasan Anda dan gunakan menu Pengajuan Absen."
+      : "Batas waktu check-out telah habis, gunakan menu Pengajuan Absen.";
   }
   return null;
 }
