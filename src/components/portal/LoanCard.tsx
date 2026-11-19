@@ -14,7 +14,9 @@ export type LoanView = {
 };
 
 // Ringkasan satu pinjaman + tabel angsuran (dipakai di halaman karyawan dan admin).
-export default function LoanCard({ loan, actions, header }: { loan: LoanView; actions?: React.ReactNode; header?: React.ReactNode }) {
+// processOnly: keperluan, catatan, dan jejak approval hanya tampil selama pengajuan berproses (menunggu / ditolak);
+// pinjaman yang sudah disetujui cukup ringkasan dan tabel angsuran (halaman karyawan).
+export default function LoanCard({ loan, actions, header, processOnly = false }: { loan: LoanView; actions?: React.ReactNode; header?: React.ReactNode; processOnly?: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(loan.status === "BERJALAN");
   const s = loanSummary(loan.principal, loan.installments);
@@ -38,10 +40,12 @@ export default function LoanCard({ loan, actions, header }: { loan: LoanView; ac
             {!loan.isOpening && loan.originalAmount ? <> · <T>dana baru</T> {formatRupiah(loan.originalAmount)}</> : null}
             {loan.disbursedAt && <> · <T>dicairkan</T> {new Date(`${loan.disbursedAt}T00:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</>}
           </p>
-          {loan.purpose && <p className="mt-1 text-sm text-gray-700">{loan.purpose}</p>}
-          {loan.note && <p className="mt-1 text-xs text-gray-500"><T>Catatan</T>: {loan.note}</p>}
-          {loan.status === "PENDING" && loan.flow?.request && <LoanRequestSummary plan={loan.flow.request} />}
-          {(loan.flow?.managerName || loan.flow?.workflow || loan.flow?.topName) && <LoanTrail flow={loan.flow} status={loan.status} stage={stage} />}
+          {(!processOnly || ["PENDING", "DITOLAK", "BATAL"].includes(loan.status)) && <>
+            {loan.purpose && <p className="mt-1 text-sm text-gray-700">{loan.purpose}</p>}
+            {loan.note && <p className="mt-1 text-xs text-gray-500"><T>Catatan</T>: {loan.note}</p>}
+            {loan.status === "PENDING" && loan.flow?.request && <LoanRequestSummary plan={loan.flow.request} />}
+            {(loan.flow?.managerName || loan.flow?.workflow || loan.flow?.topName) && <LoanTrail flow={loan.flow} status={loan.status} stage={stage} />}
+          </>}
         </div>
         {actions}
       </div>

@@ -159,7 +159,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
         <h3 className="text-sm font-semibold text-gray-700"><T>Pinjaman Saya</T></h3>
         {loans.length === 0 && <p className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-8 text-center text-sm text-gray-500"><T>Belum ada pinjaman.</T></p>}
         {loans.map((l) => (
-          <LoanCard key={l.id} loan={l} actions={l.status === "PENDING" ? (
+          <LoanCard key={l.id} loan={l} processOnly actions={l.status === "PENDING" ? (
             <Button variant="outline" size="sm" disabled={pending}
               onClick={async () => { if (await askConfirm(t("Batalkan pengajuan ini?"))) run(async () => { await cancelLoanRequest(l.id); }); }}>
               <T>Batalkan</T>
