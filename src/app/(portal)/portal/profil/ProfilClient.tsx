@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { Banknote, Briefcase, CalendarDays, CalendarHeart, Check, Clock, FileText, HandCoins, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, Wallet, X } from "lucide-react";
 import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import type { BalanceRow } from "@/lib/leave-balance";
@@ -58,9 +57,16 @@ const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
   </div>
 );
 
-export default function ProfilClient({ me, salary, balances, loans, lastSlip, values, family, calendar, requests }: {
+const LEAVE_ST: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: "Menunggu", cls: "bg-amber-50 text-amber-700" }, APPROVED: { label: "Disetujui", cls: "bg-emerald-50 text-emerald-700" },
+  REJECTED: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" },
+};
+
+export default function ProfilClient({ me, salary, balances, loans, lastSlip, slips = [], values, family, calendar, requests, leaveHistory = [] }: {
   me: Me; salary: Salary | null; balances: BalanceRow[]; loans: Loan[]; lastSlip: { periodLabel: string; netPay: number } | null;
+  slips?: { id: string; periodLabel: string; netPay: number }[];
   values: Record<string, string>; family: FamilyRow[];
+  leaveHistory?: { id: string; start: string; end: string; days: number; name: string; status: string; halfDay: boolean }[];
   calendar: { attendances: CalendarProps["attendances"]; leaves: CalendarProps["leaves"]; trips: CalendarProps["trips"]; shiftDays: Record<string, DayShift>; overtimes?: CalendarProps["overtimes"] };
   requests: Req[];
 }) {
@@ -78,6 +84,8 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
   ];
   const [tab, setTab] = useState("data");
   const [showInst, setShowInst] = useState<number | null>(null); // pinjaman yang jadwal angsurannya dibuka (Saldo Pinjaman)
+  const [showLeaves, setShowLeaves] = useState(false); // riwayat pengajuan cuti (Saldo Cuti)
+  const [showSlips, setShowSlips] = useState(false); // riwayat slip gaji
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -182,9 +190,33 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
       {tab === "saldo" && (
         <SectionNav sections={[
           { key: "cuti", label: "Saldo Cuti", icon: CalendarHeart, content: (
-          // Profil hanya menampilkan saldo; pengajuan cuti lewat menu Cuti (Tombol HP).
-          <Section icon={CalendarHeart} title="Saldo Cuti">
+          // Profil hanya menampilkan saldo dan riwayat cuti; pengajuan cuti lewat menu Cuti (Tombol HP).
+          <Section icon={CalendarHeart} title="Saldo Cuti" action={leaveHistory.length > 0 ? (
+            <button type="button" onClick={() => setShowLeaves((v) => !v)} className="text-xs font-semibold text-brand"><T>{showLeaves ? "Sembunyikan Riwayat Cuti" : "Lihat Riwayat Cuti"}</T></button>
+          ) : undefined}>
             {balances.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada saldo cuti.</T></p> : <LeaveBalanceCard rows={balances} compact />}
+            {showLeaves && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-gray-100">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                    <tr><th className="px-3 py-1.5 text-left font-medium"><T>Tanggal</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Jenis</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Hari</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Status</T></th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {leaveHistory.map((l) => {
+                      const st = LEAVE_ST[l.status] ?? { label: l.status, cls: "bg-gray-100 text-gray-500" };
+                      return (
+                        <tr key={l.id}>
+                          <td className="px-3 py-1.5 text-gray-800">{formatDate(new Date(l.start))}{l.end !== l.start && <> – {formatDate(new Date(l.end))}</>}</td>
+                          <td className="px-3 py-1.5 text-gray-700"><T>{l.name}</T>{l.halfDay && <span className="text-xs text-gray-400"> · <T>setengah hari</T></span>}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums text-gray-800">{String(l.days).replace(".", ",")}</td>
+                          <td className="px-3 py-1.5"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Section>
           ) },
           { key: "pinjaman", label: "Saldo Pinjaman", icon: HandCoins, content: (
@@ -236,11 +268,27 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
           </Section>
           ) },
           { key: "slip", label: "Slip Gaji Terakhir", icon: FileText, content: (
-          <Section icon={FileText} title="Slip Gaji Terakhir" action={<Link href="/portal/payslip" className="text-xs font-semibold text-brand"><T>Semua Slip →</T></Link>}>
+          <Section icon={FileText} title="Slip Gaji Terakhir" action={slips.length > 1 ? (
+            <button type="button" onClick={() => setShowSlips((v) => !v)} className="text-xs font-semibold text-brand"><T>{showSlips ? "Sembunyikan Riwayat Slip" : "Lihat Riwayat Slip"}</T></button>
+          ) : undefined}>
             {!lastSlip ? <p className="text-sm text-gray-400"><T>Belum ada slip gaji.</T></p> : (
               <>
                 <Row label="Periode" value={lastSlip.periodLabel} />
                 <Row label="Gaji diterima (THP)" value={formatRupiah(lastSlip.netPay)} />
+                {showSlips && (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-gray-100">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                        <tr><th className="px-3 py-1.5 text-left font-medium"><T>Periode</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Gaji diterima (THP)</T></th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {slips.map((x) => (
+                          <tr key={x.id}><td className="px-3 py-1.5 text-gray-800">{x.periodLabel}</td><td className="px-3 py-1.5 text-right tabular-nums text-gray-800">{formatRupiah(x.netPay)}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 <p className="mt-2 text-[11px] text-gray-400"><T>Rincian dan bukti potong PPh 21 ada di menu Slip Gaji dan PPh 21.</T></p>
               </>
             )}

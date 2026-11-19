@@ -10,6 +10,9 @@ import { visibleBalances } from "@/lib/leave-balance";
 import { PROFILE_KEYS, profileValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 import ProfilClient from "./ProfilClient";
 
+// Jenis cuti lama (sebelum ada Jenis Cuti) untuk riwayat cuti.
+const LEGACY_LEAVE: Record<string, string> = { TAHUNAN: "Cuti Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan", PENTING: "Keperluan Penting", LAINNYA: "Lainnya" };
+
 export const metadata: Metadata = { title: "Profil Saya" };
 
 const monthsBetween = (a: Date, b: Date) => (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth() - (b.getUTCDate() < a.getUTCDate() ? 1 : 0);
@@ -37,7 +40,7 @@ export default async function ProfilPage() {
         department: { select: { name: true } }, manager: { select: { name: true, employeeId: true } },
         family: { orderBy: { createdAt: "asc" }, select: { name: true, idNumber: true, relation: true } },
         attendances: { orderBy: { date: "desc" }, take: 400, select: { id: true, date: true, checkIn: true, checkOut: true, checkInAddr: true, status: true, note: true } },
-        leaves: { orderBy: { startDate: "desc" }, take: 50, select: { id: true, type: true, startDate: true, endDate: true, totalDays: true, reason: true, status: true, delegateName: true } },
+        leaves: { orderBy: { startDate: "desc" }, take: 50, select: { id: true, type: true, startDate: true, endDate: true, totalDays: true, reason: true, status: true, delegateName: true, halfDay: true, policy: { select: { name: true } } } },
         businessTrips: { orderBy: { startDate: "desc" }, take: 50, select: { id: true, destination: true, startDate: true, endDate: true, status: true } },
       },
     }),
@@ -55,7 +58,8 @@ export default async function ProfilPage() {
       where: { userId: id, status: { in: ["DISETUJUI", "BERJALAN"] } }, orderBy: { createdAt: "asc" },
       select: { seqNo: true, principal: true, status: true, installments: { select: { seq: true, amount: true, status: true, period: true }, orderBy: { seq: "asc" } } },
     }),
-    prisma.payslip.findFirst({ where: { userId: id }, orderBy: [{ createdAt: "desc" }, { period: "desc" }], select: { periodLabel: true, netPay: true } }),
+    // Slip gaji 12 terakhir (yang pertama = slip terakhir).
+    prisma.payslip.findMany({ where: { userId: id }, orderBy: [{ period: "desc" }, { createdAt: "desc" }], take: 12, select: { id: true, periodLabel: true, netPay: true } }),
     prisma.overtime.findMany({
       where: { userId: id, date: { gte: from, lte: to }, status: { in: ["DISETUJUI", "APPROVED", "MENUNGGU_KARYAWAN", "PENDING"] } },
       select: { date: true, startTime: true, endTime: true, status: true },
@@ -92,13 +96,18 @@ export default async function ProfilPage() {
           schedule: l.installments.map((i) => ({ seq: i.seq, period: i.period, amount: i.amount, paid: i.status === "LUNAS" })),
         };
       })}
-      lastSlip={lastSlip}
+      lastSlip={lastSlip[0] ?? null}
+      slips={lastSlip.map((x) => ({ id: x.id, periodLabel: x.periodLabel, netPay: x.netPay }))}
       values={values}
       family={user.family.map((f) => ({ name: f.name, idNumber: f.idNumber ?? "", relation: f.relation }))}
       calendar={{
         attendances: user.attendances, leaves: user.leaves, trips: user.businessTrips, shiftDays,
         overtimes: overtimes.map((o) => ({ date: o.date.toISOString().slice(0, 10), start: o.startTime, end: o.endTime, status: o.status })),
       }}
+      leaveHistory={user.leaves.filter((l) => l.status !== "CANCELLED").map((l) => ({
+        id: l.id, start: l.startDate.toISOString().slice(0, 10), end: l.endDate.toISOString().slice(0, 10), days: l.totalDays,
+        name: l.policy?.name ?? LEGACY_LEAVE[l.type] ?? l.type, status: l.status, halfDay: !!l.halfDay,
+      }))}
       requests={requests.map((r) => ({
         id: r.id, status: r.status, changes: r.changes as ProfileChanges, family: (r.family as FamilyRow[] | null) ?? null,
         reason: r.reason, note: r.note, decidedBy: r.decidedBy, decidedAt: r.decidedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
