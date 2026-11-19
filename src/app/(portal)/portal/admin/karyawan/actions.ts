@@ -229,9 +229,13 @@ export async function decideEmployeeEdit(requestId: string, approve: boolean, no
     await notify(r.requesterId, `Pengajuan ${approve ? "disetujui" : "ditolak"}: ${title}`, decisionText(approve, steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName, note), href);
     // Perubahan data karyawan yang sudah berlaku: karyawan yang datanya diubah ikut diberi tahu (kecuali password).
     if (approve && !kind && r.userId !== r.requesterId) {
-      const lines = ((r.summary as { field: string; oldValue: string | null; newValue: string | null }[] | null) ?? [])
-        .filter((c) => c.field !== "password")
-        .map((c) => `${EDIT_FIELD_LABELS[c.field] ?? c.field}: ${c.oldValue || "—"} → ${c.newValue || "—"}`);
+      const rows = ((r.summary as { field: string; oldValue: string | null; newValue: string | null }[] | null) ?? []).filter((c) => c.field !== "password");
+      // Pengajuan lama mencatat atasan langsung sebagai kode internal: tampilkan "ID - Nama".
+      const ids = rows.filter((c) => c.field === "manager").flatMap((c) => [c.oldValue, c.newValue]).filter((v): v is string => !!v && !v.includes(" - "));
+      const names = new Map((ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, employeeId: true, name: true } }) : [])
+        .map((u) => [u.id, `${u.employeeId ?? "-"} - ${u.name}`]));
+      const show = (c: { field: string }, v: string | null) => (c.field === "manager" && v ? names.get(v) ?? v : v) || "—";
+      const lines = rows.map((c) => `${EDIT_FIELD_LABELS[c.field] ?? c.field}: ${show(c, c.oldValue)} → ${show(c, c.newValue)}`);
       if (lines.length) await notify(r.userId, "Data Anda diperbarui", `Diubah oleh ${r.requesterName}, disetujui ${steps.filter((x) => x.decision).map((x) => x.name).join(", ") || r.approverName}. ${lines.join("; ")}`, "/portal/profil");
     }
   }
@@ -305,7 +309,16 @@ async function applyEmployeeUpdate(id: string, data: EmployeeUpdate, opts: { rol
   if (data.managerEmployeeId !== undefined) {
     const managerId = await findManagerId(data.managerEmployeeId);
     if (await wouldLoop(id, managerId)) throw new Error("Atasan tidak boleh berputar");
-    if (track("manager", current.managerId, managerId)) changes.managerId = managerId;
+    // Riwayat & kartu persetujuan menampilkan "ID - Nama" atasan, bukan kode internal database.
+    if ((current.managerId ?? null) !== (managerId ?? null)) {
+      const label = async (uid: string | null) => {
+        if (!uid) return null;
+        const m = await prisma.user.findUnique({ where: { id: uid }, select: { employeeId: true, name: true } });
+        return m ? `${m.employeeId ?? "-"} - ${m.name}` : uid;
+      };
+      logs.push({ field: "manager", oldValue: await label(current.managerId), newValue: await label(managerId) });
+      changes.managerId = managerId;
+    }
   }
   if (data.password) {
     changes.passwordHash = await bcrypt.hash(data.password, 12);

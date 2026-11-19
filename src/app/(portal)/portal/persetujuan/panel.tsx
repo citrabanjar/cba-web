@@ -191,6 +191,13 @@ export async function loadApprovals(a: Approver) {
     ? { ...(await getMasterOptions()), managers: (await prisma.user.findMany({ where: { isActive: true, employeeId: { not: null } }, orderBy: { employeeId: "asc" }, select: { id: true, name: true, employeeId: true } })).map((u) => ({ value: u.id, label: `${u.employeeId} - ${u.name}` })) }
     : null;
 
+  // Pengajuan lama mencatat atasan langsung sebagai kode internal: ditampilkan sebagai "ID - Nama".
+  type SumRow = { field: string; oldValue: string | null; newValue: string | null };
+  const sumOf = (r: (typeof editReqs)[number]) => (r.summary as SumRow[] | null) ?? [];
+  const mgrIds = [...new Set(editReqs.flatMap((r) => sumOf(r).filter((x) => x.field === "manager").flatMap((x) => [x.oldValue, x.newValue])).filter((v): v is string => !!v && !v.includes(" - ")))];
+  const mgrName = new Map((mgrIds.length ? await prisma.user.findMany({ where: { id: { in: mgrIds } }, select: { id: true, employeeId: true, name: true } }) : [])
+    .map((u) => [u.id, `${u.employeeId ?? "-"} - ${u.name}`]));
+  const mgr = (v: string | null) => (v && mgrName.get(v)) ?? v;
   const edits = editReqs.map((r) => ({
     id: r.id, status: r.status, person: person(r.user), requester: r.requesterName, approver: r.approverName, note: r.note,
     mine: r.status === "PENDING" && r.approverId === a.id,
@@ -199,7 +206,7 @@ export async function loadApprovals(a: Approver) {
     title: ((r.data as { __title?: unknown } | null)?.__title as string | undefined) ?? null,
     hasTarget: !(r.data as { __kind?: unknown } | null)?.__kind || !!(r.data as { __target?: unknown } | null)?.__target,
     steps: (((r.data as { __approval?: unknown } | null)?.__approval as { name: string; level: number; decision: string; at: string; note: string }[] | undefined) ?? []),
-    summary: (r.summary as { field: string; oldValue: string | null; newValue: string | null }[]) ?? [],
+    summary: sumOf(r).map((x) => (x.field === "manager" ? { ...x, oldValue: mgr(x.oldValue), newValue: mgr(x.newValue) } : x)),
     createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
   }));
   // Pimpinan puncak baru melihat pengajuan setelah disetujui atasan (tahap pemeriksaan Admin dan seterusnya).
