@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { Banknote, Briefcase, CalendarDays, CalendarHeart, Check, Clock, FileText, HandCoins, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, Wallet, X } from "lucide-react";
-import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import type { BalanceRow } from "@/lib/leave-balance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +49,8 @@ function Section({ icon: Icon, title, children, action }: { icon: React.ElementT
     </section>
   );
 }
+// Angka hari cuti: 2,5 (koma desimal).
+const days = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="grid grid-cols-[140px_1fr] gap-3 py-1.5 text-sm sm:grid-cols-[180px_1fr]">
     <span className="text-gray-500"><T>{label}</T></span>
@@ -85,6 +86,7 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, sl
   const [tab, setTab] = useState("data");
   const [showInst, setShowInst] = useState<number | null>(null); // pinjaman yang jadwal angsurannya dibuka (Saldo Pinjaman)
   const [showLeaves, setShowLeaves] = useState(false); // riwayat pengajuan cuti (Saldo Cuti)
+  const [showLedger, setShowLedger] = useState<string | null>(null); // riwayat saldo per jenis cuti
   const [showSlips, setShowSlips] = useState(false); // riwayat slip gaji
 
   return (
@@ -194,7 +196,43 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, sl
           <Section icon={CalendarHeart} title="Saldo Cuti" action={leaveHistory.length > 0 ? (
             <button type="button" onClick={() => setShowLeaves((v) => !v)} className="text-xs font-semibold text-brand"><T>{showLeaves ? "Sembunyikan Riwayat Cuti" : "Lihat Riwayat Cuti"}</T></button>
           ) : undefined}>
-            {balances.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada saldo cuti.</T></p> : <LeaveBalanceCard rows={balances} compact />}
+            {/* Tampilan sama dengan Saldo Pinjaman: baris per jenis cuti + tombol Lihat Riwayat (riwayat saldo) per jenis. */}
+            {balances.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada saldo cuti.</T></p> : balances.map((r) => (
+              <div key={r.policyId} className="border-b border-gray-100 py-2 last:border-b-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-gray-900"><T>{r.policyName}</T> · {r.code}</p>
+                  {r.ledger.length > 0 && (
+                    <button type="button" onClick={() => setShowLedger((v) => (v === r.policyId ? null : r.policyId))} className="text-xs font-semibold text-brand">
+                      <T>{showLedger === r.policyId ? "Sembunyikan Riwayat" : "Lihat Riwayat"}</T>
+                    </button>
+                  )}
+                </div>
+                <Row label="Sisa saldo" value={`${days(r.balance)} ${t("hari")}`} />
+                {r.pending > 0 && <Row label="Menunggu persetujuan" value={`${days(r.pending)} ${t("hari")}`} />}
+                {r.pending > 0 && <Row label="Bisa diajukan" value={`${days(Math.max(0, r.balance - r.pending))} ${t("hari")}`} />}
+                {r.nextDate && r.nextDays ? <Row label="Penambahan berikutnya" value={`${days(r.nextDays)} ${t("hari")} · ${d(r.nextDate)}`} /> : null}
+                {r.problem && <p className="mt-1 text-xs text-red-600"><T>{r.problem}</T> — <T>hubungi HRD</T></p>}
+                {showLedger === r.policyId && (
+                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-100">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                        <tr><th className="px-3 py-1.5 text-left font-medium"><T>Tanggal</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Keterangan</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Hari</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Saldo</T></th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {[...r.ledger].reverse().map((l, n) => (
+                          <tr key={`${l.date}-${n}`}>
+                            <td className="px-3 py-1.5 text-gray-600">{d(l.date)}</td>
+                            <td className="px-3 py-1.5 text-gray-800"><T>{l.label}</T></td>
+                            <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${l.days < 0 ? "text-rose-600" : "text-emerald-600"}`}>{l.days > 0 ? "+" : ""}{days(l.days)}</td>
+                            <td className="px-3 py-1.5 text-right tabular-nums font-bold text-gray-900">{days(l.balance)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
             {showLeaves && (
               <div className="mt-3 overflow-hidden rounded-xl border border-gray-100">
                 <table className="w-full text-sm">
