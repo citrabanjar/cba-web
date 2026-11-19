@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getShiftCalendar, getShiftCalendars, type DayShift } from "@/lib/schedule";
+import { dayPenalty } from "@/lib/attendance-penalty";
+import { estimatePenaltyCut } from "@/lib/penalty-estimate";
 
 // Penilaian kehadiran otomatis (aturan CBA, keputusan pemilik 2026-11-10):
 // - Tanggal kerja mengikuti WIB. Shift lewat tengah malam (mis. Security Malam 23–07) dicatat
@@ -104,13 +106,25 @@ export async function checkInBlocked(userId: string, date: Date, now = Date.now(
   if (now < open) return `Absen masuk baru dibuka pukul ${clockWib(open)}${dayLabel(open, wibToday(now))}.`;
   return null;
 }
-// Peringatan sebelum check-in yang sangat terlambat (lewat jam masuk + N menit).
+// Lama waktu untuk pop-up: "40 menit", "1 jam", "1 jam 15 menit".
+const duration = (minutes: number) => {
+  const h = Math.floor(minutes / 60), m = Math.round(minutes % 60);
+  return [h ? `${h} jam` : "", m ? `${m} menit` : ""].filter(Boolean).join(" ") || "0 menit";
+};
+const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+// Pop-up absen bernominal (keputusan pemilik 2026-11-20): singkat, tiap baris satu hal.
+const warnText = (head: string, cut: number | null, ask: string) => [head, cut ? `Perkiraan potongan: ${rupiah(cut)}.` : "", ask].filter(Boolean).join("\n");
+
+// Peringatan sebelum check-in terlambat yang kena potongan (lebih dari 30 menit), atau lewat batas peringatan shift.
 export async function checkInWarning(userId: string, date: Date, now = Date.now()) {
   const s = await shiftOn(userId, date);
-  if (!s || !working(s) || s.checkInOpen == null) return null;
+  if (!s || !working(s)) return null;
   const start = atWib(date, s.startTime!);
-  if (now <= start + s.checkInOpen * 60_000) return null;
-  return "Waktu check-in Anda telah melewati batas, gunakan cuti setengah hari untuk menghindari potongan. Tetap lanjut check-in?";
+  const p = dayPenalty(s, key(date), new Date(now), null);
+  const pastLimit = s.checkInOpen != null && now > start + s.checkInOpen * 60_000;
+  if (!p || (p.lateHours <= 0 && !pastLimit)) return null;
+  const cut = await estimatePenaltyCut(userId, date, p.lateHours, p.workHours);
+  return warnText(`Anda terlambat ${duration(p.lateMinutes)}.`, cut, "Tetap check-in?");
 }
 
 // Absen pulang untuk absen tanggal `date`: error bila lewat batas.
@@ -131,7 +145,10 @@ export async function checkOutWarning(userId: string, date: Date, now = Date.now
   if (!s || !working(s)) return null;
   const end = atWib(date, s.endTime!, crossesMidnight(s));
   if (end - now <= (s.earlyLeaveTolerance ?? 0) * 60_000) return null;
-  return "Waktu check-out Anda lebih awal dari jam pulang, gunakan cuti setengah hari untuk menghindari potongan. Tetap lanjut check-out?";
+  // Termasuk check-out sesudah lembur pagi (SPL sebelum shift): diperingatkan, tidak diblok.
+  const p = dayPenalty(s, key(date), null, new Date(now));
+  const cut = p ? await estimatePenaltyCut(userId, date, p.earlyHours, p.workHours) : null;
+  return warnText(`Anda pulang ${duration(Math.ceil((end - now) / 60_000))} lebih awal.`, cut, "Tetap check-out?");
 }
 
 // Absen yang sedang berjalan untuk absen pulang: hari ini, atau shift malam kemarin yang belum check-out,

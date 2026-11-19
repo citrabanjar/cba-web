@@ -74,7 +74,7 @@ export function ConfirmHost() {
             {req?.notice === "error" ? t("Gagal") : req?.notice === "warn" ? t("Peringatan") : req?.notice ? t("Pemberitahuan") : t("Konfirmasi")}
           </DialogTitle>
         </DialogHeader>
-        <p className="text-sm leading-relaxed text-gray-700">{req ? t(req.message) : ""}</p>
+        <p className="whitespace-pre-line text-sm leading-relaxed text-gray-700">{req ? t(req.message) : ""}</p>
         <DialogFooter className="gap-2">
           {req?.notice ? (
             <Button autoFocus onClick={() => close(true)}>OK</Button>
