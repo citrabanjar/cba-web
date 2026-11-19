@@ -53,13 +53,18 @@ export async function submitFixFor(u: { id: string; name: string | null }, input
   const needIn = !att?.checkIn, needOut = !att?.checkOut;
   if (!needIn && !needOut) return { error: "Absen tanggal itu sudah lengkap." };
 
+  // Satu pengajuan = satu jam saja (keputusan pemilik 2026-11-19):
+  // - belum ada jam masuk → lupa check-in: hanya jam masuk yang diajukan, jam pulang tidak bisa diisi;
+  // - jam masuk sudah tercatat → lupa check-out: jam masuk tetap, cukup isi jam pulang.
+  // Lupa keduanya sekaligus tidak dilayani lewat menu ini.
   let checkIn: Date | null = null, checkOut: Date | null = null;
   if (needIn) {
+    // Tanggal lewat tanpa jam masuk = tidak check-in dan tidak check-out sama sekali → bukan Lupa Absen.
+    if (date < today) return { error: "Tanggal itu tidak ada jam masuk maupun jam pulang. Lupa Absen hanya untuk salah satunya; hubungi atasan Anda." };
     if (!TIME.test(input.checkIn)) return { error: "Isi jam masuk." };
+    if (input.checkOut) return { error: "Jam masuk belum tercatat, jadi yang bisa diajukan hanya jam masuk." };
     checkIn = atWib(date, input.checkIn);
-  }
-  // Jam pulang wajib untuk tanggal yang sudah lewat; hari ini boleh kosong (check-out nanti seperti biasa).
-  if (needOut && (input.checkOut || date < today)) {
+  } else if (needOut) {
     if (!TIME.test(input.checkOut)) return { error: "Isi jam pulang." };
     const base = checkIn ?? att?.checkIn ?? null;
     checkOut = atWib(date, input.checkOut);

@@ -42,7 +42,7 @@ export default function LupaAbsenForm({ today, initialDate, incomplete, records,
 
   const send = () => start(async () => {
     if (kind === "LUPA") {
-      const r = await submitFix({ date, checkIn: rec?.checkIn ? "" : checkIn, checkOut: rec?.checkOut ? "" : checkOut, reason });
+      const r = await submitFix({ date, checkIn: rec?.checkIn ? "" : checkIn, checkOut: rec?.checkIn && !rec.checkOut ? checkOut : "", reason });
       if (r.error) { void showNotice(t(r.error), "error"); return; }
       void showNotice(`${t("Lupa absen diajukan ke")} ${r.approver} ${t("untuk approval.")}`);
       setCheckIn(""); setCheckOut(""); setDate("");
@@ -108,11 +108,16 @@ export default function LupaAbsenForm({ today, initialDate, incomplete, records,
                 <label className="mb-1 block text-xs font-medium text-gray-500"><T>Jam Pulang</T></label>
                 {rec?.checkOut
                   ? <p className="rounded-xl bg-gray-50 px-3 py-2.5 text-sm text-gray-600">{rec.checkOut} <span className="text-xs text-gray-400">· <T>tercatat</T></span></p>
-                  : <Input type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />}
+                  : rec?.checkIn
+                    ? <Input type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+                    : <p className="rounded-xl bg-gray-100 px-3 py-2.5 text-sm text-gray-400">—</p>}
               </div>
             </div>
-            {date === today && !rec?.checkOut && (
-              <p className="text-[11px] text-gray-400"><T>Untuk hari ini, jam pulang boleh dikosongkan dan check-out dilakukan seperti biasa setelah pengajuan disetujui.</T></p>
+            {date && !rec?.checkIn && (date === today
+              ? <p className="text-[11px] text-gray-400"><T>Jam masuk belum tercatat: ajukan jam masuk saja. Check-out dilakukan seperti biasa di menu Absensi.</T></p>
+              : <p className="text-[11px] text-red-600"><T>Tanggal itu tidak ada jam masuk maupun jam pulang. Lupa Absen hanya untuk salah satunya; hubungi atasan Anda.</T></p>)}
+            {date && rec?.checkIn && !rec.checkOut && (
+              <p className="text-[11px] text-gray-400"><T>Jam masuk sudah tercatat: cukup isi jam pulang.</T></p>
             )}
           </>
         ) : (
