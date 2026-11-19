@@ -353,7 +353,7 @@ export default function ProfileLoans({ loans, readOnly = false }: { loans: LoanV
         if (!list.length) return null;
         // Pinjaman selesai (Lunas / Digabung) tidak ditampilkan sebagai kartu; cukup tautan untuk melihatnya.
         if (g.key === "selesai" && !showDone) return (
-          <button key={g.key} type="button" onClick={() => setShowDone(true)} className="text-xs font-semibold text-brand hover:underline">
+          <button key={g.key} type="button" onClick={() => setShowDone(true)} className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/30 hover:bg-white/25">
             <T>Lihat pinjaman selesai</T> ({list.length})
           </button>
         );
@@ -362,7 +362,7 @@ export default function ProfileLoans({ loans, readOnly = false }: { loans: LoanV
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{g.label}</T> <span className="text-gray-300">{list.length}</span></h3>
               {g.key === "selesai" && (
-                <button type="button" onClick={() => setShowDone(false)} className="text-xs font-semibold text-brand hover:underline"><T>Sembunyikan pinjaman selesai</T></button>
+                <button type="button" onClick={() => setShowDone(false)} className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/30 hover:bg-white/25"><T>Sembunyikan pinjaman selesai</T></button>
               )}
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
