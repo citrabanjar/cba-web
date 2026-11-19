@@ -2,9 +2,7 @@
 
 import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import {
-  BadgeCheck, BriefcaseBusiness, Building2, Cake, CalendarClock, CalendarDays, CalendarX, ChevronDown, ChevronRight, CreditCard, FileText, Hash, Heart, History, Home, Hourglass, IdCard, KeyRound, Landmark, Loader2, Mail, MapPin, MessageCircle, Network, Pencil, Phone, Plus, Receipt, ShieldCheck, Sparkles, Trash2, UserRound, Users, FileStack, Layers, Plane, Wallet,
-} from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, Building2, Cake, CalendarClock, CalendarDays, CalendarX, ChevronDown, ChevronRight, CreditCard, FileText, Hash, Heart, History, Home, Hourglass, IdCard, KeyRound, Landmark, Loader2, Mail, MapPin, MessageCircle, Network, Pencil, Phone, Plus, Receipt, ShieldCheck, Sparkles, Trash2, UserRound, Users, FileStack, Layers, Plane, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,9 +105,8 @@ const TAB_LIST = [
   { key: "pekerjaan", label: "Pekerjaan" },
   { key: "absensi", label: "Kehadiran" },
   { key: "gaji", label: "Payroll" },
-  { key: "pph21", label: "PPh 21" },
   { key: "pinjaman", label: "Pinjaman" },
-  { key: "payslip", label: "Slip Gaji" },
+  { key: "payslip", label: "Slip & Pajak" }, // bukti hasil proses: slip gaji (payroll run) & PPh 21 (pemotongan pajak)
 ];
 
 const STATUS_LABEL: Record<string, string> = {
@@ -851,7 +848,8 @@ export default function KaryawanDetailClient({
   const proposeOnly = !self && canEditTarget && canPropose && !canEditMenu;
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
   const [tab, setTab] = useState(() => {
-    const want = initialTab === "cuti" ? "absensi" : initialTab; // Cuti & Dinas kini bagian dari Kehadiran
+    // Cuti & Dinas kini bagian dari Kehadiran; PPh 21 bagian dari Slip & Pajak.
+    const want = initialTab === "cuti" ? "absensi" : initialTab === "pph21" ? "payslip" : initialTab;
     return quick ? "pekerjaan" : want && TAB_LIST.some((x) => x.key === want) ? want : "pribadi";
   });
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
@@ -864,7 +862,7 @@ export default function KaryawanDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const tabs = [...TAB_LIST.filter(
-    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pph21" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans),
+    (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans),
   ), ...(self ? [{ key: "akun", label: "Akun" }] : [])];
   // Mode Profil Saya: hak ubah / tempel jadwal / gaji dimatikan.
   const editTarget = !self && canEditTarget;
@@ -1398,11 +1396,12 @@ export default function KaryawanDetailClient({
           ]} />
         )}
 
-        {tab === "pph21" && canSeePay && <Pph21Card userId={emp.id} years={pph21Years} />}
 
         {tab === "akun" && self?.account}
 
         {tab === "payslip" && canSeePay && (
+          <SectionNav initial={initialTab === "pph21" ? "pph21" : undefined} sections={[
+            { key: "slip", label: "Slip Gaji", icon: FileText, content: (
           emp.payslips.length === 0 ? <Empty text="Belum ada slip gaji." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1427,6 +1426,9 @@ export default function KaryawanDetailClient({
               </Table>
             </div>
           )
+            ) },
+            { key: "pph21", label: "PPh 21", icon: Receipt, content: <Pph21Card userId={emp.id} years={pph21Years} /> },
+          ]} />
         )}
 
       </main>
