@@ -182,7 +182,8 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, va
       {tab === "saldo" && (
         <SectionNav sections={[
           { key: "cuti", label: "Saldo Cuti", icon: CalendarHeart, content: (
-          <Section icon={CalendarHeart} title="Saldo Cuti" action={<Link href="/portal/cuti" className="text-xs font-semibold text-brand"><T>Ajukan Cuti →</T></Link>}>
+          // Profil hanya menampilkan saldo; pengajuan cuti lewat menu Cuti (Tombol HP).
+          <Section icon={CalendarHeart} title="Saldo Cuti">
             {balances.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada saldo cuti.</T></p> : <LeaveBalanceCard rows={balances} compact />}
           </Section>
           ) },
