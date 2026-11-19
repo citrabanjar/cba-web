@@ -77,6 +77,8 @@ export async function createLeave(userId: string, input: LeaveInput, opts: { abs
     if (start.getTime() < today.getTime() - 31 * 86_400_000) return { error: "Pengajuan Absen hanya untuk 31 hari terakhir. Hubungi Admin untuk tanggal yang lebih lama." };
     if ((await periodFinal(start)) || (await periodFinal(end))) return { error: "Periode gaji bulan itu sudah final." };
   } else if (policy.noticeDays > 0 && start.getTime() < today.getTime() + policy.noticeDays * 86_400_000) {
+    // Tidak masuk hari ini / tanggal lewat → arahkan ke menu Pengajuan Absen (Potong Cuti Tahunan / Izin Tanpa Hak Cuti).
+    if (start <= today) return { error: "Cuti untuk hari ini atau tanggal yang sudah lewat tidak bisa diajukan di sini. Gunakan menu Pengajuan Absen (Potong Cuti Tahunan atau Izin Tanpa Hak Cuti)." };
     return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai.` };
   }
 
