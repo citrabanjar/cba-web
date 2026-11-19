@@ -308,7 +308,7 @@ export default function ComponentForm({ comp, all, workDaysPerWeek, onClose, onC
                   "Komponen ini diperhitungkan sebagai dasar upah lembur, THR, dan iuran BPJS sesuai PP 36/2021.")}
               </>
             )}
-            {form.kind === "PENDAPATAN" && form.method !== "THR" && form.method !== "PPH21" && check(!!p.weeklyForMonthly, (v) => setParam({ weeklyForMonthly: v }), "Karyawan bulanan: dibayar mingguan",
+            {form.kind === "PENDAPATAN" && form.method !== "THR" && form.method !== "PPH21" && check(!!p.weeklyForMonthly, (v) => setParam({ weeklyForMonthly: v }), "Dibayar mingguan",
               "Aktifkan pilihan ini apabila komponen ingin dibayarkan secara mingguan.")}
             {form.kind === "POTONGAN" && check(!!p.reducesGross, (v) => setParam({ reducesGross: v }), "Mengurangi penghasilan bruto (pajak)",
               "Potongan ini mengurangi bruto sebelum PPh 21 dihitung, mis. potongan mangkir atau terlambat.")}

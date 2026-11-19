@@ -1779,7 +1779,7 @@ export const en: Record<string, string> = {
   "Di hari kerja lembur di luar jam shift: sebelum masuk paling lambat sampai jam masuk, sesudah pulang mulai jam pulang. Istirahat 12:00–13:00 dan 18:00–19:00 dipotong otomatis bila dilewati.": "On work days overtime must be outside shift hours: before work it ends by the start time, after work it starts from the end time. Breaks 12:00–13:00 and 18:00–19:00 are deducted automatically when crossed.",
   "Lembur dibayar per 1 jam penuh (kurang dari 1 jam tidak dibayar), dihitung sampai jam absen pulang, di luar istirahat 12:00–13:00 dan 18:00–19:00.": "Overtime is paid per full hour (less than 1 hour is unpaid), counted up to check-out, excluding breaks 12:00–13:00 and 18:00–19:00.",
   "Di hari kerja jam lembur harus di luar jam shift karyawan (sebelum jam masuk atau mulai jam pulang). Istirahat 12:00–13:00 dan 18:00–19:00 dipotong otomatis bila dilewati.": "On work days overtime must be outside the employee's shift hours (before the start time or from the end time). Breaks 12:00–13:00 and 18:00–19:00 are deducted automatically when crossed.",
-  "Karyawan bulanan: dibayar mingguan": "Monthly employees: paid weekly",
+  "Dibayar mingguan": "Paid weekly",
   "Bulanan: dibayar mingguan": "Monthly: paid weekly",
   "Tandai dibaca": "Mark as read",
   "Riwayat persetujuan (60 hari)": "Approval history (60 days)",
