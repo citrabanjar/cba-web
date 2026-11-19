@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Foto atau PDF, maksimal 3 berkas.": "Photo or PDF, up to 3 files.",
+  "Wajib": "Required",
   "Cuti hari ini diajukan melalui menu Pengajuan Absen.": "Today's leave is requested through the Attendance Request menu.",
   "Tanggal itu tidak ada jam masuk maupun jam pulang. Lupa Absen hanya untuk salah satunya; hubungi atasan Anda.": "That date has neither check-in nor check-out. Missed Attendance covers only one of them; contact your supervisor.",
   "Jam masuk belum tercatat, jadi yang bisa diajukan hanya jam masuk.": "No check-in is recorded yet, so only the check-in time can be requested.",

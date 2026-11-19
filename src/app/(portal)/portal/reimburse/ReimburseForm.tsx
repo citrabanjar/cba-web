@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Paperclip, Stethoscope, X } from "lucide-react";
+import { shrinkImage } from "@/lib/image-shrink";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 import { T, useT } from "@/components/i18n";
 import { Input } from "@/components/ui/input";
@@ -15,24 +16,6 @@ type Claim = {
   decidedBy: string | null; decision: string | null; files: { id: string; kind: string; name: string }[];
 };
 const rp = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-const MAX_SIDE = 1400;
-
-// Foto diperkecil (sisi terpanjang 1400 px, JPEG) sebelum dikirim supaya hemat kapasitas; PDF dikirim apa adanya.
-async function shrink(file: File): Promise<File> {
-  if (!file.type.startsWith("image/")) return file;
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = url; });
-    const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
-    canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.7));
-    return blob ? new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 export default function ReimburseForm({ enabled, today, percent, needDoctorLetter, plafon, claims }: {
   enabled: boolean; today: string; percent: number; needDoctorLetter: boolean;
@@ -58,7 +41,7 @@ export default function ReimburseForm({ enabled, today, percent, needDoctorLette
   }, [amount, treatDate]);
 
   const pick = (kind: FileKind, list: FileList | null) => start(async () => {
-    const shrunk = await Promise.all([...(list ?? [])].slice(0, 3).map(shrink));
+    const shrunk = await Promise.all([...(list ?? [])].slice(0, 3).map(shrinkImage));
     setFiles((f) => ({ ...f, [kind]: [...f[kind], ...shrunk].slice(0, 3) }));
   });
   const send = () => start(async () => {

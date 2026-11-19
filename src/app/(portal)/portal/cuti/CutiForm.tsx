@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
+import { shrinkImage } from "@/lib/image-shrink";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { Loader2, CheckCircle2, X } from "lucide-react";
 import { submitLeave, cancelLeave } from "./actions";
@@ -44,6 +45,10 @@ export default function CutiForm({ requests, options, balances, people = [], app
   const router = useRouter();
   const [, formAction, isPending] = useActionState(async (prev: unknown, fd: FormData) => {
     // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal), bukan kotak tetap.
+    // Foto lampiran diperkecil dulu sebelum dikirim.
+    const picked = fd.getAll("attachment").filter((v): v is File => v instanceof File && v.size > 0);
+    fd.delete("attachment");
+    for (const f of await Promise.all(picked.slice(0, 3).map(shrinkImage))) fd.append("attachment", f);
     const r = await submitLeave(prev, fd);
     // Cuti hari ini / tanggal lewat: tawarkan lanjut ke menu Pengajuan Absen.
     if ("goAbsence" in r && r.goAbsence) { if (await askConfirm(t(r.error))) router.push("/portal/lupa-absen"); }
@@ -129,6 +134,17 @@ export default function CutiForm({ requests, options, balances, people = [], app
                   : delegateText.trim() && <p className="mt-1 text-xs text-rose-600"><T>Pilih karyawan dari daftar.</T></p>}
                 {!delegateText.trim() && <p className="mt-1 text-[11px] text-gray-400"><T>Ketik ID atau nama karyawan.</T></p>}
                 {approver && <p className="mt-1 text-[11px] text-gray-400"><T>Selama cuti disetujui, pengajuan baru yang biasanya Anda putuskan akan masuk ke delegasi.</T></p>}
+              </div>
+            )}
+
+            {chosen?.needsAttachment && (
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                  <T>Lampiran</T>: {chosen.attachmentNote?.trim() ? <T>{chosen.attachmentNote.trim()}</T> : <T>dokumen pendukung</T>} <span className="text-red-500">*</span>
+                </label>
+                <input type="file" name="attachment" accept="image/*,application/pdf" multiple required
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200" />
+                <p className="mt-1 text-[11px] text-gray-400"><T>Foto atau PDF, maksimal 3 berkas.</T></p>
               </div>
             )}
 

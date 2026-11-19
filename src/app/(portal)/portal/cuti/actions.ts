@@ -24,7 +24,10 @@ export async function getLeaveRequests() {
 export async function submitLeave(_prevState: unknown, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sesi tidak valid, silakan login ulang." };
+  const files = await Promise.all(formData.getAll("attachment").filter((v): v is File => v instanceof File && v.size > 0)
+    .map(async (f) => ({ name: f.name || "lampiran", mime: f.type, data: Buffer.from(await f.arrayBuffer()) })));
   return createLeave(session.user.id, {
+    files,
     policyId: String(formData.get("policyId") ?? ""), startDate: String(formData.get("startDate") ?? ""), endDate: String(formData.get("endDate") ?? ""),
     reason: String(formData.get("reason") ?? "").trim(), dayPart: String(formData.get("dayPart") ?? "PENUH"), delegateId: String(formData.get("delegateId") ?? ""),
   });

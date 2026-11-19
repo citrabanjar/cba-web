@@ -30,7 +30,7 @@ export async function loadApprovals(a: Approver) {
     // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
       where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
-      include: { user: who, policy: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 200,
+      include: { user: who, policy: { select: { name: true } }, files: { select: { id: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 200,
     }),
     prisma.businessTrip.findMany({
       where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
@@ -110,6 +110,7 @@ export async function loadApprovals(a: Approver) {
       id: l.id, kind: "CUTI" as const, status: l.status, person: person(l.user),
       title: l.policy?.name ?? LEGACY[l.type] ?? l.type, start: ymd(l.startDate), end: ymd(l.endDate), days: l.totalDays,
       delegate: l.delegateName,
+      files: l.files.map((x) => ({ id: x.id, name: x.name, url: `/api/leave-file/${x.id}` })),
       halfDay: l.halfDay, unpaidDays: l.unpaidDays, reason: l.reason, note: l.note, decidedBy: l.approvedBy,
       decidedAt: l.approvedAt?.toISOString() ?? null, createdAt: l.createdAt.toISOString(),
     })),

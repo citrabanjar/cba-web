@@ -20,7 +20,10 @@ export type Who = { id: string; name: string | null };
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100).replace(".", ","));
 
 // ─── Cuti ───
-export type LeaveInput = { policyId: string; startDate: string; endDate: string; reason: string; dayPart: string; delegateId: string };
+export type LeaveFile = { name: string; mime: string; data: Buffer };
+export type LeaveInput = { policyId: string; startDate: string; endDate: string; reason: string; dayPart: string; delegateId: string; files?: LeaveFile[] };
+const LEAVE_MIMES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const LEAVE_MAX_TOTAL = 900_000; // batas kiriman server action ±1 MB; foto diperkecil di browser
 
 // opts.absence = diajukan lewat menu Pengajuan Absen (Potong Cuti Tahunan / Izin Tanpa Hak Cuti): hanya hari ini atau
 // tanggal yang sudah lewat (31 hari terakhir), tanpa batas H-x dan tanpa delegasi; tetap lewat penyetuju cuti dan cek saldo.
@@ -82,6 +85,12 @@ export async function createLeave(userId: string, input: LeaveInput, opts: { abs
     return { error: `Jenis cuti ini harus diajukan paling lambat ${policy.noticeDays} hari sebelum tanggal mulai.` };
   }
 
+  // Lampiran wajib (Setup Cuti → Wajib lampiran), mis. surat dokter.
+  const files = (input.files ?? []).filter((f) => f.data.length > 0).slice(0, 3);
+  if (policy.needsAttachment && files.length === 0) return { error: `Lampirkan ${policy.attachmentNote?.trim() || "dokumen pendukung"}.` };
+  if (files.some((f) => !LEAVE_MIMES.includes(f.mime))) return { error: "Lampiran harus berupa foto (JPG/PNG) atau PDF." };
+  if (files.reduce((a, f) => a + f.data.length, 0) > LEAVE_MAX_TOTAL) return { error: "Ukuran lampiran terlalu besar. Gunakan foto, atau PDF yang lebih kecil." };
+
   // Delegasi tanggung jawab (Cuti Tahunan): wajib bila pemohon seorang penyetuju, opsional untuk karyawan lain.
   let delegate: { id: string; name: string } | null = null;
   if (policy.category === "TAHUNAN" && !opts.absence) {
@@ -140,6 +149,7 @@ export async function createLeave(userId: string, input: LeaveInput, opts: { abs
       userId, policyId: policy.id, type: legacyType(policy.category),
       startDate: start, endDate: end, totalDays, halfDay, unpaidDays, reason, status: "PENDING", ...(flow ? { approval: flow } : {}),
       urgent: !!opts.absence,
+      ...(files.length ? { files: { create: files.map((f) => ({ name: f.name.slice(0, 120), mime: f.mime, data: f.data })) } } : {}),
       ...(delegate ? { delegateId: delegate.id, delegateName: delegate.name } : {}),
     },
   });

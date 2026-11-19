@@ -261,8 +261,9 @@ model LeaveRequest {
   delegateName String?
   urgent       Boolean     @default(false) // diajukan lewat "Ajukan Tidak Masuk" (hari ini / mundur), tanpa batas H-x
 
-  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  policy LeavePolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policy LeavePolicy?      @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  files  LeaveRequestFile[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1187,4 +1188,18 @@ model MedicalClaimFile {
   claim MedicalClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
 
   @@index([claimId])
+}
+
+// Lampiran pengajuan cuti (mis. surat dokter) untuk jenis cuti yang "Wajib lampiran" di Setup Cuti.
+model LeaveRequestFile {
+  id        String   @id @default(cuid())
+  leaveId   String
+  mime      String
+  name      String
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  leave LeaveRequest @relation(fields: [leaveId], references: [id], onDelete: Cascade)
+
+  @@index([leaveId])
 }
