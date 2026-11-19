@@ -63,10 +63,11 @@ const LEAVE_ST: Record<string, { label: string; cls: string }> = {
   REJECTED: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" },
 };
 
-export default function ProfilClient({ me, salary, balances, loans, lastSlip, slips = [], values, family, calendar, requests, leaveHistory = [] }: {
+export default function ProfilClient({ me, salary, balances, loans, lastSlip, slips = [], values, family, calendar, requests, leaveHistory = [], leaveUsage }: {
   me: Me; salary: Salary | null; balances: BalanceRow[]; loans: Loan[]; lastSlip: { periodLabel: string; netPay: number } | null;
   slips?: { id: string; periodLabel: string; netPay: number }[];
   values: Record<string, string>; family: FamilyRow[];
+  leaveUsage?: { year: number; rows: { name: string; days: number }[] };
   leaveHistory?: { id: string; start: string; end: string; days: number; name: string; status: string; halfDay: boolean }[];
   calendar: { attendances: CalendarProps["attendances"]; leaves: CalendarProps["leaves"]; trips: CalendarProps["trips"]; shiftDays: Record<string, DayShift>; overtimes?: CalendarProps["overtimes"] };
   requests: Req[];
@@ -233,6 +234,13 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, sl
                 )}
               </div>
             ))}
+            {/* Jenis cuti tanpa saldo: cukup jumlah hari yang sudah dipakai tahun ini. */}
+            {!!leaveUsage?.rows.length && (
+              <div className="border-t border-gray-100 py-2">
+                <p className="text-sm font-semibold text-gray-900"><T>Pemakaian cuti lainnya tahun</T> {leaveUsage.year}</p>
+                {leaveUsage.rows.map((u) => <Row key={u.name} label={u.name} value={`${days(u.days)} ${t("hari")}`} />)}
+              </div>
+            )}
             {showLeaves && (
               <div className="mt-3 overflow-hidden rounded-xl border border-gray-100">
                 <table className="w-full text-sm">

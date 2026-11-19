@@ -88,6 +88,7 @@ export default async function ProfilPage() {
         allowances: salary.components.map((c) => ({ name: c.name, amount: c.amount })),
       } : null}
       balances={balances}
+      leaveUsage={await leaveUsageThisYear(id, new Set(balances.map((b) => b.policyId)))}
       loans={loans.map((l) => {
         const left = l.installments.filter((i) => i.status !== "LUNAS");
         return {
@@ -114,4 +115,20 @@ export default async function ProfilPage() {
       }))}
     />
   );
+}
+
+// Pemakaian cuti tahun berjalan per jenis yang tidak punya saldo (Sakit, Izin, cuti khusus): hanya yang disetujui.
+async function leaveUsageThisYear(userId: string, balancePolicies: Set<string>) {
+  const y = new Date(Date.now() + 7 * 3600_000).getUTCFullYear();
+  const rows = await prisma.leaveRequest.findMany({
+    where: { userId, status: "APPROVED", startDate: { gte: new Date(Date.UTC(y, 0, 1)), lte: new Date(Date.UTC(y, 11, 31)) } },
+    select: { type: true, totalDays: true, policyId: true, policy: { select: { name: true } } },
+  });
+  const sum = new Map<string, number>();
+  for (const r of rows) {
+    if (r.policyId && balancePolicies.has(r.policyId)) continue;
+    const name = r.policy?.name ?? LEGACY_LEAVE[r.type] ?? r.type;
+    sum.set(name, (sum.get(name) ?? 0) + r.totalDays);
+  }
+  return { year: y, rows: [...sum].map(([name, days]) => ({ name, days })).sort((a, b) => a.name.localeCompare(b.name)) };
 }
