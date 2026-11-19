@@ -155,10 +155,10 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
         )}
       </section>}
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-700"><T>Pinjaman Saya</T></h3>
-        {loans.length === 0 && <p className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-8 text-center text-sm text-gray-500"><T>Belum ada pinjaman.</T></p>}
-        {loans.map((l) => (
+      {/* Halaman pengajuan hanya menampilkan pengajuan yang masih diproses; pinjaman berjalan & riwayatnya ada di Profil Saya → Pinjaman. */}
+      {loans.some((l) => l.status === "PENDING") && <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700"><T>Pengajuan Diproses</T></h3>
+        {loans.filter((l) => l.status === "PENDING").map((l) => (
           <LoanCard key={l.id} loan={l} processOnly actions={l.status === "PENDING" ? (
             <Button variant="outline" size="sm" disabled={pending}
               onClick={async () => { if (await askConfirm(t("Batalkan pengajuan ini?"))) run(async () => { await cancelLoanRequest(l.id); }); }}>
@@ -166,7 +166,7 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
             </Button>
           ) : undefined} />
         ))}
-      </section>
+      </section>}
     </main>
   );
 }
