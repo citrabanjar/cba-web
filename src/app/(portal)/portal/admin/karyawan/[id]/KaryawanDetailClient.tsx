@@ -203,6 +203,57 @@ function fmtTime(d: Date | null): string {
     hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
   });
 }
+
+const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+// Riwayat Absensi: difilter per bulan (default bulan berjalan), tabel bergulir dengan judul kolom tetap.
+function AttendanceHistory({ rows }: { rows: Employee["attendances"] }) {
+  const monthOf = (d: Date) => new Date(d).toISOString().slice(0, 7); // kolom @db.Date = tengah malam UTC
+  const [nowMonth] = useState(() => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7));
+  const months = useMemo(() => [...new Set([nowMonth, ...rows.map((a) => monthOf(a.date))])].sort().reverse(), [rows, nowMonth]);
+  const [month, setMonth] = useState(nowMonth);
+  const list = rows.filter((a) => monthOf(a.date) === month);
+  const label = (m: string) => `${MONTHS_ID[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5">
+        <select value={month} aria-label="Bulan" onChange={(e) => setMonth(e.target.value)}
+          className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+          {months.map((m) => <option key={m} value={m}>{label(m)}</option>)}
+        </select>
+        <span className="text-xs text-gray-400">{list.length} <T>hari</T></span>
+      </div>
+      {list.length === 0 ? <div className="p-4"><Empty text="Belum ada data absensi." /></div> : (
+        <Table containerClassName="max-h-[60vh] overflow-y-auto">
+          <TableHeader className="sticky top-0 z-10 bg-gray-50">
+            <TableRow className="bg-gray-50 hover:bg-gray-50">
+              <TableHead className="px-4"><T>Tanggal</T></TableHead>
+              <TableHead className="px-4"><T>Masuk</T></TableHead>
+              <TableHead className="px-4"><T>Pulang</T></TableHead>
+              <TableHead className="px-4"><T>Status</T></TableHead>
+              <TableHead className="hidden md:table-cell px-4"><T>Lokasi</T></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map((a) => (
+              <TableRow key={a.id}>
+                <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(a.date)}</TableCell>
+                <TableCell className="px-4 text-sm">{fmtTime(a.checkIn)}</TableCell>
+                <TableCell className="px-4 text-sm">{fmtTime(a.checkOut)}</TableCell>
+                <TableCell className="px-4">
+                  <Pill cls={ATTENDANCE[a.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}>{a.status}</Pill>
+                </TableCell>
+                <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate">
+                  {a.checkInAddr ?? "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
 const toInputDate = (d: Date | null) => (d ? new Date(d).toISOString().split("T")[0] : "");
 
 function masterOptions(names: string[], current?: string | null): Option[] {
@@ -1203,36 +1254,7 @@ export default function KaryawanDetailClient({
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={editTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} canExempt={isSuper && !self} />} />
             ) },
             { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
-          emp.attendances.length === 0 ? <Empty text="Belum ada data absensi." /> : (
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4"><T>Tanggal</T></TableHead>
-                    <TableHead className="px-4"><T>Masuk</T></TableHead>
-                    <TableHead className="px-4"><T>Pulang</T></TableHead>
-                    <TableHead className="px-4"><T>Status</T></TableHead>
-                    <TableHead className="hidden md:table-cell px-4"><T>Lokasi</T></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {emp.attendances.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(a.date)}</TableCell>
-                      <TableCell className="px-4 text-sm">{fmtTime(a.checkIn)}</TableCell>
-                      <TableCell className="px-4 text-sm">{fmtTime(a.checkOut)}</TableCell>
-                      <TableCell className="px-4">
-                        <Pill cls={ATTENDANCE[a.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}>{a.status}</Pill>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate">
-                        {a.checkInAddr ?? "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )
+          <AttendanceHistory rows={emp.attendances} />
             ) },
           ]} />
         )}
