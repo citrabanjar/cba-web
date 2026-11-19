@@ -86,9 +86,9 @@ export function LeaveBalanceImportDialog({ rows, onClose }: { rows: Pick<Balance
         <DialogHeader><DialogTitle><T>Import Saldo Cuti</T></DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1 rounded-lg bg-gray-100 p-3 text-xs text-gray-700">
-            <p><T>• Untuk memindahkan sisa cuti dari aplikasi lama (KantorKu).</T></p>
-            <p><T>• Template sudah berisi karyawan aktif dan kode cutinya; cukup isi Saldo dan Per Tanggal.</T></p>
-            <p><T>• Penambahan dan pemakaian sesudah Per Tanggal dihitung otomatis oleh portal.</T></p>
+            <p><T>• Digunakan untuk memasukkan saldo awal cuti karyawan.</T></p>
+            <p><T>• Template memuat karyawan aktif beserta kode cuti. Isi kolom Saldo dan Per Tanggal.</T></p>
+            <p><T>• Penambahan dan pemakaian cuti setelah Per Tanggal dihitung otomatis oleh sistem.</T></p>
           </div>
           <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2"><Download size={15} /> <T>Download Template Saldo (.xlsx)</T></Button>
           <div className="space-y-1.5">
