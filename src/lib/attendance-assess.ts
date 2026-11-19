@@ -101,8 +101,7 @@ export async function checkInBlocked(userId: string, date: Date, now = Date.now(
   if (n == null) return null;
   const bySpl = !!spl && (shiftStart == null || spl.start < shiftStart);
   const open = (bySpl ? spl!.start : shiftStart!) - n * 60_000;
-  const ref = bySpl ? `lembur ${spl!.startLabel}` : `shift ${s.startTime}`;
-  if (now < open) return `Absen masuk baru dibuka pukul ${clockWib(open)}${dayLabel(open, wibToday(now))} (${ref}).`;
+  if (now < open) return `Absen masuk baru dibuka pukul ${clockWib(open)}${dayLabel(open, wibToday(now))}.`;
   return null;
 }
 // Peringatan sebelum check-in yang sangat terlambat (lewat jam masuk + N menit).
