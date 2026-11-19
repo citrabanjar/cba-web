@@ -31,8 +31,8 @@ function NumberCell({ value, disabled, onSave }: { value: number; disabled: bool
   const [prev, setPrev] = useState(value);
   if (prev !== value) { setPrev(value); setV(String(value)); } // ikut angka terbaru dari server
   return (
-    <input type="number" min={0} value={v} disabled={disabled}
-      onChange={(e) => setV(e.target.value)}
+    <input type="text" inputMode="numeric" autoComplete="off" value={v} disabled={disabled} onFocus={(e) => e.target.select()}
+      onChange={(e) => setV(e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
       onBlur={() => { if (Number(v) !== value) onSave(Number(v) || 0); }}
       className="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-right text-xs tabular-nums disabled:border-transparent disabled:bg-transparent" />
   );

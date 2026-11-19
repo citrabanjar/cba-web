@@ -58,7 +58,7 @@ export default function PriorTaxCard({ userId, slips }: { userId: string; slips:
         <div className="space-y-3 border-b border-gray-100 bg-gray-50/60 p-5">
           <div className="grid gap-3 sm:grid-cols-[0.5fr_1fr_1fr]">
             <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Tahun pajak</T></label>
-              <input type="number" value={form.year} onChange={(e) => set("year", Number(e.target.value))} className={field} /></div>
+              <input type="text" inputMode="numeric" autoComplete="off" value={form.year || ""} onFocus={(e) => e.target.select()} onChange={(e) => set("year", Number(e.target.value.replace(/\D/g, "").slice(0, 4)))} className={field} /></div>
             <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Nomor BPA1 pemberi kerja sebelumnya</T></label>
               <input value={form.slipNumber} onChange={(e) => set("slipNumber", e.target.value)} className={field} /></div>
             <div><label className="mb-1 block text-xs font-medium text-gray-500"><T>Nama pemberi kerja sebelumnya (opsional)</T></label>
