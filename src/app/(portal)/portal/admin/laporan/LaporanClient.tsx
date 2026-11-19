@@ -45,7 +45,7 @@ const rupiah = (n: number) => `Rp\u00a0${Math.round(n).toLocaleString("id-ID")}`
 const pill = (m: Record<string, { label: string; cls: string }>, st: string) => m[st] ?? { label: st, cls: "bg-gray-100 text-gray-600" };
 
 // Nama karyawan: tautan ke tab profil sesuai jenis laporan (bila punya akses Data Karyawan) —
-// Kehadiran / Semua → Kehadiran & Shift, Cuti → Cuti & Dinas, Lembur → kalender kehadiran di tanggal lembur.
+// Kehadiran / Semua → Kehadiran, Cuti → Kehadiran (Riwayat Cuti), Lembur → kalender kehadiran di tanggal lembur.
 function EmpName({ id, name, employeeId, department, canProfile, tab, date, exempt }: {
   id: string; name: string; employeeId: string | null; department: string | null; canProfile: boolean; tab: "absensi" | "cuti"; date?: string;
   exempt?: boolean; // Bebas Absen

@@ -29,7 +29,6 @@ import AttendanceCalendar from "./AttendanceCalendar";
 import ScheduleCard, { type ScheduleRow } from "./ScheduleCard";
 import type { DayShift } from "@/lib/schedule";
 import type { BalanceRow } from "@/lib/leave-balance";
-import LeaveBalanceCard from "@/components/portal/LeaveBalanceCard";
 import Pph21Card, { type Pph21Year } from "./Pph21Card";
 import PriorTaxCard, { type PriorSlipItem } from "./PriorTaxCard";
 import SectionNav from "@/components/portal/SectionNav";
@@ -106,8 +105,7 @@ type FamilyRow = { name: string; idNumber: string; relation: string };
 const TAB_LIST = [
   { key: "pribadi", label: "Data Diri" },
   { key: "pekerjaan", label: "Pekerjaan" },
-  { key: "absensi", label: "Kehadiran & Shift" },
-  { key: "cuti", label: "Cuti & Dinas" },
+  { key: "absensi", label: "Kehadiran" },
   { key: "gaji", label: "Payroll" },
   { key: "pph21", label: "PPh 21" },
   { key: "pinjaman", label: "Pinjaman" },
@@ -202,6 +200,81 @@ function fmtTime(d: Date | null): string {
   return new Date(d).toLocaleTimeString("id-ID", {
     hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
   });
+}
+
+// Angka hari cuti: 2,5 (koma desimal).
+const leaveDays = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
+const LeaveRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="grid grid-cols-[150px_1fr] gap-3 py-1.5 text-sm sm:grid-cols-[190px_1fr]">
+    <span className="text-gray-500"><T>{label}</T></span>
+    <span className="min-w-0 break-words font-medium text-gray-900">{value}</span>
+  </div>
+);
+
+// Saldo Cuti: tampilan sama dengan Saldo Pinjaman — baris per jenis cuti + tombol Lihat Riwayat (riwayat saldo),
+// ditambah pemakaian cuti tanpa saldo (Sakit, Izin, cuti khusus) tahun berjalan.
+function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["leaves"] }) {
+  const t = useT();
+  const [open, setOpen] = useState<string | null>(null);
+  const [year] = useState(() => new Date(Date.now() + 7 * 3600_000).getUTCFullYear());
+  const usage = useMemo(() => {
+    const codes = new Set(rows.map((r) => r.code));
+    const sum = new Map<string, number>();
+    for (const l of leaves) {
+      if (l.status !== "APPROVED" || new Date(l.startDate).getUTCFullYear() !== year) continue;
+      if (l.policy && codes.has(l.policy.code)) continue;
+      const name = l.policy?.name ?? LEAVE_LABEL[l.type] ?? l.type;
+      sum.set(name, (sum.get(name) ?? 0) + l.totalDays);
+    }
+    return [...sum].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [rows, leaves, year]);
+  if (rows.length === 0 && usage.length === 0) return <Empty text="Belum ada saldo cuti." />;
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white px-5 py-3">
+      {rows.map((r) => (
+        <div key={r.policyId} className="border-b border-gray-100 py-2 last:border-b-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-gray-900"><T>{r.policyName}</T> · {r.code}</p>
+            {r.ledger.length > 0 && (
+              <button type="button" onClick={() => setOpen((v) => (v === r.policyId ? null : r.policyId))} className="text-xs font-semibold text-brand">
+                <T>{open === r.policyId ? "Sembunyikan Riwayat" : "Lihat Riwayat"}</T>
+              </button>
+            )}
+          </div>
+          <LeaveRow label="Sisa saldo" value={`${leaveDays(r.balance)} ${t("hari")}`} />
+          {r.pending > 0 && <LeaveRow label="Menunggu persetujuan" value={`${leaveDays(r.pending)} ${t("hari")}`} />}
+          {r.pending > 0 && <LeaveRow label="Bisa diajukan" value={`${leaveDays(Math.max(0, r.balance - r.pending))} ${t("hari")}`} />}
+          {r.nextDate && r.nextDays ? <LeaveRow label="Penambahan berikutnya" value={`${leaveDays(r.nextDays)} ${t("hari")} · ${formatDate(new Date(r.nextDate))}`} /> : null}
+          {r.problem && <p className="mt-1 text-xs text-red-600"><T>{r.problem}</T> — <T>hubungi HRD</T></p>}
+          {open === r.policyId && (
+            <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-100">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                  <tr><th className="px-3 py-1.5 text-left font-medium"><T>Tanggal</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Keterangan</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Hari</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Saldo</T></th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {[...r.ledger].reverse().map((l, n) => (
+                    <tr key={`${l.date}-${n}`}>
+                      <td className="px-3 py-1.5 text-gray-600 whitespace-nowrap">{formatDate(new Date(l.date))}</td>
+                      <td className="px-3 py-1.5 text-gray-800"><T>{l.label}</T></td>
+                      <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${l.days < 0 ? "text-rose-600" : "text-emerald-600"}`}>{l.days > 0 ? "+" : ""}{leaveDays(l.days)}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums font-bold text-gray-900">{leaveDays(l.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
+      {usage.length > 0 && (
+        <div className="border-t border-gray-100 py-2 first:border-t-0">
+          <p className="text-sm font-semibold text-gray-900"><T>Pemakaian cuti lainnya tahun</T> {year}</p>
+          {usage.map(([name, d]) => <LeaveRow key={name} label={name} value={`${leaveDays(d)} ${t("hari")}`} />)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -777,7 +850,10 @@ export default function KaryawanDetailClient({
   const canPropose = useCanPropose("karyawan");
   const proposeOnly = !self && canEditTarget && canPropose && !canEditMenu;
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
-  const [tab, setTab] = useState(() => (quick ? "pekerjaan" : initialTab && TAB_LIST.some((x) => x.key === initialTab) ? initialTab : "pribadi"));
+  const [tab, setTab] = useState(() => {
+    const want = initialTab === "cuti" ? "absensi" : initialTab; // Cuti & Dinas kini bagian dari Kehadiran
+    return quick ? "pekerjaan" : want && TAB_LIST.some((x) => x.key === want) ? want : "pribadi";
+  });
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
   const [mode, setMode] = useState<EditMode>(quick?.mode ?? "ubah");
   const [eventForm, setEventForm] = useState<Record<string, string>>({});
@@ -1247,22 +1323,14 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "absensi" && (
-          <SectionNav initial={initialDate ? "kalender" : undefined} sections={[
+          <SectionNav initial={initialTab === "cuti" ? "cuti" : initialDate ? "kalender" : undefined} sections={[
             { key: "kalender", label: "Kalender & Jadwal", icon: CalendarDays, content: (
           <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper && !self ? emp.id : undefined}
             shiftEdit={editTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={editTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} canExempt={isSuper && !self} />} />
             ) },
-            { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
-          <AttendanceHistory rows={emp.attendances} />
-            ) },
-          ]} />
-        )}
-
-        {tab === "cuti" && (
-          <SectionNav sections={[
             { key: "saldo", label: "Saldo Cuti", icon: Wallet, content: (
-          <LeaveBalanceCard rows={leaveBalances} />
+          <LeaveSaldo rows={leaveBalances} leaves={emp.leaves} />
             ) },
             { key: "cuti", label: "Riwayat Cuti", icon: CalendarDays, content: (<>
           {emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
@@ -1324,6 +1392,9 @@ export default function KaryawanDetailClient({
             </div>
           )}
             </>) },
+            { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
+          <AttendanceHistory rows={emp.attendances} />
+            ) },
           ]} />
         )}
 
