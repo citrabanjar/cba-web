@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { ArrowLeftRight, Check, Loader2, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatDate } from "@/lib/utils";
-import { SWAP_STATUS } from "@/lib/shift-swap-status";
+import { OPEN_SWAP, SWAP_STATUS } from "@/lib/shift-swap-status";
 import { cancelSwap, previewSwap, respondSwap, submitSwap } from "./actions";
 
 type Person = { id: string; name: string; employeeId: string | null; department: string | null };
@@ -20,7 +20,8 @@ const field = "h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-
 
 export default function TukarShiftClient({ items, colleagues }: { items: SwapView[]; colleagues: Person[] }) {
   const incoming = items.filter((i) => !i.mine && i.status === "MENUNGGU_REKAN");
-  const others = items.filter((i) => !(!i.mine && i.status === "MENUNGGU_REKAN"));
+  // Hanya pengajuan yang masih diproses (menunggu rekan / atasan); riwayat tidak ditampilkan.
+  const others = items.filter((i) => !(!i.mine && i.status === "MENUNGGU_REKAN") && OPEN_SWAP.includes(i.status));
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
       {incoming.length > 0 && (
@@ -30,12 +31,12 @@ export default function TukarShiftClient({ items, colleagues }: { items: SwapVie
         </div>
       )}
       <SwapForm colleagues={colleagues} />
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Tukar Shift</T></p>
-        {others.length === 0
-          ? <p className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-6 text-center text-sm text-gray-400"><T>Belum ada.</T></p>
-          : others.map((i) => <SwapCard key={i.id} s={i} />)}
-      </div>
+      {others.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Pengajuan Diproses</T></p>
+          {others.map((i) => <SwapCard key={i.id} s={i} />)}
+        </div>
+      )}
     </div>
   );
 }

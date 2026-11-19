@@ -38,6 +38,7 @@ export default function ReimburseForm({ enabled, today, percent, needDoctorLette
   enabled: boolean; today: string; percent: number; needDoctorLetter: boolean;
   plafon: { cap: number; used: number; from: string; to: string }; claims: Claim[];
 }) {
+  const open = claims.filter((c) => c.status === "PENDING" || c.status === "APPROVED");
   const t = useT();
   const router = useRouter();
   const [treatDate, setTreatDate] = useState(today);
@@ -134,16 +135,12 @@ export default function ReimburseForm({ enabled, today, percent, needDoctorLette
         </div>
       )}
 
-      <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Reimbursement</T></p>
-        {claims.length === 0 ? (
-          <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center">
-            <Stethoscope size={32} className="mx-auto mb-2 text-gray-300" />
-            <p className="text-sm text-gray-400"><T>Belum ada pengajuan reimbursement</T></p>
-          </div>
-        ) : (
+      {/* Hanya pengajuan yang masih diproses (menunggu persetujuan / menunggu gajian); riwayat tidak ditampilkan. */}
+      {open.length > 0 && <div>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/70"><T>Pengajuan Diproses</T></p>
+        {(
           <div className="space-y-3">
-            {claims.map((c) => (
+            {open.map((c) => (
               <div key={c.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -165,7 +162,7 @@ export default function ReimburseForm({ enabled, today, percent, needDoctorLette
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

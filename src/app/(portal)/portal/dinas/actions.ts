@@ -9,8 +9,9 @@ export async function getBusinessTrips() {
   const session = await auth();
   if (!session?.user?.id) return [];
 
+  // Halaman pengajuan hanya memuat pengajuan yang masih diproses; riwayat dinas ada di Profil Saya → Kehadiran.
   return prisma.businessTrip.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, status: "PENDING" },
     orderBy: { createdAt: "desc" },
   });
 }

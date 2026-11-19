@@ -22,7 +22,9 @@ const field = "h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-
 export default function LemburClient({ spl, items, team = null, initialTeam = false }: { spl: boolean; items: MyOvertime[]; team?: TeamOvertime[] | null; initialTeam?: boolean }) {
   const [tab, setTab] = useState<"saya" | "tim">(initialTeam ? "tim" : "saya");
   const waiting = items.filter((i) => i.status === "MENUNGGU_KARYAWAN");
-  const others = items.filter((i) => i.status !== "MENUNGGU_KARYAWAN");
+  // Hanya lembur yang masih diproses: menunggu persetujuan, atau disetujui dan tanggalnya belum lewat. Riwayat tidak ditampilkan.
+  const [today] = useState(() => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10));
+  const others = items.filter((i) => i.status === "PENDING" || (["APPROVED", "DISETUJUI"].includes(i.status) && i.date >= today));
   const teamWaiting = team?.filter((x) => x.status === "MENUNGGU_KARYAWAN").length ?? 0;
   return (
     <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
@@ -54,12 +56,12 @@ export default function LemburClient({ spl, items, team = null, initialTeam = fa
       )}
       {!spl && <RequestForm />}
 
-      <section className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Riwayat Lembur</T></p>
-        {others.length === 0 ? (
-          <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-400"><T>Belum ada lembur.</T></p>
-        ) : others.map((i) => <HistoryCard key={i.id} item={i} />)}
-      </section>
+      {others.length > 0 && (
+        <section className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/70"><T>Pengajuan Diproses</T></p>
+          {others.map((i) => <HistoryCard key={i.id} item={i} />)}
+        </section>
+      )}
       </>}
     </div>
   );

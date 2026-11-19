@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { showNotice } from "@/components/portal/Confirm";
-import { Briefcase, Loader2, CheckCircle2, X, MapPin } from "lucide-react";
+import { Loader2, CheckCircle2, X, MapPin } from "lucide-react";
 import { submitBusinessTrip, cancelBusinessTrip } from "./actions";
 import type { BusinessTrip } from "@prisma/client";
 import { T, useT } from "@/components/i18n";
@@ -93,15 +93,9 @@ export default function DinasForm({ trips }: Props) {
         </div>
       )}
 
-      <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3"><T>Riwayat Dinas</T></p>
-
-        {trips.length === 0 ? (
-          <div className="bg-gray-50 rounded-2xl p-8 text-center">
-            <Briefcase size={32} className="text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400"><T>Belum ada pengajuan dinas luar</T></p>
-          </div>
-        ) : (
+      {trips.length > 0 && <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3"><T>Pengajuan Diproses</T></p>
+        {(
           <div className="space-y-3">
             {trips.map((trip) => (
               <div key={trip.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -138,7 +132,7 @@ export default function DinasForm({ trips }: Props) {
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
