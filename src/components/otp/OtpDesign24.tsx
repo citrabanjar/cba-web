@@ -280,7 +280,7 @@ export default function OtpDesign24(props: OtpDesignProps) {
                 transition={{ duration: 0.5, ease: "easeInOut" }}
               >
                 <h1 className={`${styles.title} ${styles.titleSuccess}`}>{OTP_TEXT.successTitle}</h1>
-                <p className={styles.subtitle}>{OTP_TEXT.successSub}</p>
+                <p className={styles.subtitle}>{(props.successText ?? OTP_TEXT.successSub)}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -485,7 +485,7 @@ export default function OtpDesign24(props: OtpDesignProps) {
                   onClick={onChangeContact}
                   disabled={locked}
                 >
-                  {OTP_TEXT.changeContact}
+                  {(props.changeText ?? OTP_TEXT.changeContact)}
                 </button>
               </motion.div>
             )}

@@ -642,7 +642,7 @@ export default function OtpDesign70(props: OtpDesignProps) {
             transition={{ delay: 1.2, type: "spring", stiffness: 100, damping: 18 }}
             role="status"
           >
-            {OTP_TEXT.successSub}
+            {(props.successText ?? OTP_TEXT.successSub)}
           </motion.p>
         )}
       </div>
@@ -673,7 +673,7 @@ export default function OtpDesign70(props: OtpDesignProps) {
           onClick={onChangeContact}
           disabled={status === "success"}
         >
-          {OTP_TEXT.changeContact}
+          {(props.changeText ?? OTP_TEXT.changeContact)}
         </button>
       </motion.div>
 

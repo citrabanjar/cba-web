@@ -313,7 +313,7 @@ export default function OtpDesign28(props: OtpDesignProps) {
             transition={{ duration: 0.3 }}
             className={styles.subtitle}
           >
-            {step === "success" ? OTP_TEXT.successSub : OTP_TEXT.subtitle(email)}
+            {step === "success" ? (props.successText ?? OTP_TEXT.successSub) : OTP_TEXT.subtitle(email)}
           </motion.p>
         </AnimatePresence>
       </div>
@@ -527,7 +527,7 @@ export default function OtpDesign28(props: OtpDesignProps) {
               </p>
               <p className={`${styles.resend} ${styles.changeContact}`}>
                 <button type="button" className={styles.resendLink} onClick={onChangeContact} disabled={locked}>
-                  {OTP_TEXT.changeContact}
+                  {(props.changeText ?? OTP_TEXT.changeContact)}
                 </button>
               </p>
             </motion.div>

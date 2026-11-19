@@ -48,8 +48,8 @@ export async function requestResetCode(login: string): Promise<Result & { email?
   return { email: mask(u.email) };
 }
 
-export async function resetWithCode(login: string, code: string, password: string): Promise<Result> {
-  if (password.length < 8) return { error: "Password minimal 8 karakter." };
+// Periksa kode OTP (salah = jatah percobaan berkurang). Kode tidak dihapus: dipakai lagi saat menyimpan password.
+async function checkCode(login: string, code: string): Promise<{ error?: string; userId?: string }> {
   const u = await findUser(login);
   if (!u) return { error: "Employee ID atau email tidak terdaftar sebagai karyawan aktif." };
   const row = await prisma.user.findUnique({ where: { id: u.id }, select: { resetCode: true, resetExpires: true, resetTries: true } });
@@ -61,6 +61,20 @@ export async function resetWithCode(login: string, code: string, password: strin
     await prisma.user.update({ where: { id: u.id }, data: { resetTries: { increment: 1 } } });
     return { error: "Kode OTP salah." };
   }
+  return { userId: u.id };
+}
+
+// Kartu OTP: kode diperiksa otomatis begitu 6 angka terisi, sebelum form password baru dibuka.
+export async function verifyResetCode(login: string, code: string): Promise<Result> {
+  const r = await checkCode(login, code);
+  return r.error ? { error: r.error } : {};
+}
+
+export async function resetWithCode(login: string, code: string, password: string): Promise<Result> {
+  if (password.length < 8) return { error: "Password minimal 8 karakter." };
+  const c = await checkCode(login, code);
+  if (c.error || !c.userId) return { error: c.error ?? "Kode OTP salah." };
+  const u = { id: c.userId };
   await prisma.user.update({
     where: { id: u.id }, data: { passwordHash: await bcrypt.hash(password, 12), resetCode: null, resetExpires: null, resetTries: 0 },
   });

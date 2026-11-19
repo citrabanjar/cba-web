@@ -439,7 +439,7 @@ export default function OtpDesign67(props: OtpDesignProps) {
                     )}
                   </h1>
                   <p className={styles.subtitle}>
-                    {showVerifiedText ? OTP_TEXT.successSub : OTP_TEXT.subtitle(email)}
+                    {showVerifiedText ? (props.successText ?? OTP_TEXT.successSub) : OTP_TEXT.subtitle(email)}
                   </p>
                 </motion.div>
               </AnimatePresence>
@@ -452,7 +452,7 @@ export default function OtpDesign67(props: OtpDesignProps) {
                   disabled={isSuccess}
                 >
                   <Mail size={13} />
-                  <span>{OTP_TEXT.changeContact}</span>
+                  <span>{(props.changeText ?? OTP_TEXT.changeContact)}</span>
                 </button>
               )}
             </div>

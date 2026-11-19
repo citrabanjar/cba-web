@@ -16,6 +16,8 @@ export type OtpDesignProps = {
   onResend: () => void; // "Kirim ulang"
   onChangeContact: () => void; // "Ganti email / nomor"
   onSuccessDone: () => void; // panggil SEKALI ketika animasi berhasil sudah tuntas
+  successText?: string; // pengganti OTP_TEXT.successSub (mis. halaman Aktivasi Akun)
+  changeText?: string; // pengganti OTP_TEXT.changeContact
 };
 
 // Teks bahasa Indonesia yang dipakai semua desain.

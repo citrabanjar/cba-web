@@ -10,12 +10,13 @@ export type ComboboxOption = { value: string; label: string };
 // boleh berisi teks di luar daftar. Nilai yang cocok dengan pilihan bernama tampil
 // "ID - Nama" (nilai yang dikirim tetap ID-nya saja).
 export default function EmployeeCombobox({
-  id, value, options, onChange, placeholder, className,
+  id, value, options, onChange, onPick, placeholder, className,
 }: {
   id: string;
   value: string;
   options: ComboboxOption[];
   onChange: (value: string) => void;
+  onPick?: (option: ComboboxOption) => void; // dipilih dari daftar (klik / Enter); isian tetap teks pencarian
   placeholder?: string;
   className?: string;
 }) {
@@ -38,12 +39,15 @@ export default function EmployeeCombobox({
   const query = value.trim().toLowerCase();
   // Isian yang sudah cocok dengan satu pilihan tetap menampilkan seluruh daftar.
   const picked = options.some((o) => o.value.toLowerCase() === query);
+  // ID yang cocok persis selalu di urutan pertama, supaya Enter memilih yang diketik.
+  const exact = (o: ComboboxOption) => (o.value.toLowerCase() === query ? 0 : 1);
   const matches = options
     .filter((o) => picked || o.value.toLowerCase().includes(query) || o.label.toLowerCase().includes(query))
+    .sort((x, y) => exact(x) - exact(y))
     .slice(0, 30);
 
   function choose(option: ComboboxOption) {
-    onChange(option.value);
+    if (onPick) onPick(option); else onChange(option.value);
     setOpen(false);
   }
 

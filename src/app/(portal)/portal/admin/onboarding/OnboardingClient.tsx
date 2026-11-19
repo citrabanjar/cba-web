@@ -18,6 +18,7 @@ import ReviewerBox, { emptyReviewers, type PersonOption } from "./ReviewerBox";
 import { useCanEdit } from "@/components/portal/edit-access";
 import { approveCandidate, deleteCandidate, inviteCandidate, registerCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, saveInterview, submitForApproval, submitInterview } from "./actions";
 import { askConfirm } from "@/components/portal/Confirm";
+import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 
 export type CandidateRow = {
   id: string; name: string; email: string; phone: string; status: string; note: string | null;
@@ -395,14 +396,19 @@ export default function OnboardingClient({ rows, master, canApprove, people }: {
   );
 }
 
-// Pilih bawahan langsung calon: chip karyawan + daftar pilihan (pilih satu, langsung masuk). Nilai = id karyawan dipisah koma.
+// Pilih bawahan langsung calon: chip karyawan + kotak cari (ketik nama / ID, pilih dari daftar). Nilai = id karyawan dipisah koma.
 function ReportPicker({ value, options, exclude, disabled, onChange }: {
   value: string; options: { value: string; label: string }[]; exclude: string; disabled: boolean; onChange: (v: string) => void;
 }) {
   const t = useT();
+  const [q, setQ] = useState("");
   const ids = value.split(",").filter(Boolean);
   const byId = new Map(options.map((o) => [o.value, o.label]));
-  const choices = options.filter((o) => o.value !== exclude && !ids.includes(o.value));
+  // Pilihan: Employee ID + nama; id karyawan dicari kembali saat dipilih.
+  const choices = options.filter((o) => o.value !== exclude && !ids.includes(o.value)).map((o) => {
+    const [code, ...rest] = o.label.split(" - ");
+    return { value: code, label: rest.join(" - "), id: o.value };
+  });
   return (
     <div className="space-y-2">
       {ids.length > 0 && (
@@ -417,11 +423,10 @@ function ReportPicker({ value, options, exclude, disabled, onChange }: {
         </div>
       )}
       {!disabled && (
-        <select value="" onChange={(e) => { if (e.target.value) onChange([...ids, e.target.value].join(",")); }}
-          className="h-9 w-full max-w-sm rounded-lg border border-input bg-white px-2 text-sm">
-          <option value="">{t("Tambah bawahan langsung...")}</option>
-          {choices.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <div className="max-w-sm">
+          <EmployeeCombobox id="bawahan-langsung" value={q} options={choices} onChange={setQ} placeholder={t("Ketik nama atau ID karyawan...")}
+            onPick={(o) => { const hit = choices.find((c) => c.value === o.value); if (hit) onChange([...ids, hit.id].join(",")); setQ(""); }} />
+        </div>
       )}
     </div>
   );
