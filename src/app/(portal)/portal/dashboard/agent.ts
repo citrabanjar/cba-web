@@ -200,7 +200,7 @@ export async function loadAgent(isSuper: boolean, user?: SetupAccess | null): Pr
   const activeEmp = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
   const onbOn = (await getOnboardingSettings()).enabled;
   await syncRevisions().catch(() => 0);
-  const [onbReview, onbApproval, noPay, noShift, noManager, profileChanges, otRevisions, femaleNotTk0] = await Promise.all([
+  const [onbReview, onbApproval, noPay, noShift, noManager, profileChanges, otRevisions, femaleNotTk0, noTaxStatus] = await Promise.all([
     onbOn ? prisma.candidate.count({ where: { status: { in: ["DIKIRIM", "SIAP_DAFTAR"] } } }) : 0,
     onbOn ? prisma.candidate.count({ where: { status: "MENUNGGU_APPROVAL" } }) : 0,
     prisma.user.findMany({ where: { ...activeEmp, payComponents: { none: {} } }, orderBy: { name: "asc" }, select: { id: true } }),
@@ -214,6 +214,9 @@ export async function loadAgent(isSuper: boolean, user?: SetupAccess | null): Pr
       where: { ...activeEmp, gender: { equals: "Perempuan", mode: "insensitive" }, ptkpStatus: { not: null }, NOT: { ptkpStatus: { equals: "TK/0", mode: "insensitive" } } },
       orderBy: { name: "asc" }, select: { id: true },
     }),
+    // Status Pajak (Pegawai Tetap / Tidak Tetap) menentukan Kode Objek Pajak dan cara hitung PPh 21; belum ada di
+    // isian calon karyawan, jadi dilengkapi Admin setelah karyawan didaftarkan.
+    prisma.user.findMany({ where: { ...activeEmp, OR: [{ taxStatus: null }, { taxStatus: "" }] }, orderBy: { name: "asc" }, select: { id: true } }),
   ]);
   // Revisi jam lembur wajib diselesaikan (gaji periode itu tidak bisa difinalkan sebelum diputus).
   const otTask: Task = {
@@ -230,6 +233,7 @@ export async function loadAgent(isSuper: boolean, user?: SetupAccess | null): Pr
     { key: "emp-no-pay", title: "Karyawan belum memiliki komponen gaji", hint: "Komponen gaji perlu dibuat dan ditempelkan kepada karyawan melalui menu Payroll & Benefit → Komponen agar diperhitungkan dalam Proses Gaji.", count: noPay.length, unit: "karyawan", href: noPay.length === 1 ? `/portal/admin/karyawan/${noPay[0].id}?tab=gaji` : "/portal/admin/payroll" },
     { key: "emp-no-manager", title: "Isi atasan langsung", hint: "Atasan langsung adalah penyetuju cuti dan dinas luar. Tanpa atasan aktif, karyawan tidak bisa mengajukan cuti atau dinas.", count: noManager.length, unit: "karyawan", href: noManager[0] ? `/portal/admin/karyawan/${noManager[0].id}?tab=pekerjaan` : "/portal/admin/karyawan" },
     { key: "emp-female-ptkp", title: "Karyawan wanita belum berstatus pajak TK/0", hint: "Karyawan wanita wajib berstatus PTKP TK/0 walaupun sudah menikah. Ubah Status PTKP di profil karyawan (tab Payroll, bagian Pajak).", count: femaleNotTk0.length, unit: "karyawan", href: femaleNotTk0[0] ? `/portal/admin/karyawan/${femaleNotTk0[0].id}?tab=gaji` : "/portal/admin/karyawan" },
+    { key: "emp-no-taxstatus", title: "Karyawan belum memiliki Status Pajak", hint: "Status Pajak (Pegawai Tetap / Pegawai Tidak Tetap) menentukan Kode Objek Pajak dan cara hitung PPh 21. Isi di profil karyawan (tab Payroll, bagian Pajak).", count: noTaxStatus.length, unit: "karyawan", href: noTaxStatus[0] ? `/portal/admin/karyawan/${noTaxStatus[0].id}?tab=gaji` : "/portal/admin/karyawan" },
     { key: "emp-no-shift", title: "Karyawan belum memiliki jadwal kerja bulan ini", hint: "Tempel pola kerja atau isi Jadwal Bulanan untuk bulan berjalan supaya kehadirannya bisa dinilai.", count: noShift.length, unit: "karyawan", href: "/portal/admin/schedule?tab=jadwal" },
   ];
   const on = new Set(settings.enabled);

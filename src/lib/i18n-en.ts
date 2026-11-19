@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Karyawan belum memiliki Status Pajak": "Employees without a Tax Status",
+  "Status Pajak (Pegawai Tetap / Pegawai Tidak Tetap) menentukan Kode Objek Pajak dan cara hitung PPh 21. Isi di profil karyawan (tab Payroll, bagian Pajak).": "Tax Status (Permanent / Non-permanent) determines the Tax Object Code and how PPh 21 is calculated. Fill it in the employee profile (Payroll tab, Tax section).",
   "Ketik nama atau ID karyawan...": "Type an employee name or ID...",
   "Kode OTP benar. Buat password baru Anda.": "OTP code is correct. Create your new password.",
   "Membuka form password baru…": "Opening the new password form…",
