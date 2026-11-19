@@ -101,7 +101,7 @@ const COLUMNS: Column[] = [
   { field: "ptkpStatus", names: ["Status PTKP", "PTKP Status"], choices: PTKP, shown: "TK/0 sampai TK/3, K/0 sampai K/3, K/I/0 sampai K/I/3", example: "K/1" },
   { field: "taxability", names: ["Taxability"], choices: { gross: "Gross", "gross up": "Gross Up", net: "Net" }, shown: "Gross, Gross Up, Net", example: "Gross" },
   { field: "taxStatus", names: ["Status Pajak", "Employee Tax Status"], choices: { "pegawai tetap": "Pegawai Tetap", "pegawai tidak tetap": "Pegawai Tidak Tetap" }, shown: "Pegawai Tetap, Pegawai Tidak Tetap", example: "Pegawai Tetap" },
-  { field: "taxObjectCode", names: ["Kode Objek Pajak"], choices: { "21-100-01": "21-100-01", "21-100-35": "21-100-35", "21-100-24": "21-100-24", "21-100-30": "21-100-30" }, shown: "21-100-01, 21-100-35, 21-100-24, 21-100-30 (payroll mingguan diisi otomatis)", example: "21-100-01" },
+  { field: "taxObjectCode", names: ["Kode Objek Pajak"], choices: { "21-100-01": "21-100-01", "21-100-35": "21-100-35", "21-100-24": "21-100-24", "21-100-30": "21-100-30" }, shown: "21-100-01, 21-100-35, 21-100-24, 21-100-30 (diisi otomatis dari Status Pajak dan Jadwal Gajian)", example: "21-100-01" },
   { field: "bankName", names: ["Nama Bank", "Bank Name"], example: "Mandiri" },
   { field: "bankAccount", names: ["No Rekening", "Bank Account Number"], kind: "digits", example: "1234567890123", note: "Angka saja. Tulis sebagai teks." },
   { field: "bankHolder", names: ["Nama Pemilik Rekening", "Bank Account Holder"], example: "Ahmad Subarjo" },

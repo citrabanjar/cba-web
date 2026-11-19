@@ -11,7 +11,7 @@ import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
 import { isSeparate, isWeekly, parseSeparate, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
 import { bonusIn, getBonusSchedule } from "@/lib/payroll-bonus";
-import { pph21Daily, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
+import { pph21Daily, pph21DailyHigh, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
 
 const DAY = 86_400_000;
 const utc = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -122,7 +122,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   const components = ctx.components.filter((c) => tempel.has(c.code)
     && (opts.only ? opts.only.has(c.code) : ctx.weekly || opts.estimate || !weeklyCodes.has(c.code)));
   const [user, salary, trips, leaves] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true, taxability: true, paymentSchedule: true, attendanceExempt: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { joinDate: true, resignDate: true, ptkpStatus: true, taxability: true, paymentSchedule: true, attendanceExempt: true, taxStatus: true, taxObjectCode: true } }),
     prisma.employeeSalary.findFirst({ where: { userId, effectiveDate: { lte: end } }, orderBy: { effectiveDate: "desc" }, include: { components: true } }),
     prisma.businessTrip.findMany({ where: { userId, status: "APPROVED", startDate: { lte: end }, endDate: { gte: start } }, select: { startDate: true, endDate: true } }),
     prisma.leaveRequest.findMany({
@@ -403,13 +403,23 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   const prior = ctx.priorLines.filter((l) => l.userId === userId);
   const priorPension = prior.reduce((a, l) => a + (l.items as LineItem[]).filter((i) => pensionCodes.has(i.code)).reduce((x, i) => x + i.amount, 0), 0);
   const months = prior.length + 1;
-  // PPh 21 atas bruto tertentu: TER harian (mingguan), hitung ulang setahun (masa pajak terakhir), atau TER bulanan.
+  // PPh 21 atas bruto tertentu (keputusan pemilik 2026-11-19: ikut Status Pajak & Kode Objek Pajak):
+  // - Status Pajak "Pegawai Tetap" (termasuk karyawan kontrak) = cara 21-100-01: TER bulanan, hitung ulang setahun
+  //   di masa pajak terakhir (Desember / bulan berhenti).
+  // - Pegawai Tidak Tetap: 21-100-35 = TER bulanan setiap bulan tanpa hitung ulang; 21-100-24 = TER harian;
+  //   21-100-30 = tarif Pasal 17 x 50% bruto. Payroll mingguan tanpa kode khusus = TER harian.
+  const permanent = user?.taxStatus === "Pegawai Tetap";
+  const code = user?.taxObjectCode ?? "";
   const taxOf = (g: number) => {
+    if (weekly && !permanent && code === "21-100-30") {
+      const t = pph21DailyHigh(g, ctx.tax);
+      return { tax: t.tax, rate: null as number | null, refund: 0, detail: `Pasal 17 x 50% bruto (21-100-30) · ${Math.round(g).toLocaleString("id-ID")}`, refundDetail: "" };
+    }
     if (weekly) {
       const t = pph21Daily(g, workDaysHere, ctx.ter);
       return { tax: t.tax, rate: t.rate as number | null, refund: 0, detail: `TER harian ${t.rate}% · rata-rata ${Math.round(t.perDay).toLocaleString("id-ID")} sehari`, refundDetail: "" };
     }
-    if (lastMonth) {
+    if (lastMonth && (permanent || code !== "21-100-35")) {
       const before = priorTotals(ctx.priorTaxSlips.filter((s) => s.userId === userId), ctx.tax).get(userId);
       const f = pph21Final({
         grossYear: prior.reduce((a, l) => a + l.gross, 0) + g, pensionDeductYear: priorPension + pension, months,

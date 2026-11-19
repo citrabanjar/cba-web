@@ -811,7 +811,7 @@ export default function KaryawanDetailClient({
       { key: "taxStatus", label: "Status Pajak", type: "select", options: masterOptions([...TAX_STATUSES], emp.taxStatus) },
       {
         key: "taxObjectCode", label: "Kode Objek Pajak", type: "select",
-        hint: "Payroll mingguan diisi otomatis: 21-100-24 (gaji harian s/d Rp 2.500.000) atau 21-100-30 (di atasnya).",
+        hint: "Diisi otomatis dari Status Pajak dan Jadwal Gajian; menentukan cara hitung PPh 21.",
         options: [{ value: "", label: "—" }, ...(emp.taxObjectCode && !TAX_OBJECT_CODES.some((c) => c.value === emp.taxObjectCode) ? [{ value: emp.taxObjectCode, label: emp.taxObjectCode }] : []), ...TAX_OBJECT_CODES.map((c) => ({ value: c.value, label: c.label }))],
       },
     ],

@@ -111,6 +111,11 @@ export function pph21Daily(gross: number, days: number, ter: TerVersion = DEFAUL
   return { rate, perDay, tax: Math.floor((gross * rate) / 100) };
 }
 
+// Pegawai tidak tetap dengan bruto sehari di atas Rp 2.500.000 (kode 21-100-30): tarif Pasal 17 x 50% bruto.
+export function pph21DailyHigh(gross: number, cfg: TaxYearConfig = DEFAULT_TAX_YEAR) {
+  return { tax: pasal17(Math.floor(gross * 0.5), cfg) };
+}
+
 // Tarif progresif Pasal 17 atas PKP setahun.
 export function pasal17(pkp: number, cfg: TaxYearConfig = DEFAULT_TAX_YEAR) {
   let tax = 0, prev = 0;
