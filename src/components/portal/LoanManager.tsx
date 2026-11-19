@@ -322,7 +322,8 @@ export function LoanDialog({ kind, loan, running = [], onClose }: { kind: "appro
 }
 
 // Tab Pinjaman di profil karyawan: ringkasan + daftar pinjaman karyawan itu beserta aksinya.
-export default function ProfileLoans({ loans }: { loans: LoanView[] }) {
+// readOnly: Profil Saya (karyawan sendiri) — tanpa aksi Admin, keperluan & jejak approval hanya selama berproses.
+export default function ProfileLoans({ loans, readOnly = false }: { loans: LoanView[]; readOnly?: boolean }) {
   const [dialog, setDialog] = useState<{ kind: "approve" | "disburse" | "schedule"; loan: LoanView } | null>(null);
   const month = thisMonth();
   const running = loans.filter((l) => l.status === "BERJALAN");
@@ -353,7 +354,7 @@ export default function ProfileLoans({ loans }: { loans: LoanView[] }) {
           <section key={g.key} className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500"><T>{g.label}</T> <span className="text-gray-300">{list.length}</span></h3>
             <div className="grid gap-3 lg:grid-cols-2">
-              {list.map((l) => <LoanCard key={l.id} loan={l} actions={<LoanActions loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />} />)}
+              {list.map((l) => <LoanCard key={l.id} loan={l} processOnly={readOnly} actions={readOnly ? undefined : <LoanActions loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />} />)}
             </div>
           </section>
         );

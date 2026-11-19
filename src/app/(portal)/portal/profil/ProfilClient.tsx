@@ -511,3 +511,36 @@ function PasswordCard() {
     </Section>
   );
 }
+
+// ─── Profil Saya memakai halaman profil yang sama dengan Data Karyawan (Admin) ───
+// Tombol "Ajukan Perubahan Data" di kepala tab (pengganti menu Aksi Admin).
+export function SelfAction({ values, family, pending }: { values: Record<string, string>; family: FamilyRow[]; pending: boolean }) {
+  const t = useT();
+  const [editing, setEditing] = useState(false);
+  return (
+    <>
+      <Button size="sm" disabled={pending} title={pending ? t("Masih ada pengajuan yang menunggu persetujuan Admin. Lihat atau batalkan di Notifikasi.") : undefined}
+        className="shrink-0 gap-1.5" onClick={() => setEditing(true)}>
+        <Pencil size={14} /> <T>Ajukan Perubahan Data</T>
+      </Button>
+      {editing && <ChangeDialog values={values} family={family} onClose={() => setEditing(false)} />}
+    </>
+  );
+}
+
+// Tab Akun: ganti password dan riwayat pengajuan perubahan data.
+export function SelfAccount({ requests }: { requests: Req[] }) {
+  const done = requests.filter((r) => r.status !== "PENDING");
+  return (
+    <SectionNav sections={[
+      { key: "password", label: "Ganti Password", icon: KeyRound, content: <PasswordCard /> },
+      { key: "riwayat", label: "Riwayat Pengajuan Perubahan", icon: Clock, content: (
+        <Section icon={Clock} title="Riwayat Pengajuan Perubahan">
+          {done.length === 0
+            ? <p className="text-sm text-gray-400"><T>Belum ada.</T></p>
+            : <div className="space-y-3">{done.map((r) => <RequestCard key={r.id} r={r} compact />)}</div>}
+        </Section>
+      ) },
+    ]} />
+  );
+}

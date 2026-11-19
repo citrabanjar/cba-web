@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Data diri, pekerjaan, kehadiran, cuti, gaji, dan akun Anda.": "Your personal data, job, attendance, leave, pay, and account.",
   "Pemakaian cuti lainnya tahun": "Other leave used in",
   "Sisa saldo": "Remaining balance",
   "Bisa diajukan": "Available to request",

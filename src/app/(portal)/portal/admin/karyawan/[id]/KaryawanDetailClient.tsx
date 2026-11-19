@@ -104,7 +104,7 @@ type PayOption = { code: string; name: string; kind: string };
 type FamilyRow = { name: string; idNumber: string; relation: string };
 
 const TAB_LIST = [
-  { key: "pribadi", label: "Personal Info" },
+  { key: "pribadi", label: "Data Diri" },
   { key: "pekerjaan", label: "Pekerjaan" },
   { key: "absensi", label: "Kehadiran & Shift" },
   { key: "cuti", label: "Cuti & Dinas" },
@@ -684,7 +684,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, initialTab, initialDate, pph21Years = [], priorSlips = [], canSeeLoans, loans, master, canSeePay, isSuper, isOwner = false, canEdit: canEditTarget,
-  schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents,
+  schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents, self,
 }: {
   employee: Employee;
   tenure: string | null;
@@ -710,6 +710,9 @@ export default function KaryawanDetailClient({
   payOptions: PayOption[];
   payComponents: PayComponentRow[];
   pendingEdits?: { id: string; requesterName: string; approverName: string; createdAt: string }[];
+  // Profil Saya: halaman yang sama dilihat karyawan sendiri. Semua tombol ubah / aksi Admin disembunyikan,
+  // bagian khusus Admin (Komponen Gaji, PPh 21 Pindahan) dilewati, ditambah tombol pengajuan & tab Akun.
+  self?: { action: React.ReactNode; account: React.ReactNode };
 }) {
   const t = useT();
   // canEditTarget: aturan siapa yang boleh diubah (dari server); ditambah hak Edit menu admin (hak lihat saja = tombol ubah disembunyikan).
@@ -718,10 +721,10 @@ export default function KaryawanDetailClient({
   const canEditSchedule = useCanApply("absensi"); // tempel jadwal cukup hak lihat Absensi
   // Kartu shift di Kalender Kehadiran hanya aktif setelah dipicu dari kartu Jadwal Kerja (Jadwal Manual).
   const [placing, setPlacing] = useState(false);
-  const canEdit = canEditTarget && canEditMenu;
+  const canEdit = !self && canEditTarget && canEditMenu;
   // Hak "Ajukan": boleh membuka Edit data (Ubah Data saja); simpanan menjadi pengajuan ke atasan langsung si Admin.
   const canPropose = useCanPropose("karyawan");
-  const proposeOnly = canEditTarget && canPropose && !canEditMenu;
+  const proposeOnly = !self && canEditTarget && canPropose && !canEditMenu;
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
   const [tab, setTab] = useState(() => (quick ? "pekerjaan" : initialTab && TAB_LIST.some((x) => x.key === initialTab) ? initialTab : "pribadi"));
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
@@ -733,9 +736,11 @@ export default function KaryawanDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const tabs = TAB_LIST.filter(
+  const tabs = [...TAB_LIST.filter(
     (t) => (t.key !== "payslip" || canSeePay) && (t.key !== "pph21" || canSeePay) && (t.key !== "pinjaman" || canSeeLoans),
-  );
+  ), ...(self ? [{ key: "akun", label: "Akun" }] : [])];
+  // Mode Profil Saya: hak ubah / tempel jadwal / gaji dimatikan.
+  const editTarget = !self && canEditTarget;
 
   const fields = useMemo<Record<Section, FormField[]>>(() => ({
     detail: [
@@ -900,11 +905,18 @@ export default function KaryawanDetailClient({
   return (
     <div className="bg-gray-50 min-h-full">
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        <nav className="flex items-center gap-1.5 text-sm font-medium text-white/80">
-          <Link href="/portal/admin/karyawan" className="hover:text-white"><T>Data Karyawan</T></Link>
-          <ChevronRight size={15} className="text-white/50" />
-          <span className="text-white truncate">{emp.name}</span>
-        </nav>
+        {self ? (
+          <div>
+            <h1 className="text-lg font-bold text-white"><T>Profil Saya</T></h1>
+            <p className="text-xs text-white/70"><T>Data diri, pekerjaan, kehadiran, cuti, gaji, dan akun Anda.</T></p>
+          </div>
+        ) : (
+          <nav className="flex items-center gap-1.5 text-sm font-medium text-white/80">
+            <Link href="/portal/admin/karyawan" className="hover:text-white"><T>Data Karyawan</T></Link>
+            <ChevronRight size={15} className="text-white/50" />
+            <span className="text-white truncate">{emp.name}</span>
+          </nav>
+        )}
 
         {/* Kartu profil + ringkasan, mengikuti desain Code XR Dashboard v3 "My Profile". */}
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
@@ -989,7 +1001,7 @@ export default function KaryawanDetailClient({
               </button>
             ))}
           </div>
-          <ActionMenu items={[
+          {self ? self.action : <ActionMenu items={[
             ...(canEdit ? ACTION_ITEMS
               .filter((item) => emp.isActive || item.key !== "resign")
               .map((item) => ({ label: item.label, onClick: () => openQuick(item.key) })) : []),
@@ -997,7 +1009,7 @@ export default function KaryawanDetailClient({
               ? [{ label: "Aktifkan Kembali", onClick: handleReactivate, disabled: isPending }]
               : []),
             { label: "History Perubahan", onClick: () => setHistoryOpen(true), separated: canEdit },
-          ]} />
+          ]} />}
         </div>
 
         {tab === "pekerjaan" && (
@@ -1079,7 +1091,7 @@ export default function KaryawanDetailClient({
                   <p className="min-w-0 flex-1 text-xs text-amber-800">
                     <T>Jadwal bayar Mingguan memakai Gaji Harian x Pengali Bulanan. Isi keduanya lewat Penyesuaian Gaji; sebelum diisi, gaji pokok mingguan dihitung Rp 0.</T>
                   </p>
-                  {canEditTarget && canEditPay && (
+                  {editTarget && canEditPay && (
                     <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-8 px-3 text-xs"><T>Isi Gaji Harian</T></Button>
                   )}
                 </div>
@@ -1095,7 +1107,7 @@ export default function KaryawanDetailClient({
             </SectionCard>
               ) },
             // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
-            canSeePay && { key: "pindahan", label: "PPh 21 Pindahan", icon: FileStack, content: <PriorTaxCard userId={emp.id} slips={priorSlips} /> },
+            canSeePay && !self && { key: "pindahan", label: "PPh 21 Pindahan", icon: FileStack, content: <PriorTaxCard userId={emp.id} slips={priorSlips} /> },
               { key: "bpjs", label: "BPJS", icon: ShieldCheck, content: (
             <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
               <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
@@ -1107,7 +1119,7 @@ export default function KaryawanDetailClient({
             canSeePay && { key: "gaji", label: "Gaji Saat Ini", icon: Wallet, content: (
             <SectionCard
               title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
-              action={canEditTarget && canEditPay ? (
+              action={editTarget && canEditPay ? (
                 <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-7 px-3 text-xs">
                   <T>Penyesuaian Gaji</T>
                 </Button>
@@ -1118,12 +1130,12 @@ export default function KaryawanDetailClient({
                 : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
             </SectionCard>
             ) },
-            canSeePay && { key: "komponen", label: "Komponen Gaji", icon: Layers, content: <PayComponentsCard userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
+            canSeePay && !self && { key: "komponen", label: "Komponen Gaji", icon: Layers, content: <PayComponentsCard userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
             canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", label: "Riwayat Gaji", icon: History, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
           ]} />
         )}
 
-        {tab === "pinjaman" && canSeeLoans && <ProfileLoans loans={loans} />}
+        {tab === "pinjaman" && canSeeLoans && <ProfileLoans loans={loans} readOnly={!!self} />}
 
         {tab === "pribadi" && (
           <SectionNav sections={[
@@ -1186,9 +1198,9 @@ export default function KaryawanDetailClient({
         {tab === "absensi" && (
           <SectionNav initial={initialDate ? "kalender" : undefined} sections={[
             { key: "kalender", label: "Kalender & Jadwal", icon: CalendarDays, content: (
-          <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper ? emp.id : undefined}
-            shiftEdit={canEditTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
-            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={canEditTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} canExempt={isSuper} />} />
+          <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper && !self ? emp.id : undefined}
+            shiftEdit={editTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
+            side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={editTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} canExempt={isSuper && !self} />} />
             ) },
             { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
           emp.attendances.length === 0 ? <Empty text="Belum ada data absensi." /> : (
@@ -1294,6 +1306,8 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "pph21" && canSeePay && <Pph21Card userId={emp.id} years={pph21Years} />}
+
+        {tab === "akun" && self?.account}
 
         {tab === "payslip" && canSeePay && (
           emp.payslips.length === 0 ? <Empty text="Belum ada slip gaji." /> : (

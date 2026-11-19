@@ -1,0 +1,205 @@
+// Data halaman profil karyawan (dipakai Data Karyawan Admin dan Profil Saya, supaya keduanya sama persis).
+// Akses ditentukan pemanggil: canSeePay (gaji, slip, PPh 21), canSeeLoans (pinjaman), isSuper.
+import { visibleBalances } from "@/lib/leave-balance";
+import { describe, type PayParams } from "@/lib/payroll";
+import { toLoanView } from "@/lib/loan-view";
+import { prisma } from "@/lib/prisma";
+import { availableYears } from "@/lib/form1721a1";
+import { getMasterOptions } from "@/lib/master-data";
+import { PERSONAL_LOG_LABELS, WORK_LOG_LABELS } from "@/lib/personal-info";
+import { getShiftCalendar } from "@/lib/schedule";
+
+export function tenure(joinDate: Date | null): string | null {
+  if (!joinDate) return null;
+  const now = new Date();
+  let months =
+    (now.getFullYear() - joinDate.getFullYear()) * 12 +
+    (now.getMonth() - joinDate.getMonth());
+  if (now.getDate() < joinDate.getDate()) months -= 1;
+  if (months < 0) return null;
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  if (years === 0) return `${rest} bulan`;
+  return rest === 0 ? `${years} tahun` : `${years} tahun ${rest} bulan`;
+}
+
+export async function loadEmployeeDetail(id: string, access: { canSeePay: boolean; canSeeLoans: boolean; isSuper: boolean }) {
+  const { canSeePay, canSeeLoans } = access;
+
+  // Pakai select eksplisit supaya passwordHash tidak ikut terkirim ke client.
+  const employee = await prisma.user.findFirst({
+    where: { id, role: { not: "SUPER_ADMIN" } },
+    select: {
+      id: true, employeeNo: true, employeeId: true, name: true, email: true,
+      phone: true, image: true, role: true, menuAccess: true,
+      employmentStatus: true, position: true, branch: true, joinDate: true,
+      contractEndDate: true, resignDate: true, paymentSchedule: true,
+      spkNumber: true, spkDate: true,
+      bankName: true, bankAccount: true, bankHolder: true, isActive: true, attendanceExempt: true,
+      idType: true, ktpNumber: true, address: true, currentAddress: true,
+      addressSameAsId: true, birthPlace: true, birthDate: true,
+      addressRegion: true, addressRegionName: true, currentRegion: true, currentRegionName: true,
+      addressPostal: true, currentPostal: true,
+      gender: true, religion: true, maritalStatus: true, nationality: true,
+      emergencyName: true, emergencyPhone: true, emergencyRelation: true,
+      npwp: true, ptkpStatus: true, taxability: true, taxStatus: true,
+      taxObjectCode: true, bpjsTkNumber: true, bpjsTkActive: true,
+      bpjsKesNumber: true, bpjsKesActive: true, managerId: true,
+      manager: { select: { name: true, employeeId: true } },
+      department: { select: { id: true, name: true } },
+      employmentEvents: {
+        orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true, type: true, effectiveDate: true, contractEndDate: true,
+          spkNumber: true, reason: true, createdBy: true,
+        },
+      },
+      family: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true, idNumber: true, relation: true },
+      },
+      changeLogs: {
+        where: { field: { in: Object.keys({ ...PERSONAL_LOG_LABELS, ...WORK_LOG_LABELS }) } },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: { id: true, field: true, changedBy: true, createdAt: true },
+      },
+      attendances: {
+        orderBy: { date: "desc" },
+        take: 400, // kira-kira setahun, untuk kalender kehadiran
+        select: {
+          id: true, date: true, checkIn: true, checkOut: true,
+          checkInAddr: true, status: true, note: true,
+        },
+      },
+      leaves: {
+        orderBy: { startDate: "desc" },
+        take: 50,
+        select: {
+          id: true, type: true, startDate: true, endDate: true,
+          totalDays: true, reason: true, status: true, delegateName: true, policy: { select: { code: true, name: true } },
+        },
+      },
+      businessTrips: {
+        orderBy: { startDate: "desc" },
+        take: 50,
+        select: {
+          id: true, destination: true, purpose: true, startDate: true,
+          endDate: true, totalDays: true, status: true,
+        },
+      },
+    },
+  });
+
+  if (!employee) return null;
+
+  // Data gaji hanya diambil kalau akun ini punya akses menu Gaji.
+  const salaries = canSeePay
+    ? await prisma.employeeSalary.findMany({
+        where: { userId: id },
+        orderBy: { effectiveDate: "desc" },
+        select: {
+          id: true, effectiveDate: true, basicSalary: true, dailyWage: true, monthlyFactor: true, bpjsTkBase: true,
+          bpjsKesBase: true, note: true, createdBy: true,
+          components: { select: { id: true, type: true, name: true, amount: true, code: true } },
+        },
+      })
+    : [];
+
+  const payslips = canSeePay
+    ? await prisma.payslip.findMany({
+        where: { userId: id },
+        orderBy: [{ period: "desc" }, { createdAt: "desc" }],
+        take: 12,
+        select: { id: true, periodLabel: true, netPay: true, paidAt: true, paidVia: true },
+      })
+    : [];
+
+  // Jadwal kerja: riwayat, pilihan pola, dan shift per tanggal (setahun ke belakang, 3 bulan ke depan).
+  const now = new Date();
+  const [schedules, patterns, shiftDays, overtimes, shiftOptions] = await Promise.all([
+    prisma.employeeSchedule.findMany({
+      where: { userId: id },
+      orderBy: { effectiveDate: "desc" },
+      select: { id: true, type: true, effectiveDate: true, note: true, createdBy: true, pattern: { select: { id: true, name: true } } },
+    }),
+    prisma.workPattern.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, cycleDays: true } }),
+    getShiftCalendar(
+      id,
+      new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1)),
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 4, 0)),
+    ),
+    // Lembur (SPL bersedia / pengajuan) yang tertempel di jadwal.
+    prisma.overtime.findMany({
+      where: { userId: id, date: { gte: new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1)) }, status: { in: ["DISETUJUI", "APPROVED", "MENUNGGU_KARYAWAN", "PENDING"] } },
+      select: { date: true, startTime: true, endTime: true, status: true },
+    }),
+    // Shift aktif untuk palet Jadwal Manual (seret ke Kalender Kehadiran).
+    prisma.workShift.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }], select: { id: true, code: true, name: true, color: true } }),
+  ]);
+
+  const managers = await prisma.user.findMany({
+    where: { role: { not: "SUPER_ADMIN" }, isActive: true, id: { not: id } },
+    select: { id: true, name: true, employeeId: true },
+    orderBy: { name: "asc" },
+  });
+
+  // Pucuk pimpinan (tanpa atasan, punya bawahan aktif) — sama dengan puncak bagan: atasan langsung tampil "Owner".
+  const isOwner = !employee.managerId && (await prisma.user.count({ where: { managerId: employee.id, isActive: true } })) > 0;
+
+  return {
+    isOwner,
+    employee: { ...employee, employeeId: employee.employeeId ?? "", salaries, payslips },
+    tenure: tenure(employee.joinDate),
+    managers,
+    pph21Years: canSeePay ? await pph21YearsOf(id) : [],
+    priorSlips: canSeePay ? (await prisma.priorTaxSlip.findMany({ where: { userId: id }, orderBy: { year: "desc" } }))
+      .map((s) => ({ id: s.id, year: s.year, slipNumber: s.slipNumber, net: s.net ?? 0, pph21: s.pph21, employerName: s.employerName })) : [],
+    canSeeLoans,
+    loans: canSeeLoans ? (await prisma.employeeLoan.findMany({ where: { userId: id, status: { in: ["BERJALAN", "LUNAS", "DIGABUNG"] } }, orderBy: { createdAt: "desc" }, include: { installments: true } })).map(toLoanView) : [],
+    master: await getMasterOptions(),
+    canSeePay,
+    isSuper: access.isSuper,
+    schedules,
+    patterns,
+    shiftDays,
+    shiftOptions,
+    overtimes: overtimes.map((o) => ({ date: o.date.toISOString().slice(0, 10), start: o.startTime, end: o.endTime, status: o.status })),
+    leaveBalances: await visibleBalances([id]),
+    payComponents: canSeePay ? (await prisma.payComponent.findMany({
+      where: { OR: [{ isActive: true }, { employees: { some: { userId: id } } }] }, orderBy: { sortOrder: "asc" },
+      include: { employees: { where: { userId: id }, select: { startDate: true, endDate: true, note: true } } },
+    })).map((c) => {
+      const a = c.employees[0];
+      const d = (x: Date | null) => (x ? x.toISOString().slice(0, 10) : null);
+      return {
+        componentId: c.id, code: c.code, name: c.name, kind: c.kind, method: c.method,
+        formula: describe({ ...c, params: (c.params as PayParams | null) ?? null }),
+        assigned: a ? { startDate: d(a.startDate), endDate: d(a.endDate), note: a.note } : null,
+      };
+    }) : [],
+    payOptions: await prisma.payComponent.findMany({
+      where: { isActive: true, method: "INPUT", kind: { in: ["PENDAPATAN", "POTONGAN"] }, NOT: { code: "GP" } },
+      orderBy: { sortOrder: "asc" }, select: { code: true, name: true, kind: true },
+    }),
+  };
+}
+
+// Data PPh 21 per tahun untuk tab Payroll: Proses Gaji bulanan FINAL + bukti potong pemberi kerja sebelumnya (3 tahun terakhir).
+async function pph21YearsOf(userId: string) {
+  const since = new Date(Date.now() + 7 * 3600_000).getUTCFullYear() - 2;
+  const [lines, slips, done] = await Promise.all([
+    prisma.payrollLine.findMany({
+      where: { userId, run: { status: "FINAL", frequency: "BULANAN", period: { gte: `${since}-01` } } },
+      select: { gross: true, pph21: true, run: { select: { period: true } } }, orderBy: { run: { period: "asc" } },
+    }),
+    prisma.priorTaxSlip.findMany({ where: { userId, year: { gte: since } }, orderBy: { monthFrom: "asc" } }),
+    availableYears(userId),
+  ]);
+  const years = [...new Set([...lines.map((l) => Number(l.run.period.slice(0, 4))), ...slips.map((s) => s.year)])].sort((a, b) => b - a);
+  return years.map((year) => ({
+    year, complete: done.includes(year),
+    months: lines.filter((l) => l.run.period.startsWith(`${year}-`)).map((l) => ({ period: l.run.period, gross: l.gross, pph21: l.pph21 })),
+    prior: slips.filter((s) => s.year === year).map((s) => ({ slipNumber: s.slipNumber, employerName: s.employerName, net: s.net ?? 0, pph21: s.pph21 })),
+  }));
+}
