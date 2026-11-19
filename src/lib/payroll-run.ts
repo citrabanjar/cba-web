@@ -661,6 +661,26 @@ export async function estimateOvertime(userId: string, today: string) {
   };
 }
 
+// Tanggal lembur yang sudah dibayar: masuk rentang periode gaji FINAL (bulanan / mingguan) yang slip karyawannya
+// memuat komponen upah lembur. Dipakai kartu Estimasi Lembur di halaman Kehadiran.
+export async function paidOvertimeDates(userId: string, dates: string[]) {
+  const paid = new Set<string>();
+  if (!dates.length) return paid;
+  const [s, runs, comps] = await Promise.all([
+    getPayrollSettings(),
+    prisma.payrollRun.findMany({ where: { status: "FINAL", lines: { some: { userId } } }, select: { period: true, lines: { where: { userId }, select: { items: true } } } }),
+    prisma.payComponent.findMany({ where: { OR: [{ method: "LEMBUR" }, { param: "JAM_LEMBUR" }] }, select: { code: true } }),
+  ]);
+  const otCodes = new Set(comps.map((c) => c.code));
+  for (const run of runs) {
+    const items = (run.lines[0]?.items ?? []) as { code?: string; amount?: number }[];
+    if (!Array.isArray(items) || !items.some((i) => i.code && otCodes.has(i.code) && (i.amount ?? 0) > 0)) continue;
+    const { start, end } = periodRange(run.period, s);
+    for (const d of dates) if (d >= iso(start) && d <= iso(end)) paid.add(d);
+  }
+  return paid;
+}
+
 // Estimasi upah satu lembur per karyawan (SPL) dengan mesin Proses Gaji yang sama: jam lembur itu saja dimasukkan
 // sebagai lembur hari kerja / hari libur, lalu diambil komponen upah lembur (cara hitung LEMBUR) dan komponen
 // berparameter jam lembur. Hasil: rupiah per baris, urutan sama dengan masukan (0 bila tanpa komponen lembur).

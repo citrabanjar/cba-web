@@ -10,7 +10,7 @@ import { T } from "@/components/i18n";
 import { isSuperAdmin } from "@/lib/roles";
 import { getShiftCalendar } from "@/lib/schedule";
 import { paidHours, restDaysOf, restKey } from "@/lib/overtime";
-import { estimateOvertime } from "@/lib/payroll-run";
+import { estimateOvertime, paidOvertimeDates } from "@/lib/payroll-run";
 import { formatDate, formatRupiah } from "@/lib/utils";
 import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
 
@@ -56,7 +56,7 @@ export default async function KehadiranPage() {
     ? await prisma.attendance.findMany({ where: { userId: id, date: { in: inPeriod.map((o) => o.date) } }, select: { date: true, checkIn: true, checkOut: true } })
     : [];
   const att = new Map(atts.map((a) => [ymd(a.date), a]));
-  const restSet = await restDaysOf(inPeriod);
+  const [restSet, paid] = await Promise.all([restDaysOf(inPeriod), paidOvertimeDates(id, inPeriod.map((o) => ymd(o.date)))]);
   const rows = inPeriod.map((o) => {
     const ok = ["DISETUJUI", "APPROVED"].includes(o.status);
     const a = att.get(ymd(o.date));
@@ -64,6 +64,7 @@ export default async function KehadiranPage() {
       id: o.id, date: o.date, time: `${o.startTime}–${o.endTime}`, spl: o.order?.number ?? null,
       state: !ok ? "Menunggu" : !a?.checkOut ? "Belum absen pulang" : `${paidHours(o, a, null, restSet.has(restKey(o.userId, o.date)))} jam dibayar`,
       revision: o.revisionStatus === "MENUNGGU",
+      paid: ok && !!a?.checkOut && paid.has(ymd(o.date)),
     };
   });
 
@@ -74,14 +75,13 @@ export default async function KehadiranPage() {
         <p className="text-sm text-white/70"><T>Kalender kehadiran dan estimasi upah lembur periode gaji berjalan.</T></p>
       </div>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5">
+      {/* Kartu Estimasi Lembur hanya tampil bila ada lembur di periode gaji berjalan. */}
+      {est && rows.length > 0 && <section className="rounded-2xl border border-gray-200 bg-white p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-bold text-gray-800"><Timer size={18} className="text-brand" /> <T>Estimasi Lembur</T></h2>
           {est && <span className="text-xs text-gray-500">{est.label} · {formatDate(est.start)} – {formatDate(est.end)}</span>}
         </div>
-        {!est ? (
-          <p className="text-sm text-gray-400"><T>Estimasi belum bisa dihitung.</T></p>
-        ) : (
+        {(
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Stat label="Jam lembur hari kerja" value={`${num(est.hoursWork)} jam`} />
@@ -110,7 +110,7 @@ export default async function KehadiranPage() {
                       <tr key={r.id}>
                         <td className="py-1.5 pr-3 text-gray-800">{formatDate(r.date)}</td>
                         <td className="py-1.5 pr-3 text-gray-800">{r.time}{r.spl && <span className="ml-1 text-xs text-gray-400">{r.spl}</span>}</td>
-                        <td className="py-1.5 text-gray-600"><T>{r.state}</T>{r.revision && <span className="ml-1 text-xs text-amber-600">· <T>revisi jam menunggu Admin</T></span>}</td>
+                        <td className="py-1.5 text-gray-600"><T>{r.state}</T>{r.paid && <span className="ml-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><T>Sudah dibayar</T></span>}{r.revision && <span className="ml-1 text-xs text-amber-600">· <T>revisi jam menunggu Admin</T></span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -123,7 +123,7 @@ export default async function KehadiranPage() {
             </p>
           </>
         )}
-      </section>
+      </section>}
 
       <AttendanceCalendar
         attendances={user.attendances} leaves={user.leaves} trips={user.businessTrips} shiftDays={shiftDays}
