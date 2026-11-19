@@ -182,6 +182,7 @@ model User {
   helpQuestions    HelpQuestion[]
   overtimes        Overtime[]
   attendanceFixes  AttendanceCorrection[]
+  medicalClaims    MedicalClaim[]
   swapsRequested   ShiftSwapRequest[]     @relation("SwapRequester")
   swapsPartnered   ShiftSwapRequest[]     @relation("SwapPartner")
 
@@ -1142,4 +1143,48 @@ model AttendanceCorrection {
 
   @@index([userId, date])
   @@index([status])
+}
+
+// Reimbursement pengobatan (keputusan pemilik 2026-11-19). Parameter (persentase, plafon per tahun, reset, prorata,
+// status kerja, batas waktu, lampiran wajib, kena PPh 21) di AppSetting "reimburse.medical", diatur Admin Payroll.
+// Diputus atasan langsung / Workflow modul Reimbursement; yang disetujui dibayar di Proses Gaji berikutnya
+// (bulanan / mingguan sesuai jadwal gajian) lalu ditandai PAID saat gaji difinalkan.
+model MedicalClaim {
+  id        String    @id @default(cuid())
+  userId    String
+  treatDate DateTime  @db.Date // tanggal berobat (tanggal kuitansi)
+  provider  String // klinik / rumah sakit / apotek
+  amount    Float // nominal kuitansi
+  payout    Float // yang dibayarkan (persentase, dibatasi sisa plafon)
+  percent   Float // persentase saat diajukan
+  note      String?   @db.Text // keterangan karyawan
+  status    String    @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED | PAID
+  approval  Json? // jejak Workflow modul Reimbursement
+  decidedBy String?
+  decidedAt DateTime?
+  decision  String?   @db.Text // catatan penyetuju
+  paidRunId String? // proses gaji yang membayarkan
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files MedicalClaimFile[]
+
+  @@index([userId, treatDate])
+  @@index([status])
+}
+
+// Lampiran reimbursement: kuitansi, surat dokter, resep (foto diperkecil di browser, atau PDF kecil).
+model MedicalClaimFile {
+  id        String   @id @default(cuid())
+  claimId   String
+  kind      String // KUITANSI | SURAT_DOKTER | RESEP
+  mime      String
+  name      String
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  claim MedicalClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
 }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import BonusSchedule from "./BonusSchedule";
 import type { BonusEntry } from "@/lib/payroll-bonus";
-import { Calculator, CalendarClock, CheckCircle2, ChevronRight, HandCoins, Landmark, Loader2, Percent, Play, Receipt, Settings2, ShieldCheck, Wallet } from "lucide-react";
+import { Calculator, CalendarClock, CheckCircle2, ChevronRight, HandCoins, Landmark, Loader2, Percent, Play, Receipt, Settings2, ShieldCheck, Wallet, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,8 @@ import { proposedText } from "@/lib/approval-text";
 import RunTab, { type NonRoutine, type Run } from "./RunTab";
 import TaxSettings from "./TaxSettings";
 import TerSettings from "./TerSettings";
+import ReimburseSettings from "./ReimburseSettings";
+import type { ReimburseSettings as ReimburseValue } from "@/lib/reimburse-shared";
 import type { TaxYearConfig, TerVersion } from "@/lib/pph21";
 import ComponentsTab, { type Component, type PayEmployee } from "./ComponentsTab";
 import DeductionCalculator from "./DeductionCalculator";
@@ -82,11 +84,12 @@ const SETTING_SECTIONS = [
   { key: "thr", label: "Jadwal THR / Bonus", Icon: CalendarClock },
   { key: "pph", label: "Pengaturan PPh 21", Icon: Receipt },
   { key: "ter", label: "Tarif TER PPh 21", Icon: Percent },
+  { key: "reimburse", label: "Reimbursement Pengobatan", Icon: Stethoscope },
 ] as const;
 
-export default function PayrollClient({ components, settings, runs, employees, nonRoutine, bonus, taxSettings, terSettings, revisions }: {
+export default function PayrollClient({ components, settings, runs, employees, nonRoutine, bonus, taxSettings, terSettings, reimburse, revisions }: {
   components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[]; bonus: BonusEntry[];
-  taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[]; revisions?: React.ReactNode;
+  taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[]; reimburse: ReimburseValue; revisions?: React.ReactNode;
 }) {
   const t = useT();
   const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "kalkulator">("komponen");
@@ -151,6 +154,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
               {setting === "thr" && <BonusSchedule entries={bonus} components={nonRoutine} />}
               {setting === "pph" && <TaxSettings all={taxSettings} />}
               {setting === "ter" && <TerSettings versions={terSettings} />}
+              {setting === "reimburse" && <ReimburseSettings settings={reimburse} />}
             </div>
           </div>
         )}

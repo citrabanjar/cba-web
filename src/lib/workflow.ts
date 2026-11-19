@@ -13,6 +13,7 @@ export const WORKFLOW_MODULES = [
   { key: "CUTI", label: "Cuti", desc: "Pengajuan cuti dan izin karyawan." },
   { key: "DINAS", label: "Dinas Luar", desc: "Pengajuan dinas luar karyawan." },
   { key: "LEMBUR", label: "Lembur", desc: "Pengajuan lembur karyawan bila Surat Perintah Lembur tidak digunakan." },
+  { key: "REIMBURSE", label: "Reimbursement", desc: "Pengajuan reimbursement pengobatan karyawan." },
   { key: "PINJAMAN", label: "Pinjaman", desc: "Pengajuan pinjaman karyawan. Level terakhir memutus setelah Admin memeriksa dokumen." },
   { key: "LUPA_ABSEN", label: "Lupa Absen", desc: "Pengajuan lupa absen karyawan (check-in atau check-out)." },
   { key: "TUKAR_SHIFT", label: "Tukar Shift", desc: "Pengajuan tukar shift antarkaryawan.", soon: true },

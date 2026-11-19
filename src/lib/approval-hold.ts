@@ -94,6 +94,7 @@ const REGISTRY: Record<string, () => Promise<Fn>> = {
   "gaji.saveBonusSchedule": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).saveBonusSchedule as Fn,
   "gaji.finalizePayroll": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).finalizePayroll as Fn,
   "gaji.saveTaxYear": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).saveTaxYear as Fn,
+  "gaji.saveReimburseSettings": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).saveReimburseSettings as Fn,
   "gaji.savePriorSlip": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).savePriorSlip as Fn,
   "gaji.deletePriorSlip": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).deletePriorSlip as Fn,
   "gaji.saveTerVersion": async () => (await import("@/app/(portal)/portal/admin/payroll/actions")).saveTerVersion as Fn,

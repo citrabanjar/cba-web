@@ -26,7 +26,7 @@ export async function loadApprovals(a: Approver) {
   // Pemantau (Super Admin & Admin Data Karyawan) melihat semua perubahan data yang masih menunggu, tanpa tombol putus.
   const monitor = reviewer || a.role === "SUPER_ADMIN";
   const loanAdmin = canEditMenu({ role: a.role, menuAccess: a.menuAccess ?? [] }, "pinjaman");
-  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots, loanReqs, fixes] = await Promise.all([
+  const [leaves, trips, profileReqs, swapReqs, candidates, editReqs, ots, loanReqs, fixes, claims] = await Promise.all([
     // Atasan langsung (pengajuan tanpa workflow) + pengajuan lewat menu Workflow (disaring per level di bawah).
     prisma.leaveRequest.findMany({
       where: { OR: [{ status: "PENDING" }, { approvedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
@@ -87,6 +87,11 @@ export async function loadApprovals(a: Approver) {
       where: { OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
       include: { user: who }, orderBy: { createdAt: "desc" }, take: 200,
     }),
+    // Reimbursement pengobatan: atasan langsung / Workflow modul Reimbursement.
+    prisma.medicalClaim.findMany({
+      where: { OR: [{ status: "PENDING" }, { decidedAt: { gte: since }, status: { in: ["APPROVED", "REJECTED", "PAID"] } }], AND: [{ OR: [{ user, ...noWorkflow }, { approval: { not: Prisma.DbNull } }] }] },
+      include: { user: who, files: { select: { id: true, kind: true, name: true } } }, orderBy: { createdAt: "desc" }, take: 200,
+    }),
   ]);
   const otRest = await restDaysOf(ots);
 
@@ -130,6 +135,15 @@ export async function loadApprovals(a: Approver) {
       time: [f.checkIn && `masuk ${hmWib(f.checkIn)}`, f.checkOut && `pulang ${hmWib(f.checkOut)}`].filter(Boolean).join(" · "),
       halfDay: null, unpaidDays: 0, reason: f.reason, note: f.note, decidedBy: f.decidedBy,
       decidedAt: f.decidedAt?.toISOString() ?? null, createdAt: f.createdAt.toISOString(),
+    })),
+    ...claims.filter((c) => flowOf(c.approval).show).map((c) => ({
+      flow: flowOf(c.approval).steps, mine: flowOf(c.approval).mine,
+      id: c.id, kind: "REIMBURSE" as const, status: c.status === "PAID" ? "APPROVED" : c.status, person: person(c.user),
+      title: `Reimbursement · ${c.provider}`, start: ymd(c.treatDate), end: ymd(c.treatDate), days: 0,
+      time: `kuitansi Rp ${Math.round(c.amount).toLocaleString("id-ID")} · dibayarkan Rp ${Math.round(c.payout).toLocaleString("id-ID")}`,
+      files: c.files.map((x) => ({ id: x.id, name: x.name, url: `/api/reimburse-file/${x.id}` })),
+      halfDay: null, unpaidDays: 0, reason: c.note ?? "", note: c.decision, decidedBy: c.decidedBy,
+      decidedAt: c.decidedAt?.toISOString() ?? null, createdAt: c.createdAt.toISOString(),
     })),
   ];
 

@@ -6,7 +6,7 @@ export const NOTIF_MODULES = [
   { key: "dinas", label: "Dinas", paths: ["/portal/dinas"] },
   { key: "pinjaman", label: "Pinjaman", paths: ["/portal/pinjaman", "/portal/admin/pinjaman"] },
   { key: "profil", label: "Data Diri", paths: ["/portal/profil"] },
-  { key: "payroll", label: "Payroll & Benefit", paths: ["/portal/admin/payroll"] },
+  { key: "payroll", label: "Payroll & Benefit", paths: ["/portal/admin/payroll", "/portal/reimburse"] },
   { key: "karyawan", label: "Data Karyawan", paths: ["/portal/admin/karyawan"] },
   { key: "prakaryawan", label: "Pra-Karyawan", paths: ["/portal/admin/onboarding"] },
   { key: "lainnya", label: "Lainnya", paths: [] as string[] },

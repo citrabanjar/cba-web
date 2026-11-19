@@ -11,6 +11,7 @@ import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
 import { isSeparate, isWeekly, parseSeparate, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
 import { bonusIn, getBonusSchedule } from "@/lib/payroll-bonus";
+import { claimItems } from "@/lib/reimburse";
 import { pph21Daily, pph21DailyHigh, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
 
 const DAY = 86_400_000;
@@ -351,6 +352,12 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
     }
   }
 
+  // Reimbursement pengobatan yang sudah disetujui dan belum dibayar (lib/reimburse). Ditandai Dibayar saat gaji difinalkan.
+  if (!restricted && !opts.estimate) {
+    const rmb = await claimItems(userId, end);
+    if (rmb) items.push(rmb as (typeof items)[number]);
+  }
+
   // Sudah dibayar di proses lain, pajaknya di sini (bulan / minggu saat dibayar):
   // - proses bulanan: payroll mingguan karyawan bulanan (komponen "dibayar mingguan", THR mingguan) yang mingguannya
   //   berakhir di periode ini, dan THR / Bonus terpisah yang tanggal bayarnya di periode ini;
@@ -601,6 +608,11 @@ export async function finalizeRun(runId: string, by: string | null) {
   await prisma.$transaction([
     ...ops,
     prisma.loanInstallment.updateMany({ where: { id: { in: refs }, status: "BELUM" }, data: { status: "LUNAS", paidRunId: runId, paidAt } }),
+    // Reimbursement pengobatan yang ikut terbayar.
+    prisma.medicalClaim.updateMany({
+      where: { id: { in: run.lines.flatMap((l) => (l.items as LineItem[]).filter((i) => i.code === "RMB").flatMap((i) => i.refs ?? [])) }, status: "APPROVED" },
+      data: { status: "PAID", paidRunId: runId, paidAt },
+    }),
     prisma.payrollRun.update({ where: { id: runId }, data: { status: "FINAL", finalizedBy: by, finalizedAt: paidAt } }),
   ]);
   if (refs.length) {

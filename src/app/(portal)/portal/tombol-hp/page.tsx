@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeftRight, Briefcase, CalendarCheck, CalendarDays, Clock, ClockAlert, FileText, HandCoins, Receipt, Timer, UserCheck } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarCheck, CalendarDays, Clock, ClockAlert, FileText, HandCoins, Receipt, Timer, UserCheck, Stethoscope } from "lucide-react";
 import { isSecurity } from "@/lib/overtime-check";
 import { auth } from "@/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { T } from "@/components/i18n";
 import { isSuperAdmin } from "@/lib/roles";
+import { getReimburseSettings } from "@/lib/reimburse";
 
 export const metadata: Metadata = { title: "Tombol HP" };
 
@@ -30,9 +31,11 @@ export default async function TombolHpPage() {
   if (!session?.user) redirect("/portal");
   if (isSuperAdmin(session.user.role)) redirect("/portal/dashboard");
   // Security (jadwal manual): tombol Cek Fisik Lembur.
-  const buttons = session.user.id && (await isSecurity(session.user.id))
+  let buttons = session.user.id && (await isSecurity(session.user.id))
     ? [...HP_BUTTONS, { href: "/portal/cek-fisik", icon: UserCheck, label: "Cek Fisik Lembur", desc: "Cek keberadaan karyawan lembur" }]
     : HP_BUTTONS;
+  // Reimbursement pengobatan tampil bila diaktifkan di Payroll & Benefit.
+  if ((await getReimburseSettings()).enabled) buttons = [...buttons, { href: "/portal/reimburse", icon: Stethoscope, label: "Reimbursement", desc: "Penggantian biaya pengobatan" }];
   return (
     <div className="max-w-4xl p-4 sm:p-6">
       <h1 className="mb-1 text-2xl font-bold text-white"><T>Tombol HP</T></h1>

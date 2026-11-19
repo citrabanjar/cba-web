@@ -2,7 +2,7 @@
 // - Kehadiran / Semua: ringkasan per karyawan dari lib/attendance-recap.ts.
 // - Cuti: setiap pengajuan cuti yang beririsan dengan rentang (semua status).
 // - Lembur: setiap lembur (SPL / pengajuan) dalam rentang, dengan jam dibayar dan cek fisik.
-// - Dinas, Tukar Shift, Lupa Absen, Pinjaman: setiap pengajuan dalam rentang.
+// - Dinas, Tukar Shift, Lupa Absen, Reimbursement, Pinjaman: setiap pengajuan dalam rentang.
 // Saringan status: "menunggu" = semua pekerjaan yang belum selesai (tanpa melihat rentang tanggal), supaya Laporan
 // menjadi papan kerja Admin; "disetujui" / "ditolak" mengikuti rentang tanggal.
 import { prisma } from "@/lib/prisma";
@@ -169,5 +169,24 @@ export async function buildFixReport(userIds: string[], from: Date, to: Date, st
     id: r.id, userId: r.userId, name: r.user.name, employeeId: r.user.employeeId, department: r.user.department?.name ?? null,
     date: keyOf(r.date), checkIn: hm(r.checkIn), checkOut: hm(r.checkOut), reason: r.reason, status: r.status,
     decidedBy: r.decidedBy, turn: r.status === "PENDING" ? turnOf(r.approval, r.user.manager) : null, createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+// Reimbursement pengobatan: pengajuan yang tanggal berobatnya di dalam rentang.
+const CLAIM_ST: Record<Exclude<ReportStatus, "">, string[]> = { menunggu: ["PENDING"], disetujui: ["APPROVED", "PAID"], ditolak: ["REJECTED", "CANCELLED"] };
+export type ClaimReportRow = {
+  id: string; userId: string; name: string; employeeId: string | null; department: string | null;
+  date: string; provider: string; amount: number; payout: number; status: string; decidedBy: string | null; turn: string | null; files: { id: string; name: string }[];
+};
+export async function buildClaimReport(userIds: string[], from: Date, to: Date, status: ReportStatus = ""): Promise<ClaimReportRow[]> {
+  if (!userIds.length) return [];
+  const rows = await prisma.medicalClaim.findMany({
+    where: { userId: { in: userIds }, ...(inRange(status) ? { treatDate: { gte: from, lte: to } } : {}), ...(status ? { status: { in: CLAIM_ST[status] } } : {}) },
+    include: { user: userSel, files: { select: { id: true, name: true } } }, orderBy: [{ treatDate: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map((r) => ({
+    id: r.id, userId: r.userId, name: r.user.name, employeeId: r.user.employeeId, department: r.user.department?.name ?? null,
+    date: keyOf(r.treatDate), provider: r.provider, amount: r.amount, payout: r.payout, status: r.status,
+    decidedBy: r.decidedBy, turn: r.status === "PENDING" ? turnOf(r.approval, r.user.manager) : null, files: r.files,
   }));
 }

@@ -15,6 +15,8 @@ import { finalizeRun, generateRun, recomputeLine, type LineInputs } from "@/lib/
 import { BONUS_MODES, BONUS_SETTING_KEY, getBonusSchedule, type BonusEntry } from "@/lib/payroll-bonus";
 import { isSeparate } from "@/lib/payroll-run-period";
 import { holdForApproval, type HoldDetail } from "@/lib/approval-hold";
+import { readReimburse, REIMBURSE_KEY, type ReimburseSettings } from "@/lib/reimburse-shared";
+import { getReimburseSettings } from "@/lib/reimburse";
 
 const PATH = "/portal/admin/payroll";
 // proposed = perubahan ditahan untuk approval (aturan Peran Admin): berisi nama approver.
@@ -290,6 +292,29 @@ export async function saveTaxYear(year: number, cfg: TaxYearConfig): Promise<Res
     create: { key: TAX_SETTING_KEY, value: all, updatedBy: access.name ?? null },
   });
   revalidatePath(PATH);
+  return {};
+}
+
+// Parameter Reimbursement Pengobatan (Admin Payroll).
+export async function saveReimburseSettings(input: ReimburseSettings): Promise<Result> {
+  const access = await requirePayroll();
+  const value = readReimburse(input);
+  if (value.enabled && !(value.percent > 0)) return { error: "Persentase penggantian wajib diisi." };
+  const prev = await getReimburseSettings();
+  const held = await holdForApproval({
+    kind: "gaji.saveReimburseSettings", args: [input], title: "Payroll: Reimbursement Pengobatan",
+    details: diff({ enabled: "Aktif", percent: "Persentase (%)", yearlyCap: "Plafon per tahun", reset: "Plafon diperbarui", prorata: "Prorata karyawan baru",
+      forStatus: "Berlaku untuk", minServiceMonths: "Masa kerja minimal", deadlineDays: "Batas pengajuan (hari)", needDoctorLetter: "Surat dokter wajib", taxable: "Kena PPh 21" },
+      prev as unknown as Record<string, unknown>, value as unknown as Record<string, unknown>),
+  });
+  if (held) return held;
+  await prisma.appSetting.upsert({
+    where: { key: REIMBURSE_KEY },
+    update: { value, updatedBy: access.name ?? null },
+    create: { key: REIMBURSE_KEY, value, updatedBy: access.name ?? null },
+  });
+  revalidatePath(PATH);
+  revalidatePath("/portal/tombol-hp");
   return {};
 }
 

@@ -10,6 +10,7 @@ import OvertimeRevisions from "./OvertimeRevisions";
 import type { PayParams } from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
 import { ensureSystemComponents, getPayrollSettings, getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
+import { getReimburseSettings } from "@/lib/reimburse";
 import PayrollClient from "./PayrollClient";
 import { normalizeInputs, periodLabel, type LineInputs, type LineItem } from "@/lib/payroll-run";
 import { getBonusSchedule } from "@/lib/payroll-bonus";
@@ -70,6 +71,7 @@ export default async function PayrollPage() {
       bonus={bonus}
       taxSettings={taxSettings}
       terSettings={terSettings}
+      reimburse={await getReimburseSettings()}
       settings={settings}
       runs={runs.map((r) => ({
         id: r.id, period: r.period, label: periodLabel(r.period), status: r.status, frequency: r.frequency, extraCodes: r.extraCodes.length ? r.extraCodes : r.includeThr ? ["THR"] : [],

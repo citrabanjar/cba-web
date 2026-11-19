@@ -3,16 +3,16 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, CalendarDays, ChevronRight, CalendarHeart, ClipboardList, Download, Filter, HandCoins, LayoutGrid, Loader2, Plane, Timer, Users, X, ClockAlert } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, ChevronRight, CalendarHeart, ClipboardList, Download, Filter, HandCoins, LayoutGrid, Loader2, Plane, Timer, Users, X, ClockAlert, Stethoscope } from "lucide-react";
 import * as XLSX from "xlsx";
 import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
 import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
 import type { RecapDay, RecapRow } from "@/lib/attendance-recap";
-import type { FixReportRow, LeaveReportRow, LoanReportRow, OvertimeReportRow, ReportStatus, SwapReportRow, TripReportRow } from "@/lib/report";
+import type { ClaimReportRow, FixReportRow, LeaveReportRow, LoanReportRow, OvertimeReportRow, ReportStatus, SwapReportRow, TripReportRow } from "@/lib/report";
 
-export type ReportKind = "semua" | "kehadiran" | "cuti" | "dinas" | "tukar" | "lupa" | "lembur" | "pinjaman";
+export type ReportKind = "semua" | "kehadiran" | "cuti" | "dinas" | "tukar" | "lupa" | "reimburse" | "lembur" | "pinjaman";
 type Emp = { id: string; name: string; employeeId: string | null; department: string | null };
 const num = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 const STATUS: Record<string, string> = { HADIR: "Hadir", IZIN: "Izin", SAKIT: "Sakit", ALPHA: "Alpha", CUTI: "Cuti", DINAS: "Dinas" };
@@ -22,8 +22,13 @@ const LEAVE_STATUS: Record<string, { label: string; cls: string }> = {
 };
 const KINDS: [ReportKind, string, typeof LayoutGrid][] = [
   ["semua", "Semua", LayoutGrid], ["kehadiran", "Kehadiran", CalendarDays], ["cuti", "Cuti", CalendarHeart], ["dinas", "Dinas", Plane],
-  ["tukar", "Tukar Shift", ArrowLeftRight], ["lupa", "Lupa Absen", ClockAlert], ["lembur", "Lembur", Timer], ["pinjaman", "Pinjaman", HandCoins],
+  ["tukar", "Tukar Shift", ArrowLeftRight], ["lupa", "Lupa Absen", ClockAlert], ["reimburse", "Reimbursement", Stethoscope], ["lembur", "Lembur", Timer], ["pinjaman", "Pinjaman", HandCoins],
 ];
+const CLAIM_PILL: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: "Menunggu", cls: "bg-amber-50 text-amber-700" }, APPROVED: { label: "Menunggu gajian", cls: "bg-sky-50 text-sky-700" },
+  PAID: { label: "Dibayar", cls: "bg-emerald-50 text-emerald-700" }, REJECTED: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" }, CANCELLED: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-600" },
+};
+const CLAIM_LABEL = Object.fromEntries(Object.entries(CLAIM_PILL).map(([k, v]) => [k, v.label]));
 const SWAP_STATUS: Record<string, { label: string; cls: string }> = {
   MENUNGGU_REKAN: { label: "Menunggu rekan", cls: "bg-amber-50 text-amber-700" }, MENUNGGU_ATASAN: { label: "Menunggu atasan", cls: "bg-amber-50 text-amber-700" },
   DISETUJUI: { label: "Disetujui", cls: "bg-emerald-50 text-emerald-700" }, DITOLAK: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" }, DIBATALKAN: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-600" },
@@ -56,10 +61,10 @@ function EmpName({ id, name, employeeId, department, canProfile, tab, date, exem
   );
 }
 
-export default function LaporanClient({ kind, status = "", stage = "", canLoan = false, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, trips = [], swaps = [], loans = [], fixes = [], pending = {}, canProfile }: {
+export default function LaporanClient({ kind, status = "", stage = "", canLoan = false, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, trips = [], swaps = [], loans = [], fixes = [], claims = [], pending = {}, canProfile }: {
   kind: ReportKind; status?: ReportStatus; stage?: string; canLoan?: boolean; from: string; to: string; picked: string[]; tooLong: boolean; employees: Emp[];
   rows: RecapRow[]; days: RecapDay[]; leaves: LeaveReportRow[]; overtimes: OvertimeReportRow[];
-  trips?: TripReportRow[]; swaps?: SwapReportRow[]; loans?: LoanReportRow[]; fixes?: FixReportRow[]; canProfile: boolean;
+  trips?: TripReportRow[]; swaps?: SwapReportRow[]; loans?: LoanReportRow[]; fixes?: FixReportRow[]; claims?: ClaimReportRow[]; canProfile: boolean;
   pending?: Partial<Record<ReportKind, number>>; // jumlah belum selesai per modul (daftar kiri)
 }) {
   const t = useT();
@@ -80,7 +85,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
 
   const total = (k: keyof RecapRow) => rows.reduce((a, r) => a + (typeof r[k] === "number" ? (r[k] as number) : 0), 0);
   const leaveText = (r: RecapRow) => Object.entries(r.leaveByType).map(([k, v]) => `${k} ${num(v)}`).join(", ");
-  const count = kind === "cuti" ? leaves.length : kind === "lembur" ? overtimes.length : kind === "dinas" ? trips.length : kind === "tukar" ? swaps.length : kind === "lupa" ? fixes.length : kind === "pinjaman" ? loans.length : rows.length;
+  const count = kind === "cuti" ? leaves.length : kind === "lembur" ? overtimes.length : kind === "dinas" ? trips.length : kind === "tukar" ? swaps.length : kind === "lupa" ? fixes.length : kind === "reimburse" ? claims.length : kind === "pinjaman" ? loans.length : rows.length;
   const kindLabel = t(KINDS.find((k) => k[0] === kind)![1]);
   const title = status === "menunggu" || (stage && stage !== "SELESAI")
     ? `${kindLabel} ${t("belum selesai")}${stage && stage !== "SELESAI" ? ` · ${t("tahap")} ${t(LOAN_STAGE[stage])}` : ""}`
@@ -102,6 +107,9 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
     } else if (kind === "tukar") {
       sheet("Tukar Shift", ["ID Karyawan", "Pemohon", "Departemen", "Rekan", "Tanggal", "Shift pemohon", "Shift rekan", "Alasan", "Status", "Giliran / Diputus oleh"],
         swaps.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", r.partner, formatDate(r.date), r.requesterShift, r.partnerShift, r.reason ?? "", SWAP_STATUS[r.status]?.label ?? r.status, r.turn ?? r.decidedBy ?? ""]));
+    } else if (kind === "reimburse") {
+      sheet("Reimbursement", ["ID Karyawan", "Nama", "Departemen", "Tanggal berobat", "Klinik / RS / Apotek", "Kuitansi", "Dibayarkan", "Status", "Giliran / Disetujui oleh"],
+        claims.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", formatDate(r.date), r.provider, r.amount, r.payout, CLAIM_LABEL[r.status] ?? r.status, r.turn ?? r.decidedBy ?? ""]));
     } else if (kind === "lupa") {
       sheet("Lupa Absen", ["ID Karyawan", "Nama", "Departemen", "Tanggal", "Jam masuk", "Jam pulang", "Alasan", "Status", "Giliran / Diputus oleh"],
         fixes.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", formatDate(r.date), r.checkIn ?? "", r.checkOut ?? "", r.reason, LEAVE_STATUS[r.status]?.label ?? r.status, r.turn ?? r.decidedBy ?? ""]));
@@ -135,7 +143,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
     <div className="min-h-full bg-gray-50">
       <div className="border-b border-gray-100 bg-white px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Laporan</T></h2>
-        <p className="mt-0.5 text-xs text-gray-400"><T>Papan kerja Admin: pekerjaan yang belum selesai dan laporan kehadiran, cuti, dinas, tukar shift, lupa absen, lembur, serta pinjaman untuk rentang tanggal dan karyawan yang dipilih.</T></p>
+        <p className="mt-0.5 text-xs text-gray-400"><T>Papan kerja Admin: pekerjaan yang belum selesai dan laporan kehadiran, cuti, dinas, tukar shift, lupa absen, reimbursement, lembur, serta pinjaman untuk rentang tanggal dan karyawan yang dipilih.</T></p>
       </div>
 
       <main className="max-w-7xl px-4 py-5 sm:px-6">
@@ -304,6 +312,30 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                 </tbody>
               </table>
             </div>
+          ) : kind === "reimburse" ? (
+            <div className="max-h-[65vh] overflow-auto">
+              <table className="w-full whitespace-nowrap text-sm">
+                <thead className="sticky top-0 z-10 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                  <tr><th className={`${thl} pl-4`}><T>Karyawan</T></th><th className={thl}><T>Tanggal berobat</T></th><th className={thl}><T>Klinik / RS / Apotek</T></th><th className={th}><T>Kuitansi</T></th><th className={th}><T>Dibayarkan</T></th><th className={thl}><T>Status</T></th><th className={thl}><T>Lampiran</T></th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {claims.map((r) => {
+                    const st = pill(CLAIM_PILL, r.status);
+                    return (
+                      <tr key={r.id} className="align-top hover:bg-gray-50/60">
+                        <td className="px-4 py-2"><EmpName canProfile={canProfile} tab="cuti" id={r.userId} name={r.name} employeeId={r.employeeId} department={r.department} /></td>
+                        <td className="px-3 py-2">{formatDate(r.date)}</td>
+                        <td className="max-w-56 truncate px-3 py-2 text-gray-700" title={r.provider}>{r.provider}</td>
+                        <td className={td}>{rupiah(r.amount)}</td>
+                        <td className={td}>{rupiah(r.payout)}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="px-3 py-2 text-[11px]">{r.files.map((f) => <a key={f.id} href={`/api/reimburse-file/${f.id}`} target="_blank" rel="noreferrer" className="mr-2 text-brand hover:underline">{f.name}</a>)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : kind === "lupa" ? (
             <div className="max-h-[65vh] overflow-auto">
               <table className="w-full whitespace-nowrap text-sm">
@@ -437,7 +469,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
             </div>
           )}
           <p className="border-t border-gray-100 px-5 py-2 text-[11px] text-gray-400">
-            <T>{kind === "dinas" ? "Pengajuan dinas luar yang tanggalnya beririsan dengan rentang. Keputusan tetap di penyetuju lewat Notifikasi." : kind === "tukar" ? "Pengajuan tukar shift yang tanggal tukarnya di dalam rentang. Keputusan di rekan dan atasan lewat Notifikasi." : kind === "lupa" ? "Pengajuan lupa absen yang tanggal absennya di dalam rentang. Diputus atasan lewat Notifikasi; setelah disetujui jam langsung tercatat di kehadiran." : kind === "pinjaman" ? "Pengajuan pinjaman yang dibuat di dalam rentang (saldo awal tidak termasuk). Klik Proses untuk memeriksa dokumen atau mencairkan di menu Pinjaman Karyawan." : kind === "cuti" ? "Semua pengajuan cuti yang tanggalnya beririsan dengan rentang, termasuk yang menunggu, ditolak, dan dibatalkan." : kind === "lembur" ? "Jam dibayar per 1 jam penuh sampai absen pulang, di luar istirahat. Cek fisik oleh security bila shiftnya beririsan." : "Cuti = cuti disetujui dalam hari kerja (setengah hari = 0,5). Lembur = jam dibayar (per 1 jam penuh sampai absen pulang, di luar istirahat). HK = hari kerja, HL = hari libur / OFF."}</T>
+            <T>{kind === "dinas" ? "Pengajuan dinas luar yang tanggalnya beririsan dengan rentang. Keputusan tetap di penyetuju lewat Notifikasi." : kind === "tukar" ? "Pengajuan tukar shift yang tanggal tukarnya di dalam rentang. Keputusan di rekan dan atasan lewat Notifikasi." : kind === "reimburse" ? "Pengajuan reimbursement pengobatan yang tanggal berobatnya di dalam rentang. Yang disetujui dibayarkan di Proses Gaji berikutnya." : kind === "lupa" ? "Pengajuan lupa absen yang tanggal absennya di dalam rentang. Diputus atasan lewat Notifikasi; setelah disetujui jam langsung tercatat di kehadiran." : kind === "pinjaman" ? "Pengajuan pinjaman yang dibuat di dalam rentang (saldo awal tidak termasuk). Klik Proses untuk memeriksa dokumen atau mencairkan di menu Pinjaman Karyawan." : kind === "cuti" ? "Semua pengajuan cuti yang tanggalnya beririsan dengan rentang, termasuk yang menunggu, ditolak, dan dibatalkan." : kind === "lembur" ? "Jam dibayar per 1 jam penuh sampai absen pulang, di luar istirahat. Cek fisik oleh security bila shiftnya beririsan." : "Cuti = cuti disetujui dalam hari kerja (setengah hari = 0,5). Lembur = jam dibayar (per 1 jam penuh sampai absen pulang, di luar istirahat). HK = hari kerja, HL = hari libur / OFF."}</T>
           </p>
         </section>
 

@@ -13,6 +13,7 @@ import { loanPreStep, loanTurn, readLoanFlow } from "@/lib/loans";
 import { applyPlan, loanReviewers, planLoan } from "@/lib/loan-flow";
 import { formatRupiah } from "@/lib/utils";
 import { applyFix, fixRefresh, hmWib } from "@/lib/attendance-fix";
+import { finalPayout, reimburseRefresh } from "@/lib/reimburse";
 
 // Keputusan per level menu Workflow. Hasil null = bukan jalur workflow (pakai atasan langsung).
 function workflowDecision(raw: unknown, userId: string, approve: boolean, note: string, name: string | null) {
@@ -140,6 +141,33 @@ export async function decideFix(id: string, approve: boolean, note: string): Pro
   const jam = [f.checkIn && `masuk ${hmWib(f.checkIn)}`, f.checkOut && `pulang ${hmWib(f.checkOut)}`].filter(Boolean).join(" · ");
   await notify(f.userId, `Lupa absen ${approve ? "disetujui" : "ditolak"}`, `${dateRange(f.date, f.date)} · ${jam} · ${decisionText(approve, a.name, note)}`, "/portal/lupa-absen");
   fixRefresh();
+  return {};
+}
+
+// Reimbursement pengobatan: atasan langsung / Workflow modul Reimbursement. Disetujui level terakhir → dibayar di
+// Proses Gaji berikutnya (pembayaran dihitung ulang terhadap sisa plafon terbaru).
+export async function decideClaim(id: string, approve: boolean, note: string): Promise<Result> {
+  const a = await approver();
+  const c = await prisma.medicalClaim.findUnique({ where: { id } });
+  if (!c || c.status !== "PENDING") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
+  if (!approve && !note.trim()) return { error: "Tulis alasan penolakan." };
+  const wf = workflowDecision(c.approval, a.id, approve, note, a.name);
+  if (wf && "error" in wf) return { error: wf.error };
+  if (wf && !wf.rejected && !wf.done) {
+    await prisma.medicalClaim.update({ where: { id }, data: { approval: wf.approval } });
+    reimburseRefresh();
+    return {};
+  }
+  if (!wf && !(await canDecide(a, c.userId))) return { error: "Anda bukan penyetuju pengajuan ini." };
+  const payout = approve ? await finalPayout(id) : c.payout;
+  if (approve && payout <= 0) return { error: "Plafon reimbursement karyawan ini sudah habis." };
+  await prisma.medicalClaim.update({
+    where: { id },
+    data: { status: approve ? "APPROVED" : "REJECTED", payout, decidedBy: a.name, decidedAt: new Date(), decision: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
+  });
+  await notify(c.userId, `Reimbursement ${approve ? "disetujui" : "ditolak"}`,
+    `${dateRange(c.treatDate, c.treatDate)} · ${c.provider} · ${approve ? `Rp ${Math.round(payout).toLocaleString("id-ID")} dibayarkan bersama gaji berikutnya` : ""} · ${decisionText(approve, a.name, note)}`, "/portal/reimburse");
+  reimburseRefresh();
   return {};
 }
 

@@ -57,7 +57,7 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
       card: { type: "partner" as const, id: s.id, date: ymd(s.date), requester: `${s.requester.name}${s.requester.employeeId ? ` (${s.requester.employeeId})` : ""}`, requesterShift: s.requesterShift, partnerShift: s.partnerShift, reason: s.reason },
     })),
     ...(data?.items ?? []).filter((i) => i.status === "PENDING" && i.mine).map((i) => ({
-      module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : i.kind === "LUPA_ABSEN" ? "kehadiran" : "lembur") as NotifModule, key: `${i.kind}-${i.id}`, card: { type: "item" as const, item: i },
+      module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : i.kind === "LUPA_ABSEN" ? "kehadiran" : i.kind === "REIMBURSE" ? "payroll" : "lembur") as NotifModule, key: `${i.kind}-${i.id}`, card: { type: "item" as const, item: i },
     })),
     ...(data?.swaps ?? []).filter((s) => s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `swap-${s.id}`, card: { type: "swap" as const, s } })),
     ...(data?.edits ?? []).filter((e) => e.mine).map((e) => ({
@@ -88,7 +88,7 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
   const history: PendingCard[] = [
     ...(data?.items ?? []).filter((i) => !(i.status === "PENDING" && i.mine))
       .sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt)).map((i) => ({
-        module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : i.kind === "LUPA_ABSEN" ? "kehadiran" : "lembur") as NotifModule, key: `h-${i.kind}-${i.id}`, at: i.decidedAt ?? i.createdAt, card: { type: "item" as const, item: i },
+        module: (i.kind === "CUTI" ? "cuti" : i.kind === "DINAS" ? "dinas" : i.kind === "LUPA_ABSEN" ? "kehadiran" : i.kind === "REIMBURSE" ? "payroll" : "lembur") as NotifModule, key: `h-${i.kind}-${i.id}`, at: i.decidedAt ?? i.createdAt, card: { type: "item" as const, item: i },
       })),
     ...(data?.swaps ?? []).filter((s) => !s.mine).map((s) => ({ module: "kehadiran" as NotifModule, key: `h-swap-${s.id}`, at: `${s.date}T00:00:00.000Z`, card: { type: "swap" as const, s } })),
     // Pengajuan saya sendiri yang sudah diputus tidak diulang di riwayat: kabarnya sudah ada sebagai notifikasi.
