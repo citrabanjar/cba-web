@@ -122,6 +122,9 @@ async function orgCheck(job: CandidateJob) {
 }
 
 // Semua syarat sebelum diajukan / disetujui.
+// Bawahan langsung calon (id karyawan unik).
+const reportIds = (job: CandidateJob) => [...new Set((job.reports ?? "").split(",").map((x) => x.trim()).filter(Boolean))];
+
 async function validate(id: string, data: CandidateData, job: CandidateJob, email: string) {
   const missing = [...missingData(data), ...missingJob(job)];
   if (missing.length) return { missing };
@@ -132,6 +135,9 @@ async function validate(id: string, data: CandidateData, job: CandidateJob, emai
   const org = await orgCheck(job);
   problems.push(...org.problems);
   if (job.managerId && !(await prisma.user.findFirst({ where: { id: job.managerId, isActive: true }, select: { id: true } }))) problems.push("Calon atasan langsung tidak aktif / tidak ditemukan");
+  const reports = reportIds(job);
+  if (job.managerId && reports.includes(job.managerId)) problems.push("Calon atasan langsung tidak boleh sekaligus menjadi bawahan langsung");
+  if (reports.length && (await prisma.user.count({ where: { id: { in: reports }, isActive: true } })) !== reports.length) problems.push("Bawahan langsung tidak aktif / tidak ditemukan");
   return { missing: problems, org };
 }
 
@@ -223,10 +229,29 @@ async function createEmployee(id: string, c: CandidateRec, data: CandidateData, 
         family: { create: data.family.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), idNumber: f.idNumber || null, relation: f.relation || "Lainnya" })) },
       },
     });
-    if (opts.salary && opts.salary > 0 && job.joinDate) {
+    // Gaji pokok awal: tawaran wawancara yang disetujui, atau isian Data Pekerjaan (jalur tanpa wawancara).
+    const salary = opts.salary && opts.salary > 0 ? opts.salary : Number(job.salary) || 0;
+    if (salary > 0 && job.joinDate) {
       await tx.employeeSalary.create({
-        data: { userId: u.id, effectiveDate: new Date(`${job.joinDate}T00:00:00Z`), basicSalary: opts.salary, note: "Tawaran kerja (approval wawancara)", createdBy: opts.approvedBy },
+        data: {
+          userId: u.id, effectiveDate: new Date(`${job.joinDate}T00:00:00Z`), basicSalary: salary,
+          note: opts.salary && opts.salary > 0 ? "Tawaran kerja (approval wawancara)" : "Gaji awal (Pra-Karyawan)", createdBy: opts.approvedBy,
+        },
       });
+    }
+    // Bawahan langsung: atasan langsung mereka menjadi karyawan baru ini (struktur organisasi langsung terbentuk).
+    const reports = reportIds(job);
+    if (reports.length) {
+      const subs = await tx.user.findMany({ where: { id: { in: reports } }, select: { id: true, manager: { select: { employeeId: true, name: true } } } });
+      for (const s of subs) {
+        await tx.user.update({
+          where: { id: s.id },
+          data: {
+            managerId: u.id,
+            changeLogs: { create: { field: "manager", oldValue: s.manager ? `${s.manager.employeeId ?? ""} - ${s.manager.name}` : null, newValue: `${u.employeeId ?? ""} - ${u.name}`, changedBy: opts.approvedBy } },
+          },
+        });
+      }
     }
     await tx.candidate.update({ where: { id }, data: { status: "DISETUJUI", userId: u.id, approvedBy: opts.approvedBy, approvedAt: new Date(), otpCode: null } });
     return u;

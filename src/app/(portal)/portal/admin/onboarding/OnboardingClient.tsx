@@ -209,6 +209,16 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
                   <div className="space-y-1.5"><Label className="text-xs"><T>Tanggal akhir kontrak</T></Label>
                     <Input type="date" value={job.contractEndDate} disabled={ro} onChange={(e) => setJ("contractEndDate", e.target.value)} /></div>
                 )}
+                {/* Jalur tanpa wawancara: gaji pokok awal diisi di sini (jalur wawancara memakai tawaran yang disetujui). */}
+                {!viaInterview && (
+                  <div className="space-y-1.5"><Label className="text-xs"><T>Gaji pokok (Rp / bulan)</T></Label>
+                    <Input type="number" min={0} value={job.salary ?? ""} disabled={ro} onChange={(e) => setJ("salary", e.target.value)} />
+                    <p className="text-[11px] text-gray-400"><T>Dicatat sebagai gaji awal mulai tanggal masuk.</T></p></div>
+                )}
+                <div className="space-y-1.5 sm:col-span-2"><Label className="text-xs"><T>Bawahan langsung (opsional)</T></Label>
+                  <ReportPicker value={job.reports ?? ""} disabled={ro} exclude={job.managerId}
+                    options={master.managers} onChange={(v) => setJ("reports", v)} />
+                  <p className="text-[11px] text-gray-400"><T>Atasan langsung karyawan yang dipilih otomatis menjadi calon ini saat didaftarkan, sehingga struktur organisasi langsung terbentuk.</T></p></div>
                 {row.status === "SIAP_DAFTAR" && (
                   <p className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800 sm:col-span-2"><T>Status kerja dan jabatan mengikuti data yang sudah disetujui approver. Isi Employee ID dan sesuaikan penempatan bila perlu, lalu Daftarkan Karyawan.</T></p>
                 )}
@@ -381,6 +391,38 @@ export default function OnboardingClient({ rows, master, canApprove, people }: {
       </main>
       {invite && <InviteDialog onClose={() => setInvite(false)} />}
       {open && <DetailDialog key={open.id} row={open} master={master} canApprove={canApprove} people={people} onClose={() => setOpenId(null)} />}
+    </div>
+  );
+}
+
+// Pilih bawahan langsung calon: chip karyawan + daftar pilihan (pilih satu, langsung masuk). Nilai = id karyawan dipisah koma.
+function ReportPicker({ value, options, exclude, disabled, onChange }: {
+  value: string; options: { value: string; label: string }[]; exclude: string; disabled: boolean; onChange: (v: string) => void;
+}) {
+  const t = useT();
+  const ids = value.split(",").filter(Boolean);
+  const byId = new Map(options.map((o) => [o.value, o.label]));
+  const choices = options.filter((o) => o.value !== exclude && !ids.includes(o.value));
+  return (
+    <div className="space-y-2">
+      {ids.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {ids.map((id) => (
+            <span key={id} className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-1 pl-3 pr-1.5 text-xs text-gray-700">
+              {byId.get(id) ?? id}
+              {!disabled && <button type="button" aria-label={t("Hapus")} onClick={() => onChange(ids.filter((x) => x !== id).join(","))}
+                className="rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-600"><XCircle size={12} /></button>}
+            </span>
+          ))}
+        </div>
+      )}
+      {!disabled && (
+        <select value="" onChange={(e) => { if (e.target.value) onChange([...ids, e.target.value].join(",")); }}
+          className="h-9 w-full max-w-sm rounded-lg border border-input bg-white px-2 text-sm">
+          <option value="">{t("Tambah bawahan langsung...")}</option>
+          {choices.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      )}
     </div>
   );
 }
