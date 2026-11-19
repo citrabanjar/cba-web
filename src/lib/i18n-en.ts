@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Saat ini belum ada surat perintah lembur untuk Anda.": "There is currently no overtime order for you.",
   "Anda sedang cuti hari ini, silakan hubungi Admin HRD.": "You are on leave today, please contact the HR Admin.",
   "Foto atau PDF, maksimal 3 berkas.": "Photo or PDF, up to 3 files.",
   "Wajib": "Required",

@@ -55,6 +55,10 @@ export default function LemburClient({ spl, items, team = null, initialTeam = fa
         </section>
       )}
       {!spl && <RequestForm />}
+      {/* SPL aktif tanpa SPL apa pun untuk karyawan ini. */}
+      {spl && waiting.length === 0 && others.length === 0 && (
+        <p className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500"><T>Saat ini belum ada surat perintah lembur untuk Anda.</T></p>
+      )}
 
       {others.length > 0 && (
         <section className="space-y-3">
