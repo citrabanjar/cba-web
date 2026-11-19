@@ -2,7 +2,7 @@
 
 import { showNotice } from "@/components/portal/Confirm";
 import { useState, useTransition } from "react";
-import { Check, Clock, Loader2, Plus, User, Users, X } from "lucide-react";
+import { Check, Clock, Loader2, User, Users, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
 import { formatDate } from "@/lib/utils";
@@ -254,22 +254,15 @@ function HistoryCard({ item: i }: { item: MyOvertime }) {
 
 function RequestForm() {
   const t = useT();
-  const [open, setOpen] = useState(false);
   const [f, setF] = useState({ date: "", startTime: "16:00", endTime: "18:00", reason: "" });
   const [pending, start] = useTransition();
   // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal).
   const submit = () => start(async () => {
     const r = await submitOvertime(f);
     if (r.error) void showNotice(t(r.error), "error");
-    else { void showNotice(`${t("Pengajuan lembur diajukan ke")} ${r.approver ?? ""} ${t("untuk approval.")}`); setF({ ...f, date: "", reason: "" }); setOpen(false); }
+    else { void showNotice(`${t("Pengajuan lembur diajukan ke")} ${r.approver ?? ""} ${t("untuk approval.")}`); setF({ ...f, date: "", reason: "" }); }
   });
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand py-3 text-sm font-semibold text-white hover:bg-brand-dark">
-        <Plus size={16} /> <T>Ajukan Lembur</T>
-      </button>
-    );
-  }
+  // Form langsung tampil (tanpa tombol Ajukan Lembur).
   return (
     <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
       <p className="font-semibold text-gray-900"><T>Pengajuan Lembur</T></p>
@@ -287,7 +280,6 @@ function RequestForm() {
         <textarea rows={3} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder={t("Pekerjaan yang dikerjakan saat lembur...")} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
       </div>
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => setOpen(false)} className="rounded-full px-4 py-2 text-sm text-gray-500 hover:bg-gray-100"><T>Tutup</T></button>
         <button type="button" disabled={pending} onClick={submit} className="inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
           {pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} <T>Kirim Pengajuan</T>
         </button>

@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { showNotice } from "@/components/portal/Confirm";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
-import { CalendarDays, Loader2, CheckCircle2, X } from "lucide-react";
+import { Loader2, CheckCircle2, X } from "lucide-react";
 import { submitLeave, cancelLeave } from "./actions";
 import type { LeaveRequest } from "@prisma/client";
 import { T, useT } from "@/components/i18n";
@@ -36,7 +36,6 @@ type Request = LeaveRequest & { policy: { code: string; name: string } | null };
 
 export default function CutiForm({ requests, options, balances, people = [], approver = false }: { requests: Request[]; options: LeaveOption[]; balances: BalanceRow[]; people?: { id: string; employeeId: string; name: string }[]; approver?: boolean }) {
   const t = useT();
-  const [showForm, setShowForm] = useState(false);
   // Delegasi: ketik ID atau nama karyawan, pilih dari daftar.
   const [delegateText, setDelegateText] = useState("");
   const delegate = people.find((p) => p.employeeId && p.employeeId.toLowerCase() === delegateText.trim().toLowerCase());
@@ -47,7 +46,7 @@ export default function CutiForm({ requests, options, balances, people = [], app
     if ("error" in r && r.error) void showNotice(t(r.error), "error");
     else if ("days" in r) {
       void showNotice(`${t("Pengajuan cuti")} ${r.days} ${t("hari diajukan ke")} ${r.approver} ${t("untuk approval.")}` + (r.unpaid ? ` ${r.unpaid} ${t("hari melebihi saldo dan masuk cuti di luar tanggungan.")}` : ""));
-      setShowForm(false); setPolicyId(""); setDelegateText("");
+      setPolicyId(""); setDelegateText("");
     }
     return r;
   }, undefined);
@@ -76,15 +75,8 @@ export default function CutiForm({ requests, options, balances, people = [], app
         </div>
       )}
 
-      <button
-        onClick={() => setShowForm(!showForm)}
-        className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2"
-      >
-        <CalendarDays size={18} />
-        {showForm ? <T>{"Tutup Form"}</T> : <T>{"Ajukan Cuti"}</T>}
-      </button>
-
-      {showForm && (
+      {/* Dibuka dari Tombol HP: form langsung tampil, tanpa tombol Ajukan Cuti. */}
+      {(
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
           <h2 className="font-semibold text-gray-700"><T>Pengajuan Cuti</T></h2>
 

@@ -22,14 +22,12 @@ interface Props {
 
 export default function DinasForm({ trips }: Props) {
   const t = useT();
-  const [showForm, setShowForm] = useState(false);
   const [, formAction, isPending] = useActionState(async (prev: unknown, fd: FormData) => {
     // Hasil kirim: dialog standar portal (Pemberitahuan / Gagal), bukan kotak tetap.
     const r = await submitBusinessTrip(prev, fd);
     if ("error" in r && r.error) void showNotice(t(r.error), "error");
     else if ("days" in r) {
       void showNotice(`${t("Dinas luar")} ${r.days} ${t("hari diajukan ke")} ${r.approver} ${t("untuk approval.")}`);
-      setShowForm(false);
     }
     return r;
   }, undefined);
@@ -44,15 +42,8 @@ export default function DinasForm({ trips }: Props) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
-      <button
-        onClick={() => setShowForm(!showForm)}
-        className="w-full bg-ink text-white font-semibold py-3 rounded-xl hover:bg-brand transition-colors flex items-center justify-center gap-2"
-      >
-        <Briefcase size={18} />
-        {showForm ? <T>{"Tutup Form"}</T> : <T>{"Ajukan Dinas Luar"}</T>}
-      </button>
-
-      {showForm && (
+      {/* Dibuka dari Tombol HP: form langsung tampil, tanpa tombol Ajukan Dinas Luar. */}
+      {(
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
           <h2 className="font-semibold text-gray-700"><T>Pengajuan Dinas Luar</T></h2>
 
