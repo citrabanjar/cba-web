@@ -17,6 +17,7 @@ import {
   currentReviewer, missingOffer, normalizeOnboardingFlow, pendingReviews, readInterview, readOffer, type Interview, type OnboardingFlow, type Review,
 } from "@/lib/onboarding-interview";
 import { Prisma } from "@prisma/client";
+import { syncTaxObjectCode } from "@/lib/tax-object";
 
 const PATH = "/portal/admin/onboarding";
 type Result = { error?: string; missing?: string[] };
@@ -230,6 +231,7 @@ async function createEmployee(id: string, c: CandidateRec, data: CandidateData, 
     await tx.candidate.update({ where: { id }, data: { status: "DISETUJUI", userId: u.id, approvedBy: opts.approvedBy, approvedAt: new Date(), otpCode: null } });
     return u;
   });
+  await syncTaxObjectCode([user.id]);
   return { password, user };
 }
 

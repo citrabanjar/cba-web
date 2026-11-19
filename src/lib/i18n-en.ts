@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Payroll mingguan diisi otomatis: 21-100-24 (gaji harian s/d Rp 2.500.000) atau 21-100-30 (di atasnya).": "Weekly payroll is filled automatically: 21-100-24 (daily wage up to Rp 2,500,000) or 21-100-30 (above).",
   "• Penambahan dan pemakaian cuti setelah Per Tanggal dihitung otomatis oleh sistem.": "• Accruals and leave taken after the As Of Date are calculated automatically by the system.",
   "• Template memuat karyawan aktif beserta kode cuti. Isi kolom Saldo dan Per Tanggal.": "• The template lists active employees and their leave codes. Fill in the Balance and As Of Date columns.",
   "• Digunakan untuk memasukkan saldo awal cuti karyawan.": "• Used to enter employees' opening leave balances.",

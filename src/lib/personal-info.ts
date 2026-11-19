@@ -73,9 +73,10 @@ export const PTKP_VALID: string[] = [...PTKP_STATUSES, "K/I/0", "K/I/1", "K/I/2"
 // Status Pajak dan Kode Objek Pajak PPh 21 yang dipakai CBA (pilihan baku, bukan ketikan bebas).
 export const TAX_STATUSES = ["Pegawai Tetap", "Pegawai Tidak Tetap"] as const;
 // Kode Objek Pajak PPh 21 (PER-11/PJ/2025) yang dipakai perusahaan (keputusan pemilik 2026-11-19):
-// 21-100-35 upah pegawai tidak tetap bulanan; 21-100-24 / 21-100-30 harian, mingguan, satuan, borongan
-// (bruto sampai / di atas Rp 2.500.000 per hari). Pilihan tampil kodenya saja.
+// 21-100-01 pegawai tetap; 21-100-35 pegawai tidak tetap bulanan; 21-100-24 / 21-100-30 harian / mingguan
+// (bruto sampai / di atas Rp 2.500.000 per hari, otomatis untuk payroll mingguan, lib/tax-object). Pilihan tampil kodenya saja.
 export const TAX_OBJECT_CODES = [
+  { value: "21-100-01", label: "21-100-01" },
   { value: "21-100-35", label: "21-100-35" },
   { value: "21-100-24", label: "21-100-24" },
   { value: "21-100-30", label: "21-100-30" },

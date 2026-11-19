@@ -9,6 +9,7 @@ import { approvalLevelsFor } from "@/lib/admin-roles";
 import { bossChain, holdForApproval, notifyApprover, runApproved } from "@/lib/approval-hold";
 import { decisionText, notify } from "@/lib/notify";
 import { EDIT_FIELD_LABELS, FAMILY_RELATIONS, ID_TYPES, PTKP_VALID, TAX_OBJECT_CODES, TAX_STATUSES } from "@/lib/personal-info";
+import { syncTaxObjectCode } from "@/lib/tax-object";
 import type { ImportComponent, ImportRow, TemplateRow } from "@/lib/employee-import";
 import { employeeTemplateRows } from "@/lib/employee-export";
 import bcrypt from "bcryptjs";
@@ -319,6 +320,8 @@ async function applyEmployeeUpdate(id: string, data: EmployeeUpdate, opts: { rol
       changeLogs: { create: logs.map((log) => ({ ...log, changedBy: opts.changedBy })) },
     },
   });
+  // Payroll mingguan: kode objek pajak mengikuti gaji harian (21-100-24 / 21-100-30).
+  await syncTaxObjectCode([id]);
   revalidatePath(LIST_PATH);
   revalidatePath(`${LIST_PATH}/${id}`);
   return { success: true, logs };
@@ -592,6 +595,7 @@ export async function addSalaryAdjustment(
     },
   });
   await syncAssignmentsFromSalary(userId, new Date(data.effectiveDate), data.components, actor.name ?? null);
+  await syncTaxObjectCode([userId]);
   revalidatePath(`${LIST_PATH}/${userId}`);
   revalidatePath("/portal/admin/payroll");
   return { success: true };
@@ -811,6 +815,7 @@ export async function importEmployees(rows: ImportRow[]) {
         created.push({ id: user.id, row });
       }
     }, { timeout: 180_000, maxWait: 20_000 });
+    await syncTaxObjectCode(created.map((c) => c.id));
   } catch {
     return { results: [] as ImportResult[], error: "Import gagal disimpan; tidak ada data yang tersimpan. Periksa kembali data lalu lakukan import ulang.", problems: [] as string[] };
   }
