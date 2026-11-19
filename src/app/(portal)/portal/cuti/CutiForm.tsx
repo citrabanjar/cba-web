@@ -135,7 +135,7 @@ export default function CutiForm({ requests, options, balances, people = [], app
             </div>
 
             <button type="submit" disabled={isPending}
-              className="w-full bg-green-600 text-white font-semibold py-3 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+              className="w-full bg-brand text-white font-semibold py-3 rounded-xl hover:bg-brand-dark transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
               {isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
               {isPending ? <T>{"Memproses..."}</T> : <T>{"Kirim Pengajuan"}</T>}
             </button>
