@@ -684,7 +684,7 @@ function SalaryDialog({
 
 export default function KaryawanDetailClient({
   employee: emp, tenure, managers, initialAction, initialTab, initialDate, pph21Years = [], priorSlips = [], canSeeLoans, loans, master, canSeePay, isSuper, isOwner = false, canEdit: canEditTarget,
-  schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents, pendingEdits = [],
+  schedules, patterns, shiftDays, shiftOptions = [], overtimes = [], leaveBalances, payOptions, payComponents,
 }: {
   employee: Employee;
   tenure: string | null;
@@ -722,7 +722,6 @@ export default function KaryawanDetailClient({
   // Hak "Ajukan": boleh membuka Edit data (Ubah Data saja); simpanan menjadi pengajuan ke atasan langsung si Admin.
   const canPropose = useCanPropose("karyawan");
   const proposeOnly = canEditTarget && canPropose && !canEditMenu;
-  const [notice, setNotice] = useState<string | null>(null);
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
   const [tab, setTab] = useState(() => (quick ? "pekerjaan" : initialTab && TAB_LIST.some((x) => x.key === initialTab) ? initialTab : "pribadi"));
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
@@ -870,7 +869,8 @@ export default function KaryawanDetailClient({
         if (mode === "ubah") {
           const r = await updateEmployee(emp.id, form);
           if (r?.error) { setError(r.error); return; }
-          if (r?.proposed) setNotice(`${t("Perubahan diajukan ke")} ${r.proposed}. ${t("Data baru berlaku setelah disetujui.")}`);
+          // Pemberitahuan pop-up standar; pengajuan yang menunggu dipantau di Notifikasi.
+          if (r?.proposed) void showNotice(`${t("Perubahan diajukan ke")} ${r.proposed}. ${t("Data baru berlaku setelah disetujui.")}`);
         }
         else if (mode === "TRANSFER") {
           const type = JOB_CHANGE_TYPE[eventForm.transferType ?? TRANSFER_TYPES[0]];
@@ -969,20 +969,6 @@ export default function KaryawanDetailClient({
             />
           </div>
         </div>
-
-        {notice && (
-          <div className="flex items-start gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            <span className="min-w-0 flex-1">{notice}</span>
-            <button type="button" onClick={() => setNotice(null)} className="text-xs text-emerald-700 hover:underline"><T>Tutup</T></button>
-          </div>
-        )}
-        {pendingEdits.length > 0 && (
-          <div className="space-y-1 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {pendingEdits.map((r) => (
-              <p key={r.id}>⏳ <T>Perubahan data menunggu persetujuan</T> <b>{r.approverName}</b> · <T>diajukan</T> {r.requesterName}, {fmtDate(new Date(r.createdAt))}</p>
-            ))}
-          </div>
-        )}
 
         {/* Tab berbentuk pil; tab aktif berwarna gelap supaya jelas terlihat. */}
         <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-2">
