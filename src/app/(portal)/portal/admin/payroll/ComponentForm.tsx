@@ -74,7 +74,10 @@ export default function ComponentForm({ comp, all, workDaysPerWeek, onClose, onC
   const t = useT();
   const initial = useMemo<PayComponentInput>(() => (comp === "new" ? EMPTY : { ...comp, legalBasis: comp.legalBasis ?? "", note: comp.note ?? "" }), [comp]);
   const [form, setForm] = useState<PayComponentInput>(initial);
-  const dirty = comp === "new" || JSON.stringify(form) !== JSON.stringify(initial);
+  // Daftar karyawan yang ditempel diatur lewat Tempel ke Karyawan (bukan formulir ini), jadi tidak ikut dibandingkan;
+  // tanpa ini, menyimpan tempelan membuat formulir dianggap berubah.
+  const sig = (x: PayComponentInput) => JSON.stringify({ ...x, employeeIds: undefined });
+  const dirty = comp === "new" || sig(form) !== sig(initial);
   const touched = comp === "new" ? !!(form.code || form.name) : dirty;
   useEffect(() => { onDirty?.(touched); }, [touched, onDirty]);
   const [error, setError] = useState<string | null>(null);
