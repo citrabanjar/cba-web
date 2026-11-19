@@ -13,11 +13,13 @@ import { askConfirm } from "@/components/portal/Confirm";
 export default function SimSettings({ enabled: initial, count, requests }: { enabled: boolean; count: number; requests: number }) {
   const [enabled, setEnabled] = useState(initial);
   const [reqCount, setReqCount] = useState(5); // jumlah pengajuan uji (menunggu persetujuan) per sekali isi
-  // Isi sekarang: sejak tanggal tertentu sampai hari ini (WIB; hari ini sesuai jam sekarang), paling banyak 31 hari.
+  // Isi sekarang: rentang tanggal dari – sampai (WIB, paling lambat hari ini; hari ini sesuai jam sekarang), paling banyak 31 hari.
   const DAY = 86_400_000;
   const [today] = useState(() => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10));
   const [from, setFrom] = useState(() => new Date(Date.now() + 7 * 3600_000 - 7 * DAY).toISOString().slice(0, 10));
-  const daysFrom = (f: string) => /^\d{4}-\d{2}-\d{2}$/.test(f) ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${f}T00:00:00Z`)) / DAY) + 1 : 0;
+  const [to, setTo] = useState(today);
+  const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const span = isDate(from) && isDate(to) ? Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY) + 1 : 0;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [, start] = useTransition();
@@ -55,19 +57,21 @@ export default function SimSettings({ enabled: initial, count, requests }: { ena
         </label>
 
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
-          <span className="text-gray-600"><T>Isi sekarang sejak tanggal</T></span>
+          <span className="text-gray-600"><T>Isi sekarang dari tanggal</T></span>
           <div className="w-44"><DateInput value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-          <span className="text-gray-600"><T>sampai hari ini</T>{daysFrom(from) > 0 && <> ({daysFrom(from)} <T>hari</T>)</>}</span>
+          <span className="text-gray-600"><T>sampai</T></span>
+          <div className="w-44"><DateInput value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          {span > 0 && <span className="text-gray-600">({span} <T>hari</T>)</span>}
           <span className="text-gray-600"><T>dan pengajuan uji</T></span>
           <select value={reqCount} onChange={(e) => setReqCount(Number(e.target.value))} className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm">
             {[0, 3, 5, 10, 20].map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
           <Button size="sm" className="ml-auto gap-1.5" disabled={busy !== null}
             onClick={() => act("run", async () => {
-              const days = daysFrom(from);
-              if (days < 1) throw new Error("Pilih tanggal paling lambat hari ini.");
-              if (days > 31) throw new Error("Paling banyak 31 hari sekali isi. Pilih tanggal yang lebih dekat.");
-              const r = await runSimNow(days, reqCount);
+              if (span < 1) throw new Error("Tanggal akhir tidak boleh sebelum tanggal awal.");
+              if (to > today) throw new Error("Tanggal akhir paling lambat hari ini.");
+              if (span > 31) throw new Error("Paling banyak 31 hari sekali isi. Persempit rentangnya.");
+              const r = await runSimNow(from, to, reqCount);
               const req = r.requests && Object.keys(r.requests).length ? ` Pengajuan uji ${r.requestTotal}: ${Object.entries(r.requests).map(([k, v]) => `${v} ${k}`).join(", ")}.` : reqCount ? " Pengajuan uji: tidak ada yang lolos aturan pengajuan." : "";
               return `${r.created ?? 0} absen uji dan ${r.overtime ?? 0} lembur uji dibuat.${req}`;
             })}>

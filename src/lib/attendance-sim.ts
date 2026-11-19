@@ -143,6 +143,21 @@ export async function simulateDay(date: Date, now?: number) {
   return { created: rows.length, skipped, scenarios, overtime: overtimes.length };
 }
 
+// Isi absen uji untuk rentang tanggal [from, to] (WIB, paling banyak 31 hari, paling lambat hari ini);
+// hari ini diisi sesuai jam sekarang.
+export async function simulateRange(from: Date, to: Date) {
+  const today = todayWib();
+  const end = to > today ? today : to;
+  const now = Date.now();
+  let created = 0, overtime = 0;
+  for (let t = from.getTime(); t <= end.getTime(); t += DAY) {
+    const day = new Date(t);
+    const r = await simulateDay(day, day.getTime() === today.getTime() ? now : undefined);
+    created += r.created; overtime += r.overtime ?? 0;
+  }
+  return { created, overtime };
+}
+
 // Isi absen uji untuk `days` hari terakhir sampai hari ini (WIB); hari ini diisi sesuai jam sekarang.
 export async function simulateRecent(days: number) {
   const today = todayWib();

@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/roles";
 import { assessRecent } from "@/lib/attendance-assess";
-import { SIM_SETTING_KEY, deleteSimulated, simulateRecent } from "@/lib/attendance-sim";
+import { SIM_SETTING_KEY, deleteSimulated, simulateRange } from "@/lib/attendance-sim";
 import { simulateRequests } from "@/lib/request-sim";
 
 // Absen uji (masa testing), khusus Super Admin.
@@ -26,10 +26,16 @@ export async function setSimEnabled(enabled: boolean): Promise<{ error?: string 
   return {};
 }
 
-// Isi absen uji untuk N hari terakhir (sampai hari ini, sesuai jam sekarang), lalu nilai ulang kehadiran (alpha otomatis).
-export async function runSimNow(days: number, requests = 0): Promise<{ error?: string; created?: number; overtime?: number; requests?: Record<string, number>; requestTotal?: number }> {
+// Isi absen uji untuk rentang tanggal (dari – sampai, paling lambat hari ini; hari ini sesuai jam sekarang),
+// lalu nilai ulang kehadiran (alpha otomatis).
+export async function runSimNow(fromDate: string, toDate: string, requests = 0): Promise<{ error?: string; created?: number; overtime?: number; requests?: Record<string, number>; requestTotal?: number }> {
   await requireSuper();
-  const r = await simulateRecent(days);
+  const ok = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+  if (!ok(fromDate) || !ok(toDate)) throw new Error("Pilih tanggal awal dan akhir.");
+  const from = new Date(`${fromDate}T00:00:00Z`), to = new Date(`${toDate}T00:00:00Z`);
+  if (to < from) throw new Error("Tanggal akhir tidak boleh sebelum tanggal awal.");
+  if ((to.getTime() - from.getTime()) / 86_400_000 + 1 > 31) throw new Error("Paling banyak 31 hari sekali isi.");
+  const r = await simulateRange(from, to);
   await assessRecent(true).catch(() => null);
   // Pengajuan uji menunggu persetujuan (tanggal ke depan), lewat jalur pengajuan asli.
   const q = requests > 0 ? await simulateRequests(Math.min(20, requests)) : null;
