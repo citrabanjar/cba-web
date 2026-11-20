@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getAccess } from "@/lib/access";
 import { canDecide } from "@/lib/approval";
 import { assessAttendance } from "@/lib/attendance-assess";
-import { decideStep } from "@/lib/workflow-settings";
+import { decideStep, notifyInfo } from "@/lib/workflow-settings";
 import { readApproval } from "@/lib/onboarding-interview";
 import { dateRange, decisionText, notify } from "@/lib/notify";
 import { loanPreStep, loanTurn, readLoanFlow } from "@/lib/loans";
@@ -63,6 +63,10 @@ export async function decideLeave(id: string, approve: boolean, note: string): P
     await notify(req.delegateId, "Anda menjadi delegasi tanggung jawab",
       `${who?.name ?? ""} cuti ${dateRange(req.startDate, req.endDate)}. Pengajuan baru yang biasanya ia putuskan akan masuk ke Anda selama tanggal itu.`, "/portal/notifikasi");
   }
+  if (approve && wf) {
+    const who = await prisma.user.findUnique({ where: { id: req.userId }, select: { name: true } });
+    await notifyInfo(wf.approval, `Info: ${who?.name ?? "Karyawan"} ${req.policy?.name ?? "cuti"}`, `${dateRange(req.startDate, req.endDate)} · ${req.totalDays} hari · disetujui ${a.name ?? ""}`.trim());
+  }
   await notify(req.userId, `Pengajuan ${req.policy?.name ?? "cuti"} ${approve ? "disetujui" : "ditolak"}`,
     `${dateRange(req.startDate, req.endDate)} · ${decisionText(approve, a.name, note)}`, "/portal/cuti");
   refresh();
@@ -87,6 +91,10 @@ export async function decideTrip(id: string, approve: boolean, note: string): Pr
     data: { status: approve ? "APPROVED" : "REJECTED", approvedBy: a.name, approvedAt: new Date(), note: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
   });
   if (approve) await assessAttendance(trip.startDate, trip.endDate, [trip.userId]);
+  if (approve && wf) {
+    const who = await prisma.user.findUnique({ where: { id: trip.userId }, select: { name: true } });
+    await notifyInfo(wf.approval, `Info: ${who?.name ?? "Karyawan"} dinas luar ${trip.destination}`, `${dateRange(trip.startDate, trip.endDate)} · disetujui ${a.name ?? ""}`.trim());
+  }
   await notify(trip.userId, `Dinas luar ${trip.destination} ${approve ? "disetujui" : "ditolak"}`,
     `${dateRange(trip.startDate, trip.endDate)} · ${decisionText(approve, a.name, note)}`, "/portal/dinas");
   refresh();
@@ -112,6 +120,10 @@ export async function decideOvertime(id: string, approve: boolean, note: string)
     where: { id },
     data: { status: approve ? "APPROVED" : "REJECTED", decidedBy: a.name, decidedAt: new Date(), note: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
   });
+  if (approve && wf) {
+    const who = await prisma.user.findUnique({ where: { id: o.userId }, select: { name: true } });
+    await notifyInfo(wf.approval, `Info: ${who?.name ?? "Karyawan"} lembur`, `${dateRange(o.date, o.date)} · ${o.startTime}–${o.endTime} · disetujui ${a.name ?? ""}`.trim());
+  }
   await notify(o.userId, `Pengajuan lembur ${approve ? "disetujui" : "ditolak"}`,
     `${dateRange(o.date, o.date)} · ${o.startTime}–${o.endTime} · ${decisionText(approve, a.name, note)}`, "/portal/lembur");
   refresh();
@@ -139,6 +151,10 @@ export async function decideFix(id: string, approve: boolean, note: string): Pro
   });
   if (approve) await applyFix(f, a.name);
   const jam = [f.checkIn && `masuk ${hmWib(f.checkIn)}`, f.checkOut && `pulang ${hmWib(f.checkOut)}`].filter(Boolean).join(" · ");
+  if (approve && wf) {
+    const who = await prisma.user.findUnique({ where: { id: f.userId }, select: { name: true } });
+    await notifyInfo(wf.approval, `Info: ${who?.name ?? "Karyawan"} lupa absen`, `${dateRange(f.date, f.date)} · ${jam} · disetujui ${a.name ?? ""}`.trim());
+  }
   await notify(f.userId, `Lupa absen ${approve ? "disetujui" : "ditolak"}`, `${dateRange(f.date, f.date)} · ${jam} · ${decisionText(approve, a.name, note)}`, "/portal/lupa-absen");
   fixRefresh();
   return {};
@@ -165,6 +181,10 @@ export async function decideClaim(id: string, approve: boolean, note: string): P
     where: { id },
     data: { status: approve ? "APPROVED" : "REJECTED", payout, decidedBy: a.name, decidedAt: new Date(), decision: note.trim() || null, ...(wf ? { approval: wf.approval } : {}) },
   });
+  if (approve && wf) {
+    const who = await prisma.user.findUnique({ where: { id: c.userId }, select: { name: true } });
+    await notifyInfo(wf.approval, `Info: ${who?.name ?? "Karyawan"} reimbursement`, `${dateRange(c.treatDate, c.treatDate)} · ${c.provider} · Rp ${Math.round(payout).toLocaleString("id-ID")} · disetujui ${a.name ?? ""}`.trim());
+  }
   await notify(c.userId, `Reimbursement ${approve ? "disetujui" : "ditolak"}`,
     `${dateRange(c.treatDate, c.treatDate)} · ${c.provider} · ${approve ? `Rp ${Math.round(payout).toLocaleString("id-ID")} dibayarkan bersama gaji berikutnya` : ""} · ${decisionText(approve, a.name, note)}`, "/portal/reimburse");
   reimburseRefresh();

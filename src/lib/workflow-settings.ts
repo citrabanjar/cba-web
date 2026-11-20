@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { actionableApprovers, approvalComplete, stepCandidates, type ApprovalStep, type InterviewApproval } from "@/lib/onboarding-interview";
+import { notify } from "@/lib/notify";
+import { actionableApprovers, approvalComplete, readApproval, stepCandidates, type ApprovalStep, type InterviewApproval } from "@/lib/onboarding-interview";
 import { getAdminRoles, roleMembers } from "@/lib/admin-roles";
 import { levelTitle, ROLE_GROUP_PREFIX, normalizeWorkflow, readWorkflowFeature, WORKFLOW_FEATURE_KEY, WORKFLOW_KEY, type WorkflowKey, type WorkflowLevel, type WorkflowSettings } from "@/lib/workflow";
 
@@ -50,6 +51,8 @@ async function levelHolders(l: WorkflowLevel) {
 // - Karyawan tertentu: orang itu (bila pemohon sendiri → level dilewati).
 // - Hak akses: anggota peran yang berada di rantai atasan pemohon, yang terdekat; tidak pernah menyeberang ke cabang bagan lain.
 //   Pemohon sendiri anggota peran itu → level dilewati. Tidak ada anggota di rantai atasannya → pengajuan gagal (hubungi HRD).
+// - Atasan di bagan: atasan langsung (1) atau atasan dari atasan langsung (2) pemohon; tidak ada → pengajuan gagal (hubungi HRD).
+// - Hanya info: orangnya tidak memutus, hanya dicatat untuk diberi notifikasi saat pengajuan disetujui (tidak ada → dilewati).
 // - Pemeriksa dokumen (Pinjaman): semua anggota perannya boleh mengerjakan (tidak dicari lewat bagan).
 // - Orang yang sama tidak memutus dua kali: level sebelumnya dilewati bila orangnya muncul lagi di level sesudahnya.
 export async function workflowSteps(module: WorkflowKey, requesterId: string): Promise<{ flow: InterviewApproval | null; error?: string }> {
@@ -57,9 +60,24 @@ export async function workflowSteps(module: WorkflowKey, requesterId: string): P
   if (!m.enabled || !m.levels.length) return { flow: null };
   const chain = await chainOf(requesterId);
   const raw: ApprovalStep[] = [];
+  const info: { id: string; name: string }[] = [];
   for (const [i, l] of m.levels.entries()) {
+    if (l.type === "MANAGER") {
+      const boss = chain[Number(l.value) - 1];
+      const title = levelTitle(l);
+      if (l.info) { if (boss) info.push({ id: boss.id, name: `${title} · ${boss.name}` }); continue; }
+      if (!boss) return { flow: null, error: `Penyetuju Level ${i + 1} (${title}) untuk Anda belum diatur di bagan organisasi. Hubungi HRD.` };
+      raw.push({ id: boss.id, name: `${title} · ${boss.name}`, decision: "", at: "", note: "" });
+      continue;
+    }
     const holders = await levelHolders(l);
     const title = l.type === "EMPLOYEE" ? holders[0]?.name ?? l.label : levelTitle(l);
+    if (l.info) {
+      // Hanya info: karyawan tertentu / anggota peran terdekat di rantai atasan (bila tidak ada di rantai: semua anggota peran).
+      const hit = l.type === "EMPLOYEE" ? holders : chain.filter((c) => holders.some((h) => h.id === c.id)).slice(0, 1);
+      for (const h of (hit.length ? hit : holders)) if (h.id !== requesterId) info.push({ id: h.id, name: `${title} · ${h.name}` });
+      continue;
+    }
     if (!holders.length) return { flow: null, error: `Approver Level ${i + 1} (${title}) tidak ditemukan di data karyawan aktif. Hubungi Admin untuk memperbaiki menu Workflow.` };
     if (l.check) {
       const ids = holders.map((h) => h.id).filter((id) => id !== requesterId);
@@ -83,7 +101,9 @@ export async function workflowSteps(module: WorkflowKey, requesterId: string): P
   }
   const steps = raw.filter((x, i) => x.check || !raw.slice(i + 1).some((y) => !y.check && y.id === x.id));
   if (!steps.length) return { flow: null };
-  return { flow: { mode: steps.length > 1 ? "SIRKULAR" : "TUNGGAL", order: "BERURUTAN", steps } };
+  // Penerima info yang juga penyetuju tidak diberi info lagi.
+  const cc = info.filter((x, i) => !steps.some((s) => s.id === x.id) && info.findIndex((y) => y.id === x.id) === i);
+  return { flow: { mode: steps.length > 1 ? "SIRKULAR" : "TUNGGAL", order: "BERURUTAN", steps, ...(cc.length ? { info: cc } : {}) } };
 }
 
 // User cocok dengan salah satu level (karyawan, jabatan, atau hak akses).
@@ -93,6 +113,7 @@ export async function matchesLevels(userId: string, levels: WorkflowLevel[]) {
   if (!u) return false;
   const groups = levels.some((l) => l.value.startsWith(ROLE_GROUP_PREFIX)) ? await getAdminRoles() : [];
   return levels.some((l) => {
+    if (l.info || l.type === "MANAGER") return false; // atasan sudah penyetuju lewat bagan; Hanya info bukan penyetuju
     if (l.type === "EMPLOYEE") return l.value === userId;
     if (l.value.startsWith(ROLE_GROUP_PREFIX)) return !!groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === l.value)?.members.includes(userId);
     const [role, menu] = l.value.split(":");
@@ -116,4 +137,10 @@ export function decideStep(approval: InterviewApproval, userId: string, approve:
   step.by = byName ?? "";
   if (step.ids?.length) step.id = userId;
   return { approval, step, rejected: !approve, done: approve && approvalComplete(approval) } as const;
+}
+
+// Kirim notifikasi ke penerima "Hanya info" (Workflow) setelah pengajuan disetujui level terakhir.
+export async function notifyInfo(rawApproval: unknown, title: string, body: string) {
+  const ids = (readApproval(rawApproval)?.info ?? []).map((x) => x.id);
+  if (ids.length) await notify(ids, title, body, null);
 }

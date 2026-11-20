@@ -23,11 +23,16 @@ export type WorkflowKey = (typeof WORKFLOW_MODULES)[number]["key"];
 
 // Jenis approver per level. ("Berdasarkan jabatan" dihapus 2026-11-17: kebutuhan atasan dari atasan dipenuhi lewat
 // Peran Admin yang dicari di rantai atasan pemohon.)
-export type LevelType = "EMPLOYEE" | "ROLE";
+// MANAGER = atasan pemohon di bagan organisasi: value "1" atasan langsung, "2" atasan dari atasan langsung.
+export type LevelType = "EMPLOYEE" | "ROLE" | "MANAGER";
 export const LEVEL_TYPES: { value: LevelType; label: string }[] = [
+  { value: "MANAGER", label: "Atasan di bagan" },
   { value: "ROLE", label: "Berdasarkan hak akses" },
   { value: "EMPLOYEE", label: "Karyawan tertentu" },
 ];
+export const MANAGER_OPTIONS = [{ value: "1", label: "Atasan langsung" }, { value: "2", label: "Atasan dari atasan langsung" }];
+// Modul yang levelnya boleh ditandai "Hanya info" (diberi tahu saat pengajuan disetujui, tidak ikut memutus).
+export const INFO_MODULES = ["CUTI", "DINAS", "LEMBUR", "REIMBURSE", "LUPA_ABSEN"] as const;
 // Hak akses: Super Admin, semua Admin, atau Admin dengan akses menu tertentu.
 export const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "SUPER_ADMIN", label: "Super Admin" },
@@ -39,13 +44,15 @@ export const roleOptionLabel = (v: string) => ROLE_OPTIONS.find((r) => r.value =
 export const ROLE_GROUP_PREFIX = "PERAN:";
 
 // check: level Pemeriksa dokumen (modul Pinjaman) — memeriksa dokumen fisik & menyusun angsuran, bukan Setujui/Tolak.
-export type WorkflowLevel = { type: LevelType; value: string; label: string; check?: boolean };
+// info: level Hanya info — tidak memutus; diberi notifikasi saat pengajuan disetujui (mis. atasan dari atasan langsung).
+export type WorkflowLevel = { type: LevelType; value: string; label: string; check?: boolean; info?: boolean };
 export type WorkflowModule = { enabled: boolean; levels: WorkflowLevel[] };
 export type WorkflowSettings = Record<WorkflowKey, WorkflowModule>;
 
 // Nama yang tampil di jejak approval.
 export const levelTitle = (l: WorkflowLevel) =>
-  l.type === "ROLE" ? (l.value.startsWith(ROLE_GROUP_PREFIX) ? l.label || "Peran Admin" : roleOptionLabel(l.value)) : l.label || l.value;
+  l.type === "MANAGER" ? MANAGER_OPTIONS.find((o) => o.value === l.value)?.label ?? "Atasan langsung"
+  : l.type === "ROLE" ? (l.value.startsWith(ROLE_GROUP_PREFIX) ? l.label || "Peran Admin" : roleOptionLabel(l.value)) : l.label || l.value;
 
 // Fitur Workflow aktif atau tidak (Pengaturan → Fitur). Nonaktif = semua approval ke atasan langsung, menu Workflow disembunyikan.
 export const WORKFLOW_FEATURE_KEY = "feature-workflow";
@@ -57,11 +64,12 @@ function readLevel(raw: Record<string, unknown>): WorkflowLevel | null {
   // Format lama: { id, name } = karyawan tertentu.
   if (!raw.type && str(raw.id)) return { type: "EMPLOYEE", value: str(raw.id), label: str(raw.name) };
   // Level "jabatan" lama tidak dipakai lagi (dibuang).
-  const type = raw.type === "ROLE" || raw.type === "EMPLOYEE" ? raw.type : null;
+  const type = raw.type === "ROLE" || raw.type === "EMPLOYEE" || raw.type === "MANAGER" ? raw.type : null;
   const value = str(raw.value).trim();
   if (!type || !value) return null;
+  if (type === "MANAGER" && !MANAGER_OPTIONS.some((o) => o.value === value)) return null;
   if (type === "ROLE" && !value.startsWith(ROLE_GROUP_PREFIX) && !ROLE_OPTIONS.some((r) => r.value === value)) return null;
-  return { type, value, label: str(raw.label), ...(raw.check === true ? { check: true } : {}) };
+  return { type, value, label: str(raw.label), ...(raw.check === true ? { check: true } : {}), ...(raw.info === true ? { info: true } : {}) };
 }
 
 export function normalizeWorkflow(raw: unknown): WorkflowSettings {
@@ -79,10 +87,11 @@ export function normalizeWorkflow(raw: unknown): WorkflowSettings {
       : [];
     // Pemeriksa dokumen hanya untuk Pinjaman, paling banyak satu level.
     let checked = false;
+    const infoOk = (INFO_MODULES as readonly string[]).includes(m.key);
     const lv = levels.slice(0, MAX_LEVELS).map((l) => {
-      const { check, ...rest } = l;
+      const { check, info, ...rest } = l;
       if (check && m.key === "PINJAMAN" && !checked) { checked = true; return { ...rest, check: true }; }
-      return rest;
+      return info && infoOk ? { ...rest, info: true } : rest;
     });
     out[m.key] = { enabled: r.enabled === true && !("soon" in m), levels: lv };
   }

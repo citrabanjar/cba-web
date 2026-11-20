@@ -87,7 +87,8 @@ export function missingReview(r: Review): string[] {
 // check: level Pemeriksa dokumen (Workflow Pinjaman).
 export type ApprovalStep = { id: string; name: string; decision: "" | "SETUJU" | "TOLAK"; at: string; note: string; ids?: string[]; by?: string; pick?: string; offer?: Offer; check?: boolean };
 export const stepCandidates = (s: ApprovalStep) => (s.ids?.length ? s.ids : [s.id]);
-export type InterviewApproval = { mode: ApprovalMode; order: ApprovalOrder; steps: ApprovalStep[] };
+// info: penerima "Hanya info" dari menu Workflow — diberi notifikasi saat pengajuan disetujui, tidak ikut memutus.
+export type InterviewApproval = { mode: ApprovalMode; order: ApprovalOrder; steps: ApprovalStep[]; info?: { id: string; name: string }[] };
 export type Interview = {
   date: string; interviewer: string; score: string; notes: string; recommendation: string;
   offer: Offer;
@@ -160,6 +161,7 @@ export function readApproval(raw: unknown): InterviewApproval | null {
       ...(typeof s?.pick === "string" ? { pick: s.pick } : {}),
       ...(readOffer(s?.offer) ? { offer: readOffer(s?.offer)! } : {}),
     })),
+    ...(Array.isArray(a.info) ? { info: (a.info as Record<string, unknown>[]).filter((x) => typeof x?.id === "string").map((x) => ({ id: str(x.id), name: str(x.name) })) } : {}),
   };
 }
 

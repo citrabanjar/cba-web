@@ -26,6 +26,7 @@ export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: s
       }
     }
     if (mod.enabled && mod.levels.length === 0) return { error: `Workflow ${m.label} aktif tapi Level 1 belum diisi.` };
+    if (mod.enabled && !mod.levels.some((l) => !l.info)) return { error: `Workflow ${m.label}: minimal satu level harus penyetuju (bukan Hanya info).` };
     // Pinjaman: tepat satu level Pemeriksa dokumen, tepat sebelum level terakhir (pemutus), dan pemeriksanya punya hak Edit Pinjaman.
     if (m.key === "PINJAMAN" && mod.enabled) {
       const ci = mod.levels.findIndex((l) => l.check);
@@ -34,7 +35,7 @@ export async function saveWorkflow(input: WorkflowSettings): Promise<{ error?: s
       }
       const l = mod.levels[ci];
       const groups = await getAdminRoles();
-      const ok = l.type === "EMPLOYEE"
+      const ok = l.type === "MANAGER" ? false : l.type === "EMPLOYEE"
         ? canEditMenu(await prisma.user.findUnique({ where: { id: l.value }, select: { role: true, menuAccess: true } }), "pinjaman")
         : l.value.startsWith(ROLE_GROUP_PREFIX) ? menuLevelOf(groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === l.value)?.menus ?? [], "pinjaman") === "edit"
         : true;

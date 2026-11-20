@@ -6,7 +6,7 @@ import { showNotice } from "@/components/portal/Confirm";
 import { Button } from "@/components/ui/button";
 import { T, useT } from "@/components/i18n";
 import {
-  LEVEL_TYPES, levelTitle, MAX_LEVELS, ROLE_GROUP_PREFIX, ROLE_OPTIONS, WORKFLOW_MODULES,
+  INFO_MODULES, LEVEL_TYPES, levelTitle, MANAGER_OPTIONS, MAX_LEVELS, ROLE_GROUP_PREFIX, ROLE_OPTIONS, WORKFLOW_MODULES,
   type LevelType, type WorkflowKey, type WorkflowLevel, type WorkflowSettings,
 } from "@/lib/workflow";
 import { saveWorkflow } from "./actions";
@@ -30,13 +30,14 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
   // Hak akses = Peran Admin buatan Super Admin (Pengaturan → Peran Admin). Pilihan lama (Super Admin, Semua Admin,
   // Admin per menu) tidak ditawarkan lagi; bila level tersimpan masih memakainya, tetap ditampilkan agar tidak hilang.
   const valueOptions = (type: LevelType, current = "") =>
-    type === "ROLE" ? [
+    type === "MANAGER" ? MANAGER_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) }))
+    : type === "ROLE" ? [
       ...groups.map((g) => ({ value: `${ROLE_GROUP_PREFIX}${g.id}`, label: g.name })),
       ...ROLE_OPTIONS.filter((r) => r.value === current).map((r) => ({ value: r.value, label: t(r.label) })),
     ]
       : users.map((u) => ({ value: u.id, label: u.employeeId ? `${u.employeeId} - ${u.name}` : u.name }));
-  // Level baru default: atasan di bagan organisasi.
-  const newLevel = (): WorkflowLevel => ({ type: "ROLE", value: "", label: "" });
+  // Level baru default: atasan langsung di bagan organisasi.
+  const newLevel = (): WorkflowLevel => ({ type: "MANAGER", value: "1", label: "" });
   // Level jabatan ke-n (dihitung hanya di antara level jabatan) → "Atasan langsung", "Atasan dari atasan", …
 
   return (
@@ -99,16 +100,24 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                     {mod.levels.map((l, i) => (
                       <div key={i} className="grid items-center gap-2 rounded-xl bg-gray-50 p-2 sm:grid-cols-[56px_minmax(0,1fr)_minmax(0,1.3fr)_28px]">
                         <span className="text-xs font-semibold text-gray-600"><T>Level</T> {i + 1}</span>
-                        <select value={l.type} onChange={(e) => setLevel(m.key, i, { type: e.target.value as LevelType, value: "", label: "" })} disabled={!canEdit} className={select}>
+                        <select value={l.type} onChange={(e) => setLevel(m.key, i, { type: e.target.value as LevelType, value: e.target.value === "MANAGER" ? "1" : "", label: "" })} disabled={!canEdit} className={select}>
                           {LEVEL_TYPES.map((x) => <option key={x.value} value={x.value}>{t(x.label)}</option>)}
                         </select>
                         <select value={l.value} onChange={(e) => setLevel(m.key, i, { value: e.target.value, label: users.find((u) => u.id === e.target.value)?.name ?? groups.find((g) => `${ROLE_GROUP_PREFIX}${g.id}` === e.target.value)?.name ?? "" })} disabled={!canEdit} className={select}>
-                          <option value="">{t(l.type === "ROLE" ? (groups.length ? "Pilih peran" : "Belum ada Peran Admin") : "Pilih karyawan")}</option>
+                          {l.type !== "MANAGER" && <option value="">{t(l.type === "ROLE" ? (groups.length ? "Pilih peran" : "Belum ada Peran Admin") : "Pilih karyawan")}</option>}
                           {valueOptions(l.type, l.value).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                         {canEdit && (
                           <button type="button" aria-label={t("Hapus")} onClick={() => setMod(m.key, { levels: mod.levels.filter((_, j) => j !== i) })}
                             className="justify-self-end rounded p-1.5 text-gray-400 hover:text-rose-600"><Trash2 size={14} /></button>
+                        )}
+                        {/* Hanya info: tidak memutus, diberi notifikasi saat pengajuan disetujui. */}
+                        {(INFO_MODULES as readonly string[]).includes(m.key) && (
+                          <label className={`flex items-center gap-2 text-xs text-gray-600 sm:col-start-2 sm:col-end-4 ${canEdit ? "cursor-pointer" : ""}`}>
+                            <input type="checkbox" checked={!!l.info} disabled={!canEdit} className="h-3.5 w-3.5 accent-[#BE353F]"
+                              onChange={(e) => setLevel(m.key, i, { info: e.target.checked })} />
+                            <T>Hanya info</T> <span className="text-gray-400">· <T>tidak memutus, diberi notifikasi saat pengajuan disetujui</T></span>
+                          </label>
                         )}
                         {/* Pinjaman: satu level menjadi Pemeriksa dokumen (memeriksa dokumen fisik & menyusun angsuran). */}
                         {m.key === "PINJAMAN" && (
@@ -127,7 +136,7 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                     {mod.levels.some((l) => l.value) && (
                       <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
                         <T>Alur</T>: <b>{mod.levels.map((l, i) => ({ l, i })).filter(({ l }) => l.value)
-                          .map(({ l }) => `${l.type === "EMPLOYEE" ? l.label : t(levelTitle(l))}${l.check ? ` (${t("pemeriksa dokumen")})` : ""}`).join(" → ")}</b>
+                          .map(({ l }) => `${l.type === "EMPLOYEE" ? l.label : t(levelTitle(l))}${l.check ? ` (${t("pemeriksa dokumen")})` : ""}${l.info ? ` (${t("info")})` : ""}`).join(" → ")}</b>
                       </p>
                     )}
                   </div>
@@ -142,7 +151,9 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                       "Perubahan data diterapkan setelah level terakhir menyetujui.",
                       "Satu orang tidak memutus dua kali.",
                     ] : [
+                      "Atasan di bagan: atasan langsung atau atasan dari atasan langsung pemohon menurut bagan organisasi.",
                       "Level berdasarkan hak akses diputus oleh anggota peran terdekat di atas pemohon pada bagan organisasi.",
+                      ...((INFO_MODULES as readonly string[]).includes(m.key) ? ["Level Hanya info tidak memutus; orangnya diberi notifikasi setelah pengajuan disetujui."] : []),
                       "Jika pemohon termasuk anggota peran tersebut, level itu dilewati.",
                       "Satu orang tidak memutus dua kali.",
                       ...(m.key === "PINJAMAN" ? ["Pemeriksa dokumen dapat dikerjakan semua anggota perannya dan ditempatkan tepat sebelum level terakhir."] : []),
