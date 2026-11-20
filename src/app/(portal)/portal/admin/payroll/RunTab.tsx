@@ -32,7 +32,8 @@ const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakar
 function ItemGroups({ items, fixed, empty }: { items: LineItem[]; fixed: Set<string>; empty: string }) {
   const t = useT();
   if (!items.length) return <p className="text-[11px] italic text-gray-400"><T>{empty}</T></p>;
-  const groups = [["Tetap", items.filter((i) => fixed.has(i.code))], ["Tidak rutin", items.filter((i) => !fixed.has(i.code))]] as const;
+  const isFixed = (i: LineItem) => i.code === "GP" || fixed.has(i.code);
+  const groups = [["Tetap", items.filter(isFixed)], ["Tidak rutin", items.filter((i) => !isFixed(i))]] as const;
   return (
     <div className="space-y-2">
       {groups.filter(([, list]) => list.length).map(([label, list]) => (
@@ -40,7 +41,7 @@ function ItemGroups({ items, fixed, empty }: { items: LineItem[]; fixed: Set<str
           <p className="mb-0.5 text-[10px] font-semibold text-gray-500"><T>{label}</T></p>
           {list.map((i) => (
             <div key={i.code} className="flex items-start justify-between gap-2 py-0.5" title={i.detail || undefined}>
-              <span className="min-w-0 text-gray-700">{t(i.name)}{i.taxable && <span className="ml-1 rounded bg-gray-100 px-1 py-px text-[9px] text-gray-500"><T>Kena pajak</T></span>}</span>
+              <span className="min-w-0 text-gray-700">{t(i.name)}</span>
               <span className="shrink-0 tabular-nums text-gray-900">{rupiah(i.amount)}</span>
             </div>
           ))}
@@ -93,8 +94,6 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
   const [pending, start] = useTransition();
   const final = run?.status === "FINAL";
   const lines = run?.lines ?? [];
-  // Kolom Gaji Pokok hanya bila ada yang menerima gaji pokok di periode ini (proses mingguan berisi lembur saja → disembunyikan).
-  const showGp = lines.some((l) => l.items.some((i) => i.code === "GP"));
   // Baris bisa dilipat: tertutup = total; terbuka = rincian komponen.
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const toggle = (id: string) => setOpened((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -292,9 +291,8 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
               <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
                 <tr className="border-b border-gray-200">
                   <th className="w-[22%] px-4 py-2.5"><T>Karyawan</T></th>
-                  {showGp && <th className="w-[12%] px-3 py-2.5"><T>Gaji Pokok</T></th>}
-                  <th className="w-[26%] px-3 py-2.5"><T>Pendapatan</T></th>
-                  <th className="w-[24%] px-3 py-2.5"><T>Potongan</T></th>
+                  <th className="w-[32%] px-3 py-2.5"><T>Pendapatan</T></th>
+                  <th className="w-[30%] px-3 py-2.5"><T>Potongan</T></th>
                   <th className="w-[10%] px-3 py-2.5 text-right"><T>Gaji Bersih</T></th>
                   <th className="w-[6%] px-3 py-2.5"><T>Status</T></th>
                 </tr>
@@ -302,7 +300,7 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
               <tbody className="divide-y divide-gray-100">
                 {lines.map((l) => {
                   const gp = l.items.find((i) => i.code === "GP");
-                  const earn = l.items.filter((i) => i.kind === "PENDAPATAN" && i.code !== "GP");
+                  const earn = l.items.filter((i) => i.kind === "PENDAPATAN");
                   const cut = l.items.filter((i) => i.kind === "POTONGAN");
                   const benefit = l.items.filter((i) => i.kind === "BENEFIT").reduce((a, i) => a + i.amount, 0);
                   // Ikut sebagian (karyawan bulanan di proses mingguan / THR terpisah): tanpa gaji pokok, jadi kehadiran tidak ditampilkan.
@@ -330,14 +328,6 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
                         {isOpen && facts && <p className="mt-1 text-[10px] text-gray-500">{facts}</p>}
                         {isOpen && l.warning && <p className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle size={10} />{l.warning}</p>}
                       </td>
-                      {showGp && (
-                        <td className="px-3 py-3">
-                          {gp ? <>
-                            <p className="tabular-nums text-gray-900">{rupiah(gp.amount)}</p>
-                            {isOpen && <p className="text-[10px] text-gray-400"><T>{l.daily ? "harian" : "per bulan"}</T></p>}
-                          </> : <p className="text-gray-400">-</p>}
-                        </td>
-                      )}
                       <td className="px-3 py-3">{isOpen ? <ItemGroups items={earn} fixed={fixed} empty="Tidak ada pendapatan lain" /> : brief(earn, "Tidak ada pendapatan lain")}</td>
                       <td className="px-3 py-3">
                         {isOpen ? <ItemGroups items={cut} fixed={fixed} empty="Tidak ada potongan" /> : brief(cut, "Tidak ada potongan")}
@@ -345,7 +335,6 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
                       </td>
                       <td className="px-3 py-3 text-right">
                         <p className="text-sm font-bold tabular-nums text-gray-900">{rupiah(l.netPay)}</p>
-                        {isOpen && <p className="text-[10px] text-gray-400"><T>Bruto pajak</T> {rupiah(l.gross)}</p>}
                       </td>
                       <td className="px-3 py-3">
                         <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}><T>{final ? "Final" : "Draft"}</T></span>
