@@ -2,14 +2,14 @@
 
 // Import Data Karyawan dari Excel (Pengaturan -> Import Data). Template berisi data yang sudah ada;
 // baris dengan ID yang sudah ada di portal dilewati.
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, Download, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { importEmployees, exportEmployeeTemplateRows, type ImportResult } from "./actions";
-import { downloadTemplate, parseEmployeeFile, type ParsedFile } from "@/lib/employee-import";
+import { importEmployees, exportEmployeeTemplateRows, importPayColumns, type ImportResult } from "./actions";
+import { downloadTemplate, parseEmployeeFile, type ParsedFile, type PayColumn } from "@/lib/employee-import";
 import { matchRegion } from "@/lib/wilayah-match";
 import type { MasterOptions } from "@/lib/master-data";
 import { T } from "@/components/i18n";
@@ -25,13 +25,16 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
   const [failed, setFailed] = useState<{ error: string; problems: string[] } | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
+  // Kolom komponen gaji input (mis. Tunjangan Jabatan) untuk membaca file.
+  const [pay, setPay] = useState<PayColumn[]>([]);
+  useEffect(() => { importPayColumns().then(setPay).catch(() => setPay([])); }, []);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const p = parseEmployeeFile(ev.target?.result as ArrayBuffer, master, new Set(employeeIds));
+      const p = parseEmployeeFile(ev.target?.result as ArrayBuffer, master, new Set(employeeIds), pay);
       setParsed(p);
       setRegionStat(null);
       setImportResult(null);
@@ -94,7 +97,7 @@ export default function EmployeeImportDialog({ master, employeeIds, onClose }: {
           onClick={async () => {
             // File berisi data karyawan yang sudah ada (+ baris kosong untuk karyawan baru).
             setDownloading(true);
-            try { downloadTemplate((await exportEmployeeTemplateRows()).rows); }
+            try { const x = await exportEmployeeTemplateRows(); downloadTemplate(x.rows, x.pay); }
             catch { downloadTemplate(); }
             finally { setDownloading(false); }
           }}>

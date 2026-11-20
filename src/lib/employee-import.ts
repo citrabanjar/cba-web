@@ -179,14 +179,20 @@ function toNationality(v: unknown): string | undefined {
   return key(v).startsWith("indonesia") ? "Indonesia" : clean(v) || undefined;
 }
 
-// Tunjangan/potongan tidak lagi diisi di template: diatur lewat komponen di Payroll & Benefit.
-// File lama yang masih punya kolom Tunjangan/Potongan tetap bisa dibaca.
-export function templateHeaders(): string[] {
-  return COLUMNS.map((c) => c.names[0]);
+// Komponen gaji master bercara hitung Input (selain GP), mis. Tunjangan Jabatan: satu kolom per komponen, tepat
+// setelah Gaji Pokok. Nominal per bulan; kosong / 0 = tidak dapat. Saat import, komponen ditempel otomatis dan
+// nominalnya tersimpan tertaut kode komponen. File lama (kolom "Tunjangan 1" + nominal) tetap bisa dibaca.
+export type PayColumn = { code: string; name: string; kind: string };
+export function templateHeaders(pay: PayColumn[] = []): string[] {
+  const base = COLUMNS.map((c) => c.names[0]);
+  const at = base.indexOf("Gaji Pokok") + 1;
+  return [...base.slice(0, at), ...pay.map((p) => p.name), ...base.slice(at)];
 }
 
-function instructionRows(): string[][] {
-  const rows = templateHeaders().map((name) => {
+function instructionRows(pay: PayColumn[] = []): string[][] {
+  const rows = templateHeaders(pay).map((name) => {
+    const comp = pay.find((p) => p.name === name);
+    if (comp) return [name, "Tidak", "Angka", "", "750000", `Nominal per bulan komponen ${comp.code} (${comp.kind === "POTONGAN" ? "potongan" : "pendapatan"}). Kosongkan bila karyawan tidak mendapat komponen ini.`];
     const col = COLUMNS.find((c) => c.names[0] === name)!;
     return [
       name,
@@ -205,7 +211,9 @@ function instructionRows(): string[][] {
     ["4. Kolom Pilih salah satu harus diisi persis seperti Pilihan Nilai."],
     ["5. No KTP, NPWP, No Rekening, dan No HP sudah diatur sebagai teks. Saat menempel dari file lain, pakai Paste Values supaya angkanya tidak berubah."],
     ["6. Baris yang salah ditampilkan saat import dan tidak ikut masuk. Baris lain tetap bisa diimport."],
-    ["7. Tunjangan dan potongan tidak diisi di file ini: atur lewat menu Payroll & Benefit (tempel komponen ke karyawan, lalu isi nominalnya di profil)."],
+    [pay.length
+      ? "7. Kolom setelah Gaji Pokok adalah komponen gaji bernilai input dari Payroll & Benefit (mis. Tunjangan Jabatan). Isi nominal per bulan; komponen ditempel otomatis ke karyawan. Komponen lain (persen, per hari, BPJS, PPh 21) dihitung otomatis dan tidak diisi di sini."
+      : "7. Tunjangan dan potongan tidak diisi di file ini: atur lewat menu Payroll & Benefit (tempel komponen ke karyawan, lalu isi nominalnya di profil)."],
     ["8. File unduhan berisi data karyawan yang sudah ada di portal. Saat diimport, baris dengan ID Karyawan yang sudah ada dilewati (data di portal tidak berubah); karyawan baru ditambahkan di baris paling bawah."],
     [],
     ["Kolom", "Wajib", "Format", "Pilihan Nilai", "Contoh", "Catatan"],
@@ -214,10 +222,11 @@ function instructionRows(): string[][] {
 }
 
 // Isi template dengan data karyawan yang sudah ada (nilai per kolom, sudah dalam format template).
-export type TemplateRow = Partial<Record<Field, string | number>>;
+// pay: nominal komponen input per kode (kolom komponen gaji).
+export type TemplateRow = Partial<Record<Field, string | number>> & { pay?: Record<string, number> };
 
-export function buildTemplate(existing: TemplateRow[] = []): XLSX.WorkBook {
-  const headers = templateHeaders();
+export function buildTemplate(existing: TemplateRow[] = [], pay: PayColumn[] = []): XLSX.WorkBook {
+  const headers = templateHeaders(pay);
   const data = XLSX.utils.aoa_to_sheet([headers]);
 
   // Kolom teks diformat lebih dulu supaya Excel tidak mengubah angka panjang atau tanggal.
@@ -225,9 +234,10 @@ export function buildTemplate(existing: TemplateRow[] = []): XLSX.WorkBook {
   const TEMPLATE_ROWS = existing.length + 300;
   headers.forEach((name, c) => {
     const col = COLUMNS.find((x) => x.names[0] === name);
+    const comp = col ? undefined : pay.find((p) => p.name === name);
     const asText = col?.kind === "digits" || col?.kind === "phone" || col?.kind === "date" || col?.field === "employeeId";
     for (let r = 1; r <= TEMPLATE_ROWS; r++) {
-      const v = col ? existing[r - 1]?.[col.field] : undefined;
+      const v = col ? existing[r - 1]?.[col.field] : comp ? existing[r - 1]?.pay?.[comp.code] : undefined;
       if (v === undefined || v === null || v === "") {
         if (asText) data[XLSX.utils.encode_cell({ r, c })] = { t: "s", v: "", z: "@" };
       } else if (typeof v === "number" && !asText) {
@@ -236,7 +246,7 @@ export function buildTemplate(existing: TemplateRow[] = []): XLSX.WorkBook {
         data[XLSX.utils.encode_cell({ r, c })] = { t: "s", v: String(v), ...(asText ? { z: "@" } : {}) };
       }
     }
-    const help = col?.shown ?? col?.note ?? (col?.kind === "date" ? "DD-MMM-YYYY" : "");
+    const help = comp ? `Komponen gaji ${comp.code}: nominal per bulan, angka saja. Kosongkan bila tidak dapat.` : col?.shown ?? col?.note ?? (col?.kind === "date" ? "DD-MMM-YYYY" : "");
     const cell = data[XLSX.utils.encode_cell({ r: 0, c })];
     if (help) {
       // SheetJS membaca "hidden" dari array komentar: catatan baru muncul saat header disorot.
@@ -248,7 +258,7 @@ export function buildTemplate(existing: TemplateRow[] = []): XLSX.WorkBook {
   data["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: TEMPLATE_ROWS, c: headers.length - 1 } });
   data["!cols"] = headers.map((h) => ({ wch: Math.max(14, h.length + 2) }));
 
-  const guide = XLSX.utils.aoa_to_sheet(instructionRows());
+  const guide = XLSX.utils.aoa_to_sheet(instructionRows(pay));
   guide["!cols"] = [{ wch: 34 }, { wch: 7 }, { wch: 20 }, { wch: 44 }, { wch: 26 }, { wch: 70 }];
 
   const wb = XLSX.utils.book_new();
@@ -257,8 +267,8 @@ export function buildTemplate(existing: TemplateRow[] = []): XLSX.WorkBook {
   return wb;
 }
 
-export function downloadTemplate(existing: TemplateRow[] = []) {
-  XLSX.writeFile(buildTemplate(existing), existing.length ? "data_karyawan.xlsx" : "template_karyawan.xlsx");
+export function downloadTemplate(existing: TemplateRow[] = [], pay: PayColumn[] = []) {
+  XLSX.writeFile(buildTemplate(existing, pay), existing.length ? "data_karyawan.xlsx" : "template_karyawan.xlsx");
 }
 
 // Tanggal (YYYY-MM-DD) -> format template DD-MMM-YYYY, mis. 15-Jan-2024.
@@ -338,7 +348,7 @@ function readCell(col: Column, value: unknown, row: Record<string, unknown>): st
   return null;
 }
 
-export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster, existingIds?: Set<string>): ParsedFile {
+export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster, existingIds?: Set<string>, pay: PayColumn[] = []): ParsedFile {
   const workbook = XLSX.read(buffer, { type: "array" });
 
   // File bisa berisi beberapa sheet, jadi pilih sheet yang kolomnya paling banyak dikenali.
@@ -380,7 +390,12 @@ export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster, exist
     return match ? [{ at, type: match.type }] : [];
   });
 
-  const used = new Set([...index.values(), ...components.flatMap((c) => [c.at, c.at + 1])]);
+  // Kolom komponen gaji input (nama komponen, atau "Nama (KODE)").
+  const payAt = pay.flatMap((p) => {
+    const at = header.findIndex((h) => [key(p.name), key(`${p.name} (${p.code})`), key(p.code)].includes(key(h)));
+    return at >= 0 && !components.some((c) => c.at === at || c.at + 1 === at) ? [{ at, p }] : [];
+  });
+  const used = new Set([...index.values(), ...components.flatMap((c) => [c.at, c.at + 1]), ...payAt.map((x) => x.at)]);
   const unknown = header.filter((h, at) => h && !used.has(at));
 
   const rows: ImportRow[] = [];
@@ -426,6 +441,13 @@ export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster, exist
       if (!name) continue;
       if (Number.isNaN(amount)) problems.push(`Nominal ${name} harus berupa angka`);
       else if (amount) (row.components as ImportComponent[]).push({ type: c.type, name, amount });
+    }
+
+    for (const { at, p } of payAt) {
+      if (!clean(cells[at])) continue;
+      const amount = toNumber(cells[at]);
+      if (amount === undefined || Number.isNaN(amount) || amount < 0) problems.push(`${p.name} "${clean(cells[at])}" harus berupa angka`);
+      else if (amount > 0) (row.components as ImportComponent[]).push({ type: p.kind === "POTONGAN" ? "POTONGAN" : "TUNJANGAN", name: p.name, amount, code: p.code });
     }
 
     const parsed = row as unknown as ImportRow;

@@ -11,8 +11,8 @@ import { bossChain, holdForApproval, notifyApprover, runApproved } from "@/lib/a
 import { decisionText, notify } from "@/lib/notify";
 import { EDIT_FIELD_LABELS, FAMILY_RELATIONS, ID_TYPES, PTKP_VALID, TAX_OBJECT_CODES, TAX_STATUSES } from "@/lib/personal-info";
 import { syncTaxObjectCode } from "@/lib/tax-object";
-import type { ImportComponent, ImportRow, TemplateRow } from "@/lib/employee-import";
-import { employeeTemplateRows } from "@/lib/employee-export";
+import type { ImportComponent, ImportRow, PayColumn, TemplateRow } from "@/lib/employee-import";
+import { employeePayColumns, employeeTemplateRows } from "@/lib/employee-export";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import type { EmploymentStatus, Prisma } from "@prisma/client";
@@ -842,6 +842,13 @@ export async function importEmployees(rows: ImportRow[]) {
   }
   for (const { row } of created) results.push({ employeeId: row.employeeId, status: "ok" });
 
+  // Komponen gaji input dari kolom komponen: ditempel ke karyawan (berlaku sejak tanggal gaji awal = tanggal masuk).
+  for (const { id, row } of created) {
+    if (!row.basicSalary || !row.components.some((c) => c.code)) continue;
+    const effective = toDate(row.joinDate) ?? new Date(new Date().toISOString().split("T")[0]);
+    await syncAssignmentsFromSalary(id, effective, row.components, actor.name ?? null).catch(() => null);
+  }
+
   // Atasan dihubungkan setelah semua karyawan masuk, supaya urutan baris di file tidak berpengaruh.
   for (const { id, row } of created) {
     if (!row.managerRef) continue;
@@ -864,7 +871,14 @@ export async function importEmployees(rows: ImportRow[]) {
 
 // Data karyawan yang sudah ada untuk diisikan ke file template (Download Template). Gaji pokok hanya untuk yang punya
 // akses Payroll & Benefit. Saat file diimport ulang, ID yang sudah ada dilewati (data portal tidak berubah).
-export async function exportEmployeeTemplateRows(): Promise<{ rows: TemplateRow[] }> {
+export async function exportEmployeeTemplateRows(): Promise<{ rows: TemplateRow[]; pay: PayColumn[] }> {
   const actor = await requireImport("karyawan");
-  return { rows: await employeeTemplateRows(hasMenu(actor, "gaji")) };
+  const pay = hasMenu(actor, "gaji");
+  return { rows: await employeeTemplateRows(pay), pay: pay ? await employeePayColumns() : [] };
+}
+
+// Kolom komponen gaji input untuk membaca file import (hanya bila punya akses Payroll & Benefit).
+export async function importPayColumns(): Promise<PayColumn[]> {
+  const actor = await requireImport("karyawan");
+  return hasMenu(actor, "gaji") ? employeePayColumns() : [];
 }
