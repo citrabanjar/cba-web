@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AlertTriangle, CheckCircle2, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { rupiah } from "@/lib/payroll";
@@ -95,6 +95,10 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
   const lines = run?.lines ?? [];
   // Kolom Gaji Pokok hanya bila ada yang menerima gaji pokok di periode ini (proses mingguan berisi lembur saja → disembunyikan).
   const showGp = lines.some((l) => l.items.some((i) => i.code === "GP"));
+  // Baris bisa dilipat: tertutup = total; terbuka = rincian komponen.
+  const [opened, setOpened] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => setOpened((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const allOpen = lines.length > 0 && lines.every((l) => opened.has(l.id));
   const total = (k: keyof Pick<RunLine, "earnings" | "deductions" | "pph21" | "netPay" | "benefits">) => lines.reduce((a, l) => a + l[k], 0);
 
   const act = (fn: () => Promise<{ error?: string; count?: number; proposed?: string }>, ok: string) => {
@@ -277,6 +281,12 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
               <CheckCircle2 size={15} /> <T>Final oleh</T> {run.finalizedBy ?? "—"} · {new Date(run.finalizedAt).toLocaleString("id-ID")}. <T>Slip gaji sudah terbit di menu Slip Gaji karyawan.</T>
             </p>
           )}
+          <div className="flex justify-end">
+            <button type="button" onClick={() => setOpened(allOpen ? new Set() : new Set(lines.map((l) => l.id)))}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+              <ChevronDown size={13} className={allOpen ? "rotate-180" : ""} /> <T>{allOpen ? "Tutup semua" : "Buka semua"}</T>
+            </button>
+          </div>
           <div className="max-h-[calc(100vh-260px)] min-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full min-w-[960px] text-xs">
               <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
@@ -303,10 +313,18 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
                     (l.inputs.otWork ?? []).length ? `${t("Lembur HK")} ${hoursText(l.inputs.otWork ?? [])} ${t("jam")}` : "",
                     (l.inputs.otRest ?? []).length ? `${t("Lembur HL")} ${hoursText(l.inputs.otRest ?? [])} ${t("jam")}` : "",
                   ].filter(Boolean).join(" · ");
+                  const isOpen = opened.has(l.id);
+                  const sum = (list: LineItem[]) => list.reduce((a, i) => a + i.amount, 0);
+                  // Tertutup: total saja; terbuka: rincian Tetap / Tidak rutin.
+                  const brief = (list: LineItem[], empty: string) => list.length
+                    ? <p className="tabular-nums text-gray-900">{rupiah(sum(list))} <span className="text-[10px] text-gray-400">· {list.length} <T>komponen</T></span></p>
+                    : <p className="text-[11px] italic text-gray-400"><T>{empty}</T></p>;
                   return (
-                    <tr key={l.id} className="align-top hover:bg-gray-50/60">
+                    <tr key={l.id} onClick={() => toggle(l.id)} className={`cursor-pointer align-top hover:bg-gray-50/60 ${isOpen ? "bg-gray-50/40" : ""}`}>
                       <td className="px-4 py-3">
-                        <p className="text-sm font-semibold text-gray-900">{l.name}</p>
+                        <p className="flex items-center gap-1 text-sm font-semibold text-gray-900">
+                          <ChevronDown size={14} className={`shrink-0 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />{l.name}
+                        </p>
                         <p className="text-[10px] text-gray-400">{[l.employeeId, l.ptkp ?? "TK/0", l.department].filter(Boolean).join(" · ")}</p>
                         {facts && <p className="mt-1 text-[10px] text-gray-500">{facts}</p>}
                         {l.warning && <p className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle size={10} />{l.warning}</p>}
@@ -319,10 +337,10 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
                           </> : <p className="text-gray-400">-</p>}
                         </td>
                       )}
-                      <td className="px-3 py-3"><ItemGroups items={earn} fixed={fixed} empty="Tidak ada pendapatan lain" /></td>
+                      <td className="px-3 py-3">{isOpen ? <ItemGroups items={earn} fixed={fixed} empty="Tidak ada pendapatan lain" /> : brief(earn, "Tidak ada pendapatan lain")}</td>
                       <td className="px-3 py-3">
-                        <ItemGroups items={cut} fixed={fixed} empty="Tidak ada potongan" />
-                        {benefit > 0 && <p className="mt-1.5 border-t border-dashed border-gray-200 pt-1 text-[10px] text-gray-400"><T>Ditanggung perusahaan</T>: {rupiah(benefit)}</p>}
+                        {isOpen ? <ItemGroups items={cut} fixed={fixed} empty="Tidak ada potongan" /> : brief(cut, "Tidak ada potongan")}
+                        {isOpen && benefit > 0 && <p className="mt-1.5 border-t border-dashed border-gray-200 pt-1 text-[10px] text-gray-400"><T>Ditanggung perusahaan</T>: {rupiah(benefit)}</p>}
                       </td>
                       <td className="px-3 py-3 text-right">
                         <p className="text-sm font-bold tabular-nums text-gray-900">{rupiah(l.netPay)}</p>
