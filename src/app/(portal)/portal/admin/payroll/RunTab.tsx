@@ -93,6 +93,8 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
   const [pending, start] = useTransition();
   const final = run?.status === "FINAL";
   const lines = run?.lines ?? [];
+  // Kolom Gaji Pokok hanya bila ada yang menerima gaji pokok di periode ini (proses mingguan berisi lembur saja → disembunyikan).
+  const showGp = lines.some((l) => l.items.some((i) => i.code === "GP"));
   const total = (k: keyof Pick<RunLine, "earnings" | "deductions" | "pph21" | "netPay" | "benefits">) => lines.reduce((a, l) => a + l[k], 0);
 
   const act = (fn: () => Promise<{ error?: string; count?: number; proposed?: string }>, ok: string) => {
@@ -280,7 +282,7 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
               <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
                 <tr className="border-b border-gray-200">
                   <th className="w-[22%] px-4 py-2.5"><T>Karyawan</T></th>
-                  <th className="w-[12%] px-3 py-2.5"><T>Gaji Pokok</T></th>
+                  {showGp && <th className="w-[12%] px-3 py-2.5"><T>Gaji Pokok</T></th>}
                   <th className="w-[26%] px-3 py-2.5"><T>Pendapatan</T></th>
                   <th className="w-[24%] px-3 py-2.5"><T>Potongan</T></th>
                   <th className="w-[10%] px-3 py-2.5 text-right"><T>Gaji Bersih</T></th>
@@ -293,9 +295,10 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
                   const earn = l.items.filter((i) => i.kind === "PENDAPATAN" && i.code !== "GP");
                   const cut = l.items.filter((i) => i.kind === "POTONGAN");
                   const benefit = l.items.filter((i) => i.kind === "BENEFIT").reduce((a, i) => a + i.amount, 0);
+                  // Ikut sebagian (karyawan bulanan di proses mingguan / THR terpisah): tanpa gaji pokok, jadi kehadiran tidak ditampilkan.
                   const facts = [
-                    `${t("Hadir")} ${l.inputs.daysPresent}`,
-                    l.inputs.absentDays ? `${t("Mangkir")} ${l.inputs.absentDays}` : "",
+                    gp ? `${t("Hadir")} ${l.inputs.daysPresent}` : "",
+                    gp && l.inputs.absentDays ? `${t("Mangkir")} ${l.inputs.absentDays}` : "",
                     l.inputs.tripDays ? `${t("Dinas")} ${l.inputs.tripDays} ${t("hari")}` : "",
                     (l.inputs.otWork ?? []).length ? `${t("Lembur HK")} ${hoursText(l.inputs.otWork ?? [])} ${t("jam")}` : "",
                     (l.inputs.otRest ?? []).length ? `${t("Lembur HL")} ${hoursText(l.inputs.otRest ?? [])} ${t("jam")}` : "",
@@ -305,13 +308,17 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
                       <td className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-900">{l.name}</p>
                         <p className="text-[10px] text-gray-400">{[l.employeeId, l.ptkp ?? "TK/0", l.department].filter(Boolean).join(" · ")}</p>
-                        <p className="mt-1 text-[10px] text-gray-500">{facts}</p>
+                        {facts && <p className="mt-1 text-[10px] text-gray-500">{facts}</p>}
                         {l.warning && <p className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle size={10} />{l.warning}</p>}
                       </td>
-                      <td className="px-3 py-3">
-                        <p className="tabular-nums text-gray-900">{gp ? rupiah(gp.amount) : "-"}</p>
-                        <p className="text-[10px] text-gray-400"><T>{l.daily ? "harian" : "per bulan"}</T></p>
-                      </td>
+                      {showGp && (
+                        <td className="px-3 py-3">
+                          {gp ? <>
+                            <p className="tabular-nums text-gray-900">{rupiah(gp.amount)}</p>
+                            <p className="text-[10px] text-gray-400"><T>{l.daily ? "harian" : "per bulan"}</T></p>
+                          </> : <p className="text-gray-400">-</p>}
+                        </td>
+                      )}
                       <td className="px-3 py-3"><ItemGroups items={earn} fixed={fixed} empty="Tidak ada pendapatan lain" /></td>
                       <td className="px-3 py-3">
                         <ItemGroups items={cut} fixed={fixed} empty="Tidak ada potongan" />
