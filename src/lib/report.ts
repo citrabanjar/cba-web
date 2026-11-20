@@ -20,8 +20,14 @@ const OT_ST: Record<Exclude<ReportStatus, "">, string[]> = {
 };
 const SWAP_ST: Record<Exclude<ReportStatus, "">, string[]> = { menunggu: ["MENUNGGU_REKAN", "MENUNGGU_ATASAN"], disetujui: ["DISETUJUI"], ditolak: ["DITOLAK", "DIBATALKAN"] };
 const LOAN_ST: Record<Exclude<ReportStatus, "">, string[]> = { menunggu: ["PENDING"], disetujui: ["DISETUJUI", "BERJALAN", "LUNAS"], ditolak: ["DITOLAK", "BATAL"] };
-// Rentang tanggal tidak dipakai untuk "menunggu": semua yang belum selesai tampil.
-const inRange = (status: ReportStatus) => status !== "menunggu";
+// Saringan status + rentang: "menunggu" = semua yang belum selesai tanpa rentang; "disetujui" / "ditolak" = di dalam rentang;
+// "Semua status" = yang ada di rentang ditambah semua yang belum selesai (walau tanggalnya di luar rentang).
+type StMap = Record<Exclude<ReportStatus, "">, string[]>;
+const scope = (status: ReportStatus, range: object, st: StMap) => ({
+  AND: [status === "menunggu" ? { status: { in: st.menunggu } }
+    : status ? { ...range, status: { in: st[status] } }
+    : { OR: [range, { status: { in: st.menunggu } }] }],
+}) as { AND: never[] };
 const userSel = { select: { name: true, employeeId: true, department: { select: { name: true } }, manager: { select: { name: true } } } };
 // Penyetuju yang sedang mendapat giliran: level Workflow atau atasan langsung.
 const turnOf = (approval: unknown, manager: { name: string } | null) =>
@@ -37,7 +43,7 @@ export type LeaveReportRow = {
 export async function buildLeaveReport(userIds: string[], from: Date, to: Date, status: ReportStatus = ""): Promise<LeaveReportRow[]> {
   if (!userIds.length) return [];
   const rows = await prisma.leaveRequest.findMany({
-    where: { userId: { in: userIds }, ...(inRange(status) ? { startDate: { lte: to }, endDate: { gte: from } } : {}), ...(status ? { status: { in: LEAVE_ST[status] as never[] } } : {}) },
+    where: { userId: { in: userIds }, ...scope(status, { startDate: { lte: to }, endDate: { gte: from } }, LEAVE_ST) },
     include: { user: userSel, policy: { select: { name: true } } },
     orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
   });
@@ -58,7 +64,7 @@ export async function buildOvertimeReport(userIds: string[], from: Date, to: Dat
   if (!userIds.length) return [];
   const [rows, cal, atts] = await Promise.all([
     prisma.overtime.findMany({
-      where: { userId: { in: userIds }, ...(inRange(status) ? { date: { gte: from, lte: to } } : {}), ...(status ? { status: { in: OT_ST[status] } } : {}) },
+      where: { userId: { in: userIds }, ...scope(status, { date: { gte: from, lte: to } }, OT_ST) },
       include: { user: { select: { name: true, employeeId: true, department: { select: { name: true } } } }, order: { select: { number: true } }, checks: { orderBy: { createdAt: "asc" } } },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     }),
@@ -90,7 +96,7 @@ export type TripReportRow = {
 export async function buildTripReport(userIds: string[], from: Date, to: Date, status: ReportStatus = ""): Promise<TripReportRow[]> {
   if (!userIds.length) return [];
   const rows = await prisma.businessTrip.findMany({
-    where: { userId: { in: userIds }, ...(inRange(status) ? { startDate: { lte: to }, endDate: { gte: from } } : {}), ...(status ? { status: { in: LEAVE_ST[status] as never[] } } : {}) },
+    where: { userId: { in: userIds }, ...scope(status, { startDate: { lte: to }, endDate: { gte: from } }, LEAVE_ST) },
     include: { user: userSel }, orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
   });
   return rows.map((r) => ({
@@ -110,7 +116,7 @@ export async function buildSwapReport(userIds: string[], from: Date, to: Date, s
   const rows = await prisma.shiftSwapRequest.findMany({
     where: {
       OR: [{ requesterId: { in: userIds } }, { partnerId: { in: userIds } }],
-      ...(inRange(status) ? { date: { gte: from, lte: to } } : {}), ...(status ? { status: { in: SWAP_ST[status] } } : {}),
+      ...scope(status, { date: { gte: from, lte: to } }, SWAP_ST),
     },
     include: { requester: userSel, partner: { select: { name: true, employeeId: true } } }, orderBy: [{ date: "asc" }, { createdAt: "asc" }],
   });
@@ -143,7 +149,7 @@ export async function buildLoanReport(userIds: string[], from: Date, to: Date, s
       // Rentang WIB: dibuat (atau diputus, untuk tahap Selesai) di antara tanggal awal dan akhir.
       ...(stage === "SELESAI" ? { status: { not: "PENDING" }, approvedAt: range }
         : stage ? { status: "PENDING", ...(stage === "ADMIN" ? { OR: [{ stage: "ADMIN" }, { stage: null }] } : { stage }) }
-        : { ...(inRange(status) ? { createdAt: range } : {}), ...(status ? { status: { in: LOAN_ST[status] } } : {}) }),
+        : scope(status, { createdAt: range }, LOAN_ST)),
     },
     include: { user: userSel }, orderBy: { createdAt: "asc" },
   });
@@ -162,7 +168,7 @@ export type FixReportRow = {
 export async function buildFixReport(userIds: string[], from: Date, to: Date, status: ReportStatus = ""): Promise<FixReportRow[]> {
   if (!userIds.length) return [];
   const rows = await prisma.attendanceCorrection.findMany({
-    where: { userId: { in: userIds }, ...(inRange(status) ? { date: { gte: from, lte: to } } : {}), ...(status ? { status: { in: LEAVE_ST[status] } } : {}) },
+    where: { userId: { in: userIds }, ...scope(status, { date: { gte: from, lte: to } }, LEAVE_ST) },
     include: { user: userSel }, orderBy: [{ date: "asc" }, { createdAt: "asc" }],
   });
   return rows.map((r) => ({
@@ -181,7 +187,7 @@ export type ClaimReportRow = {
 export async function buildClaimReport(userIds: string[], from: Date, to: Date, status: ReportStatus = ""): Promise<ClaimReportRow[]> {
   if (!userIds.length) return [];
   const rows = await prisma.medicalClaim.findMany({
-    where: { userId: { in: userIds }, ...(inRange(status) ? { treatDate: { gte: from, lte: to } } : {}), ...(status ? { status: { in: CLAIM_ST[status] } } : {}) },
+    where: { userId: { in: userIds }, ...scope(status, { treatDate: { gte: from, lte: to } }, CLAIM_ST) },
     include: { user: userSel, files: { select: { id: true, name: true } } }, orderBy: [{ treatDate: "asc" }, { createdAt: "asc" }],
   });
   return rows.map((r) => ({

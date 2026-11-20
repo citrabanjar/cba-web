@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Pengajuan cuti yang tanggalnya beririsan dengan rentang (disetujui, ditolak, dibatalkan).": "Leave requests overlapping the range (approved, rejected, cancelled).",
+  "Pada Semua status, pengajuan yang belum selesai selalu ikut tampil walau tanggalnya di luar rentang.": "Under All statuses, unfinished requests always appear even if their dates fall outside the range.",
   "Buat File Transfer": "Create Transfer File",
   "Template": "Template",
   "Tanggal transfer": "Transfer date",
