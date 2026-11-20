@@ -102,7 +102,8 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     })),
     ...(data?.profiles ?? []).filter((p) => p.status !== "PENDING").map((p) => ({ module: "karyawan" as NotifModule, key: `h-profile-${p.id}`, at: p.decidedAt ?? p.createdAt, card: { type: "profile" as const, item: p } })),
     ...(data?.interviews ?? []).filter((i) => !i.mine).map((i) => ({ module: "prakaryawan" as NotifModule, key: `h-iv-${i.id}`, card: { type: "interview" as const, item: i } })),
-    ...(data?.loans ?? []).filter((l) => l.status !== "PENDING").map((l) => ({ module: "pinjaman" as NotifModule, key: `h-loan-${l.id}`, at: l.decidedAt ?? l.createdAt, card: { type: "loan" as const, item: l } })),
+    // Pemeriksa dokumen (Admin Pinjaman) sudah menerima notifikasi keputusan pimpinan → riwayatnya tidak diulang (satu kabar per pinjaman).
+    ...(data?.loans ?? []).filter((l) => l.status !== "PENDING" && l.flow.adminId !== access.id).map((l) => ({ module: "pinjaman" as NotifModule, key: `h-loan-${l.id}`, at: l.decidedAt ?? l.createdAt, card: { type: "loan" as const, item: l } })),
   ];
 
   // Modul utama selalu tampil; Data Diri, Payroll & Benefit, Data Karyawan, Lainnya hanya bila ada isinya.

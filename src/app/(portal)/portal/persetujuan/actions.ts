@@ -248,7 +248,7 @@ export async function decideLoan(id: string, approve: boolean, note: string): Pr
     await applyPlan(loan, p, a.name, { flow: { ...flow, topAt: now, topNote: note.trim(), topBy: a.name ?? "" } }, flow.adminNote ?? "");
     await notify(loan.userId, "Pengajuan pinjaman disetujui",
       `${formatRupiah(p.total)} · ${p.rows.length} kali angsuran mulai ${p.plan.startPeriod} · Disetujui oleh ${a.name ?? "pimpinan"}. Menunggu pencairan.`, "/portal/pinjaman");
-    await notify(admins, "Pengajuan pinjaman disetujui pimpinan", `${loan.user.name} · ${formatRupiah(p.total)} · Silakan cairkan lalu tandai Dicairkan.`, "/portal/admin/pinjaman");
+    await notify(admins, "Pengajuan pinjaman disetujui pimpinan", `${loan.user.name} · ${formatRupiah(p.total)} · Silakan buat File Transfer di menu Pinjaman Karyawan.`, "/portal/admin/pinjaman");
     return done();
   }
   return { error: "Pengajuan ini sedang diperiksa Admin; keputusan dapat diberikan setelah pemeriksaan selesai." };

@@ -66,6 +66,8 @@ const BODY: [RegExp, string][] = [
   [/Menunggu keputusan pimpinan\./g, "Awaiting top management decision."],
   [/Keputusan dapat diberikan setelah Admin selesai memeriksa\./g, "A decision can be made once Admin has finished the review."],
   [/Silakan cairkan lalu tandai Dicairkan\./g, "Please disburse it, then mark it as Disbursed."],
+  [/Silakan buat File Transfer di menu Pinjaman Karyawan./g, "Please create a Transfer File in the Employee Loans menu."],
+  [/Sebelum konfirmasi, pastikan dana pinjaman Anda sudah terima./g, "Before confirming, make sure you have received the loan funds."],
 ];
 const MONTHS: Record<string, string> = { Mei: "May", Agu: "Aug", Okt: "Oct", Des: "Dec" };
 const dates = (s: string) => s.replace(/\b(\d{1,2})-(Mei|Agu|Okt|Des)-(\d{4})\b/g, (_, d, m, y) => `${d}-${MONTHS[m]}-${y}`);
