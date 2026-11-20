@@ -94,7 +94,8 @@ export function missingData(d: CandidateData): string[] {
     ["address", "Alamat sesuai identitas"], ["bankName", "Nama bank"], ["bankAccount", "No. rekening"], ["bankHolder", "Nama pemilik rekening"],
     ["ptkpStatus", "Status PTKP"],
   ];
-  for (const [k, label] of need) if (!String(d[k] ?? "").trim()) miss.push(label);
+  const cash = (d.bankName ?? "").trim().toLowerCase() === "cash"; // dibayar tunai: tanpa rekening
+  for (const [k, label] of need) if (!(cash && (k === "bankAccount" || k === "bankHolder")) && !String(d[k] ?? "").trim()) miss.push(label);
   if (!d.addressSameAsId && !d.currentAddress.trim()) miss.push("Alamat saat ini");
   if (!d.addressRegion) miss.push("Kelurahan/desa alamat identitas");
   if (!d.addressSameAsId && !d.currentRegion) miss.push("Kelurahan/desa alamat saat ini");

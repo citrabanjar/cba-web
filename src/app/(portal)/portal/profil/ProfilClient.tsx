@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { formatDate, formatRupiah } from "@/lib/utils";
 import { FAMILY_RELATIONS } from "@/lib/personal-info";
+import { isCashBank } from "@/lib/personal-info";
 import { PROFILE_FIELDS, fieldLabel, showValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 import type { DayShift } from "@/lib/schedule";
 import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
@@ -446,6 +447,8 @@ function ChangeDialog({ values, family, onClose }: { values: Record<string, stri
                       </select>
                     ) : f.type === "textarea" ? (
                       <textarea rows={2} value={form[f.key]} onChange={(e) => set(f.key, e.target.value)} className="w-full rounded-lg border border-input px-2 py-1.5 text-sm" />
+                    ) : (f.key === "bankAccount" || f.key === "bankHolder") && isCashBank(form.bankName) ? (
+                      <Input value="" disabled placeholder={t("Tidak diisi (dibayar Cash)")} className="h-9" />
                     ) : (
                       <Input type={f.type === "date" ? "date" : "text"} value={form[f.key]} onChange={(e) => set(f.key, e.target.value)} className="h-9" />
                     )}

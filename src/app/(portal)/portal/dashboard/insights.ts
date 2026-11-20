@@ -236,7 +236,7 @@ async function loadDataTasks(): Promise<Task[]> {
     { key: "join", title: "Isi tanggal masuk", hint: "Dipakai untuk masa kerja dan hak cuti.", where: { joinDate: null } },
     { key: "contract", title: "Isi tanggal akhir kontrak", hint: "Karyawan kontrak tanpa tanggal berakhir tidak bisa diingatkan.", where: { employmentStatus: "KONTRAK", contractEndDate: null } },
     { key: "identity", title: "Lengkapi data pribadi", hint: "No. identitas, tanggal lahir, jenis kelamin, atau alamat masih kosong.", where: { OR: [{ ktpNumber: null }, { birthDate: null }, { gender: null }, { address: null }] } },
-    { key: "bank", title: "Lengkapi rekening bank", hint: "Dibutuhkan untuk transfer gaji.", where: { OR: [{ bankName: null }, { bankAccount: null }, { bankAccount: "" }] } },
+    { key: "bank", title: "Lengkapi rekening bank", hint: "Dibutuhkan untuk transfer gaji.", where: { OR: [{ bankName: null }, { bankName: "" }, { NOT: { bankName: { equals: "Cash", mode: "insensitive" } }, OR: [{ bankAccount: null }, { bankAccount: "" }] }] } },
     { key: "emergency", title: "Isi kontak darurat", hint: "Nama dan nomor yang bisa dihubungi saat darurat.", where: { OR: [{ emergencyName: null }, { emergencyPhone: null }] } },
     { key: "tax", title: "Lengkapi status PTKP", hint: "Dibutuhkan untuk hitung PPh 21.", where: { ptkpStatus: null } },
     { key: "bpjs", title: "Lengkapi nomor BPJS", hint: "Nomor BPJS Ketenagakerjaan atau Kesehatan masih kosong.", where: { OR: [{ bpjsTkNumber: null }, { bpjsKesNumber: null }] } },

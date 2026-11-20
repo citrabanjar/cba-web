@@ -175,7 +175,8 @@ function TransferPanel({ loans, onClose }: { loans: AdminLoan[]; onClose: () => 
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([r.content], { type: "text/plain" }));
     a.download = r.fileName; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    void showNotice(`${t("File transfer dibuat")}: ${r.count} ${t("karyawan")}, ${t("total")} ${formatRupiah(r.total ?? 0)}.`);
+    void showNotice([`${t("File transfer dibuat")}: ${r.count} ${t("karyawan")}, ${t("total")} ${formatRupiah(r.total ?? 0)}.`,
+      r.cash?.length ? `${r.cash.length} ${t("pinjaman karyawan Cash tidak masuk file; cairkan tunai lewat Tandai Dicairkan")}: ${r.cash.join(", ")}.` : ""].filter(Boolean).join("\n"));
     onClose();
     router.refresh();
   });

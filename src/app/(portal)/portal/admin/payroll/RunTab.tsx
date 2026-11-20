@@ -207,7 +207,7 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
                   className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand" />
               </label>
             </div>
-            <p className="text-[11px] text-gray-400"><T>Rekening Mandiri ditransfer In-House; bank lain lewat BI FAST. Karyawan dengan gaji bersih Rp 0 dilewati.</T></p>
+            <p className="text-[11px] text-gray-400"><T>Rekening Mandiri ditransfer In-House; bank lain lewat BI FAST. Karyawan dengan gaji bersih Rp 0 dan karyawan Cash dilewati.</T></p>
             <div className="flex justify-end gap-2">
               <button type="button" disabled={pending} onClick={() => setXfer(null)} className="h-8 rounded-full border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Tutup</T></button>
               <button type="button" disabled={pending || !xfer.date || !xfer.debit}
@@ -219,7 +219,8 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
                   a.download = r.fileName; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
                   setXfer(null);
                   void showNotice([`${t("File transfer dibuat")}: ${r.count} ${t("karyawan")}, ${t("total")} ${rupiah(r.total ?? 0)}.`,
-                    r.other ? `${r.other} ${t("ke bank lain lewat BI FAST.")}` : "", r.skipped ? `${r.skipped} ${t("karyawan dilewati (gaji bersih Rp 0).")}` : ""].filter(Boolean).join("\n"));
+                    r.other ? `${r.other} ${t("ke bank lain lewat BI FAST.")}` : "", r.skipped ? `${r.skipped} ${t("karyawan dilewati (gaji bersih Rp 0).")}` : "",
+                    r.cash?.length ? `${r.cash.length} ${t("karyawan dibayar Cash, tidak masuk file (dibayar Admin)")}: ${r.cash.join(", ")}.` : ""].filter(Boolean).join("\n"));
                 })}
                 className="inline-flex h-8 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-50">
                 <FileDown size={13} /> <T>Unduh File</T>

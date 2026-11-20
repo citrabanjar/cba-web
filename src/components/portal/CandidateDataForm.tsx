@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import { Label } from "@/components/ui/label";
 import { T, useT } from "@/components/i18n";
-import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES } from "@/lib/personal-info";
+import { BANK_OPTIONS, isCashBank, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES } from "@/lib/personal-info";
 import { PTKP_OPTIONS, type CandidateData } from "@/lib/onboarding";
 import RegionSelect from "@/components/RegionSelect";
 
@@ -109,9 +109,10 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
           <div className="space-y-1.5"><Label className="text-xs"><T>Nama bank</T></Label>
             {/* Daftar bank membuka ke bawah isian (seragam dengan pilihan lain), tetap boleh diketik bebas. */}
             {disabled ? <Input value={value.bankName} disabled />
-              : <EmployeeCombobox id="onb-bank" value={value.bankName} options={BANK_OPTIONS.map((b) => ({ value: b.value, label: "" }))} onChange={(v) => set("bankName", v)} />}</div>
-          {text("bankAccount", "No. rekening", { inputMode: "numeric" })}
-          {text("bankHolder", "Nama pemilik rekening", {}, true)}
+              : <EmployeeCombobox id="onb-bank" value={value.bankName} options={BANK_OPTIONS.map((b) => ({ value: b.value, label: "" }))} onChange={(v) => { set("bankName", v); if (isCashBank(v)) { set("bankAccount", ""); set("bankHolder", ""); } }} />}</div>
+          {/* Cash: dibayar tunai, nomor & nama rekening tidak diisi. */}
+          {text("bankAccount", "No. rekening", { inputMode: "numeric", ...(isCashBank(value.bankName) ? { disabled: true, value: "" } : {}) })}
+          {text("bankHolder", "Nama pemilik rekening", isCashBank(value.bankName) ? { disabled: true, value: "" } : {}, true)}
         </div>
       ))}
 

@@ -107,7 +107,7 @@ const COLUMNS: Column[] = [
   { field: "taxability", names: ["Taxability"], choices: { gross: "Gross", "gross up": "Gross Up", net: "Net" }, shown: "Gross, Gross Up, Net", example: "Gross" },
   { field: "taxStatus", names: ["Status Pajak", "Employee Tax Status"], choices: { "pegawai tetap": "Pegawai Tetap", "pegawai tidak tetap": "Pegawai Tidak Tetap" }, shown: "Pegawai Tetap, Pegawai Tidak Tetap", example: "Pegawai Tetap" },
   { field: "taxObjectCode", names: ["Kode Objek Pajak"], choices: { "21-100-01": "21-100-01", "21-100-35": "21-100-35", "21-100-24": "21-100-24", "21-100-30": "21-100-30" }, shown: "21-100-01, 21-100-35, 21-100-24, 21-100-30 (diisi otomatis dari Status Pajak dan Jadwal Gajian)", example: "21-100-01" },
-  { field: "bankName", names: ["Nama Bank", "Bank Name"], example: "Mandiri" },
+  { field: "bankName", names: ["Nama Bank", "Bank Name"], example: "Mandiri", note: "Isi Cash bila gaji dibayar tunai; No Rekening dan Nama Pemilik Rekening dikosongkan. Karyawan Cash tidak masuk file transfer bank." },
   { field: "bankAccount", names: ["No Rekening", "Bank Account Number"], kind: "digits", example: "1234567890123", note: "Angka saja. Tulis sebagai teks." },
   { field: "bankHolder", names: ["Nama Pemilik Rekening", "Bank Account Holder"], example: "Ahmad Subarjo" },
   { field: "phone", names: ["No HP", "Mobile Phone (WhatsApp)"], kind: "phone", example: "081234567890", note: "Boleh diawali 08 atau 62. Tulis sebagai teks." },
@@ -176,6 +176,7 @@ function toNumber(v: unknown): number | undefined {
 }
 
 function toBank(v: unknown): string | undefined {
+  if (/^(cash|tunai)$/i.test(clean(v))) return "Cash";
   const s = clean(v).replace(/^bank_/i, "").replace(/_/g, " ");
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : undefined;
 }

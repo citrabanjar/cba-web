@@ -12,6 +12,7 @@ import { decisionText, notify } from "@/lib/notify";
 import { EDIT_FIELD_LABELS, FAMILY_RELATIONS, ID_TYPES, PTKP_VALID, TAX_OBJECT_CODES, TAX_STATUSES } from "@/lib/personal-info";
 import { syncTaxObjectCode } from "@/lib/tax-object";
 import type { ImportComponent, ImportRow, PayColumn, TemplateRow } from "@/lib/employee-import";
+import { CASH_BANK, isCashBank } from "@/lib/personal-info";
 import { employeePayColumns, employeeTemplateRows } from "@/lib/employee-export";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -123,6 +124,8 @@ async function wouldLoop(id: string, managerId: string | null): Promise<boolean>
 export async function updateEmployee(id: string, data: EmployeeUpdate): Promise<{ success?: boolean; proposed?: string; error?: string }> {
   const access = await getAccess();
   const edit = canEditMenu(access, "karyawan"), propose = canProposeMenu(access, "karyawan");
+  // Cash: tanpa nomor & nama rekening.
+  if (isCashBank(data.bankName)) data = { ...data, bankName: CASH_BANK, bankAccount: "", bankHolder: "" };
   if (!access || (!edit && !propose)) throw new Error("Anda hanya punya hak lihat di menu ini.");
   // Status PTKP hanya boleh nilai baku (TK/0 ... K/3), bukan ketikan bebas.
   if (data.ptkpStatus?.trim()) {
@@ -798,8 +801,8 @@ export async function importEmployees(rows: ImportRow[]) {
             taxStatus: row.taxStatus,
             taxObjectCode: row.taxObjectCode,
             bankName: row.bankName,
-            bankAccount: row.bankAccount,
-            bankHolder: row.bankHolder,
+            bankAccount: isCashBank(row.bankName) ? null : row.bankAccount,
+            bankHolder: isCashBank(row.bankName) ? null : row.bankHolder,
             idType: row.ktpNumber ? "KTP" : null,
             ktpNumber: row.ktpNumber,
             address: row.address,

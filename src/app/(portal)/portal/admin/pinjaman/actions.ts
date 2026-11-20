@@ -207,17 +207,22 @@ export async function importOpeningLoans(rows: OpeningRow[]): Promise<Result & {
 // 3. Kendala konfirmasi diambil alih Super Admin (cek transaksi di bank): konfirmasi paksa, atau batalkan transfer
 //    (kembali ke Menunggu pencairan). Selebihnya SOP manual, tidak diotomasi.
 export async function buildLoanTransferFile(ids: string[], input: { template: string; date: string; debitAccount: string }):
-  Promise<{ error?: string; fileName?: string; content?: string; count?: number; total?: number; other?: number }> {
+  Promise<{ error?: string; fileName?: string; content?: string; count?: number; total?: number; other?: number; cash?: string[] }> {
   const access = await requireAdmin();
   if (!TRANSFER_TEMPLATES.some((t) => t.key === input.template)) return { error: "Template transfer tidak dikenal." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Isi tanggal transfer." };
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
   if (input.date < today) return { error: "Tanggal transfer tidak boleh sebelum hari ini." };
-  const loans = await prisma.employeeLoan.findMany({
+  let loans = await prisma.employeeLoan.findMany({
     where: { id: { in: ids }, status: "DISETUJUI" },
     include: { user: { select: { name: true, employeeId: true, bankName: true, bankAccount: true, bankHolder: true, email: true } } },
   });
   if (!loans.length) return { error: "Pilih pinjaman yang menunggu pencairan." };
+  // Karyawan Cash dilewati: tetap Menunggu pencairan, dicairkan tunai lewat Tandai Dicairkan.
+  const cashLoans = loans.filter((l) => (l.user.bankName ?? "").trim().toLowerCase() === "cash");
+  const cash = cashLoans.map((l) => `${l.user.name}${l.user.employeeId ? ` (${l.user.employeeId})` : ""}`);
+  loans = loans.filter((l) => !cashLoans.includes(l));
+  if (!loans.length) return { error: "Semua pinjaman yang dipilih milik karyawan Cash; cairkan tunai lewat Tandai Dicairkan." };
   const rows = loans.map((l) => ({
     name: l.user.name, employeeId: l.user.employeeId, bankName: l.user.bankName, account: l.user.bankAccount, holder: l.user.bankHolder,
     email: l.user.email, amount: l.principal, remark: `Pinjaman${l.seqNo ? ` ke-${l.seqNo}` : ""} ${l.user.name}`,
@@ -241,7 +246,7 @@ export async function buildLoanTransferFile(ids: string[], input: { template: st
       `/portal/pinjaman?terima=${l.id}`);
   }
   for (const l of loans) refresh(l.userId);
-  return { fileName: `KOPRA Pinjaman - ${input.date.replace(/-/g, "")}.txt`, content: r.content, count: r.count, total: r.total, other: r.other };
+  return { fileName: `KOPRA Pinjaman - ${input.date.replace(/-/g, "")}.txt`, content: r.content, count: r.count, total: r.total, other: r.other, cash };
 }
 
 // Karyawan (atau Super Admin, konfirmasi paksa) mengonfirmasi dana pinjaman sudah diterima → pinjaman Berjalan.

@@ -1,5 +1,6 @@
 "use server";
 
+import { isCashBank } from "@/lib/personal-info";
 import bcrypt from "bcryptjs";
 import { decisionText, notify } from "@/lib/notify";
 import { revalidatePath } from "next/cache";
@@ -43,6 +44,8 @@ export async function submitProfileChange(input: { values: Record<string, string
   const record = user as unknown as Record<string, unknown>;
 
   const changes: ProfileChanges = {};
+  // Cash: tanpa nomor & nama rekening.
+  if (isCashBank(input.values.bankName)) input = { ...input, values: { ...input.values, bankName: "Cash", bankAccount: "", bankHolder: "" } };
   for (const f of PROFILE_FIELDS) {
     if (!(f.key in input.values)) continue;
     const typed = (input.values[f.key] ?? "").trim();

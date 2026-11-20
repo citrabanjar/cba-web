@@ -473,7 +473,7 @@ export async function getTransferDebit(): Promise<string> {
 }
 
 export async function buildTransferFile(runId: string, input: { template: string; date: string; debitAccount: string }):
-  Promise<{ error?: string; fileName?: string; content?: string; count?: number; total?: number; skipped?: number; other?: number }> {
+  Promise<{ error?: string; fileName?: string; content?: string; count?: number; total?: number; skipped?: number; other?: number; cash?: string[] }> {
   const access = await requirePayroll();
   if (!TRANSFER_TEMPLATES.some((t) => t.key === input.template)) return { error: "Template transfer tidak dikenal." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Isi tanggal transfer." };
@@ -497,5 +497,5 @@ export async function buildTransferFile(runId: string, input: { template: string
     create: { key: TRANSFER_SETTING_KEY, value: { debitAccount: input.debitAccount.replace(/\D/g, "") }, updatedBy: access.name ?? null },
     update: { value: { debitAccount: input.debitAccount.replace(/\D/g, "") }, updatedBy: access.name ?? null },
   });
-  return { fileName: `KOPRA Payroll ${remark.replace(/^Gaji /, "")} - ${input.date.replace(/-/g, "")}.txt`, content: r.content, count: r.count, total: r.total, skipped: r.skipped, other: r.other };
+  return { fileName: `KOPRA Payroll ${remark.replace(/^Gaji /, "")} - ${input.date.replace(/-/g, "")}.txt`, content: r.content, count: r.count, total: r.total, skipped: r.skipped, other: r.other, cash: r.cash };
 }

@@ -16,7 +16,7 @@ import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
 import ActionMenu, { QUICK_ACTIONS as ACTION_ITEMS } from "@/components/portal/ActionMenu";
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 import type { MasterOptions } from "@/lib/master-data";
-import { BANK_OPTIONS, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES, PERSONAL_LOG_LABELS, PTKP_STATUSES, TAX_OBJECT_CODES, TAX_STATUSES, WORK_LOG_LABELS, normalizeChoice } from "@/lib/personal-info";
+import { BANK_OPTIONS, isCashBank, FAMILY_RELATIONS, ID_TYPES, PERSONAL_CHOICES, PERSONAL_LOG_LABELS, PTKP_STATUSES, TAX_OBJECT_CODES, TAX_STATUSES, WORK_LOG_LABELS, normalizeChoice } from "@/lib/personal-info";
 import {
   addEmploymentEvent, addJobChange, addSalaryAdjustment, reactivateEmployee, saveFamily, updateEmployee,
 } from "../actions";
@@ -906,7 +906,7 @@ export default function KaryawanDetailClient({
     bank: [
       {
         key: "bankName", label: "Nama Bank", type: "suggest", options: BANK_OPTIONS,
-        hint: "Pilih dari daftar, atau ketik sendiri kalau tidak ada.",
+        hint: "Pilih dari daftar, atau ketik sendiri kalau tidak ada. Pilih Cash bila gaji dibayar tunai.",
       },
       { key: "bankAccount", label: "No Rekening" },
       { key: "bankHolder", label: "Nama Pemilik Rekening" },
@@ -1541,8 +1541,14 @@ export default function KaryawanDetailClient({
                     id={field.key}
                     value={form[field.key] ?? ""}
                     options={field.options ?? []}
-                    onChange={(value) => setForm((f) => ({ ...f, [field.key]: value }))}
+                    onChange={(value) => setForm((f) => ({
+                      ...f, [field.key]: value,
+                      // Cash: nomor & nama rekening dikosongkan (dikunci di bawah).
+                      ...(field.key === "bankName" && isCashBank(value) ? { bankAccount: "", bankHolder: "" } : {}),
+                    }))}
                   />
+                ) : (field.key === "bankAccount" || field.key === "bankHolder") && isCashBank(form.bankName) ? (
+                  <Input id={field.key} value="" disabled placeholder={t("Tidak diisi (dibayar Cash)")} />
                 ) : (
                   <Input
                     id={field.key}

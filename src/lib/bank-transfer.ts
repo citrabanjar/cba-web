@@ -53,7 +53,8 @@ export function bankRoute(bankName: string | null | undefined): "MANDIRI" | { co
 
 // remark: keterangan per baris (mis. pinjaman); kosong = keterangan file.
 export type TransferRow = { name: string; employeeId: string | null; bankName: string | null; account: string | null; holder: string | null; email: string | null; amount: number; remark?: string };
-export type TransferResult = { content: string; count: number; total: number; skipped: number; other: number } | { errors: string[] };
+// cash: nama karyawan berpembayaran Cash yang dilewati (dibayar Admin secara manual).
+export type TransferResult = { content: string; count: number; total: number; skipped: number; other: number; cash: string[] } | { errors: string[] };
 
 const clean = (s: string, max: number) => s.replace(/[;\r\n\t]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 const EMAIL = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
@@ -68,10 +69,12 @@ export function buildKopra(rows: TransferRow[], opts: { date: string; debitAccou
   const remark = clean(opts.remark, 140);
   const lines: string[] = [];
   let total = 0, skipped = 0, other = 0;
+  const cash: string[] = [];
   for (const r of rows) {
     const amount = Math.round(r.amount);
     if (amount <= 0) { skipped++; continue; }
     const who = `${r.name}${r.employeeId ? ` (${r.employeeId})` : ""}`;
+    if ((r.bankName ?? "").trim().toLowerCase() === "cash") { cash.push(who); continue; }
     const acc = (r.account ?? "").replace(/[\s.-]/g, "");
     if (!acc) { errors.push(`${who}: nomor rekening kosong.`); continue; }
     if (!/^\d{5,35}$/.test(acc)) { errors.push(`${who}: nomor rekening hanya boleh angka.`); continue; }
@@ -86,8 +89,8 @@ export function buildKopra(rows: TransferRow[], opts: { date: string; debitAccou
     lines.push(f.join(";"));
     total += amount;
   }
-  if (!errors.length && !lines.length) errors.push("Tidak ada gaji yang perlu ditransfer di periode ini.");
+  if (!errors.length && !lines.length) errors.push(cash.length ? "Semua penerima di daftar ini dibayar Cash; tidak ada yang perlu ditransfer." : "Tidak ada gaji yang perlu ditransfer di periode ini.");
   if (errors.length) return { errors };
   const header = ["P", `${y}${m}${d}`, debit, String(lines.length), String(total)].join(";");
-  return { content: [header, ...lines].join("\r\n"), count: lines.length, total, skipped, other };
+  return { content: [header, ...lines].join("\r\n"), count: lines.length, total, skipped, other, cash };
 }

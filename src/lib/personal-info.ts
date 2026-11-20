@@ -22,9 +22,14 @@ export function normalizeChoice(field: PersonalChoiceField, value: string | null
   return CHOICE_ALIASES[field][text.toLowerCase()] ?? text;
 }
 
+// Gaji dibayar tunai (bukan transfer): No Rekening & Nama Pemilik Rekening dikosongkan dan dikunci;
+// file transfer bank melewati karyawan ini (dibayar Admin secara manual). Keputusan pemilik 2026-11-20.
+export const CASH_BANK = "Cash";
+export const isCashBank = (b: string | null | undefined) => (b ?? "").trim().toLowerCase() === "cash";
+
 // Saran saja: bank di luar daftar tetap bisa diketik sendiri.
 export const BANK_OPTIONS = [
-  "Mandiri", "BCA", "BNI", "BRI", "BSI", "BTN", "CIMB Niaga", "Danamon", "Permata",
+  CASH_BANK, "Mandiri", "BCA", "BNI", "BRI", "BSI", "BTN", "CIMB Niaga", "Danamon", "Permata",
   "OCBC", "Panin", "Maybank", "UOB", "BTPN", "Mega", "Muamalat", "Bank Jago", "SeaBank",
   "Bank DKI", "BJB", "Bank Jateng", "Bank Jatim", "Bank Kalsel",
 ].map((value) => ({ value, label: "" }));
