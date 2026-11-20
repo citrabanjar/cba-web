@@ -273,7 +273,7 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, sl
                 {loans.map((l, i) => (
                   <div key={i} className="border-b border-gray-100 py-2 last:border-b-0">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-gray-900"><T>Pinjaman ke-</T>{l.no} · {formatRupiah(l.principal)}{l.status === "DISETUJUI" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"><T>Belum dicairkan</T></span>}</p>
+                      <p className="text-sm font-semibold text-gray-900"><T>Pinjaman ke-</T>{l.no} · {formatRupiah(l.principal)}{l.status === "DISETUJUI" && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"><T>Belum dicairkan</T></span>}{l.status === "TRANSFER" && <span className="ml-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700"><T>Proses transfer</T></span>}</p>
                       {l.schedule.length > 0 && (
                         <button type="button" onClick={() => setShowInst((v) => (v === i ? null : i))} className="text-xs font-semibold text-brand">
                           <T>{showInst === i ? "Sembunyikan Angsuran" : "Lihat Angsuran"}</T>

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
-import { ArrowUpRight, ChevronDown, Download, HandCoins, Loader2, Search, Upload, Wallet, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Download, FileDown, HandCoins, Loader2, Search, Upload, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,7 +16,9 @@ import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, LOAN_STAGE, LOAN_STATUS, addMonths, isPeriod, loanStageOf, loanSummary, periodShort } from "@/lib/loans";
 import { showNotice } from "@/components/portal/Confirm";
 import { proposedText } from "@/lib/approval-text";
-import { importOpeningLoans, type OpeningRow } from "./actions";
+import { buildLoanTransferFile, getLoanTransferDebit, importOpeningLoans, type OpeningRow } from "./actions";
+import { TRANSFER_TEMPLATES } from "@/lib/bank-transfer";
+import { toast } from "@/components/portal/Toast";
 
 export type AdminLoan = LoanView & { userId: string; name: string; employeeId: string; department: string | null };
 export type LoanEmployee = { employeeId: string; name: string };
@@ -155,6 +157,69 @@ export function OpeningLoanImportDialog({ employees, onClose }: { employees: Loa
   );
 }
 
+const todayWib = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+// Pencairan lewat file transfer bank: pilih pinjaman Menunggu pencairan → file TXT (template bank) → status Proses transfer,
+// karyawan diberi notifikasi untuk klik Sudah terima.
+function TransferPanel({ loans, onClose }: { loans: AdminLoan[]; onClose: () => void }) {
+  const t = useT();
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [sel, setSel] = useState<Set<string>>(() => new Set(loans.map((l) => l.id)));
+  const [form, setForm] = useState({ template: TRANSFER_TEMPLATES[0].key as string, date: todayWib(), debit: "" });
+  const [loaded, setLoaded] = useState(false);
+  if (!loaded) { setLoaded(true); void getLoanTransferDebit().then((d) => setForm((f) => (f.debit ? f : { ...f, debit: d }))).catch(() => {}); }
+  const total = loans.filter((l) => sel.has(l.id)).reduce((a, l) => a + l.principal, 0);
+  const field = "mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand";
+  const make = () => start(async () => {
+    const r = await buildLoanTransferFile([...sel], { template: form.template, date: form.date, debitAccount: form.debit });
+    if (r.error || !r.content || !r.fileName) { void showNotice(r.error ? r.error.split("\n").map((x) => t(x)).join("\n") : t("Gagal membuat file."), "error"); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([r.content], { type: "text/plain" }));
+    a.download = r.fileName; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast(`${t("File transfer dibuat")}: ${r.count} ${t("karyawan")}, ${formatRupiah(r.total ?? 0)}.`);
+    onClose();
+    router.refresh();
+  });
+  return (
+    <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-800"><T>Buat File Transfer Pinjaman</T></p>
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label={t("Tutup")}><X size={16} /></button>
+      </div>
+      <div className="max-h-56 divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-100">
+        {loans.map((l) => (
+          <label key={l.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50">
+            <input type="checkbox" checked={sel.has(l.id)} className="h-4 w-4 accent-[#BE353F]"
+              onChange={(e) => setSel((x) => { const n = new Set(x); if (e.target.checked) n.add(l.id); else n.delete(l.id); return n; })} />
+            <span className="min-w-0 flex-1 truncate"><b className="font-semibold text-gray-900">{l.name}</b> <span className="text-xs text-gray-400">{l.employeeId}{l.seqNo > 0 && <> · <T>Pinjaman ke-</T>{l.seqNo}</>}</span></span>
+            <span className="tabular-nums text-gray-700">{formatRupiah(l.principal)}</span>
+          </label>
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block text-xs font-medium text-gray-500"><T>Template</T>
+          <select value={form.template} onChange={(e) => setForm({ ...form, template: e.target.value })} className={field}>
+            {TRANSFER_TEMPLATES.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+          </select>
+        </label>
+        <label className="block text-xs font-medium text-gray-500"><T>Tanggal transfer</T>
+          <input type="date" value={form.date} min={todayWib()} onChange={(e) => setForm({ ...form, date: e.target.value })} className={field} />
+        </label>
+        <label className="block text-xs font-medium text-gray-500"><T>Rekening debit perusahaan</T>
+          <input inputMode="numeric" value={form.debit} onChange={(e) => setForm({ ...form, debit: e.target.value.replace(/\D/g, "") })} className={field} />
+        </label>
+      </div>
+      <p className="text-[11px] text-gray-400"><T>Setelah file dibuat, status pinjaman menjadi Proses transfer dan karyawan diminta klik Sudah terima. Pinjaman aktif setelah dikonfirmasi.</T></p>
+      <div className="flex items-center justify-end gap-3">
+        <span className="text-xs text-gray-500">{sel.size} <T>karyawan</T> · <b className="text-gray-900">{formatRupiah(total)}</b></span>
+        <Button size="sm" disabled={pending || !sel.size || !form.date || !form.debit} onClick={make} className="gap-1.5">
+          {pending ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} <T>Unduh File</T>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // Daftar semua pinjaman semua karyawan. Pemeriksaan pengajuan, pencairan, dan perubahan angsuran dilakukan langsung di sini;
 // pinjaman yang sudah dicairkan juga tampil di tab Pinjaman profil karyawan.
 export default function PinjamanAdminClient({ loans, employees }: { loans: AdminLoan[]; employees: LoanEmployee[] }) {
@@ -163,6 +228,7 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
   const [tab, setTab] = useState<string>(() => (loans.some((l) => ["PENDING", "DISETUJUI"].includes(l.status)) ? "menunggu" : "berjalan"));
   const [q, setQ] = useState("");
   const [upload, setUpload] = useState(false);
+  const [xfer, setXfer] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ kind: "approve" | "disburse" | "schedule"; loan: AdminLoan } | null>(null);
   const inGroup = (key: string) => loans.filter((l) => (LOAN_GROUPS.find((g) => g.key === key)!.statuses as readonly string[]).includes(l.status));
@@ -214,6 +280,12 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
           <Search size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Cari nama / ID")} className="h-9 w-48 pl-8" />
         </div>
+        {canEdit && loans.some((l) => l.status === "DISETUJUI") && (
+          <button type="button" onClick={() => setXfer(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white hover:bg-brand-dark">
+            <FileDown size={14} /> <T>Buat File Transfer</T>
+          </button>
+        )}
         {canEdit && (
           <button type="button" onClick={() => setUpload(true)}
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
@@ -221,6 +293,7 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
           </button>
         )}
       </div>
+      {xfer && <TransferPanel loans={loans.filter((l) => l.status === "DISETUJUI")} onClose={() => setXfer(false)} />}
       {/* Daftar ringkas; klik satu baris untuk membuka rinciannya (hanya satu yang terbuka). */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         {list.length === 0 && <p className="p-8 text-center text-sm text-gray-500"><T>Tidak ada data.</T></p>}

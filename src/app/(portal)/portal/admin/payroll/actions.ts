@@ -14,7 +14,7 @@ import { getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { finalizeRun, generateRun, recomputeLine, unfinalizeRun, type LineInputs } from "@/lib/payroll-run";
 import { isSuperAdmin } from "@/lib/roles";
 import { BONUS_MODES, BONUS_SETTING_KEY, getBonusSchedule, type BonusEntry } from "@/lib/payroll-bonus";
-import { isSeparate, periodLabel } from "@/lib/payroll-run-period";
+import { isSeparate, isWeekly, periodLabel, weeklyPayDate } from "@/lib/payroll-run-period";
 import { TRANSFER_SETTING_KEY, TRANSFER_TEMPLATES, buildKopra } from "@/lib/bank-transfer";
 import { holdForApproval, type HoldDetail } from "@/lib/approval-hold";
 import { readReimburse, REIMBURSE_KEY, type ReimburseSettings } from "@/lib/reimburse-shared";
@@ -208,9 +208,25 @@ export async function savePayrollSettings(input: PayrollSettings): Promise<Resul
 // ─── Proses gaji bulanan ────────────────────────────────────────────────────
 
 // THR / Bonus ikut otomatis menurut Jadwal THR / Bonus (Pengaturan); periode "X-<tanggal>-<kode>" = THR / Bonus terpisah.
+// Pinjaman yang sudah ditransfer tapi belum dikonfirmasi karyawan (Sudah terima), dengan angsuran jatuh tempo di bulan gaji ini:
+// Proses Gaji tertahan sampai Admin menyelesaikannya (keputusan pemilik 2026-11-20).
+async function unconfirmedLoans(period: string) {
+  if (isSeparate(period)) return null;
+  const month = isWeekly(period) ? weeklyPayDate(period).slice(0, 7) : period.slice(0, 7);
+  const loans = await prisma.employeeLoan.findMany({
+    where: { status: "TRANSFER", installments: { some: { status: "BELUM", period: { lte: month } } } },
+    select: { user: { select: { name: true } } },
+  });
+  if (!loans.length) return null;
+  const names = [...new Set(loans.map((l) => l.user.name))];
+  return `Proses Gaji tertahan: pencairan pinjaman ${names.slice(0, 5).join(", ")}${names.length > 5 ? ` dan ${names.length - 5} lainnya` : ""} belum dikonfirmasi karyawan. Selesaikan dulu di menu Pinjaman Karyawan.`;
+}
+
 export async function generatePayroll(period: string): Promise<Result> {
   const access = await requirePayroll();
   if (!/^\d{4}-\d{2}(-\d{2})?$/.test(period) && !isSeparate(period)) return { error: "Periode tidak valid." };
+  const blocked = await unconfirmedLoans(period);
+  if (blocked) return { error: blocked };
   try {
     await generateRun(period, access.name ?? null);
   } catch (e) {
@@ -242,6 +258,8 @@ export async function updatePayrollLine(lineId: string, inputs: Partial<LineInpu
 export async function finalizePayroll(runId: string): Promise<Result & { count?: number }> {
   const access = await requirePayroll();
   const run = await prisma.payrollRun.findUnique({ where: { id: runId }, select: { period: true, status: true } });
+  const blocked = run ? await unconfirmedLoans(run.period) : null;
+  if (blocked) return { error: blocked };
   const held = await holdForApproval({
     kind: "gaji.finalizePayroll", args: [runId], title: `Payroll: finalkan gaji periode ${run?.period ?? ""}`,
     details: [{ field: "Status periode", oldValue: run?.status === "FINAL" ? "Final" : "Draft", newValue: "Final (slip gaji terbit)" }],

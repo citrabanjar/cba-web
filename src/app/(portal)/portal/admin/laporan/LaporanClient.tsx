@@ -372,7 +372,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                         <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.stage || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.stage ? <><T>Tahap</T>: <T>{LOAN_STAGE[r.stage] ?? r.stage}</T></> : r.decidedBy}</p>}</td>
                         <td className="max-w-56 truncate px-3 py-2 text-gray-600" title={r.purpose ?? ""}>{r.purpose ?? "-"}</td>
                         <td className="px-3 py-2 text-right">
-                          {(r.status === "PENDING" || r.status === "DISETUJUI") && (
+                          {(r.status === "PENDING" || r.status === "DISETUJUI" || r.status === "TRANSFER") && (
                             <Link href={`/portal/admin/pinjaman${r.stage ? `?tahap=${r.stage}` : ""}`} className="text-xs font-semibold text-brand hover:underline"><T>Proses</T> →</Link>
                           )}
                         </td>

@@ -45,9 +45,14 @@ export default async function NotifikasiPage({ searchParams }: { searchParams: P
     ? await prisma.overtime.findMany({ where: { userId: access.id, order: { number: { in: numbers } } }, select: { id: true, status: true, order: { select: { number: true } } } })
     : [];
   const splBy = new Map(spls.map((o) => [o.order?.number ?? "", { kind: "spl" as const, id: o.id, status: o.status }]));
+  // Dana pinjaman ditransfer: dijawab dengan tombol Sudah terima (href /portal/pinjaman?terima=<id>).
+  const loanId = (href: string | null) => /[?&]terima=([^&]+)/.exec(href ?? "")?.[1] ?? null;
+  const loanIds = [...new Set(rows.map((n) => loanId(n.href)).filter((x): x is string => !!x))];
+  const myLoans = loanIds.length ? await prisma.employeeLoan.findMany({ where: { id: { in: loanIds }, userId: access.id }, select: { id: true, status: true } }) : [];
+  const loanBy = new Map(myLoans.map((l) => [l.id, { kind: "loan" as const, id: l.id, status: l.status }]));
   const items = rows.map((n) => ({
     id: n.id, title: n.title, body: n.body, href: n.href, read: !!n.readAt, at: n.createdAt.toISOString(), module: moduleOf(n.href, n.title),
-    action: splBy.get(splNo(n.title) ?? "") ?? null,
+    action: splBy.get(splNo(n.title) ?? "") ?? loanBy.get(loanId(n.href) ?? "") ?? null,
   }));
 
   // Pengajuan menunggu keputusan saya, dikelompokkan ke modulnya.

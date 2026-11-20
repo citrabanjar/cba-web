@@ -51,19 +51,20 @@ export function bankRoute(bankName: string | null | undefined): "MANDIRI" | { co
   return hit ? { code: hit[1], name: hit[2] } : null;
 }
 
-export type TransferRow = { name: string; employeeId: string | null; bankName: string | null; account: string | null; holder: string | null; email: string | null; amount: number };
+// remark: keterangan per baris (mis. pinjaman); kosong = keterangan file.
+export type TransferRow = { name: string; employeeId: string | null; bankName: string | null; account: string | null; holder: string | null; email: string | null; amount: number; remark?: string };
 export type TransferResult = { content: string; count: number; total: number; skipped: number; other: number } | { errors: string[] };
 
 const clean = (s: string, max: number) => s.replace(/[;\r\n\t]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 const EMAIL = /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/;
 
-// date = yyyy-mm-dd (tanggal transfer); remark = keterangan transaksi (mis. "Gaji November 2026").
-export function buildKopra(rows: TransferRow[], opts: { date: string; debitAccount: string; remark: string }): TransferResult {
+// date = yyyy-mm-dd (tanggal transfer); remark = keterangan transaksi (mis. "Gaji November 2026"); code = kode referensi (GAJI / PINJ).
+export function buildKopra(rows: TransferRow[], opts: { date: string; debitAccount: string; remark: string; code?: string }): TransferResult {
   const debit = opts.debitAccount.replace(/\D/g, "");
   const errors: string[] = [];
   if (!/^\d{10,40}$/.test(debit)) errors.push("Rekening debit perusahaan tidak valid.");
   const [y, m, d] = opts.date.split("-");
-  const ref = `${d}/${m}/GAJI/${y}`; // maks 19 karakter
+  const ref = `${d}/${m}/${opts.code ?? "GAJI"}/${y}`; // maks 19 karakter
   const remark = clean(opts.remark, 140);
   const lines: string[] = [];
   let total = 0, skipped = 0, other = 0;
@@ -78,7 +79,7 @@ export function buildKopra(rows: TransferRow[], opts: { date: string; debitAccou
     if (!route) { errors.push(`${who}: bank "${r.bankName ?? "-"}" belum dikenal.`); continue; }
     const email = r.email && EMAIL.test(r.email) ? r.email : "";
     const f: string[] = Array(46).fill("");
-    f[0] = acc; f[1] = clean(r.holder || r.name, 70); f[5] = "IDR"; f[6] = String(amount); f[7] = remark; f[8] = ref;
+    f[0] = acc; f[1] = clean(r.holder || r.name, 70); f[5] = "IDR"; f[6] = String(amount); f[7] = r.remark ? clean(r.remark, 140) : remark; f[8] = ref;
     if (route === "MANDIRI") f[9] = "IBU";
     else { f[9] = "BAU"; f[10] = route.code; f[11] = route.name; other++; }
     f[16] = email ? "Y" : "N"; f[17] = email;

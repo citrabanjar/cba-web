@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit } from "@/components/portal/edit-access";
+import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, loanStageOf, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
-import { cancelLoan, deleteLoan, markDisbursed, saveSchedule, submitLoanReview } from "@/app/(portal)/portal/admin/pinjaman/actions";
+import { cancelLoan, cancelLoanTransfer, confirmLoanReceived, deleteLoan, markDisbursed, saveSchedule, submitLoanReview } from "@/app/(portal)/portal/admin/pinjaman/actions";
 import { toast } from "@/components/portal/Toast";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 import { proposedText } from "@/lib/approval-text";
@@ -281,6 +281,24 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
   const [pending, start] = useTransition();
   const canCancel = ["DISETUJUI", "BERJALAN"].includes(loan.status) && !loan.installments.some((i) => i.status === "LUNAS");
   const canEdit = useCanEdit("pinjaman"); // hak lihat saja: tombol proses pinjaman disembunyikan
+  const superAdmin = useIsSuperAdmin();
+  const run = (fn: () => Promise<{ error?: string }>, ok: string) => start(async () => { const r = await fn(); if (r.error) showNotice(t(r.error), "error"); else toast(t(ok)); });
+  // Proses transfer: menunggu karyawan klik Sudah terima. Kendala diambil alih Super Admin (cek transaksi bank lebih dulu).
+  if (loan.status === "TRANSFER") {
+    if (!superAdmin) return <p className="max-w-[12rem] text-right text-[11px] text-indigo-700"><T>Menunggu konfirmasi karyawan (Sudah terima).</T></p>;
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Button size="sm" disabled={pending}
+          onClick={async () => { if (await askConfirm(t("Konfirmasi paksa: dana pinjaman sudah diterima karyawan? Pastikan transaksi di bank sudah dicek."))) run(() => confirmLoanReceived(loan.id), "Pinjaman aktif."); }}>
+          <T>Konfirmasi Paksa</T>
+        </Button>
+        <Button size="sm" variant="outline" disabled={pending} className="text-rose-600"
+          onClick={async () => { if (await askConfirm(t("Batalkan transfer? Pinjaman kembali ke Menunggu pencairan."))) run(() => cancelLoanTransfer(loan.id), "Transfer dibatalkan."); }}>
+          <T>Batalkan Transfer</T>
+        </Button>
+      </div>
+    );
+  }
   if (!canEdit) return null;
   return (
     <div className="flex flex-col gap-1.5">

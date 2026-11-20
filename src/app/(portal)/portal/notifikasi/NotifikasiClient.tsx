@@ -8,14 +8,15 @@ import { adminTitleEn, notifBodyEn, notifTitleEn } from "@/lib/notif-en";
 import type { NotifModule } from "@/lib/notif-modules";
 import { markNotificationsRead } from "@/app/(portal)/notif-actions";
 import { respondSpl } from "@/app/(portal)/portal/lembur/actions";
+import { confirmLoanReceived } from "@/app/(portal)/portal/admin/pinjaman/actions";
 import { OT_STATUS } from "@/lib/overtime-status";
 import { respondSwap } from "@/app/(portal)/portal/tukar-shift/actions";
 import { Card, EditCard, InterviewCard, LoanApprovalCard, ProfileCard, SwapCard, type ApprovalItem, type EditItem, type InterviewItem, type LoanItem, type OfferMaster, type ProfileItem, type SwapItem } from "@/app/(portal)/portal/persetujuan/PersetujuanClient";
 import { formatDate, formatDateTime, formatRupiah } from "@/lib/utils";
 import { RequestCard, type Req } from "@/app/(portal)/portal/profil/ProfilClient";
 
-// action: notifikasi yang dijawab langsung di halaman ini (SPL: Bersedia / Tidak bersedia).
-type Action = { kind: "spl"; id: string; status: string };
+// action: notifikasi yang dijawab langsung di halaman ini (SPL: Bersedia / Tidak bersedia; dana pinjaman: Sudah terima).
+type Action = { kind: "spl" | "loan"; id: string; status: string };
 type Item = { id: string; title: string; body: string | null; href: string | null; read: boolean; at: string; module: NotifModule; action: Action | null };
 type Mod = { key: NotifModule; label: string; total: number; unread: number; waiting: number; watching?: number; done: number };
 type Partner = { type: "partner"; id: string; date: string; requester: string; requesterShift: string; partnerShift: string; reason: string | null };
@@ -144,7 +145,7 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
           ) : (
             <>
             <div ref={scroller} className="divide-y divide-gray-50 md:max-h-[calc(100vh-18rem)] md:overflow-y-auto">
-              {shown.map(({ key, n, h }) => h ? <HistoryRow key={key} h={h} /> : !n ? null : n.action ? <ActionItem key={n.id} item={n} action={n.action} /> : (
+              {shown.map(({ key, n, h }) => h ? <HistoryRow key={key} h={h} /> : !n ? null : n.action ? (n.action.kind === "loan" ? <LoanReceiveItem key={n.id} item={n} action={n.action} /> : <ActionItem key={n.id} item={n} action={n.action} />) : (
                 <button key={n.id} type="button" onClick={() => open(n)} title={linkOf(n) ? t("Buka Pinjaman Karyawan") : n.read ? undefined : t("Tandai dibaca")}
                   className={`flex w-full gap-3 px-4 py-3 text-left ${n.read ? (linkOf(n) ? "hover:bg-gray-50" : "cursor-default") : "bg-rose-50/40 hover:bg-rose-50"}`}>
                   <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
@@ -177,6 +178,43 @@ export default function NotifikasiClient({ modules, items, pending, watching = [
             </>
           )}
         </section>
+      </div>
+    </div>
+  );
+}
+
+// Dana pinjaman ditransfer: karyawan klik Sudah terima setelah memastikan dana masuk → pinjaman aktif.
+function LoanReceiveItem({ item: n, action }: { item: Item; action: Action }) {
+  const en = useLang() === "en";
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState("");
+  const waiting = action.status === "TRANSFER";
+  const confirm = () => start(async () => {
+    setError("");
+    const r = await confirmLoanReceived(action.id);
+    if (r.error) { setError(r.error); return; }
+    if (!n.read) await markNotificationsRead(n.id);
+    router.refresh();
+  });
+  return (
+    <div className={`flex w-full gap-3 px-4 py-3 ${n.read ? "" : "bg-rose-50/40"}`}>
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-transparent" : "bg-brand"}`} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <p className={`text-sm ${n.read ? "text-gray-700" : "font-semibold text-gray-900"}`}>{en ? notifTitleEn(n.title) : n.title}</p>
+          {!waiting && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"><T>{action.status === "BATAL" || action.status === "DISETUJUI" ? "Dibatalkan" : "Sudah diterima"}</T></span>}
+        </div>
+        {n.body && <p className="text-xs text-gray-500">{en ? notifBodyEn(n.body) : n.body}</p>}
+        <p className="mt-0.5 text-[11px] text-gray-400">{formatDateTime(n.at)}</p>
+        {waiting && (
+          <div className="mt-2.5">
+            {error && <p className="mb-2 text-xs text-rose-600"><T>{error}</T></p>}
+            <button type="button" disabled={pending} onClick={confirm} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+              {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} <T>Sudah terima</T>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -333,7 +371,7 @@ function HistoryRow({ h }: { h: PendingCard }) {
     const l = c.item;
     title = `${t("Pengajuan pinjaman")} · ${who(l.person)}`;
     body = [`${formatRupiah(l.flow.plan?.total ?? l.principal)} · ${l.flow.plan?.count ?? l.tenor} ${t("kali angsuran")}`, l.purpose].filter(Boolean).join(" · ");
-    status = l.status === "DISETUJUI" || l.status === "BERJALAN" || l.status === "LUNAS" ? "APPROVED" : l.status === "DITOLAK" ? "REJECTED" : l.status;
+    status = l.status === "DISETUJUI" || l.status === "TRANSFER" || l.status === "BERJALAN" || l.status === "LUNAS" ? "APPROVED" : l.status === "DITOLAK" ? "REJECTED" : l.status;
     by = [...new Set([l.flow.managerAt && l.flow.managerName, ...(l.flow.pre ?? []).filter((x) => x.decision).map((x) => x.by || x.name), l.flow.topAt && (l.flow.topBy || l.flow.topName)].filter(Boolean))].join(", ");
   } else if (c.type === "interview") {
     title = `${t("Calon karyawan")} · ${c.item.name}`;

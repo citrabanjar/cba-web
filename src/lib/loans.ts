@@ -1,9 +1,12 @@
 // Pinjaman karyawan (tanpa bunga): jadwal angsuran dan ringkasan. Aman dipakai di server dan browser.
-// Alur: PENDING (diajukan) → DISETUJUI (belum dicairkan) → BERJALAN (dicairkan, angsuran dipotong) → LUNAS.
+// Alur: PENDING (diajukan) → DISETUJUI (belum dicairkan) → TRANSFER (file transfer dibuat, menunggu konfirmasi karyawan)
+// → BERJALAN (dana diterima, angsuran dipotong) → LUNAS.
 
 export const LOAN_STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: "Menunggu persetujuan", tone: "bg-amber-50 text-amber-700" },
   DISETUJUI: { label: "Disetujui, menunggu pencairan", tone: "bg-violet-50 text-violet-700" },
+  // File transfer sudah dibuat; menunggu karyawan klik Sudah terima. Proses Gaji tertahan selama angsurannya jatuh tempo.
+  TRANSFER: { label: "Proses transfer", tone: "bg-indigo-50 text-indigo-700" },
   BERJALAN: { label: "Berjalan", tone: "bg-sky-50 text-sky-700" },
   LUNAS: { label: "Lunas", tone: "bg-emerald-50 text-emerald-700" },
   DITOLAK: { label: "Ditolak", tone: "bg-rose-50 text-rose-700" },
@@ -35,6 +38,7 @@ export type LoanFlow = {
   managerId?: string; managerName?: string; managerAt?: string; managerNote?: string;
   topId?: string; topName?: string; topAt?: string; topNote?: string; topBy?: string;
   adminId?: string; adminName?: string; adminAt?: string; adminNote?: string; plan?: LoanPlan;
+  received?: { at: string; by: string; self: boolean }; // konfirmasi dana pinjaman diterima (Sudah terima)
   request?: LoanPlan; // permohonan karyawan saat masih ada pinjaman berjalan (hitung ulang angsuran bila mergeIds terisi)
 };
 export const readLoanFlow = (raw: unknown): LoanFlow => (raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as LoanFlow) : {});
@@ -59,7 +63,7 @@ export function loanReviewTurn(status: string, stage: string | null | undefined,
 // Penyetuju sebelum pemeriksaan Admin (selalu melihat pengajuannya).
 export const loanEarlyApprover = (f: LoanFlow, userId: string) => f.managerId === userId || !!f.pre?.some((x) => loanStepIds(x).includes(userId));
 export const LOAN_GROUPS = [
-  { key: "menunggu", label: "Menunggu", statuses: ["PENDING", "DISETUJUI"] },
+  { key: "menunggu", label: "Menunggu", statuses: ["PENDING", "DISETUJUI", "TRANSFER"] },
   { key: "berjalan", label: "Berjalan", statuses: ["BERJALAN"] },
   { key: "selesai", label: "Selesai", statuses: ["LUNAS", "DIGABUNG", "DITOLAK", "BATAL"] },
 ] as const;

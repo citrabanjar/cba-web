@@ -10,6 +10,7 @@ import { formatRupiah } from "@/lib/utils";
 import { addMonths, buildSchedule, buildScheduleByAmount, periodShort } from "@/lib/loans";
 import LoanCard, { type LoanView } from "@/components/portal/LoanCard";
 import { cancelLoanRequest, requestLoan } from "./actions";
+import { confirmLoanReceived } from "../admin/pinjaman/actions";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
@@ -153,6 +154,20 @@ export default function PinjamanClient({ loans }: { loans: LoanView[] }) {
             </div>
           </div>
         )}
+      </section>}
+
+      {/* Dana pinjaman sudah ditransfer: karyawan klik Sudah terima setelah memastikan dana masuk → pinjaman aktif. */}
+      {loans.some((l) => l.status === "TRANSFER") && <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700"><T>Dana Pinjaman Ditransfer</T></h3>
+        <p className="rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-800"><T>Sebelum konfirmasi, pastikan dana pinjaman Anda sudah terima.</T></p>
+        {loans.filter((l) => l.status === "TRANSFER").map((l) => (
+          <LoanCard key={l.id} loan={l} processOnly actions={
+            <Button size="sm" disabled={pending} className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => run(async () => { const r = await confirmLoanReceived(l.id); if (r.error) void showNotice(t(r.error), "error"); })}>
+              <T>Sudah terima</T>
+            </Button>
+          } />
+        ))}
       </section>}
 
       {/* Halaman pengajuan hanya menampilkan pengajuan yang masih diproses; pinjaman berjalan & riwayatnya ada di Profil Saya → Pinjaman. */}

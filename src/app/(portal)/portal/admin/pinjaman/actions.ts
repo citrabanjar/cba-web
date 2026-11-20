@@ -11,6 +11,7 @@ import { planLoan, topLeaderOf, type PlanInput } from "@/lib/loan-flow";
 import { routeTo } from "@/lib/delegation";
 import { nextLoanNo } from "@/lib/loan-view";
 import { holdForApproval } from "@/lib/approval-hold";
+import { TRANSFER_SETTING_KEY, TRANSFER_TEMPLATES, buildKopra } from "@/lib/bank-transfer";
 
 const PATH = "/portal/admin/pinjaman";
 // proposed = perubahan ditahan untuk approval (aturan Peran Admin): berisi nama approver.
@@ -197,4 +198,86 @@ export async function importOpeningLoans(rows: OpeningRow[]): Promise<Result & {
   }
   refresh();
   return { count: ready.length };
+}
+
+// ---- Pencairan lewat file transfer bank (SOP pemilik 2026-11-20) ----
+// 1. Admin memilih beberapa pinjaman "Menunggu pencairan" → file transfer (template bank) → status Proses transfer,
+//    tanggal transfer dicatat sebagai tanggal cair, karyawan menerima notifikasi dengan tombol Sudah terima.
+// 2. Karyawan klik Sudah terima → pinjaman Berjalan (angsuran dipotong). Proses Gaji tertahan selama angsurannya jatuh tempo.
+// 3. Kendala konfirmasi diambil alih Super Admin (cek transaksi di bank): konfirmasi paksa, atau batalkan transfer
+//    (kembali ke Menunggu pencairan). Selebihnya SOP manual, tidak diotomasi.
+export async function buildLoanTransferFile(ids: string[], input: { template: string; date: string; debitAccount: string }):
+  Promise<{ error?: string; fileName?: string; content?: string; count?: number; total?: number; other?: number }> {
+  const access = await requireAdmin();
+  if (!TRANSFER_TEMPLATES.some((t) => t.key === input.template)) return { error: "Template transfer tidak dikenal." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Isi tanggal transfer." };
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  if (input.date < today) return { error: "Tanggal transfer tidak boleh sebelum hari ini." };
+  const loans = await prisma.employeeLoan.findMany({
+    where: { id: { in: ids }, status: "DISETUJUI" },
+    include: { user: { select: { name: true, employeeId: true, bankName: true, bankAccount: true, bankHolder: true, email: true } } },
+  });
+  if (!loans.length) return { error: "Pilih pinjaman yang menunggu pencairan." };
+  const rows = loans.map((l) => ({
+    name: l.user.name, employeeId: l.user.employeeId, bankName: l.user.bankName, account: l.user.bankAccount, holder: l.user.bankHolder,
+    email: l.user.email, amount: l.principal, remark: `Pinjaman${l.seqNo ? ` ke-${l.seqNo}` : ""} ${l.user.name}`,
+  }));
+  const r = buildKopra(rows, { date: input.date, debitAccount: input.debitAccount, remark: "Pinjaman karyawan", code: "PINJ" });
+  if ("errors" in r) return { error: r.errors.slice(0, 15).join("\n") + (r.errors.length > 15 ? `\n… dan ${r.errors.length - 15} lainnya.` : "") };
+  const debit = input.debitAccount.replace(/\D/g, "");
+  const day = new Date(`${input.date}T00:00:00Z`);
+  await prisma.$transaction([
+    prisma.employeeLoan.updateMany({ where: { id: { in: loans.map((l) => l.id) }, status: "DISETUJUI" }, data: { status: "TRANSFER", disbursedAt: day, disbursedBy: access.name ?? null } }),
+    prisma.appSetting.upsert({
+      where: { key: TRANSFER_SETTING_KEY },
+      create: { key: TRANSFER_SETTING_KEY, value: { debitAccount: debit }, updatedBy: access.name ?? null },
+      update: { value: { debitAccount: debit }, updatedBy: access.name ?? null },
+    }),
+  ]);
+  const dmy = input.date.split("-").reverse().join("-");
+  for (const l of loans) {
+    await notify(l.userId, "Dana pinjaman ditransfer",
+      `${formatRupiah(l.principal)} · ditransfer ${dmy} ke rekening ${l.user.bankName ?? ""}. Sebelum konfirmasi, pastikan dana pinjaman Anda sudah terima.`,
+      `/portal/pinjaman?terima=${l.id}`);
+  }
+  for (const l of loans) refresh(l.userId);
+  return { fileName: `KOPRA Pinjaman - ${input.date.replace(/-/g, "")}.txt`, content: r.content, count: r.count, total: r.total, other: r.other };
+}
+
+// Karyawan (atau Super Admin, konfirmasi paksa) mengonfirmasi dana pinjaman sudah diterima → pinjaman Berjalan.
+export async function confirmLoanReceived(id: string): Promise<Result> {
+  const access = await getAccess();
+  if (!access) return { error: "Silakan masuk kembali." };
+  const loan = await prisma.employeeLoan.findUnique({ where: { id } });
+  if (!loan || loan.status !== "TRANSFER") return { error: "Pinjaman ini tidak sedang menunggu konfirmasi." };
+  const self = loan.userId === access.id;
+  if (!self && !isSuperAdmin(access.role)) return { error: "Konfirmasi paksa hanya bisa dilakukan Super Admin." };
+  const flow = readLoanFlow(loan.flow);
+  await prisma.employeeLoan.update({
+    where: { id },
+    data: { status: "BERJALAN", flow: { ...flow, received: { at: new Date().toISOString(), by: access.name ?? "", self } } as never },
+  });
+  if (!self) await notify(loan.userId, "Pinjaman aktif", `${formatRupiah(loan.principal)} · penerimaan dana dikonfirmasi ${access.name ?? "Super Admin"}. Angsuran mulai dipotong dari gaji.`, "/portal/pinjaman");
+  refresh(loan.userId);
+  revalidatePath("/portal/notifikasi");
+  return {};
+}
+
+// Transfer gagal / batal di bank → kembali ke Menunggu pencairan (tanggal cair dihapus).
+export async function cancelLoanTransfer(id: string): Promise<Result> {
+  const access = await getAccess();
+  if (!access || !isSuperAdmin(access.role)) return { error: "Membatalkan transfer hanya bisa dilakukan Super Admin." };
+  const loan = await prisma.employeeLoan.findUnique({ where: { id } });
+  if (!loan || loan.status !== "TRANSFER") return { error: "Pinjaman ini tidak sedang dalam proses transfer." };
+  await prisma.employeeLoan.update({ where: { id }, data: { status: "DISETUJUI", disbursedAt: null, disbursedBy: null } });
+  await notify(loan.userId, "Transfer pinjaman dibatalkan", `${formatRupiah(loan.principal)} · transfer dibatalkan dan akan dijadwalkan ulang.`, "/portal/pinjaman");
+  refresh(loan.userId);
+  revalidatePath("/portal/notifikasi");
+  return {};
+}
+
+export async function getLoanTransferDebit(): Promise<string> {
+  await requireAdmin();
+  const row = await prisma.appSetting.findUnique({ where: { key: TRANSFER_SETTING_KEY } });
+  return String((row?.value as { debitAccount?: unknown } | null)?.debitAccount ?? "");
 }

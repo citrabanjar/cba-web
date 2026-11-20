@@ -67,7 +67,7 @@ export async function loadInsights() {
     }),
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
     prisma.businessTrip.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
-    prisma.employeeLoan.findMany({ where: { status: { in: ["PENDING", "DISETUJUI"] } }, orderBy: { createdAt: "asc" }, select: { userId: true, status: true, stage: true } }),
+    prisma.employeeLoan.findMany({ where: { status: { in: ["PENDING", "DISETUJUI", "TRANSFER"] } }, orderBy: { createdAt: "asc" }, select: { userId: true, status: true, stage: true } }),
     prisma.user.findMany({
       where: { ...employee, isActive: true, employmentStatus: "KONTRAK", contractEndDate: { lte: addDays(today, 30) } },
       orderBy: { contractEndDate: "asc" }, select: { id: true },
@@ -97,6 +97,8 @@ export async function loadInsights() {
   // Hanya yang sedang di tahap pemeriksaan Admin (sudah disetujui atasan; null = pengajuan lama).
   const loanRequests = loans.filter((l) => l.status === "PENDING" && (!l.stage || l.stage === "ADMIN"));
   const loanToDisburse = loans.filter((l) => l.status === "DISETUJUI");
+  // Sudah ditransfer, karyawan belum klik Sudah terima: Proses Gaji tertahan sampai selesai (kendala diambil alih Super Admin).
+  const loanUnconfirmed = loans.filter((l) => l.status === "TRANSFER");
   const loanTab = () => "/portal/admin/pinjaman";
 
   const daily: Task[] = [
@@ -106,7 +108,8 @@ export async function loadInsights() {
     { key: "leave", title: "Tinjau pengajuan cuti", hint: "Diputus atasan langsung karyawan di menu Persetujuan.", count: leaves.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
     { key: "trip", title: "Tinjau pengajuan dinas luar", hint: "Diputus atasan langsung karyawan di menu Persetujuan.", count: trips.length, unit: "pengajuan menunggu", href: "/portal/persetujuan" },
     { key: "loan", title: "Periksa pengajuan pinjaman", hint: "Periksa dokumen fisik lalu kirim ke pimpinan dari menu Pinjaman Karyawan.", count: loanRequests.length, unit: "pengajuan menunggu", href: loanTab() },
-    { key: "loan-disburse", title: "Cairkan pinjaman yang disetujui", hint: "Tandai Dicairkan setelah uang diberikan; angsuran baru dipotong setelah itu.", count: loanToDisburse.length, unit: "pinjaman menunggu pencairan", href: loanTab() },
+    { key: "loan-disburse", title: "Cairkan pinjaman yang disetujui", hint: "Buat File Transfer di menu Pinjaman Karyawan, atau Tandai Dicairkan bila dibayar tunai.", count: loanToDisburse.length, unit: "pinjaman menunggu pencairan", href: loanTab() },
+    { key: "loan-confirm", title: "Pencairan pinjaman belum dikonfirmasi", hint: "Dana sudah ditransfer, karyawan belum klik Sudah terima. Proses Gaji tertahan sampai dikonfirmasi; kendala diselesaikan Super Admin.", count: loanUnconfirmed.length, unit: "pinjaman belum dikonfirmasi", href: loanTab() },
   ];
 
   const monthly: Task[] = [
