@@ -151,7 +151,7 @@ export default function WorkflowClient({ settings, users, groups = [] }: { setti
                       "Perubahan data diterapkan setelah level terakhir menyetujui.",
                       "Satu orang tidak memutus dua kali.",
                     ] : [
-                      "Atasan di bagan: atasan langsung atau atasan dari atasan langsung pemohon menurut bagan organisasi.",
+                      "Default: atasan langsung atau atasan dari atasan langsung pemohon menurut bagan organisasi.",
                       "Level berdasarkan hak akses diputus oleh anggota peran terdekat di atas pemohon pada bagan organisasi.",
                       ...((INFO_MODULES as readonly string[]).includes(m.key) ? ["Level Hanya info tidak memutus; orangnya diberi notifikasi setelah pengajuan disetujui."] : []),
                       "Jika pemohon termasuk anggota peran tersebut, level itu dilewati.",

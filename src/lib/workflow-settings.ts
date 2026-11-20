@@ -51,7 +51,7 @@ async function levelHolders(l: WorkflowLevel) {
 // - Karyawan tertentu: orang itu (bila pemohon sendiri → level dilewati).
 // - Hak akses: anggota peran yang berada di rantai atasan pemohon, yang terdekat; tidak pernah menyeberang ke cabang bagan lain.
 //   Pemohon sendiri anggota peran itu → level dilewati. Tidak ada anggota di rantai atasannya → pengajuan gagal (hubungi HRD).
-// - Atasan di bagan: atasan langsung (1) atau atasan dari atasan langsung (2) pemohon; tidak ada → pengajuan gagal (hubungi HRD).
+// - Default (atasan di bagan): atasan langsung (1) atau atasan dari atasan langsung (2) pemohon; tidak ada → pengajuan gagal (hubungi HRD).
 // - Hanya info: orangnya tidak memutus, hanya dicatat untuk diberi notifikasi saat pengajuan disetujui (tidak ada → dilewati).
 // - Pemeriksa dokumen (Pinjaman): semua anggota perannya boleh mengerjakan (tidak dicari lewat bagan).
 // - Orang yang sama tidak memutus dua kali: level sebelumnya dilewati bila orangnya muncul lagi di level sesudahnya.

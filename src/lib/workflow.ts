@@ -26,7 +26,7 @@ export type WorkflowKey = (typeof WORKFLOW_MODULES)[number]["key"];
 // MANAGER = atasan pemohon di bagan organisasi: value "1" atasan langsung, "2" atasan dari atasan langsung.
 export type LevelType = "EMPLOYEE" | "ROLE" | "MANAGER";
 export const LEVEL_TYPES: { value: LevelType; label: string }[] = [
-  { value: "MANAGER", label: "Atasan di bagan" },
+  { value: "MANAGER", label: "Default" },
   { value: "ROLE", label: "Berdasarkan hak akses" },
   { value: "EMPLOYEE", label: "Karyawan tertentu" },
 ];
