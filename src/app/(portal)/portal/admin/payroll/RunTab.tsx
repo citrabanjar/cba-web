@@ -110,8 +110,9 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
   };
 
   return (
-    <div className="space-y-4">
-      <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4">
+    // Satu panel: pilihan periode + tombol, ringkasan total, lalu tabel (tanpa kartu bertumpuk).
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+      <section className="flex flex-wrap items-end gap-3 p-4 sm:p-5">
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-500"><T>Jadwal bayar</T></p>
           <div className="flex h-9 gap-1 rounded-full bg-gray-100 p-1">
@@ -156,6 +157,14 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
             {scheduled.length > 0 && <p><T>THR / Bonus dibayar di periode ini</T>: {scheduled.map((b) => `${b.code}${b.label ? ` (${b.label})` : ""} ${dmy(b.payDate)}`).join(", ")}</p>}
             {taxedHere.length > 0 && <p className="text-gray-400"><T>PPh 21 THR / Bonus yang dibayar mingguan / terpisah ikut di sini</T>: {taxedHere.map((b) => `${b.code} ${dmy(b.payDate)} (${t(BONUS_MODE_LABEL[b.mode])})`).join(", ")}</p>}
           </div>
+        )}
+        {run && (
+          <span className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
+            title={final && run.finalizedAt ? `${run.finalizedBy ?? ""} · ${new Date(run.finalizedAt).toLocaleString("id-ID")}` : undefined}>
+            <span className={`h-1.5 w-1.5 rounded-full ${final ? "bg-emerald-500" : "bg-amber-500"}`} />
+            <T>{final ? "Final" : "Draft"}</T>
+            {final && run.finalizedAt && <span className="font-normal opacity-75">· {run.finalizedBy ?? "—"} · {new Date(run.finalizedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</span>}
+          </span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
           {canEdit && !final && period && (
@@ -253,35 +262,29 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
       </section>
 
       {!run ? (
-        <p className="rounded-2xl border border-dashed border-gray-300 bg-white/70 p-10 text-center text-sm text-gray-500">
+        <p className="border-t border-gray-100 p-10 text-center text-sm text-gray-500">
           <T>Belum ada proses gaji untuk</T> {weekly ? periodLabel(period) : `${MONTHS[Number(period.slice(5, 7)) - 1]} ${period.slice(0, 4)}`}.{canEdit && <> <T>Klik Hitung Gaji.</T></>}
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {/* Ringkasan: angka besar dengan garis pemisah tipis (bukan kartu). */}
+          <div className="grid grid-cols-2 divide-gray-100 border-t border-gray-100 sm:grid-cols-4 sm:divide-x">
             {[
-              ["Status", final ? t("Final") : t("Draft"), final ? "text-emerald-700" : "text-amber-600"],
               ["Total pendapatan", rupiah(total("earnings")), "text-gray-900"],
               ["Total PPh 21", rupiah(total("pph21")), "text-gray-900"],
               ["Total gaji bersih", rupiah(total("netPay")), "text-emerald-700"],
               ["Biaya perusahaan", rupiah(total("earnings") + total("benefits")), "text-gray-900"],
             ].map(([l, v, c]) => (
-              <div key={l} className="rounded-2xl border border-gray-200 bg-white p-4">
-                <p className="text-xs text-gray-500"><T>{l}</T></p>
-                <p className={`mt-1 text-lg font-bold tabular-nums ${c}`}>{v}</p>
-                {/* Final oleh siapa & kapan: keterangan kecil di kartu Status (bukan kotak tersendiri). */}
-                {l === "Status" && final && run.finalizedAt && (
-                  <p className="mt-0.5 truncate text-[10px] text-gray-400" title={`${run.finalizedBy ?? ""} · ${new Date(run.finalizedAt).toLocaleString("id-ID")}`}>
-                    {run.finalizedBy ?? "—"} · {new Date(run.finalizedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
-                  </p>
-                )}
+              <div key={l} className="px-5 py-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400"><T>{l}</T></p>
+                <p className={`mt-1 text-lg font-semibold tracking-tight tabular-nums ${c}`}>{v}</p>
               </div>
             ))}
           </div>
           {run.note && (
-            <p className="whitespace-pre-line rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-800">{run.note}</p>
+            <p className="whitespace-pre-line border-t border-amber-100 bg-amber-50/60 px-5 py-2.5 text-xs text-amber-800">{run.note}</p>
           )}
-          <div className="max-h-[calc(100vh-260px)] min-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white">
+          <div className="max-h-[calc(100vh-220px)] min-h-64 overflow-auto border-t border-gray-100">
             <table className="w-full min-w-[960px] text-xs">
               <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
                 <tr className="border-b border-gray-200">
@@ -295,7 +298,6 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
                   <th className="w-[32%] px-3 py-2.5"><T>Pendapatan</T></th>
                   <th className="w-[30%] px-3 py-2.5"><T>Potongan</T></th>
                   <th className="w-[10%] px-3 py-2.5 text-right"><T>Gaji Bersih</T></th>
-                  <th className="w-[6%] px-3 py-2.5"><T>Status</T></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -336,9 +338,6 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
                       </td>
                       <td className="px-3 py-3 text-right">
                         <p className="text-sm font-bold tabular-nums text-gray-900">{rupiah(l.netPay)}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}><T>{final ? "Final" : "Draft"}</T></span>
                       </td>
                     </tr>
                   );

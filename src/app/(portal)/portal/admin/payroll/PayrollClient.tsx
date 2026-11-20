@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import BonusSchedule from "./BonusSchedule";
 import type { BonusEntry } from "@/lib/payroll-bonus";
-import { Calculator, CalendarClock, History, CheckCircle2, ChevronRight, HandCoins, Landmark, Loader2, Percent, Play, Receipt, Settings2, ShieldCheck, Wallet, Stethoscope } from "lucide-react";
+import { Calculator, CalendarClock, History, CheckCircle2, ChevronRight, Loader2, Percent, Play, Receipt, Settings2, Wallet, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,19 +92,9 @@ export default function PayrollClient({ components, settings, runs, employees, n
   components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[]; bonus: BonusEntry[];
   taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[]; reimburse: ReimburseValue; revisions?: React.ReactNode;
 }) {
-  const t = useT();
   const [tab, setTab] = useState<"proses" | "riwayat" | "komponen" | "pengaturan" | "kalkulator">("komponen");
   const [focus, setFocus] = useState<string | null>(null); // periode yang dibuka dari Riwayat
   const [setting, setSetting] = useState<(typeof SETTING_SECTIONS)[number]["key"]>("payroll");
-  const active = components.filter((c) => c.isActive);
-  const bpjsEmployer = active.filter((c) => c.kind === "BENEFIT" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
-  const bpjsEmployee = active.filter((c) => c.kind === "POTONGAN" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
-  const stats = [
-    { label: "Tanggal Gajian", value: settings.payDay ? `${t("Tanggal")} ${settings.payDay}` : t("Hari kerja terakhir"), icon: Landmark, tone: "from-brand to-rose-400" },
-    { label: "Komponen Aktif", value: String(active.length), icon: Wallet, tone: "from-emerald-500 to-teal-400" },
-    { label: "BPJS Perusahaan", value: `${bpjsEmployer.toFixed(2).replace(".", ",")}%`, icon: ShieldCheck, tone: "from-indigo-500 to-violet-400" },
-    { label: "BPJS Karyawan", value: `${bpjsEmployee.toFixed(2).replace(".", ",")}%`, icon: HandCoins, tone: "from-amber-500 to-orange-400" },
-  ];
   return (
     <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
@@ -113,25 +103,16 @@ export default function PayrollClient({ components, settings, runs, employees, n
       </div>
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
         {revisions}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}><s.icon size={15} /></span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
-            </div>
-          ))}
-        </div>
-        <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
+        {/* Tab bergaya garis bawah langsung di atas latar portal (tanpa kotak). */}
+        <nav className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-white/15 [scrollbar-width:none]">
           {([["pengaturan", "Pengaturan", Settings2], ["komponen", "Komponen", Wallet], ["kalkulator", "Kalkulator Potongan", Calculator], ["proses", "Proses Gaji", Play], ["riwayat", "Riwayat", History]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
-              className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
+              className={`relative inline-flex h-11 shrink-0 items-center gap-2 px-3 text-sm transition-colors ${tab === k ? "font-semibold text-white" : "text-white/60 hover:text-white"}`}>
               <Icon size={15} /> <T>{label}</T>
+              {tab === k && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-white" />}
             </button>
           ))}
-        </div>
+        </nav>
         {tab === "riwayat" && <RiwayatTab runs={runs} onOpen={(p) => { setFocus(p); setTab("proses"); }} />}
         {tab === "proses" && <RunTab key={focus ?? "-"} initialPeriod={focus ?? undefined} runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay}
           fixedCodes={components.filter((c) => ["INPUT", "NOMINAL", "PERSEN", "PPH21"].includes(c.method)).map((c) => c.code)} />}
