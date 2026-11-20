@@ -1,6 +1,6 @@
 // Jadwal pembayaran THR / Bonus (komponen cara hitung THR), diatur di Payroll & Benefit -> Pengaturan.
 // - BULANAN: ikut proses gaji bulanan yang periodenya memuat tanggal bayar (karyawan payroll mingguan: ikut minggu tanggal bayar).
-// - MINGGUAN: ikut proses gaji mingguan yang memuat tanggal bayar (karyawan bulanan ikut dengan komponen itu saja).
+// - MINGGUAN: ikut gajian mingguan (Senin) yang terdekat pada / sebelum tanggal bayar (karyawan bulanan ikut dengan komponen itu saja).
 // - TERPISAH: proses gaji tersendiri pada tanggal bayar.
 // PPh 21 THR karyawan bulanan selalu dihitung di proses gaji bulanan pada bulan THR dibayar.
 import { prisma } from "@/lib/prisma";

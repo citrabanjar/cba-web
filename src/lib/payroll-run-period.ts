@@ -1,5 +1,6 @@
 // Periode Proses Gaji (aman dipakai di server dan browser).
-// Bulanan ditulis "2026-11"; mingguan ditulis sebagai tanggal mulai minggu "2026-11-09";
+// Bulanan ditulis "2026-11"; mingguan ditulis sebagai tanggal mulai minggu kerja "2026-11-09" (Senin–Minggu),
+// dibayar hari sesudah minggu kerja berakhir (Senin 2026-11-16) dan masuk penghasilan bulan tanggal bayar itu;
 // THR / Bonus yang dibayar terpisah ditulis "X-<tanggal bayar>-<kode komponen>", mis. "X-2027-03-05-THR".
 
 const DAY = 86_400_000;
@@ -19,8 +20,8 @@ export const periodLabel = (period: string) => {
     return `${code} terpisah ${short(d)} ${d.getUTCFullYear()}`;
   }
   if (isWeekly(period)) {
-    const a = new Date(`${period}T00:00:00Z`), b = new Date(a.getTime() + 6 * DAY);
-    return `Minggu ${short(a)} - ${short(b)} ${b.getUTCFullYear()}`;
+    const a = new Date(`${period}T00:00:00Z`), b = new Date(a.getTime() + 6 * DAY), pay = new Date(a.getTime() + 7 * DAY);
+    return `Gajian ${short(pay)} ${pay.getUTCFullYear()} (data ${short(a)} - ${short(b)})`;
   }
   const [y, m] = period.split("-").map(Number);
   return `${MONTHS[m - 1]} ${y}`;
@@ -32,3 +33,11 @@ export function weekStartOf(date: string, weekStartDay: number) {
   const back = (((d.getUTCDay() - weekStartDay) % 7) + 7) % 7;
   return iso(new Date(d.getTime() - back * DAY));
 }
+
+// Payroll mingguan (keputusan pemilik 2026-11-20): dibayar setiap Senin untuk minggu kerja Senin–Minggu sebelumnya,
+// dan masuk penghasilan bulan tanggal bayarnya (bayar 5 Okt = data 28 Sep – 4 Okt = penghasilan Oktober).
+// Tanggal bayar = hari sesudah minggu kerja berakhir.
+export const weeklyPayDate = (period: string) => iso(new Date(new Date(`${period}T00:00:00Z`).getTime() + 7 * DAY));
+// Minggu kerja yang dibayar pada / sebelum tanggal tertentu (menjalankan proses hari Selasa dst. tetap minggu yang sama).
+export const weeklyPeriodForPay = (date: string, weekStartDay: number) =>
+  iso(new Date(new Date(`${weekStartOf(date, weekStartDay)}T00:00:00Z`).getTime() - 7 * DAY));

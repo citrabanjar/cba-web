@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2, Undo2 } f
 import { T, useT } from "@/components/i18n";
 import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { parseHours, rupiah } from "@/lib/payroll";
-import { isSeparate, isWeekly, periodLabel, separatePeriod, weekStartOf } from "@/lib/payroll-run-period";
+import { isSeparate, isWeekly, periodLabel, separatePeriod, weeklyPayDate, weeklyPeriodForPay } from "@/lib/payroll-run-period";
 import type { BonusEntry } from "@/lib/payroll-bonus";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
 import { cancelPayrollFinal, deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
@@ -60,6 +60,7 @@ type Freq = "BULANAN" | "MINGGUAN" | "TERPISAH";
 const freqOf = (p: string): Freq => (isSeparate(p) ? "TERPISAH" : isWeekly(p) ? "MINGGUAN" : "BULANAN");
 const BONUS_MODE_LABEL: Record<string, string> = { BULANAN: "ikut payroll bulanan", MINGGUAN: "ikut payroll mingguan", TERPISAH: "dibayar terpisah" };
 const dmy = (d: string) => d.split("-").reverse().join("-");
+const plusDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bonus: BonusEntry[]; weekStartDay: number }) {
   const t = useT();
@@ -74,7 +75,7 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
     setFreq(f); setMsg(null);
     const draft = runs.find((r) => r.status === "DRAFT" && freqOf(r.period) === f)?.period;
     const next = separateList.find((b) => b.payDate >= today()) ?? separateList[separateList.length - 1];
-    setPeriod(draft ?? (f === "MINGGUAN" ? weekStartOf(today(), weekStartDay) : f === "TERPISAH" ? (next ? separatePeriod(next.payDate, next.code) : "") : thisMonth()));
+    setPeriod(draft ?? (f === "MINGGUAN" ? weeklyPeriodForPay(today(), weekStartDay) : f === "TERPISAH" ? (next ? separatePeriod(next.payDate, next.code) : "") : thisMonth()));
   };
   const run = runs.find((r) => r.period === period);
   // THR / Bonus yang terjadwal dibayar di periode terpilih (Pengaturan -> Jadwal THR / Bonus).
@@ -129,13 +130,19 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
           </div>
         ) : (
           <div className="space-y-1">
-            <p className="text-xs font-medium text-gray-500"><T>Periode</T>{weekly && <span className="ml-1 font-normal text-gray-400">{periodLabel(period)}</span>}</p>
-            <input type={weekly ? "date" : "month"} value={period}
+            <p className="text-xs font-medium text-gray-500"><T>{weekly ? "Tanggal bayar (Senin)" : "Periode"}</T></p>
+            {/* Mingguan: pilih tanggal gajian; tanggal selain Senin dibulatkan ke Senin sebelumnya. */}
+            <input type={weekly ? "date" : "month"} value={weekly && period ? weeklyPayDate(period) : period}
               onChange={(e) => {
-                const p = weekly && e.target.value ? weekStartOf(e.target.value, weekStartDay) : e.target.value;
+                const p = weekly && e.target.value ? weeklyPeriodForPay(e.target.value, weekStartDay) : e.target.value;
                 setPeriod(p); setMsg(null);
               }}
               className="h-9 rounded-lg border border-gray-200 px-3 text-sm" />
+            {weekly && period && (
+              <p className="text-[11px] text-gray-400">
+                <T>Data</T> {dmy(period)} – {dmy(plusDays(period, 6))} · <T>penghasilan</T> {MONTHS[Number(weeklyPayDate(period).slice(5, 7)) - 1]} {weeklyPayDate(period).slice(0, 4)}
+              </p>
+            )}
           </div>
         )}
         {(scheduled.length > 0 || taxedHere.length > 0) && (

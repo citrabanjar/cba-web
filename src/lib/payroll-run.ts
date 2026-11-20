@@ -9,7 +9,7 @@ import { priorSlips, priorTotals } from "@/lib/prior-tax";
 import { getShiftCalendar, workDaysPerWeekOf } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { assessAttendance } from "@/lib/attendance-assess";
-import { isSeparate, isWeekly, parseSeparate, periodLabel, weekStartOf } from "@/lib/payroll-run-period";
+import { isSeparate, isWeekly, parseSeparate, periodLabel, weekStartOf, weeklyPayDate } from "@/lib/payroll-run-period";
 import { bonusIn, getBonusSchedule } from "@/lib/payroll-bonus";
 import { claimItems } from "@/lib/reimburse";
 import { pph21Daily, pph21DailyHigh, pph21Final, pph21Monthly, taxYearConfig, terVersionAt } from "@/lib/pph21";
@@ -76,13 +76,16 @@ async function loadContext(period: string) {
   const { start, end } = periodRange(period, settings);
   const weekly = isWeekly(period);
   const separate = isSeparate(period);
-  const year = Number(iso(end).slice(0, 4));
-  // Mingguan: komponen bulanan (input profil, flat, BPJS/persen) dibayar di minggu yang memuat akhir bulan.
+  // Mingguan: tahun & bulan penghasilan mengikuti tanggal bayar (Senin sesudah minggu kerja).
+  const payDate = weekly ? weeklyPayDate(period) : null;
+  const year = Number((payDate ?? iso(end)).slice(0, 4));
+  // Mingguan: komponen bulanan (input profil, flat, BPJS/persen) dibayar di gajian Senin terakhir bulan itu.
   let monthEnd = false;
-  // Angsuran pinjaman per bulan: proses bulanan = periodenya; mingguan = bulan yang berakhir di minggu itu.
+  // Angsuran pinjaman per bulan: proses bulanan = periodenya; mingguan = bulan gajian Senin terakhir itu.
   let loanPeriod: string | null = weekly || separate ? null : period;
-  for (let t = start.getTime(); t <= end.getTime(); t += DAY) {
-    if (new Date(t + DAY).getUTCDate() === 1) { monthEnd = true; if (weekly) loanPeriod = iso(new Date(t)).slice(0, 7); }
+  if (payDate) {
+    const next = weeklyPayDate(payDate);
+    if (next.slice(0, 7) !== payDate.slice(0, 7)) { monthEnd = true; loanPeriod = payDate.slice(0, 7); }
   }
   const [components, priorLines, taxAll, terAll, bonus, priorTaxSlips] = await Promise.all([
     prisma.payComponent.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, include: { employees: { select: { userId: true, startDate: true, endDate: true } } } }),
@@ -372,13 +375,16 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   // - proses mingguan (karyawan mingguan): THR / Bonus terpisah yang tanggal bayarnya di minggu ini.
   // Jumlahnya ikut bruto PPh 21 lalu dicatat "sudah dibayar" supaya tidak dibayar dobel.
   if (!restricted && !opts.estimate) {
-    const lo = iso(new Date(start.getTime() - 6 * DAY)), hi = iso(new Date(end.getTime() - 6 * DAY));
+    // Mingguan yang tanggal bayarnya (minggu kerja + 7 hari) jatuh di periode bulanan ini.
+    const lo = iso(new Date(start.getTime() - 7 * DAY)), hi = iso(new Date(end.getTime() - 7 * DAY));
+    // THR / Bonus terpisah: proses mingguan memakai rentang 7 hari mulai tanggal bayarnya.
+    const xa = ctx.weekly ? weeklyPayDate(ctx.period) : iso(start), xb = ctx.weekly ? iso(new Date(end.getTime() + 7 * DAY)) : iso(end);
     const wl = await prisma.payrollLine.findMany({
       where: {
         userId,
         OR: [
           ...(ctx.weekly ? [] : [{ run: { frequency: "MINGGUAN", period: { gte: lo, lte: hi } } }]),
-          { run: { frequency: "TERPISAH", period: { gte: `X-${iso(start)}`, lte: `X-${iso(end)}-~` } } },
+          { run: { frequency: "TERPISAH", period: { gte: `X-${xa}`, lte: `X-${xb}-~` } } },
         ],
       },
       select: { items: true, run: { select: { period: true, status: true } } }, orderBy: { run: { period: "asc" } },
@@ -391,7 +397,7 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
         if (i.kind !== "PENDAPATAN" || i.code === "DBM") continue;
         const v = sums.get(i.code) ?? { name: i.name, kind: i.kind, taxable: i.taxable, amount: 0, from: [] };
         v.amount += i.amount;
-        const w = isSeparate(l.run.period) ? `terpisah ${parseSeparate(l.run.period).payDate.split("-").reverse().join("-")}` : `mingguan ${periodLabel(l.run.period).replace(/^Minggu /, "")}`;
+        const w = isSeparate(l.run.period) ? `terpisah ${parseSeparate(l.run.period).payDate.split("-").reverse().join("-")}` : `mingguan ${periodLabel(l.run.period).replace(/^Gajian /, "")}`;
         if (!v.from.includes(w)) v.from.push(w);
         sums.set(i.code, v);
       }
@@ -497,7 +503,8 @@ const manualOf = (raw: unknown): Partial<LineInputs> => {
 //   karyawan bulanan = "Ikut payroll mingguan" saja (dibayar bersama komponen mingguannya);
 // - terpisah: komponen proses itu.
 function runPlan(ctx: Ctx) {
-  const from = iso(ctx.start), to = iso(ctx.end);
+  // Mingguan: THR / Bonus yang tanggal bayarnya di 7 hari mulai Senin gajian itu.
+  const from = ctx.weekly ? weeklyPayDate(ctx.period) : iso(ctx.start), to = ctx.weekly ? iso(new Date(ctx.end.getTime() + 7 * DAY)) : iso(ctx.end);
   const codes = (modes: ("BULANAN" | "MINGGUAN" | "TERPISAH")[]) => [...new Set(bonusIn(ctx.bonus, from, to, modes).map((e) => e.code))];
   const weeklyCodes = weeklyCodesOf(ctx);
   if (ctx.separate) {

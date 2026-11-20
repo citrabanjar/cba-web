@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Tanggal bayar (Senin)": "Pay date (Monday)",
+  "penghasilan": "income",
   "Batalkan Final": "Cancel Final",
   "Periode kembali ke Draft: slip gaji ditarik, angsuran pinjaman dan reimbursement yang ikut terbayar dikembalikan.": "The period returns to Draft: payslips are withdrawn, and loan installments and reimbursements paid with it are reverted.",
   "Alasan pembatalan...": "Reason for cancelling...",
