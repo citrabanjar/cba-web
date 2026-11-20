@@ -9,6 +9,7 @@ const INK = rgb(0.13, 0.13, 0.15);
 const GREY = rgb(0.45, 0.45, 0.48);
 const LINE = rgb(0.85, 0.85, 0.87);
 const SOFT = rgb(0.97, 0.95, 0.95);
+const ROW = 14; // jarak baris seragam (9 pt)
 const rp = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 // Font standar PDF hanya WinAnsi.
 const safe = (s: string | null | undefined) => (s ?? "").replace(/[−–—]/g, "-").replace(/[^\x20-\x7E\xA0-\xFF]/g, "");
@@ -77,7 +78,7 @@ export async function buildPayslipPdf(d: PayslipPdfData) {
   const rightCol: [string, string][] = [["Departemen", d.employee.department ?? "-"], ["Status PTKP", d.employee.ptkp ?? "-"], ["Rekening", `${d.employee.bank ?? "-"} ${masked}`]];
   const half = (W - 2 * M) / 2;
   for (let i = 0; i < 3; i++) {
-    text(left[i][0], M, y, { color: GREY }); text(`: ${fit(left[i][1], half - 80)}`, M + 70, y, { f: i === 0 ? bold : font });
+    text(left[i][0], M, y, { color: GREY }); text(`: ${fit(left[i][1], half - 80)}`, M + 70, y);
     text(rightCol[i][0], M + half, y, { color: GREY }); text(`: ${fit(rightCol[i][1], half - 80)}`, M + half + 70, y);
     y -= 15;
   }
@@ -97,15 +98,15 @@ export async function buildPayslipPdf(d: PayslipPdfData) {
     yy -= 22;
     for (const [label, part] of [["Tetap", list.filter((i) => fixed.has(i.code))], ["Tidak rutin", list.filter((i) => !fixed.has(i.code))]] as const) {
       if (!part.length) continue;
-      text(label, x + 6, yy, { size: 8, f: bold, color: GREY }); yy -= 13;
+      text(label, x + 6, yy, { f: bold }); yy -= ROW;
       for (const i of part) {
-        text(fit(i.name, colW - 100), x + 6, yy);
+        text(fit(i.name, colW - 110), x + 16, yy);
         right(rp(i.amount), x + colW - 6, yy);
-        yy -= 13;
+        yy -= ROW;
       }
-      yy -= 3;
+      yy -= 4;
     }
-    if (!list.length) { text("-", x + 6, yy, { color: GREY }); yy -= 13; }
+    if (!list.length) { text("-", x + 16, yy, { color: GREY }); yy -= ROW; }
     return yy;
   };
   const top = y;
@@ -128,9 +129,9 @@ export async function buildPayslipPdf(d: PayslipPdfData) {
 
   // ── Benefit ditanggung perusahaan
   if (benefit.length) {
-    text("Benefit (ditanggung perusahaan, tidak mengurangi gaji)", M, y, { size: 8, f: bold, color: GREY });
-    y -= 13;
-    for (const i of benefit) { text(fit(i.name, 300, 8), M + 6, y, { size: 8, color: GREY }); right(rp(i.amount), M + 360, y, { size: 8, color: GREY }); y -= 12; }
+    text("Benefit (ditanggung perusahaan, tidak mengurangi gaji)", M + 6, y, { f: bold });
+    y -= ROW;
+    for (const i of benefit) { text(fit(i.name, colW - 110), M + 16, y); right(rp(i.amount), M + colW - 6, y); y -= ROW; }
     y -= 6;
   }
 
