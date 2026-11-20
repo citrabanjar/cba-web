@@ -10,7 +10,7 @@ import { workflowSteps } from "@/lib/workflow-settings";
 import { delegateLabel, delegateSteps, isPersonApprover, routeTo, withDelegation } from "@/lib/delegation";
 import { formatDate } from "@/lib/utils";
 import { notify } from "@/lib/notify";
-import { dinasOn, isTime, OT_ACTIVE, otBreakText, plannedHours, restDaysOf, restKey, shiftConflicts, splEnabled } from "@/lib/overtime";
+import { dinasOn, isTime, OT_ACTIVE, otBreakText, otOverlap, plannedHours, restDaysOf, restKey, shiftConflicts, splEnabled } from "@/lib/overtime";
 import { isPeriod, loanStepIds, type LoanFlow } from "@/lib/loans";
 import { nextLoanNo } from "@/lib/loan-view";
 import { activeManager, planLoan, topLeaderOf } from "@/lib/loan-flow";
@@ -373,8 +373,10 @@ export async function submitOvertimeFor(u: Who, input: OvertimeInput): Promise<{
   if (plannedHours(row, rest) < 1) return { error: `Lembur minimal 1 jam (di luar istirahat ${otBreakText(rest)}).` };
   const conflict = (await shiftConflicts([u.id], date, input.startTime, input.endTime)).get(u.id);
   if (conflict) return { error: `Jam lembur bentrok dengan ${conflict}.` };
-  const clash = await prisma.overtime.findFirst({ where: { userId: u.id, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } } });
-  if (clash) return { error: `Sudah ada lembur di ${formatDate(date)} (${clash.startTime}–${clash.endTime}).` };
+  // Lembur lain di tanggal yang sama boleh selama jamnya tidak bertabrakan.
+  const clash = (await prisma.overtime.findMany({ where: { userId: u.id, date, status: { in: ["PENDING", "APPROVED", "MENUNGGU_KARYAWAN", "DISETUJUI"] } } }))
+    .find((o) => otOverlap(o, { startTime: input.startTime, endTime: input.endTime }));
+  if (clash) return { error: `Jam lembur bertabrakan dengan lembur lain di ${formatDate(date)} (${clash.startTime}–${clash.endTime}).` };
   const dinas = (await dinasOn([u.id], date)).get(u.id);
   if (dinas) return { error: `Tanggal ${formatDate(date)} beririsan dengan ${dinas}; lembur tidak bisa diajukan saat dinas.` };
   const { flow: wfFlow, error } = await workflowSteps("LEMBUR", u.id);

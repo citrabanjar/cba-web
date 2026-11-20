@@ -7,7 +7,7 @@
 //   estimasi upah lembur (rumus komponen payroll), dan bisa membatalkan lembur karyawan di bawahnya.
 import { prisma } from "@/lib/prisma";
 import { getShiftCalendars } from "@/lib/schedule";
-import { dinasOn, isRestDay, isTime, OT_ACTIVE, otBreakText, otPlan, restDaysOf, restKey, shiftConflicts } from "@/lib/overtime";
+import { dinasOn, isRestDay, isTime, OT_ACTIVE, otBreakText, otOverlap, otPlan, restDaysOf, restKey, shiftConflicts } from "@/lib/overtime";
 import { notify } from "@/lib/notify";
 import { formatDate } from "@/lib/utils";
 import { estimateOvertimeCost } from "@/lib/payroll-run";
@@ -48,7 +48,8 @@ export async function checkSpl(adminId: string, dateStr: string, rows: SplRowInp
     dinasOn(ids, date),
     prisma.overtime.findMany({ where: { userId: { in: ids }, date, status: { in: OT_ACTIVE } }, select: { userId: true, startTime: true, endTime: true, order: { select: { number: true } } } }),
   ]);
-  const busyBy = new Map(busy.map((b) => [b.userId, b]));
+  // Lembur lain di tanggal itu hanya ditolak bila jamnya bertabrakan (mis. pagi sebelum shift + sore sesudah shift boleh).
+  const busyOf = (userId: string, r: SplRowInput) => busy.find((b) => b.userId === userId && isTime(r.startTime) && isTime(r.endTime) && otOverlap(b, r));
   const seen = new Set<string>();
   const out: SplRowCheck[] = [];
   for (const r of rows) {
@@ -63,7 +64,7 @@ export async function checkSpl(adminId: string, dateStr: string, rows: SplRowInp
     else if (org.isTop(r.userId)) problem = "Pimpinan puncak tidak bisa diberi lembur.";
     else if (!okTime) problem = "Isi jam mulai dan jam selesai (berbeda).";
     else if (plan.hours < 1) problem = `Lembur minimal 1 jam (di luar istirahat ${otBreakText(rest)}).`;
-    else if (busyBy.has(r.userId)) { const b = busyBy.get(r.userId)!; problem = `Sudah terdaftar lembur ${b.startTime}–${b.endTime}${b.order ? ` di ${b.order.number}` : " (pengajuan karyawan)"}.`; }
+    else if (busyOf(r.userId, r)) { const b = busyOf(r.userId, r)!; problem = `Sudah terdaftar lembur ${b.startTime}–${b.endTime}${b.order ? ` di ${b.order.number}` : " (pengajuan karyawan)"}.`; }
     else if (dinas.has(r.userId)) problem = `Sedang ${dinas.get(r.userId)}; tidak bisa lembur.`;
     else if (final && !r.reason.trim()) problem = "Uraian pekerjaan wajib diisi.";
     else {

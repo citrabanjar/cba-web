@@ -48,6 +48,14 @@ export { OT_APPROVED, OT_STATUS } from "@/lib/overtime-status";
 export const isTime = (v: unknown): v is string => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 import { otBreaks, otBreakText, otPlan, toMin } from "@/lib/overtime-calc";
 export { otBreakText, otPlan, OT_BREAK_RULE } from "@/lib/overtime-calc";
+// Dua rentang lembur di tanggal yang sama bertabrakan? (lewat tengah malam: jam selesai <= jam mulai → +24 jam).
+// Lembur sebelum shift dan sesudah shift di hari yang sama boleh (keputusan pemilik 2026-11-20).
+export function otOverlap(a: { startTime: string; endTime: string }, b: { startTime: string; endTime: string }) {
+  const m = (t: string) => { const [h, mm] = t.split(":").map(Number); return h * 60 + mm; };
+  const span = (x: { startTime: string; endTime: string }) => { const s = m(x.startTime), e = m(x.endTime); return [s, e <= s ? e + 1440 : e] as const; };
+  const [as, ae] = span(a), [bs, be] = span(b);
+  return as < be && bs < ae;
+}
 
 // Waktu "HH:MM" WIB pada tanggal (UTC tengah malam) → Date.
 export const atWib = (date: Date, hhmm: string, nextDay = false) =>
