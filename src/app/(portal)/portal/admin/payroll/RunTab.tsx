@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { rupiah } from "@/lib/payroll";
@@ -269,28 +269,29 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
               <div key={l} className="rounded-2xl border border-gray-200 bg-white p-4">
                 <p className="text-xs text-gray-500"><T>{l}</T></p>
                 <p className={`mt-1 text-lg font-bold tabular-nums ${c}`}>{v}</p>
+                {/* Final oleh siapa & kapan: keterangan kecil di kartu Status (bukan kotak tersendiri). */}
+                {l === "Status" && final && run.finalizedAt && (
+                  <p className="mt-0.5 truncate text-[10px] text-gray-400" title={`${run.finalizedBy ?? ""} · ${new Date(run.finalizedAt).toLocaleString("id-ID")}`}>
+                    {run.finalizedBy ?? "—"} · {new Date(run.finalizedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                  </p>
+                )}
               </div>
             ))}
           </div>
           {run.note && (
             <p className="whitespace-pre-line rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-800">{run.note}</p>
           )}
-          {final && run.finalizedAt && (
-            <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
-              <CheckCircle2 size={15} /> <T>Final oleh</T> {run.finalizedBy ?? "—"} · {new Date(run.finalizedAt).toLocaleString("id-ID")}. <T>Slip gaji sudah terbit di menu Slip Gaji karyawan.</T>
-            </p>
-          )}
-          <div className="flex justify-end">
-            <button type="button" onClick={() => setOpened(allOpen ? new Set() : new Set(lines.map((l) => l.id)))}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50">
-              <ChevronDown size={13} className={allOpen ? "rotate-180" : ""} /> <T>{allOpen ? "Tutup semua" : "Buka semua"}</T>
-            </button>
-          </div>
           <div className="max-h-[calc(100vh-260px)] min-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white">
             <table className="w-full min-w-[960px] text-xs">
               <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
                 <tr className="border-b border-gray-200">
-                  <th className="w-[22%] px-4 py-2.5"><T>Karyawan</T></th>
+                  <th className="w-[22%] px-4 py-2.5">
+                    {/* Buka / tutup semua baris, di kepala tabel. */}
+                    <button type="button" onClick={() => setOpened(allOpen ? new Set() : new Set(lines.map((l) => l.id)))} title={t(allOpen ? "Tutup semua" : "Buka semua")}
+                      className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-gray-800">
+                      <ChevronDown size={13} className={`transition-transform ${allOpen ? "rotate-180" : ""}`} /> <T>Karyawan</T>
+                    </button>
+                  </th>
                   <th className="w-[32%] px-3 py-2.5"><T>Pendapatan</T></th>
                   <th className="w-[30%] px-3 py-2.5"><T>Potongan</T></th>
                   <th className="w-[10%] px-3 py-2.5 text-right"><T>Gaji Bersih</T></th>
