@@ -7,6 +7,7 @@ export const INDICATOR_SETTING_KEY = "dashboard.indicators";
 export const INDICATOR_CATALOG = [
   { key: "dinas-hari-ini", title: "Dinas Hari Ini", desc: "Karyawan yang sedang dinas luar (disetujui) hari ini." },
   { key: "terlambat-hari-ini", title: "Terlambat Hari Ini", desc: "Karyawan yang check-in melewati jam masuk shift + toleransi hari ini." },
+  { key: "belum-absen-hari-ini", title: "Belum Absen Hari Ini", desc: "Karyawan yang hari ini terjadwal kerja, jam masuk shift-nya (+ toleransi) sudah lewat, tetapi belum check-in; tidak termasuk yang cuti / izin / dinas luar disetujui. Karyawan Bebas Absen ikut dihitung. Hilang sendiri saat 0." },
   { key: "tepat-waktu-hari-ini", title: "Tepat Waktu Hari Ini", desc: "Karyawan yang check-in tepat waktu sesuai shift hari ini." },
   { key: "cuti-berjalan", title: "Proses Cuti", desc: "Pengajuan cuti yang menunggu persetujuan dan karyawan yang sedang cuti hari ini (sudah disetujui). Hilang sendiri saat keduanya 0." },
   { key: "proses-pinjaman", title: "Proses Pinjaman", desc: "Pengajuan pinjaman per tahap: menunggu atasan, pemeriksaan Admin, menunggu keputusan pemutus, dan yang selesai diputus hari ini (hilang saat berganti hari). Hilang sendiri saat tidak ada proses." },

@@ -4,6 +4,7 @@ import { loadRoster, unfilledIn } from "../admin/schedule/roster";
 import { getHiddenIndicators } from "@/lib/app-settings";
 import { getShiftCalendars } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
+import { notCheckedInToday } from "@/lib/not-checked-in";
 
 const DAY = 86_400_000;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
@@ -127,7 +128,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
   const today = todayDate();
   const todayKey = keyOf(today);
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
-  const [hidden, leaveRunning, onLeave, checkIns, onTrip, adminEdits, profileEdits, loanPending, loanDone, waiting] = await Promise.all([
+  const [hidden, leaveRunning, onLeave, checkIns, onTrip, adminEdits, profileEdits, loanPending, loanDone, waiting, absent] = await Promise.all([
     getHiddenIndicators(),
     // Pengajuan cuti yang sedang berjalan: sejak diajukan karyawan sampai diputus (disetujui / ditolak / dibatalkan).
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
@@ -154,6 +155,8 @@ export async function loadIndicators(): Promise<Indicator[]> {
     prisma.employeeLoan.count({ where: { isOpening: false, approvedAt: { gte: new Date(today.getTime() - 7 * 3600_000) }, status: { not: "PENDING" } } }),
     // Pengajuan menunggu per modul, beserta jumlah pengajuan uji ([UJI], masa testing).
     pendingRequests(),
+    // Belum absen masuk padahal jam masuk shift sudah lewat (termasuk Bebas Absen).
+    notCheckedInToday(),
   ]);
   const loanStage = (st: string) => loanPending.filter((l) => (l.stage || "ADMIN") === st).length;
   // Terlambat / tepat waktu dinilai dari jam masuk shift hari itu + toleransi terlambat shift.
@@ -176,6 +179,11 @@ export async function loadIndicators(): Promise<Indicator[]> {
     {
       key: "terlambat-hari-ini", title: "Terlambat Hari Ini", value: late.length, noteValue: names(late),
       note: late.length ? "terlambat masuk" : "Belum ada yang terlambat", icon: "late", tone: "rose", href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
+    },
+    {
+      key: "belum-absen-hari-ini", title: "Belum Absen Hari Ini", value: absent.length,
+      note: "karyawan belum check-in", icon: "absent", tone: "rose", actionable: true,
+      href: `/portal/admin/laporan?jenis=kehadiran&belum=1&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
       key: "tepat-waktu-hari-ini", title: "Tepat Waktu Hari Ini", value: onTime.length, noteValue: late.length + onTime.length,

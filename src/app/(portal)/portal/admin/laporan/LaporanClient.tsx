@@ -10,6 +10,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { formatDate } from "@/lib/utils";
 import { OT_STATUS } from "@/lib/overtime-status";
 import type { RecapDay, RecapRow } from "@/lib/attendance-recap";
+import type { NotCheckedInRow } from "@/lib/not-checked-in";
 import type { ClaimReportRow, FixReportRow, LeaveReportRow, LoanReportRow, OvertimeReportRow, ReportStatus, SwapReportRow, TripReportRow } from "@/lib/report";
 
 export type ReportKind = "semua" | "kehadiran" | "cuti" | "dinas" | "tukar" | "lupa" | "reimburse" | "lembur" | "pinjaman";
@@ -61,11 +62,12 @@ function EmpName({ id, name, employeeId, department, canProfile, tab, date, exem
   );
 }
 
-export default function LaporanClient({ kind, status = "", stage = "", canLoan = false, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, trips = [], swaps = [], loans = [], fixes = [], claims = [], pending = {}, canProfile }: {
+export default function LaporanClient({ kind, status = "", stage = "", canLoan = false, from, to, picked, tooLong, employees, rows, days, leaves, overtimes, trips = [], swaps = [], loans = [], fixes = [], claims = [], pending = {}, canProfile, absent = null }: {
   kind: ReportKind; status?: ReportStatus; stage?: string; canLoan?: boolean; from: string; to: string; picked: string[]; tooLong: boolean; employees: Emp[];
   rows: RecapRow[]; days: RecapDay[]; leaves: LeaveReportRow[]; overtimes: OvertimeReportRow[];
   trips?: TripReportRow[]; swaps?: SwapReportRow[]; loans?: LoanReportRow[]; fixes?: FixReportRow[]; claims?: ClaimReportRow[]; canProfile: boolean;
   pending?: Partial<Record<ReportKind, number>>; // jumlah belum selesai per modul (daftar kiri)
+  absent?: NotCheckedInRow[] | null; // Belum Absen Hari Ini (dibuka dari indikator Beranda)
 }) {
   const t = useT();
   const router = useRouter();
@@ -231,6 +233,38 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
           )}
           <p className="text-[11px] text-gray-400"><T>Kosongkan pilihan karyawan untuk menampilkan semua. Pilih satu karyawan untuk melihat rincian per hari (Semua / Kehadiran).</T>{canProfile && <> <T>Klik nama untuk membuka profil karyawan (Kehadiran / Cuti sesuai jenis laporan).</T></>}</p>
         </section>
+
+        {absent && (
+          <section className="rounded-2xl border border-rose-200 bg-white">
+            <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-5 py-3">
+              <ClockAlert size={16} className="text-rose-600" />
+              <h3 className="flex-1 text-sm font-semibold text-gray-800"><T>Belum Absen Hari Ini</T></h3>
+              <span className="text-xs text-gray-500">{absent.length} <T>karyawan</T></span>
+              <Link href={`/portal/admin/laporan?jenis=kehadiran&dari=${from}&sampai=${to}`} className="text-xs font-semibold text-gray-500 hover:text-brand"><X size={14} className="inline" /> <T>Tutup</T></Link>
+            </div>
+            {absent.length === 0 ? (
+              <p className="px-5 py-6 text-center text-sm text-gray-500"><T>Semua karyawan yang jam masuknya sudah lewat sudah check-in.</T></p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500">
+                    <tr><th className="px-5 py-2"><T>Karyawan</T></th><th className="px-3 py-2"><T>Shift</T></th><th className="px-3 py-2"><T>Jam Masuk</T></th></tr>
+                  </thead>
+                  <tbody>
+                    {absent.map((r) => (
+                      <tr key={r.userId} className="border-t border-gray-100">
+                        <td className="px-5 py-2"><EmpName id={r.userId} name={r.name} employeeId={r.employeeId} department={r.department} canProfile={canProfile} tab="absensi" exempt={r.exempt} /></td>
+                        <td className="px-3 py-2 text-gray-700">{r.shift}</td>
+                        <td className="px-3 py-2 tabular-nums text-gray-700">{r.start}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="border-t border-gray-100 px-5 py-2 text-[11px] text-gray-400"><T>Terjadwal kerja hari ini, jam masuk shift (+ toleransi) sudah lewat, belum check-in. Yang cuti / izin / dinas luar disetujui tidak termasuk.</T></p>
+          </section>
+        )}
 
         <section className="rounded-2xl border border-gray-200 bg-white">
           <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-5 py-3">
