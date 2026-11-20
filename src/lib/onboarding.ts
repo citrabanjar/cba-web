@@ -34,6 +34,10 @@ export type CandidateData = {
   npwp: string; ptkpStatus: string; bpjsTkNumber: string; bpjsKesNumber: string;
   declaredAt: string; // waktu calon menyetujui pernyataan kebenaran data (diisi server setiap Kirim ke HRD)
 };
+// Email calon lama yang diarsipkan (emailnya dipakai calon baru): "email#arsip-<waktu>"; tampil tanpa tanda ini.
+export const ARCHIVE_MARK = "#arsip-";
+export const candidateEmail = (email: string) => email.split(ARCHIVE_MARK)[0];
+
 export type CandidateJob = {
   employeeId: string; branch: string; departmentName: string; position: string;
   employmentStatus: string; joinDate: string; contractEndDate: string;

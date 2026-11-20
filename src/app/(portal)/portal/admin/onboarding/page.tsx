@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { candidateEmail } from "@/lib/onboarding";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
@@ -31,7 +32,7 @@ export default async function OnboardingPage() {
   const managers = people.map((u) => ({ value: u.id, label: `${u.employeeId} - ${u.name}` }));
   const now = new Date();
   const rows: CandidateRow[] = candidates.map((c) => ({
-    id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status, note: c.note,
+    id: c.id, name: c.name, email: candidateEmail(c.email), phone: c.phone, status: c.status, note: c.note,
     data: readData(c.data, c.name, c.phone), job: readJob(c.job),
     // Selama email belum tersambung, kode OTP yang masih berlaku ditampilkan ke HRD untuk diteruskan.
     otp: !mailerReady() && c.otpCode && c.otpExpires && c.otpExpires > now ? { code: c.otpCode, until: c.otpExpires.toISOString() } : null,

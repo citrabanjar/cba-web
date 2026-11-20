@@ -1,5 +1,6 @@
 "use server";
 
+import { ARCHIVE_MARK } from "@/lib/onboarding";
 import { candidateEmployeeId } from "@/lib/employee-id";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -63,7 +64,13 @@ export async function inviteCandidate(input: { name: string; email: string; phon
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Email tidak valid." };
   if (digits(phone).length < 9 || digits(phone).length > 15) return { error: "Nomor HP 9-15 digit." };
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah dipakai karyawan lain." };
-  if (await prisma.candidate.findUnique({ where: { email }, select: { id: true } })) return { error: "Email sudah terdaftar sebagai calon karyawan." };
+  // Email calon unik. Calon lama yang sudah selesai (didaftarkan / ditolak) diarsipkan supaya emailnya bisa dipakai lagi
+  // (mis. email diganti lewat Perubahan Data); berkasnya tetap tersimpan. Calon yang masih diproses tetap menolak.
+  const old = await prisma.candidate.findUnique({ where: { email }, select: { id: true, status: true } });
+  if (old) {
+    if (!["DISETUJUI", "DITOLAK"].includes(old.status)) return { error: "Email ini masih dipakai calon karyawan yang sedang diproses." };
+    await prisma.candidate.update({ where: { id: old.id }, data: { email: `${email}${ARCHIVE_MARK}${Date.now()}` } });
+  }
   const c = await prisma.candidate.create({ data: { name, email, phone, data: { name, phone }, invitedBy: access.name ?? null } });
   const link = await onboardingLink(email);
   const emailed = await sendInviteEmail(email, name, link);

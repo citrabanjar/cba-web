@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Email ini masih dipakai calon karyawan yang sedang diproses.": "This email is still used by a candidate in process.",
   "pinjaman berjalan": "active loans",
   "Sisa pinjaman berjalan": "Outstanding loan balance",
   "Gaji harian": "Daily wage",
