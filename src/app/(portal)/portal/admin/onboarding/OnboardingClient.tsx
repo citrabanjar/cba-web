@@ -20,6 +20,7 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { approveCandidate, deleteCandidate, inviteCandidate, registerCandidate, rejectCandidate, resendInvite, returnToCandidate, saveCandidateReview, saveInterview, submitForApproval, submitInterview } from "./actions";
 import { askConfirm } from "@/components/portal/Confirm";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
+import ManagerPicker from "@/components/portal/ManagerPicker";
 
 export type CandidateRow = {
   id: string; name: string; email: string; phone: string; status: string; note: string | null;
@@ -204,11 +205,8 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
                 <div className="space-y-1.5"><Label className="text-xs"><T>Departemen</T></Label>{masterSelect("departmentName", master.departments)}</div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Jabatan</T></Label>{masterSelect("position", master.positions)}</div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Calon atasan langsung</T></Label>
-                  <select value={job.managerId} disabled={ro} className={select}
-                    onChange={(e) => setJob((j) => ({ ...j, managerId: e.target.value, managerName: master.managers.find((m) => m.value === e.target.value)?.label ?? "" }))}>
-                    <option value="">—</option>
-                    {master.managers.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select></div>
+                  <ManagerPicker id="onb-manager" value={job.managerId} managers={master.managers} disabled={ro}
+                    onChange={(managerId, managerName) => setJob((j) => ({ ...j, managerId, managerName }))} /></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Tanggal masuk</T></Label>
                   <Input type="date" value={job.joinDate} disabled={ro} onChange={(e) => setJ("joinDate", e.target.value)} /></div>
                 {job.employmentStatus === "KONTRAK" && (

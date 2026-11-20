@@ -9,6 +9,7 @@ import { T, useT } from "@/components/i18n";
 import { actionableApprovers, missingReview, RECOMMENDATIONS, rupiah, SCORES, type Interview, type Offer, type Review } from "@/lib/onboarding-interview";
 import { decideInterview, saveReview } from "@/app/(portal)/portal/admin/onboarding/actions";
 import { askConfirm } from "@/components/portal/Confirm";
+import ManagerPicker from "@/components/portal/ManagerPicker";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm disabled:bg-gray-50";
 const fmtDate = (s: string) => (s ? new Date(s.length === 10 ? `${s}T00:00:00` : s).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "—");
@@ -37,11 +38,8 @@ export function OfferForm({ value, onChange, master, title = "Tawaran kerja (iku
       <F label="Jabatan">{pick("position", master.positions)}</F>
       <F label="Cabang">{pick("branch", master.branches)}</F>
       <F label="Calon atasan langsung">
-        <select value={value.managerId} className={select}
-          onChange={(e) => setO({ managerId: e.target.value, managerName: master.managers?.find((m) => m.value === e.target.value)?.label ?? "" })}>
-          <option value="">—</option>
-          {(master.managers ?? []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
+        <ManagerPicker id="offer-manager" value={value.managerId} managers={master.managers ?? []}
+          onChange={(managerId, managerName) => setO({ managerId, managerName })} />
       </F>
       <F label="Status kerja">
         <select value={value.employmentStatus} onChange={(e) => setO({ employmentStatus: e.target.value })} className={select}>
