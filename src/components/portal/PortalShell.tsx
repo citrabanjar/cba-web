@@ -52,7 +52,8 @@ function getNavSections(role: string, menuAccess: string[], approvals: number | 
       { href: "/portal/admin/leave", label: "Cuti", icon: CalendarHeart },
     ] : []),
     ...(can("spl") ? [{ href: "/portal/admin/lembur", label: "Lembur", icon: Timer }] : []),
-    ...(can("absensi") ? [{ href: "/portal/admin/laporan", label: "Laporan", icon: ClipboardList, match: ["/portal/admin/rekap"] }] : []),
+    // Laporan: semua Admin (jenis laporan di dalamnya mengikuti kewenangan; Perubahan Data untuk semua Admin).
+    ...(role === "ADMIN" || isSuperAdmin(role) ? [{ href: "/portal/admin/laporan", label: "Laporan", icon: ClipboardList, match: ["/portal/admin/rekap"] }] : []),
   ]);
   add("FINANCE", [
     ...(can("gaji") ? [{ href: "/portal/admin/payroll", label: "Payroll & Benefit", icon: Landmark }] : []),

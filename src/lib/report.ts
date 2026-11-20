@@ -9,6 +9,9 @@ import { prisma } from "@/lib/prisma";
 import { readApproval } from "@/lib/onboarding-interview";
 import { getShiftCalendars } from "@/lib/schedule";
 import { isRestDay, otPlan, paidHours, shiftWindow } from "@/lib/overtime";
+import { hasMenu, isSuperAdmin, type MenuKey } from "@/lib/roles";
+import { EDIT_FIELD_LABELS } from "@/lib/personal-info";
+import { fieldLabel, isRegionCode } from "@/lib/profile-change";
 
 const keyOf = (d: Date) => d.toISOString().slice(0, 10);
 const hm = (d: Date | null) => (d ? new Date(d.getTime() + 7 * 3600_000).toISOString().slice(11, 16) : null);
@@ -196,4 +199,76 @@ export async function buildClaimReport(userIds: string[], from: Date, to: Date, 
     date: keyOf(r.treatDate), provider: r.provider, amount: r.amount, payout: r.payout, status: r.status,
     decidedBy: r.decidedBy, turn: r.status === "PENDING" ? turnOf(r.approval, r.user.manager) : null, files: r.files,
   }));
+}
+
+// Perubahan Data: pengajuan perubahan oleh Admin (Peran Admin wajib approval: Data Karyawan, Payroll & Benefit, Absensi & Cuti,
+// Pinjaman) dan oleh karyawan dari Profil Saya. Tanggal = tanggal diajukan. Admin hanya melihat pengajuan menu yang ia pegang
+// ditambah pengajuannya sendiri; Super Admin melihat semua.
+const EDIT_ST: Record<Exclude<ReportStatus, "">, string[]> = { menunggu: ["PENDING"], disetujui: ["APPROVED"], ditolak: ["REJECTED", "CANCELLED"] };
+export const CHANGE_MODULE: Record<string, string> = {
+  karyawan: "Data Karyawan", gaji: "Payroll & Benefit", absensi: "Absensi & Cuti", pinjaman: "Pinjaman Karyawan", profil: "Profil Saya",
+};
+type Viewer = { id: string; role: string; menuAccess: string[] };
+// Menu pemilik pengajuan Admin (dari jenis aksi yang ditahan; tanpa jenis = edit Data Karyawan).
+export const changeMenu = (data: unknown): MenuKey => {
+  const fam = String((data as { __kind?: unknown } | null)?.__kind ?? "").split(".")[0];
+  return fam === "gaji" ? "gaji" : fam === "absensi" || fam === "cuti" ? "absensi" : fam === "pinjaman" ? "pinjaman" : "karyawan";
+};
+export const seesChange = (v: Viewer, menu: MenuKey, requesterId?: string) => isSuperAdmin(v.role) || requesterId === v.id || hasMenu(v, menu);
+
+// Jumlah perubahan data yang belum diputus, sesuai yang boleh dilihat (indikator Beranda & daftar modul Laporan).
+export async function pendingChanges(v: Viewer) {
+  const [edits, profile] = await Promise.all([
+    prisma.employeeEditRequest.findMany({ where: { status: "PENDING" }, select: { requesterId: true, data: true } }),
+    isSuperAdmin(v.role) || hasMenu(v, "karyawan") ? prisma.profileChangeRequest.count({ where: { status: "PENDING" } }) : Promise.resolve(0),
+  ]);
+  return { admin: edits.filter((e) => seesChange(v, changeMenu(e.data), e.requesterId)).length, profile };
+}
+
+export type ChangeReportRow = {
+  id: string; source: "admin" | "karyawan"; module: string; userId: string | null; name: string | null; employeeId: string | null; department: string | null;
+  title: string | null; details: { field: string; oldValue: string | null; newValue: string | null }[];
+  requester: string; approver: string; status: string; note: string | null; createdAt: string; decidedAt: string | null;
+};
+export async function buildChangeReport(v: Viewer, userIds: string[], from: Date, to: Date, status: ReportStatus = ""): Promise<ChangeReportRow[]> {
+  if (!userIds.length) return [];
+  const range = { createdAt: { gte: from, lt: new Date(to.getTime() + 86_400_000) } };
+  const [edits, profiles] = await Promise.all([
+    prisma.employeeEditRequest.findMany({
+      where: { userId: { in: userIds }, ...scope(status, range, EDIT_ST) }, include: { user: userSel }, orderBy: { createdAt: "desc" },
+    }),
+    isSuperAdmin(v.role) || hasMenu(v, "karyawan")
+      ? prisma.profileChangeRequest.findMany({ where: { userId: { in: userIds }, ...scope(status, range, EDIT_ST) }, include: { user: userSel }, orderBy: { createdAt: "desc" } })
+      : Promise.resolve([]),
+  ]);
+  const label = (f: string) => EDIT_FIELD_LABELS[f] ?? fieldLabel(f);
+  const rows: ChangeReportRow[] = [];
+  for (const r of edits) {
+    const menu = changeMenu(r.data);
+    if (!seesChange(v, menu, r.requesterId)) continue;
+    const d = (r.data ?? {}) as { __kind?: string; __title?: string; __target?: string | null };
+    // Pengaturan / parameter (bukan data seorang karyawan): kolom karyawan dikosongkan.
+    const person = !d.__kind || d.__target;
+    const details = (Array.isArray(r.summary) ? r.summary : []) as ChangeReportRow["details"];
+    rows.push({
+      id: r.id, source: "admin", module: CHANGE_MODULE[menu], userId: person ? r.userId : null, name: person ? r.user.name : null,
+      employeeId: person ? r.user.employeeId : null, department: person ? r.user.department?.name ?? null : null,
+      title: d.__title ?? null, details: details.map((x) => ({ ...x, field: label(x.field) })),
+      requester: r.requesterName, approver: r.approverName, status: r.status, note: r.note, createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
+    });
+  }
+  for (const r of profiles) {
+    const changes = (r.changes ?? {}) as Record<string, { old?: string; new?: string }>;
+    const details = Object.entries(changes).filter(([k]) => !isRegionCode(k))
+      .map(([k, x]) => ({ field: fieldLabel(k), oldValue: x.old ?? null, newValue: x.new ?? null }));
+    if (r.family) details.push({ field: "Keluarga", oldValue: null, newValue: "Data keluarga diubah" });
+    const flow = readApproval(r.approval);
+    rows.push({
+      id: r.id, source: "karyawan", module: CHANGE_MODULE.profil, userId: r.userId, name: r.user.name, employeeId: r.user.employeeId,
+      department: r.user.department?.name ?? null, title: null, details, requester: r.user.name,
+      approver: (r.status === "PENDING" ? flow?.steps.find((x) => !x.decision)?.name : r.decidedBy) ?? flow?.steps.map((x) => x.name).join(" → ") ?? "Admin Data Karyawan",
+      status: r.status, note: r.note, createdAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null,
+    });
+  }
+  return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

@@ -168,7 +168,7 @@ export type AgentData = {
 export async function loadAgent(isSuper: boolean, user?: SetupAccess | null): Promise<{ insights: Awaited<ReturnType<typeof loadInsights>>; agent: AgentData }> {
   const settings = await getAgentSettings();
   const [insights, payroll, setup, contract] = await Promise.all([
-    loadInsights(),
+    loadInsights(user),
     loadPayrollTasks(settings),
     user && !settings.setupDone ? loadSetup(user).then((x) => (x.length ? x : null)) : Promise.resolve(null),
     // Kontrak berakhir mengikuti batas hari di pengaturan Agent HRD.

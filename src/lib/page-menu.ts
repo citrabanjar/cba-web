@@ -8,7 +8,6 @@ const PAGE_MENU: [string, MenuKey][] = [
   ["/portal/admin/leave", "absensi"],
   ["/portal/admin/lembur", "spl"],
   ["/portal/admin/rekap", "absensi"],
-  ["/portal/admin/laporan", "absensi"],
   ["/portal/admin/payroll", "gaji"],
   ["/portal/admin/pinjaman", "pinjaman"],
   ["/portal/admin/onboarding", "prakaryawan"],

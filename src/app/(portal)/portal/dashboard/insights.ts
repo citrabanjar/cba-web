@@ -5,6 +5,7 @@ import { getHiddenIndicators } from "@/lib/app-settings";
 import { getShiftCalendars } from "@/lib/schedule";
 import { dayPenalty } from "@/lib/attendance-penalty";
 import { notCheckedInToday } from "@/lib/not-checked-in";
+import { pendingChanges } from "@/lib/report";
 
 const DAY = 86_400_000;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
@@ -41,7 +42,9 @@ function todayDate() {
 }
 
 // Semua data untuk kartu indikator dan kartu tugas di Beranda admin.
-export async function loadInsights() {
+// viewer: Admin yang membuka Beranda (angka Perubahan Data mengikuti menu yang ia pegang).
+export type Viewer = { id?: string; role: string; menuAccess: string[] };
+export async function loadInsights(viewer?: Viewer | null) {
   const today = todayDate();
   const todayKey = keyOf(today);
   const tomorrowKey = keyOf(addDays(today, 1));
@@ -73,7 +76,7 @@ export async function loadInsights() {
       orderBy: { contractEndDate: "asc" }, select: { id: true },
     }),
     prisma.holiday.count({ where: { date: { gte: new Date(Date.UTC(year + 1, 0, 1)), lt: new Date(Date.UTC(year + 2, 0, 1)) } } }),
-    loadIndicators(),
+    loadIndicators(viewer),
   ]);
 
   const now = unfilledIn(thisMonth);
@@ -127,11 +130,11 @@ export async function loadInsights() {
 
 // Kartu running indikator Beranda (Super Admin dan Admin). Yang dimatikan Super Admin di Pengaturan,
 // dan indikator pekerjaan yang sudah beres (nilai 0), tidak ikut berjalan.
-export async function loadIndicators(): Promise<Indicator[]> {
+export async function loadIndicators(viewer?: Viewer | null): Promise<Indicator[]> {
   const today = todayDate();
   const todayKey = keyOf(today);
   const active = { isActive: true, role: { not: "SUPER_ADMIN" as const } };
-  const [hidden, leaveRunning, onLeave, checkIns, onTrip, adminEdits, profileEdits, loanPending, loanDone, absent] = await Promise.all([
+  const [hidden, leaveRunning, onLeave, checkIns, onTrip, changes, loanPending, loanDone, absent] = await Promise.all([
     getHiddenIndicators(),
     // Pengajuan cuti yang sedang berjalan: sejak diajukan karyawan sampai diputus (disetujui / ditolak / dibatalkan).
     prisma.leaveRequest.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { userId: true } }),
@@ -150,9 +153,9 @@ export async function loadIndicators(): Promise<Indicator[]> {
       where: { status: "APPROVED", startDate: { lte: today }, endDate: { gte: today }, user: active },
       orderBy: { startDate: "asc" }, select: { userId: true, destination: true, user: { select: { name: true } } },
     }),
-    // Perubahan data yang belum diputus: pengajuan Admin (wajib approval) dan pengajuan karyawan dari Profil Saya.
-    prisma.employeeEditRequest.count({ where: { status: "PENDING" } }),
-    prisma.profileChangeRequest.count({ where: { status: "PENDING" } }),
+    // Perubahan data yang belum diputus: pengajuan Admin (wajib approval) dan pengajuan karyawan dari Profil Saya,
+    // sebatas menu yang dipegang Admin ini ditambah pengajuannya sendiri (Super Admin: semua).
+    pendingChanges({ id: viewer?.id ?? "", role: viewer?.role ?? "SUPER_ADMIN", menuAccess: viewer?.menuAccess ?? [] }),
     // Proses pinjaman: pengajuan yang berjalan per tahap, dan yang selesai diputus HARI INI (WIB); ganti hari → hilang.
     prisma.employeeLoan.findMany({ where: { status: "PENDING" }, select: { stage: true } }),
     prisma.employeeLoan.count({ where: { isOpening: false, approvedAt: { gte: new Date(today.getTime() - 7 * 3600_000) }, status: { not: "PENDING" } } }),
@@ -210,9 +213,10 @@ export async function loadIndicators(): Promise<Indicator[]> {
       icon: "loan", tone: "amber", href: "/portal/admin/laporan?jenis=pinjaman&status=menunggu", actionable: true,
     },
     {
-      key: "perubahan-data", title: "Perubahan Data Belum Disetujui", value: adminEdits + profileEdits,
-      noteValue: `${adminEdits} Admin · ${profileEdits}`, note: "karyawan · menunggu persetujuan",
-      icon: "users", tone: "amber", href: "/portal/notifikasi", actionable: true,
+      // Klik → Laporan Perubahan Data (isi, pengaju, diajukan ke siapa), bukan Notifikasi.
+      key: "perubahan-data", title: "Perubahan Data Belum Disetujui", value: changes.admin + changes.profile,
+      noteValue: `${changes.admin} Admin · ${changes.profile}`, note: "karyawan · menunggu persetujuan",
+      icon: "users", tone: "amber", href: "/portal/admin/laporan?jenis=perubahan&status=menunggu", actionable: true,
     },
   ];
   // Indikator pekerjaan hilang saat beres; yang punya rincian tahap hilang saat semua tahapnya 0.
