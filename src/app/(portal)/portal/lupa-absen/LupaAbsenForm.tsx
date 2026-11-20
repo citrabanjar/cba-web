@@ -31,7 +31,9 @@ export default function LupaAbsenForm({ today, initialDate, incomplete, records,
   const t = useT();
   const router = useRouter();
   const [kind, setKind] = useState<Kind>("LUPA");
-  const [date, setDate] = useState(initialDate || incomplete[0] || "");
+  // Tanggal awal = hari ini; tanggal lain dipilih sendiri oleh karyawan (keputusan pemilik 2026-11-20, setelah kasus
+  // jam pulang hari itu masuk ke 21-Okt karena dulu terisi otomatis dengan absen tidak lengkap terakhir).
+  const [date, setDate] = useState(initialDate || today);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [from, setFrom] = useState(today);
@@ -40,12 +42,20 @@ export default function LupaAbsenForm({ today, initialDate, incomplete, records,
   const [pending, start] = useTransition();
   const rec = date ? records[date] : undefined;
 
-  const send = () => start(async () => {
+  // Konfirmasi tanggal & jam Lupa Absen sebelum dikirim (ditanyakan di luar transition, supaya dialog bisa tampil).
+  const send = async () => {
+    if (kind === "LUPA" && date) {
+      const jam = rec?.checkIn ? `${t("jam pulang")} ${checkOut || "—"}` : `${t("jam masuk")} ${checkIn || "—"}`;
+      if (!(await askConfirm(`${t("Ajukan Lupa Absen untuk tanggal")} ${formatDate(date)} · ${jam}?`))) return;
+    }
+    submit();
+  };
+  const submit = () => start(async () => {
     if (kind === "LUPA") {
       const r = await submitFix({ date, checkIn: rec?.checkIn ? "" : checkIn, checkOut: rec?.checkIn && !rec.checkOut ? checkOut : "", reason });
       if (r.error) { void showNotice(t(r.error), "error"); return; }
       void showNotice(`${t("Lupa absen diajukan ke")} ${r.approver} ${t("untuk approval.")}`);
-      setCheckIn(""); setCheckOut(""); setDate("");
+      setCheckIn(""); setCheckOut(""); setDate(today);
     } else {
       const r = await submitAbsence({ kind, startDate: from, endDate: to < from ? from : to, reason });
       if (r.error) { void showNotice(t(r.error), "error"); return; }
@@ -55,12 +65,14 @@ export default function LupaAbsenForm({ today, initialDate, incomplete, records,
     setReason("");
     router.refresh();
   });
-  const cancel = (id: string, leave: boolean) => start(async () => {
+  const cancel = async (id: string, leave: boolean) => {
     if (!(await askConfirm(t("Batalkan pengajuan ini?")))) return;
+    start(async () => {
     const r = leave ? await cancelLeave(id) : await cancelFix(id);
     if (r && "error" in r && r.error) void showNotice(t(r.error), "error");
     router.refresh();
-  });
+    });
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">

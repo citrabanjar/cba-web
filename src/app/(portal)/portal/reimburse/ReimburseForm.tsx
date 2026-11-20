@@ -54,12 +54,15 @@ export default function ReimburseForm({ enabled, today, percent, needDoctorLette
     setProvider(""); setAmount(0); setNote(""); setFiles({ KUITANSI: [], SURAT_DOKTER: [], RESEP: [] }); setQuote(null);
     router.refresh();
   });
-  const cancel = (id: string) => start(async () => {
+  // Konfirmasi di luar transition (dialog tidak bisa tampil selama transition berjalan).
+  const cancel = async (id: string) => {
     if (!(await askConfirm(t("Batalkan pengajuan reimbursement ini?")))) return;
-    const r = await cancelClaim(id);
-    if (r.error) void showNotice(t(r.error), "error");
-    router.refresh();
-  });
+    start(async () => {
+      const r = await cancelClaim(id);
+      if (r.error) void showNotice(t(r.error), "error");
+      router.refresh();
+    });
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
