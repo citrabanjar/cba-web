@@ -52,6 +52,11 @@ html {
 .portal-theme main :is(.bg-white.rounded-xl, .bg-white.rounded-2xl, section.bg-white) :is(.bg-white.rounded-xl, .bg-white.rounded-2xl) {
   background-color: rgb(255 255 255 / 0.9);
 }
+/* Tulisan abu-abu muda di atas kartu kaca kurang terbaca: di dalam kartu, abu-abu muda digelapkan satu-dua tingkat. */
+.portal-theme main :is(.bg-white.rounded-xl, .bg-white.rounded-2xl, section.bg-white) {
+  --color-gray-400: oklch(0.5 0.025 264);
+  --color-gray-500: oklch(0.43 0.028 264);
+}
 /* Pita judul halaman seperti kaca, menyatu dengan latar. */
 .portal-theme main > div > .bg-white.border-b:first-child {
   background-color: rgb(255 255 255 / 0.1);
