@@ -14,7 +14,8 @@ import { getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
 import { finalizeRun, generateRun, recomputeLine, unfinalizeRun, type LineInputs } from "@/lib/payroll-run";
 import { isSuperAdmin } from "@/lib/roles";
 import { BONUS_MODES, BONUS_SETTING_KEY, getBonusSchedule, type BonusEntry } from "@/lib/payroll-bonus";
-import { isSeparate } from "@/lib/payroll-run-period";
+import { isSeparate, periodLabel } from "@/lib/payroll-run-period";
+import { TRANSFER_SETTING_KEY, TRANSFER_TEMPLATES, buildKopra } from "@/lib/bank-transfer";
 import { holdForApproval, type HoldDetail } from "@/lib/approval-hold";
 import { readReimburse, REIMBURSE_KEY, type ReimburseSettings } from "@/lib/reimburse-shared";
 import { getReimburseSettings } from "@/lib/reimburse";
@@ -463,4 +464,39 @@ export async function deletePriorSlip(id: string): Promise<Result> {
   revalidatePath(PATH);
   revalidatePath("/portal/admin/karyawan", "layout");
   return {};
+}
+
+// ---- File transfer gaji (setelah periode FINAL) ----
+export async function getTransferDebit(): Promise<string> {
+  await requirePayroll();
+  const row = await prisma.appSetting.findUnique({ where: { key: TRANSFER_SETTING_KEY } });
+  return String((row?.value as { debitAccount?: unknown } | null)?.debitAccount ?? "");
+}
+
+export async function buildTransferFile(runId: string, input: { template: string; date: string; debitAccount: string }):
+  Promise<{ error?: string; fileName?: string; content?: string; count?: number; total?: number; skipped?: number; other?: number }> {
+  const access = await requirePayroll();
+  if (!TRANSFER_TEMPLATES.some((t) => t.key === input.template)) return { error: "Template transfer tidak dikenal." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Isi tanggal transfer." };
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  if (input.date < today) return { error: "Tanggal transfer tidak boleh sebelum hari ini." };
+  const run = await prisma.payrollRun.findUnique({
+    where: { id: runId },
+    select: { period: true, status: true, frequency: true, lines: { select: { netPay: true, user: { select: { name: true, employeeId: true, bankName: true, bankAccount: true, bankHolder: true, email: true } } } } },
+  });
+  if (!run) return { error: "Data tidak ditemukan." };
+  if (run.status !== "FINAL") return { error: "File transfer hanya bisa dibuat setelah periode final." };
+  const label = periodLabel(run.period).replace(/^Gajian /, "").replace(/\s*\(.*\)$/, "");
+  const remark = run.frequency === "MINGGUAN" ? `Gaji Mingguan ${label}` : run.frequency === "TERPISAH" ? `Pembayaran ${label}` : `Gaji ${label}`;
+  const rows = run.lines
+    .map((l) => ({ name: l.user.name, employeeId: l.user.employeeId, bankName: l.user.bankName, account: l.user.bankAccount, holder: l.user.bankHolder, email: l.user.email, amount: l.netPay }))
+    .sort((a, b) => (a.employeeId ?? a.name).localeCompare(b.employeeId ?? b.name));
+  const r = buildKopra(rows, { date: input.date, debitAccount: input.debitAccount, remark });
+  if ("errors" in r) return { error: r.errors.slice(0, 15).join("\n") + (r.errors.length > 15 ? `\n… dan ${r.errors.length - 15} lainnya.` : "") };
+  await prisma.appSetting.upsert({
+    where: { key: TRANSFER_SETTING_KEY },
+    create: { key: TRANSFER_SETTING_KEY, value: { debitAccount: input.debitAccount.replace(/\D/g, "") }, updatedBy: access.name ?? null },
+    update: { value: { debitAccount: input.debitAccount.replace(/\D/g, "") }, updatedBy: access.name ?? null },
+  });
+  return { fileName: `KOPRA Payroll ${remark.replace(/^Gaji /, "")} - ${input.date.replace(/-/g, "")}.txt`, content: r.content, count: r.count, total: r.total, skipped: r.skipped, other: r.other };
 }

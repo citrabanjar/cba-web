@@ -1,16 +1,17 @@
 "use client";
 
 import { Fragment, useState, useTransition } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { parseHours, rupiah } from "@/lib/payroll";
 import { isSeparate, isWeekly, periodLabel, separatePeriod, weeklyPayDate, weeklyPeriodForPay } from "@/lib/payroll-run-period";
 import type { BonusEntry } from "@/lib/payroll-bonus";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
-import { cancelPayrollFinal, deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
+import { buildTransferFile, getTransferDebit, cancelPayrollFinal, deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
+import { TRANSFER_TEMPLATES } from "@/lib/bank-transfer";
 
 export type RunLine = {
   id: string; userId: string; name: string; employeeId: string; department: string | null;
@@ -66,7 +67,8 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: tombol hitung/final/hapus & isian baris disembunyikan
   const superAdmin = useIsSuperAdmin(); // Batalkan Final hanya Super Admin
-  const [undo, setUndo] = useState<string | null>(null); // isian alasan Batalkan Final (null = tertutup)
+  const [undo, setUndo] = useState<string | null>(null);
+  const [xfer, setXfer] = useState<{ template: string; date: string; debit: string } | null>(null); // isian Buat File Transfer // isian alasan Batalkan Final (null = tertutup)
   const separateList = bonus.filter((b) => b.mode === "TERPISAH");
   const [freq, setFreq] = useState<Freq>("BULANAN");
   const weekly = freq === "MINGGUAN";
@@ -172,6 +174,13 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
               </button>
             </>
           )}
+          {canEdit && run && final && xfer === null && (
+            <button type="button" disabled={pending}
+              onClick={async () => setXfer({ template: TRANSFER_TEMPLATES[0].key, date: today(), debit: await getTransferDebit().catch(() => "") })}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-50">
+              <FileDown size={14} /> <T>Buat File Transfer</T>
+            </button>
+          )}
           {superAdmin && run && final && undo === null && (
             <button type="button" disabled={pending} onClick={() => setUndo("")}
               className="inline-flex h-9 items-center gap-1.5 rounded-full border border-red-200 px-4 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
@@ -179,6 +188,44 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
             </button>
           )}
         </div>
+        {canEdit && run && final && xfer !== null && (
+          <div className="w-full space-y-3 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block text-xs font-medium text-gray-500"><T>Template</T>
+                <select value={xfer.template} onChange={(e) => setXfer({ ...xfer, template: e.target.value })}
+                  className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand">
+                  {TRANSFER_TEMPLATES.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+                </select>
+              </label>
+              <label className="block text-xs font-medium text-gray-500"><T>Tanggal transfer</T>
+                <input type="date" value={xfer.date} min={today()} onChange={(e) => setXfer({ ...xfer, date: e.target.value })}
+                  className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand" />
+              </label>
+              <label className="block text-xs font-medium text-gray-500"><T>Rekening debit perusahaan</T>
+                <input inputMode="numeric" value={xfer.debit} onChange={(e) => setXfer({ ...xfer, debit: e.target.value.replace(/\D/g, "") })}
+                  className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand" />
+              </label>
+            </div>
+            <p className="text-[11px] text-gray-400"><T>Rekening Mandiri ditransfer In-House; bank lain lewat BI FAST. Karyawan dengan gaji bersih Rp 0 dilewati.</T></p>
+            <div className="flex justify-end gap-2">
+              <button type="button" disabled={pending} onClick={() => setXfer(null)} className="h-8 rounded-full border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Tutup</T></button>
+              <button type="button" disabled={pending || !xfer.date || !xfer.debit}
+                onClick={() => start(async () => {
+                  const r = await buildTransferFile(run.id, { template: xfer.template, date: xfer.date, debitAccount: xfer.debit });
+                  if (r.error || !r.content || !r.fileName) { void showNotice(r.error ? r.error.split("\n").map((x) => t(x)).join("\n") : t("Gagal membuat file."), "error"); return; }
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(new Blob([r.content], { type: "text/plain" }));
+                  a.download = r.fileName; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+                  setXfer(null);
+                  void showNotice([`${t("File transfer dibuat")}: ${r.count} ${t("karyawan")}, ${t("total")} ${rupiah(r.total ?? 0)}.`,
+                    r.other ? `${r.other} ${t("ke bank lain lewat BI FAST.")}` : "", r.skipped ? `${r.skipped} ${t("karyawan dilewati (gaji bersih Rp 0).")}` : ""].filter(Boolean).join("\n"));
+                })}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-brand px-4 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-50">
+                <FileDown size={13} /> <T>Unduh File</T>
+              </button>
+            </div>
+          </div>
+        )}
         {superAdmin && run && final && undo !== null && (
           <div className="w-full space-y-2 rounded-xl border border-red-200 bg-red-50/50 p-3">
             <p className="text-xs text-gray-600"><T>Periode kembali ke Draft: slip gaji ditarik, angsuran pinjaman dan reimbursement yang ikut terbayar dikembalikan.</T></p>
