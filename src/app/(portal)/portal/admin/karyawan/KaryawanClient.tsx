@@ -3,9 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Search, Loader2, Users, UserCheck, BadgeCheck, Clock3, ImageUp,
-} from "lucide-react";
+import { Search, Loader2, ImageUp } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -105,12 +103,8 @@ export default function KaryawanClient({
   const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<"all" | "active" | "inactive">("active");
-  const stats = {
-    total: employees.length,
-    active: employees.filter((e) => e.isActive).length,
-    tetap: employees.filter((e) => e.isActive && e.employmentStatus === "TETAP").length,
-    kontrak: employees.filter((e) => e.isActive && e.employmentStatus === "KONTRAK").length,
-  };
+  // Jumlah per saringan (kartu angka di atas dihapus; angka cukup di tombol saringan).
+  const counts = { active: employees.filter((e) => e.isActive).length, inactive: employees.filter((e) => !e.isActive).length, all: employees.length };
 
   const filtered = employees.filter(e =>
     (view === "all" || (view === "active") === e.isActive)
@@ -194,26 +188,6 @@ export default function KaryawanClient({
       </div>
 
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        {/* Ringkasan, gaya kartu angka Code XR FinSet */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            { label: "Total Karyawan", value: stats.total, icon: Users, tone: "from-brand to-rose-400" },
-            { label: "Aktif", value: stats.active, icon: UserCheck, tone: "from-emerald-500 to-teal-400" },
-            { label: "Tetap", value: stats.tetap, icon: BadgeCheck, tone: "from-sky-500 to-indigo-400" },
-            { label: "Kontrak", value: stats.kontrak, icon: Clock3, tone: "from-amber-500 to-orange-400" },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}>
-                  <s.icon size={15} />
-                </span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
-            </div>
-          ))}
-        </div>
-
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           {/* Judul tabel, filter status, cari, dan tombol aksi */}
           <div className="flex flex-col gap-3 border-b border-gray-100 p-4 lg:flex-row lg:items-center">
@@ -231,7 +205,7 @@ export default function KaryawanClient({
                     view === v.key ? "bg-ink text-white shadow-sm" : "text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  <T>{v.label}</T>
+                  <T>{v.label}</T> <span className="opacity-70">{counts[v.key]}</span>
                 </button>
               ))}
             </div>
