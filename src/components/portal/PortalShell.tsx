@@ -125,7 +125,7 @@ const greetingNow = () => {
   const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", hour12: false }).format(new Date()));
   return h < 12 ? "Selamat Pagi" : h < 15 ? "Selamat Siang" : h < 18 ? "Selamat Sore" : "Selamat Malam";
 };
-const HP_PATHS = ["/portal/tombol-hp", "/portal/absensi", "/portal/kehadiran", "/portal/cuti", "/portal/dinas", "/portal/tukar-shift", "/portal/lembur", "/portal/cek-fisik", "/portal/payslip", "/portal/pph21", "/portal/pinjaman"];
+const HP_PATHS = ["/portal/tombol-hp", "/portal/absensi", "/portal/kehadiran", "/portal/cuti", "/portal/dinas", "/portal/tukar-shift", "/portal/lembur", "/portal/cek-fisik", "/portal/payslip", "/portal/pph21", "/portal/pinjaman", "/portal/reimburse", "/portal/lupa-absen"];
 const COLLAPSE_KEY = "cba-sidebar-collapsed";
 
 const initials = (name: string) => name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
