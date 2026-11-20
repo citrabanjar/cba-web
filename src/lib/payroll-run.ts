@@ -633,6 +633,30 @@ export async function finalizeRun(runId: string, by: string | null) {
   return ops.length;
 }
 
+// Batalkan Final (khusus Super Admin): periode kembali ke Draft dan semua yang ikut terjadi saat final dikembalikan:
+// slip gaji periode itu ditarik, angsuran pinjaman kembali BELUM (pinjaman LUNAS karenanya kembali BERJALAN),
+// reimbursement kembali APPROVED. Ditolak bila periode sejenis yang lebih baru sudah final (PPh 21 berantai).
+export async function unfinalizeRun(runId: string, by: string, reason: string) {
+  const run = await prisma.payrollRun.findUnique({ where: { id: runId }, select: { period: true, status: true, note: true, lines: { select: { userId: true } } } });
+  if (!run) throw new Error("Data tidak ditemukan.");
+  if (run.status !== "FINAL") throw new Error("Periode ini belum final.");
+  const kind = (p: string) => (isSeparate(p) ? "T" : isWeekly(p) ? "M" : "B");
+  const later = (await prisma.payrollRun.findMany({ where: { status: "FINAL", period: { gt: run.period } }, select: { period: true } }))
+    .filter((r) => kind(r.period) === kind(run.period)).map((r) => r.period).sort();
+  if (later.length) throw new Error(`Periode ${periodLabel(later[later.length - 1])} sudah final. Batalkan dulu periode yang paling akhir.`);
+
+  const loanIds = (await prisma.loanInstallment.findMany({ where: { paidRunId: runId }, select: { loanId: true } })).map((i) => i.loanId);
+  const stamp = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" });
+  const log = `Final dibatalkan oleh ${by} (${stamp}): ${reason}`;
+  await prisma.$transaction([
+    prisma.payslip.deleteMany({ where: { period: run.period, userId: { in: run.lines.map((l) => l.userId) } } }),
+    prisma.loanInstallment.updateMany({ where: { paidRunId: runId }, data: { status: "BELUM", paidRunId: null, paidAt: null } }),
+    prisma.employeeLoan.updateMany({ where: { id: { in: [...new Set(loanIds)] }, status: "LUNAS" }, data: { status: "BERJALAN" } }),
+    prisma.medicalClaim.updateMany({ where: { paidRunId: runId, status: "PAID" }, data: { status: "APPROVED", paidRunId: null, paidAt: null } }),
+    prisma.payrollRun.update({ where: { id: runId }, data: { status: "DRAFT", finalizedBy: null, finalizedAt: null, note: [run.note, log].filter(Boolean).join("\n") } }),
+  ]);
+}
+
 // Estimasi upah lembur karyawan di periode gaji berjalan (menu Kehadiran). Memakai mesin Proses Gaji yang sama,
 // lalu mengambil komponen upah lembur (cara hitung LEMBUR) dan komponen berparameter jam lembur (mis. uang makan lembur).
 // Periode gaji yang memuat tanggal `day` (YYYY-MM-DD) untuk karyawan bulanan / mingguan.

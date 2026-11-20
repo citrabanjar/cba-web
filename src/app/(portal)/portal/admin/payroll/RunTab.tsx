@@ -1,14 +1,14 @@
 "use client";
 
 import { Fragment, useState, useTransition } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
-import { useCanEdit } from "@/components/portal/edit-access";
+import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { parseHours, rupiah } from "@/lib/payroll";
 import { isSeparate, isWeekly, periodLabel, separatePeriod, weekStartOf } from "@/lib/payroll-run-period";
 import type { BonusEntry } from "@/lib/payroll-bonus";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
-import { deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
+import { cancelPayrollFinal, deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
@@ -20,7 +20,7 @@ export type RunLine = {
 export type NonRoutine = { code: string; name: string };
 export type Run = {
   id: string; period: string; label: string; status: string; frequency: string; extraCodes: string[];
-  finalizedBy: string | null; finalizedAt: string | null; lines: RunLine[];
+  finalizedBy: string | null; finalizedAt: string | null; note?: string | null; lines: RunLine[];
 };
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -64,6 +64,8 @@ const dmy = (d: string) => d.split("-").reverse().join("-");
 export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bonus: BonusEntry[]; weekStartDay: number }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: tombol hitung/final/hapus & isian baris disembunyikan
+  const superAdmin = useIsSuperAdmin(); // Batalkan Final hanya Super Admin
+  const [undo, setUndo] = useState<string | null>(null); // isian alasan Batalkan Final (null = tertutup)
   const separateList = bonus.filter((b) => b.mode === "TERPISAH");
   const [freq, setFreq] = useState<Freq>("BULANAN");
   const weekly = freq === "MINGGUAN";
@@ -163,7 +165,32 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
               </button>
             </>
           )}
+          {superAdmin && run && final && undo === null && (
+            <button type="button" disabled={pending} onClick={() => setUndo("")}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-red-200 px-4 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
+              <Undo2 size={14} /> <T>Batalkan Final</T>
+            </button>
+          )}
         </div>
+        {superAdmin && run && final && undo !== null && (
+          <div className="w-full space-y-2 rounded-xl border border-red-200 bg-red-50/50 p-3">
+            <p className="text-xs text-gray-600"><T>Periode kembali ke Draft: slip gaji ditarik, angsuran pinjaman dan reimbursement yang ikut terbayar dikembalikan.</T></p>
+            <textarea value={undo} onChange={(e) => setUndo(e.target.value)} rows={2} placeholder={t("Alasan pembatalan...")}
+              className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+            <div className="flex justify-end gap-2">
+              <button type="button" disabled={pending} onClick={() => setUndo(null)} className="h-8 rounded-full border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-600 hover:bg-gray-50"><T>Tutup</T></button>
+              <button type="button" disabled={pending || !undo.trim()}
+                onClick={async () => {
+                  if (!(await askConfirm(t("Batalkan final periode ini? Slip gaji karyawan untuk periode ini akan ditarik.")))) return;
+                  const why = undo;
+                  act(async () => { const r = await cancelPayrollFinal(run.id, why); if (!r.error) setUndo(null); return r; }, "Final dibatalkan. Periode kembali ke Draft.");
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                <Undo2 size={13} /> <T>Batalkan Final</T>
+              </button>
+            </div>
+          </div>
+        )}
         {msg && <p className={`w-full rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
       </section>
 
@@ -187,6 +214,9 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
               </div>
             ))}
           </div>
+          {run.note && (
+            <p className="whitespace-pre-line rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-800">{run.note}</p>
+          )}
           {final && run.finalizedAt && (
             <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
               <CheckCircle2 size={15} /> <T>Final oleh</T> {run.finalizedBy ?? "—"} · {new Date(run.finalizedAt).toLocaleString("id-ID")}. <T>Slip gaji sudah terbit di menu Slip Gaji karyawan.</T>

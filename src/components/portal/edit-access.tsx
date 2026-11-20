@@ -7,7 +7,7 @@
 // Server tetap menolak aksi ubah dari pemegang hak lihat (requireMenu / canEditMenu), jadi ini hanya kenyamanan tampilan.
 import { createContext, useContext } from "react";
 import { usePathname } from "next/navigation";
-import { canEditMenu, canProposeMenu, hasMenu, type MenuKey } from "@/lib/roles";
+import { canEditMenu, canProposeMenu, hasMenu, isSuperAdmin, type MenuKey } from "@/lib/roles";
 import { pageMenu } from "@/lib/page-menu";
 export { pageMenu };
 
@@ -40,4 +40,9 @@ export function useCanApply(menu?: MenuKey) {
 export function useCanPropose(menu: MenuKey) {
   const access = useContext(Ctx);
   return canProposeMenu(access, menu);
+}
+
+// Super Admin (mis. tombol Batalkan Final di Proses Gaji).
+export function useIsSuperAdmin() {
+  return isSuperAdmin(useContext(Ctx)?.role);
 }

@@ -75,7 +75,7 @@ export default async function PayrollPage() {
       settings={settings}
       runs={runs.map((r) => ({
         id: r.id, period: r.period, label: periodLabel(r.period), status: r.status, frequency: r.frequency, extraCodes: r.extraCodes.length ? r.extraCodes : r.includeThr ? ["THR"] : [],
-        finalizedBy: r.finalizedBy, finalizedAt: r.finalizedAt?.toISOString() ?? null,
+        finalizedBy: r.finalizedBy, finalizedAt: r.finalizedAt?.toISOString() ?? null, note: r.note,
         lines: r.lines
           .map((l) => ({
             id: l.id, userId: l.userId, name: l.user.name, employeeId: l.user.employeeId ?? "", department: l.user.department?.name ?? null,

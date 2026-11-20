@@ -11,7 +11,8 @@ import {
 } from "@/lib/payroll";
 import { TAX_SETTING_KEY, TER_SETTING_KEY, type TaxYearConfig, type TerRow, type TerVersion } from "@/lib/pph21";
 import { getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
-import { finalizeRun, generateRun, recomputeLine, type LineInputs } from "@/lib/payroll-run";
+import { finalizeRun, generateRun, recomputeLine, unfinalizeRun, type LineInputs } from "@/lib/payroll-run";
+import { isSuperAdmin } from "@/lib/roles";
 import { BONUS_MODES, BONUS_SETTING_KEY, getBonusSchedule, type BonusEntry } from "@/lib/payroll-bonus";
 import { isSeparate } from "@/lib/payroll-run-period";
 import { holdForApproval, type HoldDetail } from "@/lib/approval-hold";
@@ -253,6 +254,22 @@ export async function finalizePayroll(runId: string): Promise<Result & { count?:
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal memfinalkan." };
   }
+}
+
+// Batalkan Final: hanya Super Admin, wajib alasan. Periode kembali ke Draft (lihat unfinalizeRun).
+export async function cancelPayrollFinal(runId: string, reason: string): Promise<Result> {
+  const access = await getAccess();
+  if (!access || !isSuperAdmin(access.role)) return { error: "Hanya Super Admin yang bisa membatalkan final." };
+  const why = reason.trim().slice(0, 300);
+  if (!why) return { error: "Isi alasan pembatalan." };
+  try {
+    await unfinalizeRun(runId, access.name ?? "Super Admin", why);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Gagal membatalkan final." };
+  }
+  revalidatePath(PATH);
+  revalidatePath("/portal/payslip");
+  return {};
 }
 
 export async function deletePayrollDraft(runId: string): Promise<Result> {
