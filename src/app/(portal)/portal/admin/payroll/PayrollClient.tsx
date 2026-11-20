@@ -130,7 +130,8 @@ export default function PayrollClient({ components, settings, runs, employees, n
             </button>
           ))}
         </div>
-        {tab === "proses" && <RunTab runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay} />}
+        {tab === "proses" && <RunTab runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay}
+          fixedCodes={components.filter((c) => ["INPUT", "NOMINAL", "PERSEN", "PPH21"].includes(c.method)).map((c) => c.code)} />}
         {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={6} />}
         {tab === "kalkulator" && <DeductionCalculator />}
         {tab === "pengaturan" && (

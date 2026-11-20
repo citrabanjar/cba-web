@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { AlertTriangle, CheckCircle2, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { rupiah } from "@/lib/payroll";
@@ -15,6 +15,7 @@ import { TRANSFER_TEMPLATES } from "@/lib/bank-transfer";
 
 export type RunLine = {
   id: string; userId: string; name: string; employeeId: string; department: string | null;
+  daily?: boolean; // jadwal bayar Mingguan (gaji harian)
   inputs: LineInputs; items: LineItem[]; gross: number; earnings: number; deductions: number; benefits: number;
   pph21: number; netPay: number; ptkp: string | null; terRate: number | null; warning: string | null;
 };
@@ -26,6 +27,28 @@ export type Run = {
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
+
+// Rincian komponen per karyawan: Tetap (gaji tetap bulanan, PPh 21) dan Tidak rutin (lembur, dinas, THR, pinjaman, potongan absen).
+function ItemGroups({ items, fixed, empty }: { items: LineItem[]; fixed: Set<string>; empty: string }) {
+  const t = useT();
+  if (!items.length) return <p className="text-[11px] italic text-gray-400"><T>{empty}</T></p>;
+  const groups = [["Tetap", items.filter((i) => fixed.has(i.code))], ["Tidak rutin", items.filter((i) => !fixed.has(i.code))]] as const;
+  return (
+    <div className="space-y-2">
+      {groups.filter(([, list]) => list.length).map(([label, list]) => (
+        <div key={label}>
+          <p className="mb-0.5 text-[10px] font-semibold text-gray-500"><T>{label}</T></p>
+          {list.map((i) => (
+            <div key={i.code} className="flex items-start justify-between gap-2 py-0.5" title={i.detail || undefined}>
+              <span className="min-w-0 text-gray-700">{t(i.name)}{i.taxable && <span className="ml-1 rounded bg-gray-100 px-1 py-px text-[9px] text-gray-500"><T>Kena pajak</T></span>}</span>
+              <span className="shrink-0 tabular-nums text-gray-900">{rupiah(i.amount)}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Angka kehadiran & lembur hanya tampilan dari modul Kehadiran / Lembur; koreksi dilakukan di data sumbernya lalu Hitung Ulang.
 const hoursText = (v: number[]) => (v.length ? v.map((x) => String(x).replace(".", ",")).join(", ") : "-");
@@ -40,7 +63,7 @@ const BONUS_MODE_LABEL: Record<string, string> = { BULANAN: "ikut payroll bulana
 const dmy = (d: string) => d.split("-").reverse().join("-");
 const plusDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
-export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bonus: BonusEntry[]; weekStartDay: number }) {
+export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: { fixedCodes?: string[]; runs: Run[]; bonus: BonusEntry[]; weekStartDay: number }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: tombol hitung/final/hapus & isian baris disembunyikan
   const superAdmin = useIsSuperAdmin(); // Batalkan Final hanya Super Admin
@@ -65,7 +88,7 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
   })();
   const scheduled = range ? bonus.filter((b) => b.payDate >= range[0] && b.payDate <= range[1] && (weekly ? b.mode !== "TERPISAH" : b.mode === "BULANAN")) : [];
   const taxedHere = range && !weekly ? bonus.filter((b) => b.payDate >= range[0] && b.payDate <= range[1] && b.mode !== "BULANAN") : [];
-  const [open, setOpen] = useState<string | null>(null);
+  const fixed = new Set(fixedCodes);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const final = run?.status === "FINAL";
@@ -253,69 +276,57 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
             </p>
           )}
           <div className="max-h-[calc(100vh-260px)] min-h-64 overflow-auto rounded-2xl border border-gray-200 bg-white">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 z-10 bg-white text-left text-[10px] uppercase tracking-wide text-gray-400">
-                <tr className="border-b border-gray-100">
-                  <th className="px-3 py-2"><T>Karyawan</T></th>
-                  <th className="px-2 py-2 text-right"><T>Hadir</T></th>
-                  <th className="px-2 py-2 text-right"><T>Mangkir</T></th>
-                  <th className="px-2 py-2 text-right"><T>Dinas (hari / kali)</T></th>
-                  <th className="px-2 py-2 text-right" title={t("Jam per pengajuan, pisahkan dengan koma")}><T>Lembur HK (jam)</T></th>
-                  <th className="px-2 py-2 text-right" title={t("Jam per pengajuan, pisahkan dengan koma")}><T>Lembur HL (jam)</T></th>
-                  <th className="px-2 py-2 text-right"><T>Pendapatan</T></th>
-                  <th className="px-2 py-2 text-right"><T>Potongan</T></th>
-                  <th className="px-2 py-2 text-right"><T>PPh 21</T></th>
-                  <th className="px-3 py-2 text-right"><T>Gaji Bersih</T></th>
+            <table className="w-full min-w-[960px] text-xs">
+              <thead className="sticky top-0 z-10 bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-gray-200">
+                  <th className="w-[22%] px-4 py-2.5"><T>Karyawan</T></th>
+                  <th className="w-[12%] px-3 py-2.5"><T>Gaji Pokok</T></th>
+                  <th className="w-[26%] px-3 py-2.5"><T>Pendapatan</T></th>
+                  <th className="w-[24%] px-3 py-2.5"><T>Potongan</T></th>
+                  <th className="w-[10%] px-3 py-2.5 text-right"><T>Gaji Bersih</T></th>
+                  <th className="w-[6%] px-3 py-2.5"><T>Status</T></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
-                {lines.map((l) => (
-                  <Fragment key={l.id}>
-                    <tr className="hover:bg-gray-50/70">
-                      <td className="px-3 py-2">
-                        <button type="button" onClick={() => setOpen(open === l.id ? null : l.id)} className="flex items-start gap-1.5 text-left">
-                          <ChevronDown size={13} className={`mt-0.5 shrink-0 text-gray-400 transition-transform ${open === l.id ? "rotate-180" : ""}`} />
-                          <span>
-                            <span className="block text-sm font-medium text-gray-900">{l.name}</span>
-                            <span className="block text-[10px] text-gray-400">{[l.employeeId, l.ptkp ?? "TK/0", l.department].filter(Boolean).join(" · ")}</span>
-                            {l.warning && <span className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle size={10} />{l.warning}</span>}
-                          </span>
-                        </button>
+              <tbody className="divide-y divide-gray-100">
+                {lines.map((l) => {
+                  const gp = l.items.find((i) => i.code === "GP");
+                  const earn = l.items.filter((i) => i.kind === "PENDAPATAN" && i.code !== "GP");
+                  const cut = l.items.filter((i) => i.kind === "POTONGAN");
+                  const benefit = l.items.filter((i) => i.kind === "BENEFIT").reduce((a, i) => a + i.amount, 0);
+                  const facts = [
+                    `${t("Hadir")} ${l.inputs.daysPresent}`,
+                    l.inputs.absentDays ? `${t("Mangkir")} ${l.inputs.absentDays}` : "",
+                    l.inputs.tripDays ? `${t("Dinas")} ${l.inputs.tripDays} ${t("hari")}` : "",
+                    (l.inputs.otWork ?? []).length ? `${t("Lembur HK")} ${hoursText(l.inputs.otWork ?? [])} ${t("jam")}` : "",
+                    (l.inputs.otRest ?? []).length ? `${t("Lembur HL")} ${hoursText(l.inputs.otRest ?? [])} ${t("jam")}` : "",
+                  ].filter(Boolean).join(" · ");
+                  return (
+                    <tr key={l.id} className="align-top hover:bg-gray-50/60">
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-semibold text-gray-900">{l.name}</p>
+                        <p className="text-[10px] text-gray-400">{[l.employeeId, l.ptkp ?? "TK/0", l.department].filter(Boolean).join(" · ")}</p>
+                        <p className="mt-1 text-[10px] text-gray-500">{facts}</p>
+                        {l.warning && <p className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle size={10} />{l.warning}</p>}
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{l.inputs.daysPresent}</td>
-                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{l.inputs.absentDays}</td>
-                      <td className="px-2 py-2 text-right tabular-nums text-gray-600">{l.inputs.tripDays ?? 0} / {l.inputs.trips ?? 0}</td>
-                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{hoursText(l.inputs.otWork ?? [])}</td>
-                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{hoursText(l.inputs.otRest ?? [])}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.earnings)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums text-rose-600">{rupiah(l.items.filter((i) => i.kind === "POTONGAN" && i.code !== "PPH21").reduce((a, i) => a + i.amount, 0))}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.pph21)}{l.terRate !== null && <span className="block text-[10px] text-gray-400">TER {l.terRate}%</span>}</td>
-                      <td className="px-3 py-2 text-right text-sm font-bold tabular-nums text-gray-900">{rupiah(l.netPay)}</td>
+                      <td className="px-3 py-3">
+                        <p className="tabular-nums text-gray-900">{gp ? rupiah(gp.amount) : "-"}</p>
+                        <p className="text-[10px] text-gray-400"><T>{l.daily ? "harian" : "per bulan"}</T></p>
+                      </td>
+                      <td className="px-3 py-3"><ItemGroups items={earn} fixed={fixed} empty="Tidak ada pendapatan lain" /></td>
+                      <td className="px-3 py-3">
+                        <ItemGroups items={cut} fixed={fixed} empty="Tidak ada potongan" />
+                        {benefit > 0 && <p className="mt-1.5 border-t border-dashed border-gray-200 pt-1 text-[10px] text-gray-400"><T>Ditanggung perusahaan</T>: {rupiah(benefit)}</p>}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <p className="text-sm font-bold tabular-nums text-gray-900">{rupiah(l.netPay)}</p>
+                        <p className="text-[10px] text-gray-400"><T>Bruto pajak</T> {rupiah(l.gross)}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}><T>{final ? "Final" : "Draft"}</T></span>
+                      </td>
                     </tr>
-                    {open === l.id && (
-                      <tr className="bg-gray-50/60">
-                        <td colSpan={10} className="px-6 py-3">
-                          <div className="grid gap-4 md:grid-cols-3">
-                            {(["PENDAPATAN", "POTONGAN", "BENEFIT"] as const).map((k) => (
-                              <div key={k}>
-                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                                  <T>{k === "PENDAPATAN" ? "Pendapatan" : k === "POTONGAN" ? "Potongan" : "Benefit ditanggung perusahaan"}</T>
-                                </p>
-                                {l.items.filter((i) => i.kind === k).map((i) => (
-                                  <p key={i.code} className="flex justify-between gap-2 py-0.5">
-                                    <span className="min-w-0"><span className="text-gray-700">{t(i.name)}</span>{i.detail && <span className="block text-[10px] text-gray-400">{i.detail}</span>}</span>
-                                    <span className="shrink-0 tabular-nums">{rupiah(i.amount)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            ))}
-                          </div>
-                          <p className="mt-2 text-[11px] text-gray-500"><T>Bruto kena pajak</T>: {rupiah(l.gross)}</p>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

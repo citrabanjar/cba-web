@@ -31,7 +31,7 @@ export default async function PayrollPage() {
     getPayrollSettings(),
     prisma.payrollRun.findMany({
       orderBy: { period: "desc" }, take: 60,
-      include: { lines: { include: { user: { select: { name: true, employeeId: true, department: { select: { name: true } } } } } } },
+      include: { lines: { include: { user: { select: { name: true, employeeId: true, paymentSchedule: true, department: { select: { name: true } } } } } } },
     }),
     prisma.user.findMany({
       where: { isActive: true, role: { not: "SUPER_ADMIN" } }, orderBy: { name: "asc" },
@@ -78,7 +78,7 @@ export default async function PayrollPage() {
         finalizedBy: r.finalizedBy, finalizedAt: r.finalizedAt?.toISOString() ?? null, note: r.note,
         lines: r.lines
           .map((l) => ({
-            id: l.id, userId: l.userId, name: l.user.name, employeeId: l.user.employeeId ?? "", department: l.user.department?.name ?? null,
+            id: l.id, userId: l.userId, name: l.user.name, employeeId: l.user.employeeId ?? "", department: l.user.department?.name ?? null, daily: l.user.paymentSchedule === "Mingguan",
             inputs: normalizeInputs(l.inputs) as LineInputs, items: l.items as LineItem[], gross: l.gross, earnings: l.earnings, deductions: l.deductions,
             benefits: l.benefits, pph21: l.pph21, netPay: l.netPay, ptkp: l.ptkp, terRate: l.terRate, warning: l.warning,
           }))
