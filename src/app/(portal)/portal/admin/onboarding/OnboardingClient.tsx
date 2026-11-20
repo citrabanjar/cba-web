@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import CandidateDataForm from "@/components/portal/CandidateDataForm";
 import type { MasterOptions as BaseMaster } from "@/lib/master-data";
-import { formatId } from "@/lib/employee-id";
-type MasterOptions = BaseMaster & { managers: { value: string; label: string }[]; nextIdNo: number }; // nextIdNo: nomor Employee ID berikutnya
+import { idForStatus } from "@/lib/employee-id";
+type MasterOptions = BaseMaster & { managers: { value: string; label: string }[] };
 import { CANDIDATE_GROUPS, CANDIDATE_STATUS, type CandidateData, type CandidateJob } from "@/lib/onboarding";
 import { emptyInterview, flowProblems, latestOffer, interviewApproved, missingInterview, pendingReviews, rupiah, type Interview } from "@/lib/onboarding-interview";
 import { InterviewDecision, InterviewSummary, OfferForm } from "@/components/portal/InterviewPanel";
@@ -94,8 +94,9 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
   const canEdit = useCanEdit(); // hak lihat saja: form terkunci, tombol ubah disembunyikan
   const [tab, setTab] = useState<"data" | "job">("data");
   const [data, setData] = useState(row.data);
-  // Employee ID otomatis (K kontrak / P tetap + nomor urut); nomor final ditetapkan saat calon didaftarkan.
-  const autoId = (status: string) => (row.userId ? row.job.employeeId : formatId(status, master.nextIdNo));
+  // Employee ID otomatis: dipesan sistem saat pemutus menyetujui (status siap didaftarkan); sebelum itu kosong.
+  const reserved = row.userId || row.status === "SIAP_DAFTAR" ? row.job.employeeId : "";
+  const autoId = (status: string) => (reserved ? idForStatus(reserved, status) ?? reserved : "");
   const [job, setJob] = useState(() => ({ ...row.job, employeeId: autoId(row.job.employmentStatus) }));
   const [iv, setIv] = useState<Interview>(row.interview ?? emptyInterview());
   const [note, setNote] = useState("");
@@ -193,8 +194,8 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
             ) : (
               <div className="grid gap-3 rounded-2xl border border-gray-200 p-4 sm:grid-cols-2">
                 <div className="space-y-1.5"><Label className="text-xs"><T>Employee ID</T></Label>
-                  <Input value={job.employeeId} readOnly disabled className="font-semibold" />
-                  <p className="text-[11px] text-gray-400"><T>Otomatis: P tetap, K kontrak, H harian; nomor urut ditetapkan saat didaftarkan.</T></p></div>
+                  <Input value={job.employeeId} readOnly disabled className="font-semibold" placeholder={t("Ditetapkan setelah disetujui pemutus")} />
+                  <p className="text-[11px] text-gray-400"><T>Otomatis: P tetap, K kontrak, H harian; diberikan sistem setelah disetujui pemutus.</T></p></div>
                 <div className="space-y-1.5"><Label className="text-xs"><T>Status kerja</T></Label>
                   <select value={job.employmentStatus} disabled={ro || locked} onChange={(e) => setJob((j) => ({ ...j, employmentStatus: e.target.value, employeeId: autoId(e.target.value) }))} className={select}>
                     <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option><option value="HARIAN">{t("Harian")}</option>

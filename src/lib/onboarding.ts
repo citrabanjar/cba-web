@@ -101,7 +101,6 @@ export function missingData(d: CandidateData): string[] {
 }
 export function missingJob(j: CandidateJob): string[] {
   const miss: string[] = [];
-  if (!j.employeeId.trim()) miss.push("Employee ID");
   if (!j.departmentName.trim()) miss.push("Departemen");
   if (!j.managerId) miss.push("Calon atasan langsung");
   if (!j.position.trim()) miss.push("Jabatan");

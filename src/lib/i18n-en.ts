@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Otomatis: P tetap, K kontrak, H harian; diberikan sistem setelah disetujui pemutus.": "Automatic: P permanent, K contract, H daily; assigned by the system after approval.",
+  "Ditetapkan setelah disetujui pemutus": "Assigned after the approver approves",
   "Otomatis: P tetap, K kontrak, H harian; nomor urut ditetapkan saat didaftarkan.": "Automatic: P permanent, K contract, H daily; the number is assigned on registration.",
   "Otomatis: K untuk kontrak, P untuk tetap, nomor urut ditetapkan saat didaftarkan.": "Automatic: K for contract, P for permanent; the number is assigned on registration.",
   "Finalkan": "Finalize",

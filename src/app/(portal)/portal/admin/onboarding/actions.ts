@@ -1,6 +1,6 @@
 "use server";
 
-import { nextEmployeeId } from "@/lib/employee-id";
+import { candidateEmployeeId } from "@/lib/employee-id";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -203,9 +203,9 @@ type CandidateRec = NonNullable<Awaited<ReturnType<typeof prisma.candidate.findU
 async function createEmployee(id: string, c: CandidateRec, data: CandidateData, job: CandidateJob, org: Org, opts: { approvedBy: string | null; salary?: number }) {
   const password = randomBytes(6).toString("base64url").slice(0, 8);
   const top = await prisma.user.aggregate({ _max: { employeeNo: true } });
-  // Employee ID otomatis saat didaftarkan: K (kontrak) / P (tetap) + nomor urut berikutnya (lib/employee-id).
+  // Employee ID: nomor yang dipesan saat disetujui pemutus (atau nomor kosong berikutnya); awalan P / K / H ikut status.
   const status = job.employmentStatus === "TETAP" || job.employmentStatus === "HARIAN" ? job.employmentStatus : "KONTRAK";
-  const employeeId = await nextEmployeeId(status);
+  const employeeId = await candidateEmployeeId(id, job.employeeId, status);
   const date = (s: string) => (s ? new Date(`${s}T00:00:00Z`) : null);
   const user = await prisma.$transaction(async (tx) => {
     const u = await tx.user.create({
@@ -354,7 +354,9 @@ async function inviteAfterInterview(c: CandidateRec, i: Interview): Promise<bool
     managerId: i.offer.managerId, managerName: i.offer.managerName,
   };
   if (c.submittedAt) {
-    await prisma.candidate.update({ where: { id: c.id }, data: { status: "SIAP_DAFTAR", interview: i, job: { ...readJob(c.job), ...job, employeeId: readJob(c.job).employeeId }, note: null } });
+    // Disetujui pemutus → berkas kembali ke Admin; Employee ID dipesan sekarang.
+    const employeeId = await candidateEmployeeId(c.id, readJob(c.job).employeeId, job.employmentStatus);
+    await prisma.candidate.update({ where: { id: c.id }, data: { status: "SIAP_DAFTAR", interview: i, job: { ...readJob(c.job), ...job, employeeId }, note: null } });
     return undefined;
   }
   await prisma.candidate.update({ where: { id: c.id }, data: { status: "DIUNDANG", interview: i, job, note: null } });
@@ -453,7 +455,9 @@ export async function decideInterview(id: string, decision: "SETUJU" | "TOLAK", 
   i.approvedAt = new Date().toISOString();
   if (i.skipped) {
     // Tanpa wawancara: data calon disetujui → HRD tinggal mendaftarkan karyawan.
-    await prisma.candidate.update({ where: { id }, data: { status: "SIAP_DAFTAR", interview: i, approvedBy: step.name, approvedAt: new Date() } });
+    const cj = readJob(c.job);
+    const employeeId = await candidateEmployeeId(id, cj.employeeId, cj.employmentStatus);
+    await prisma.candidate.update({ where: { id }, data: { status: "SIAP_DAFTAR", interview: i, job: { ...cj, employeeId }, approvedBy: step.name, approvedAt: new Date() } });
     refresh();
     return { done: true, ready: true };
   }

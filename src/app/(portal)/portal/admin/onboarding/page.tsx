@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import { nextEmployeeNumber } from "@/lib/employee-id";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
@@ -23,12 +22,11 @@ export default async function OnboardingPage() {
   // Modul dimatikan Super Admin di Pengaturan → Pra-Karyawan.
   if (!(await getOnboardingSettings()).enabled) redirect(isSuperAdmin(access.role) ? "/portal/admin/settings" : "/portal/dashboard");
 
-  const [candidates, master, people, nextIdNo] = await Promise.all([
+  const [candidates, master, people] = await Promise.all([
     prisma.candidate.findMany({ orderBy: { createdAt: "desc" } }),
     getMasterOptions(),
     // Pilihan calon atasan langsung: karyawan aktif, "Employee ID - Nama".
     prisma.user.findMany({ where: { isActive: true, employeeId: { not: null } }, orderBy: { employeeId: "asc" }, select: { id: true, name: true, employeeId: true } }),
-    nextEmployeeNumber(),
   ]);
   const managers = people.map((u) => ({ value: u.id, label: `${u.employeeId} - ${u.name}` }));
   const now = new Date();
@@ -43,7 +41,7 @@ export default async function OnboardingPage() {
     canDecide: APPROVAL_STATUSES.includes(c.status) && actionableApprovers(readInterview(c.interview)?.approval ?? null).includes(access.id),
   }));
   return (
-    <OnboardingClient rows={rows} master={{ ...master, managers, nextIdNo }} canApprove={isSuperAdmin(access.role)}
+    <OnboardingClient rows={rows} master={{ ...master, managers }} canApprove={isSuperAdmin(access.role)}
       people={people.map((u) => ({ id: u.id, employeeId: u.employeeId ?? "", name: u.name }))} />
   );
 }
