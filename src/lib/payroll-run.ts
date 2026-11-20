@@ -492,11 +492,8 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
 }
 
 const toJson = (v: unknown) => v as Prisma.InputJsonValue;
-// Hanya masukan manual admin yang dibawa saat dihitung ulang; angka otomatis diambil lagi dari data.
-const manualOf = (raw: unknown): Partial<LineInputs> => {
-  const n = normalizeInputs(raw);
-  return n.otManual ? { otWork: n.otWork, otRest: n.otRest, otManual: true } : {};
-};
+// Proses Gaji tidak lagi menerima isian manual (keputusan pemilik 2026-11-20): kehadiran & lembur selalu diambil ulang dari
+// modulnya saat dihitung; isian manual lama di draft dibuang. Koreksi dilakukan di data sumber (Kehadiran / Lembur).
 
 // THR / Bonus yang dibayar di proses ini, menurut Jadwal THR / Bonus (Pengaturan):
 // - bulanan: cara bayar "Ikut payroll bulanan" yang tanggal bayarnya di periode;
@@ -557,14 +554,12 @@ export async function generateRun(period: string, by: string | null) {
   // Karyawan yang tidak lagi ikut periode ini (mis. jadwal bayar berubah) dikeluarkan dari draft.
   await prisma.payrollLine.deleteMany({ where: { runId: run.id, userId: { notIn: [...employees.map((e) => e.id), ...partialIds] } } });
   for (const e of employees) {
-    const prev = existing?.lines.find((l) => l.userId === e.id)?.inputs;
-    const r = await computeLine(ctx, e.id, plan.full, prev ? manualOf(prev) : undefined);
+    const r = await computeLine(ctx, e.id, plan.full);
     const data = { ...r, inputs: toJson(r.inputs), items: toJson(r.items) };
     await prisma.payrollLine.upsert({ where: { runId_userId: { runId: run.id, userId: e.id } }, update: data, create: { ...data, runId: run.id, userId: e.id } });
   }
   for (const id of partialIds) {
-    const prev = existing?.lines.find((l) => l.userId === id)?.inputs;
-    const r = await computeLine(ctx, id, plan.partialCodes, prev ? manualOf(prev) : undefined, { only: only! });
+    const r = await computeLine(ctx, id, plan.partialCodes, undefined, { only: only! });
     // Tidak ada yang dibayar (mis. tidak lembur / dinas minggu ini, belum berhak THR) -> tidak masuk daftar.
     if (r.earnings <= 0) { await prisma.payrollLine.deleteMany({ where: { runId: run.id, userId: id } }); continue; }
     const data = { ...r, inputs: toJson(r.inputs), items: toJson(r.items) };

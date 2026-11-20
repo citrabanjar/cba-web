@@ -4,11 +4,11 @@ import { Fragment, useState, useTransition } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, FileDown, Lock, Play, Trash2, Undo2 } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
-import { parseHours, rupiah } from "@/lib/payroll";
+import { rupiah } from "@/lib/payroll";
 import { isSeparate, isWeekly, periodLabel, separatePeriod, weeklyPayDate, weeklyPeriodForPay } from "@/lib/payroll-run-period";
 import type { BonusEntry } from "@/lib/payroll-bonus";
 import type { LineInputs, LineItem } from "@/lib/payroll-run";
-import { buildTransferFile, getTransferDebit, cancelPayrollFinal, deletePayrollDraft, finalizePayroll, generatePayroll, updatePayrollLine } from "./actions";
+import { buildTransferFile, getTransferDebit, cancelPayrollFinal, deletePayrollDraft, finalizePayroll, generatePayroll } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 import { TRANSFER_TEMPLATES } from "@/lib/bank-transfer";
@@ -27,31 +27,8 @@ export type Run = {
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 
-function NumberCell({ value, disabled, onSave }: { value: number; disabled: boolean; onSave: (v: number) => void }) {
-  const [v, setV] = useState(String(value));
-  const [prev, setPrev] = useState(value);
-  if (prev !== value) { setPrev(value); setV(String(value)); } // ikut angka terbaru dari server
-  return (
-    <input type="text" inputMode="numeric" autoComplete="off" value={v} disabled={disabled} onFocus={(e) => e.target.select()}
-      onChange={(e) => setV(e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
-      onBlur={() => { if (Number(v) !== value) onSave(Number(v) || 0); }}
-      className="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-right text-xs tabular-nums disabled:border-transparent disabled:bg-transparent" />
-  );
-}
-
-// Jam lembur per pengajuan, mis. "4, 9" = dua pengajuan 4 jam dan 9 jam.
-function HoursCell({ value, disabled, onSave }: { value: number[]; disabled: boolean; onSave: (v: number[]) => void }) {
-  const text = value.join(", ");
-  const [v, setV] = useState(text);
-  const [prev, setPrev] = useState(text);
-  if (prev !== text) { setPrev(text); setV(text); }
-  return (
-    <input type="text" inputMode="decimal" value={v} disabled={disabled} placeholder="4, 9"
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => { const h = parseHours(v); if (h.join(", ") !== text) onSave(h); else setV(text); }}
-      className="h-8 w-24 rounded-lg border border-gray-200 bg-white px-2 text-right text-xs tabular-nums disabled:border-transparent disabled:bg-transparent" />
-  );
-}
+// Angka kehadiran & lembur hanya tampilan dari modul Kehadiran / Lembur; koreksi dilakukan di data sumbernya lalu Hitung Ulang.
+const hoursText = (v: number[]) => (v.length ? v.map((x) => String(x).replace(".", ",")).join(", ") : "-");
 
 // Proses gaji bulanan: hitung draft dari komponen yang ditempel ke tiap karyawan; pilih komponen tidak rutin; isi jam lembur;
 // lalu finalkan untuk mengunci angka dan menerbitkan slip gaji.
@@ -103,7 +80,6 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
       setMsg(r.error ? { ok: false, text: r.error } : { ok: true, text: r.proposed ? proposedText(r.proposed) : ok.replace("{n}", String(r.count ?? "")) });
     });
   };
-  const save = (lineId: string, patch: Partial<LineInputs>) => act(() => updatePayrollLine(lineId, patch), "Dihitung ulang.");
 
   return (
     <div className="space-y-4">
@@ -306,11 +282,11 @@ export default function RunTab({ runs, bonus, weekStartDay }: { runs: Run[]; bon
                           </span>
                         </button>
                       </td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.daysPresent} disabled={final || !canEdit} onSave={(v) => save(l.id, { daysPresent: v })} /></td>
-                      <td className="px-2 py-2 text-right"><NumberCell value={l.inputs.absentDays} disabled={final || !canEdit} onSave={(v) => save(l.id, { absentDays: v })} /></td>
+                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{l.inputs.daysPresent}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{l.inputs.absentDays}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-gray-600">{l.inputs.tripDays ?? 0} / {l.inputs.trips ?? 0}</td>
-                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otWork ?? []} disabled={final || !canEdit} onSave={(v) => save(l.id, { otWork: v })} /></td>
-                      <td className="px-2 py-2 text-right"><HoursCell value={l.inputs.otRest ?? []} disabled={final || !canEdit} onSave={(v) => save(l.id, { otRest: v })} /></td>
+                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{hoursText(l.inputs.otWork ?? [])}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-gray-700">{hoursText(l.inputs.otRest ?? [])}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.earnings)}</td>
                       <td className="px-2 py-2 text-right tabular-nums text-rose-600">{rupiah(l.items.filter((i) => i.kind === "POTONGAN" && i.code !== "PPH21").reduce((a, i) => a + i.amount, 0))}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{rupiah(l.pph21)}{l.terRate !== null && <span className="block text-[10px] text-gray-400">TER {l.terRate}%</span>}</td>

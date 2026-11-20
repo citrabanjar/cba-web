@@ -11,7 +11,7 @@ import {
 } from "@/lib/payroll";
 import { TAX_SETTING_KEY, TER_SETTING_KEY, type TaxYearConfig, type TerRow, type TerVersion } from "@/lib/pph21";
 import { getTaxSettings, getTerSettings } from "@/lib/payroll-settings";
-import { finalizeRun, generateRun, recomputeLine, unfinalizeRun, type LineInputs } from "@/lib/payroll-run";
+import { finalizeRun, generateRun, unfinalizeRun } from "@/lib/payroll-run";
 import { isSuperAdmin } from "@/lib/roles";
 import { BONUS_MODES, BONUS_SETTING_KEY, getBonusSchedule, type BonusEntry } from "@/lib/payroll-bonus";
 import { isSeparate, isWeekly, periodLabel, weeklyPayDate } from "@/lib/payroll-run-period";
@@ -231,25 +231,6 @@ export async function generatePayroll(period: string): Promise<Result> {
     await generateRun(period, access.name ?? null);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Gagal menghitung gaji." };
-  }
-  revalidatePath(PATH);
-  return {};
-}
-
-export async function updatePayrollLine(lineId: string, inputs: Partial<LineInputs>): Promise<Result> {
-  await requirePayroll();
-  const clean: Partial<LineInputs> = {};
-  for (const k of ["daysPresent", "absentDays", "tripDays", "trips", "leaveDays"] as const) {
-    if (inputs[k] !== undefined) clean[k] = Math.max(0, Math.min(366, Number(inputs[k]) || 0));
-  }
-  const hours = (v: unknown) => (Array.isArray(v) ? v.map(Number).filter((x) => x > 0 && x <= 24).slice(0, 62) : undefined);
-  if (inputs.otWork || inputs.otRest) clean.otManual = true; // diisi manual: tidak diambil ulang dari modul Lembur
-  if (inputs.otWork) clean.otWork = hours(inputs.otWork);
-  if (inputs.otRest) clean.otRest = hours(inputs.otRest);
-  try {
-    await recomputeLine(lineId, clean);
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Gagal menghitung ulang." };
   }
   revalidatePath(PATH);
   return {};
