@@ -13,6 +13,18 @@ export const parseSeparate = (period: string) => ({ payDate: period.slice(2, 12)
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const short = (d: Date) => `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)}`;
 
+// Teks "Periode" di slip gaji PDF: mingguan "28 Sep 2026 - 04 Okt 2026", bulanan "Oktober 2026", THR / Bonus terpisah "2026".
+export const slipPeriodText = (period: string) => {
+  if (isSeparate(period)) return parseSeparate(period).payDate.slice(0, 4);
+  if (isWeekly(period)) {
+    const a = new Date(`${period}T00:00:00Z`), b = new Date(a.getTime() + 6 * 86_400_000);
+    const f = (d: Date) => `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCFullYear()}`;
+    return `${f(a)} - ${f(b)}`;
+  }
+  const [y, m] = period.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${y}`;
+};
+
 export const periodLabel = (period: string) => {
   if (isSeparate(period)) {
     const { payDate, code } = parseSeparate(period);

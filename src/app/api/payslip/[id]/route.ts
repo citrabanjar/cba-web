@@ -3,6 +3,7 @@ import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { buildPayslipPdf } from "@/lib/payslip-pdf";
+import { slipPeriodText } from "@/lib/payroll-run-period";
 import type { LineItem } from "@/lib/payroll-run";
 
 export const dynamic = "force-dynamic";
@@ -38,12 +39,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const u = slip.user;
   const bytes = await buildPayslipPdf({
     company: "PT. Citra Banjar Abadi",
-    periodLabel: slip.periodLabel,
+    periodLabel: slipPeriodText(slip.period),
     paidAt: slip.paidAt ? new Date(slip.paidAt.getTime() + 7 * 3600_000).toISOString().slice(0, 10).split("-").reverse().join("-") : null,
     employee: { name: u.name, employeeId: u.employeeId, position: u.position, department: u.department?.name ?? null, ptkp: u.ptkpStatus, bank: u.bankName, account: u.bankAccount?.replace(/\D/g, "") ?? null },
     items, fixedCodes: comps.map((c) => c.code), netPay: line?.netPay ?? slip.netPay, logo, logoType: "jpg",
   });
-  const name = `Slip Gaji ${(u.employeeId ?? "karyawan").replace(/[^\w-]/g, "")} ${slip.periodLabel.replace(/[^\w -]/g, "")}.pdf`;
+  const name = `Slip Gaji ${(u.employeeId ?? "karyawan").replace(/[^\w-]/g, "")} ${slipPeriodText(slip.period).replace(/[^\w -]/g, "")}.pdf`;
   return new Response(Buffer.from(bytes), {
     headers: { "Content-Type": "application/pdf", "Content-Disposition": `${url.searchParams.get("unduh") ? "attachment" : "inline"}; filename="${name}"`, "Cache-Control": "no-store" },
   });

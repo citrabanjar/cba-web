@@ -67,7 +67,7 @@ export async function buildPayslipPdf(d: PayslipPdfData) {
     text(d.company, M, y - 22, { size: 13, f: bold, color: BRAND });
   }
   right("SLIP GAJI", W - M, y - 14, { size: 16, f: bold, color: BRAND });
-  right(d.periodLabel, W - M, y - 30, { size: 10, f: bold });
+  right(`Periode : ${d.periodLabel}`, W - M, y - 30, { size: 10, f: bold });
   y -= 46;
   page.drawRectangle({ x: M, y: y - 2, width: W - 2 * M, height: 2, color: BRAND });
   y -= 20;
