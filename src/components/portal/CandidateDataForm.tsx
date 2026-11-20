@@ -109,7 +109,7 @@ export default function CandidateDataForm({ value, onChange, disabled }: {
           <div className="space-y-1.5"><Label className="text-xs"><T>Nama bank</T></Label>
             {/* Daftar bank membuka ke bawah isian (seragam dengan pilihan lain), tetap boleh diketik bebas. */}
             {disabled ? <Input value={value.bankName} disabled />
-              : <EmployeeCombobox id="onb-bank" value={value.bankName} options={BANK_OPTIONS.map((b) => ({ value: b.value, label: "" }))} onChange={(v) => { set("bankName", v); if (isCashBank(v)) { set("bankAccount", ""); set("bankHolder", ""); } }} />}</div>
+              : <EmployeeCombobox id="onb-bank" value={value.bankName} options={BANK_OPTIONS.map((b) => ({ value: b.value, label: "" }))} onChange={(v) => onChange({ ...value, bankName: v, ...(isCashBank(v) ? { bankAccount: "", bankHolder: "" } : {}) })} />}</div>
           {/* Cash: dibayar tunai, nomor & nama rekening tidak diisi. */}
           {text("bankAccount", "No. rekening", { inputMode: "numeric", ...(isCashBank(value.bankName) ? { disabled: true, value: "" } : {}) })}
           {text("bankHolder", "Nama pemilik rekening", isCashBank(value.bankName) ? { disabled: true, value: "" } : {}, true)}
