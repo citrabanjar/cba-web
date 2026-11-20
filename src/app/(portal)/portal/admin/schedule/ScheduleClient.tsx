@@ -799,7 +799,7 @@ export default function ScheduleClient({
   };
 
   return (
-    <div className="glossy-cards bg-gray-50 min-h-full">
+    <div className="bg-gray-50 min-h-full">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <h2 className="font-bold text-gray-800"><T>Jadwal</T></h2>
         <p className="text-xs text-gray-400 mt-0.5">
