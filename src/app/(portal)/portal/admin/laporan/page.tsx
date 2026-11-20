@@ -6,7 +6,6 @@ import { getAccess } from "@/lib/access";
 import { hasMenu } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { buildRecap } from "@/lib/attendance-recap";
-import { notCheckedInToday } from "@/lib/not-checked-in";
 import { buildClaimReport, buildFixReport, buildLeaveReport, buildLoanReport, buildOvertimeReport, buildSwapReport, buildTripReport, type ReportStatus } from "@/lib/report";
 import LaporanClient, { type ReportKind } from "./LaporanClient";
 
@@ -17,7 +16,7 @@ const KINDS: ReportKind[] = ["semua", "kehadiran", "cuti", "dinas", "tukar", "lu
 const STATUSES: ReportStatus[] = ["menunggu", "disetujui", "ditolak"];
 
 // Panel Admin → TIME → Laporan: pilih rentang tanggal, karyawan (satu / banyak / semua), dan jenis laporan.
-export default async function LaporanPage({ searchParams }: { searchParams: Promise<{ dari?: string; sampai?: string; karyawan?: string; jenis?: string; status?: string; tahap?: string; belum?: string }> }) {
+export default async function LaporanPage({ searchParams }: { searchParams: Promise<{ dari?: string; sampai?: string; karyawan?: string; jenis?: string; status?: string; tahap?: string }> }) {
   const access = await getAccess();
   if (!access) redirect("/portal");
   if (!hasMenu(access, "absensi")) redirect("/portal/dashboard");
@@ -51,8 +50,6 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
   const loans = ok && kind === "pinjaman" ? await buildLoanReport(ids, from, to, status, stage) : [];
   const fixes = ok && kind === "lupa" ? await buildFixReport(ids, from, to, status) : [];
   const claims = ok && kind === "reimburse" ? await buildClaimReport(ids, from, to, status) : [];
-  // Belum Absen Hari Ini (dari indikator Beranda): daftar karyawan yang belum check-in padahal jam masuknya sudah lewat.
-  const absent = kind === "kehadiran" && sp.belum === "1" ? (await notCheckedInToday()).filter((r) => !picked.length || picked.includes(r.userId)) : null;
 
   // Jumlah pekerjaan belum selesai per modul, tampil di daftar modul kiri.
   const [pCuti, pDinas, pTukar, pLembur, pPinjaman, pLupa, pClaim] = await Promise.all([
@@ -70,7 +67,7 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
       pending={{ cuti: pCuti, dinas: pDinas, tukar: pTukar, lupa: pLupa, reimburse: pClaim, lembur: pLembur, pinjaman: pPinjaman }}
       kind={kind} status={status} stage={stage} canLoan={canLoan} from={from.toISOString().slice(0, 10)} to={to.toISOString().slice(0, 10)} picked={picked} tooLong={tooLong}
       employees={employees.map((e) => ({ id: e.id, name: e.name, employeeId: e.employeeId, department: e.department?.name ?? null }))}
-      rows={recap.rows} days={recap.days} absent={absent} leaves={leaves} overtimes={overtimes} trips={trips} swaps={swaps} loans={loans} fixes={fixes} claims={claims}
+      rows={recap.rows} days={recap.days} leaves={leaves} overtimes={overtimes} trips={trips} swaps={swaps} loans={loans} fixes={fixes} claims={claims}
       // Nama karyawan membuka profil bila punya akses Data Karyawan.
       canProfile={hasMenu(access, "karyawan")}
     />

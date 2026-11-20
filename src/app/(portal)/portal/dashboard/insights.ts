@@ -183,7 +183,7 @@ export async function loadIndicators(): Promise<Indicator[]> {
     {
       key: "belum-absen-hari-ini", title: "Belum Absen Hari Ini", value: absent.length,
       note: "karyawan belum check-in", icon: "absent", tone: "rose", actionable: true,
-      href: `/portal/admin/laporan?jenis=kehadiran&belum=1&dari=${todayKey}&sampai=${todayKey}`,
+      href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
       key: "tepat-waktu-hari-ini", title: "Tepat Waktu Hari Ini", value: onTime.length,
