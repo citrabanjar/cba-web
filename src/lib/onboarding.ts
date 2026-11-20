@@ -38,7 +38,8 @@ export type CandidateJob = {
   employeeId: string; branch: string; departmentName: string; position: string;
   employmentStatus: string; joinDate: string; contractEndDate: string;
   managerId: string; managerName: string; // calon atasan langsung (jadi atasan langsung di profil saat didaftarkan)
-  salary: string; // gaji pokok awal (jalur tanpa wawancara; jalur wawancara memakai tawaran yang disetujui)
+  salary: string; // gaji pokok awal per bulan; status Harian: gaji harian (jalur tanpa wawancara; jalur wawancara memakai tawaran)
+  monthlyFactor: string; // status Harian: pengali gaji harian menjadi bulanan (bawaan 25)
   reports: string; // bawahan langsung (id karyawan, dipisah koma): atasan langsung mereka diganti calon ini saat didaftarkan
 };
 
@@ -52,7 +53,7 @@ export function emptyData(name = "", phone = ""): CandidateData {
 }
 export const emptyJob = (): CandidateJob => ({
   employeeId: "", branch: "", departmentName: "", position: "", employmentStatus: "KONTRAK", joinDate: "", contractEndDate: "",
-  managerId: "", managerName: "", salary: "", reports: "",
+  managerId: "", managerName: "", salary: "", monthlyFactor: "25", reports: "",
 });
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");

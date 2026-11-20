@@ -67,8 +67,9 @@ export function normalizeOnboardingSettings(raw: unknown): OnboardingSettings {
 
 export type Offer = {
   departmentName: string; position: string; branch: string;
-  employmentStatus: string; salary: string; joinDate: string; contractEndDate: string;
+  employmentStatus: string; salary: string; joinDate: string; contractEndDate: string; // salary: per bulan; status Harian: gaji harian
   managerId: string; managerName: string; // calon atasan langsung
+  monthlyFactor: string; // status Harian: pengali gaji harian menjadi bulanan (bawaan 25)
 };
 // Satu level approval. ids = calon approver (pemegang jabatan / hak akses); salah satu cukup memutus, namanya dicatat di "by".
 // Tanpa ids: id = satu karyawan tertentu.
@@ -110,7 +111,7 @@ export const RECOMMENDATIONS = [
   { value: "TIDAK", label: "Tidak disarankan" },
 ];
 
-export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "", managerId: "", managerName: "" });
+export const emptyOffer = (): Offer => ({ departmentName: "", position: "", branch: "", employmentStatus: "KONTRAK", salary: "", joinDate: "", contractEndDate: "", managerId: "", managerName: "", monthlyFactor: "25" });
 export const emptyInterview = (): Interview => ({
   date: "", interviewer: "", score: "", notes: "", recommendation: "", offer: emptyOffer(),
   approval: null, submittedBy: "", submittedAt: "", approvedAt: "", skipped: false, reviews: [], approvers: [], placement: null,

@@ -215,9 +215,20 @@ function DetailDialog({ row, master, canApprove, people, onClose }: { row: Candi
                 )}
                 {/* Jalur tanpa wawancara: gaji pokok awal diisi di sini (jalur wawancara memakai tawaran yang disetujui). */}
                 {!viaInterview && (
+                  job.employmentStatus === "HARIAN" ? (
+                    <>
+                      <div className="space-y-1.5"><Label className="text-xs"><T>Gaji harian (Rp / hari)</T></Label>
+                        <Input type="number" min={0} value={job.salary ?? ""} disabled={ro} onChange={(e) => setJ("salary", e.target.value)} />
+                        <p className="text-[11px] text-gray-400"><T>Dicatat sebagai gaji awal mulai tanggal masuk; dibayar lewat payroll mingguan.</T></p></div>
+                      <div className="space-y-1.5"><Label className="text-xs"><T>Pengali bulanan</T></Label>
+                        <Input type="number" min={1} value={job.monthlyFactor ?? "25"} disabled={ro} onChange={(e) => setJ("monthlyFactor", e.target.value)} />
+                        <p className="text-[11px] text-gray-400"><T>Gaji bulanan</T> = <T>gaji harian</T> x <T>pengali</T>{Number(job.salary) > 0 && Number(job.monthlyFactor) > 0 ? <> = <b className="text-gray-600">Rp {(Number(job.salary) * Number(job.monthlyFactor)).toLocaleString("id-ID")}</b></> : null} <T>(dasar lembur, BPJS, THR)</T>.</p></div>
+                    </>
+                  ) : (
                   <div className="space-y-1.5"><Label className="text-xs"><T>Gaji pokok (Rp / bulan)</T></Label>
                     <Input type="number" min={0} value={job.salary ?? ""} disabled={ro} onChange={(e) => setJ("salary", e.target.value)} />
                     <p className="text-[11px] text-gray-400"><T>Dicatat sebagai gaji awal mulai tanggal masuk.</T></p></div>
+                  )
                 )}
                 <div className="space-y-1.5 sm:col-span-2"><Label className="text-xs"><T>Bawahan langsung (opsional)</T></Label>
                   <ReportPicker value={job.reports ?? ""} disabled={ro} exclude={job.managerId}

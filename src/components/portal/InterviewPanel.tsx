@@ -46,7 +46,14 @@ export function OfferForm({ value, onChange, master, title = "Tawaran kerja (iku
           <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option><option value="HARIAN">{t("Harian")}</option>
         </select>
       </F>
-      <F label="Gaji pokok yang ditawarkan (Rp / bulan)"><Input type="number" min={0} value={value.salary} onChange={(e) => setO({ salary: e.target.value })} /></F>
+      {value.employmentStatus === "HARIAN" ? (
+        <>
+          <F label="Gaji harian yang ditawarkan (Rp / hari)"><Input type="number" min={0} value={value.salary} onChange={(e) => setO({ salary: e.target.value })} /></F>
+          <F label="Pengali bulanan"><Input type="number" min={1} value={value.monthlyFactor || "25"} onChange={(e) => setO({ monthlyFactor: e.target.value })} /></F>
+        </>
+      ) : (
+        <F label="Gaji pokok yang ditawarkan (Rp / bulan)"><Input type="number" min={0} value={value.salary} onChange={(e) => setO({ salary: e.target.value })} /></F>
+      )}
       <F label="Rencana tanggal masuk"><Input type="date" value={value.joinDate} onChange={(e) => setO({ joinDate: e.target.value })} /></F>
       {value.employmentStatus === "KONTRAK" && (
         <F label="Tanggal akhir kontrak"><Input type="date" value={value.contractEndDate} onChange={(e) => setO({ contractEndDate: e.target.value })} /></F>
@@ -145,7 +152,7 @@ export function ProposalCompare({ interview: i, candidate, showApprovers = true 
     {row("Cabang", o.branch || "—", differs("branch"))}
     {row("Calon atasan langsung", o.managerName || "—", differs("managerId"))}
     {row("Status kerja", t(o.employmentStatus === "TETAP" ? "Tetap" : "Kontrak"), differs("employmentStatus"))}
-    {row("Gaji pokok", <b>{o.salary ? rupiah(o.salary) : "—"}</b>, differs("salary"))}
+    {row(o.employmentStatus === "HARIAN" ? "Gaji harian" : "Gaji pokok", <b>{o.salary ? rupiah(o.salary) : "—"}</b>, differs("salary"))}
     {row("Tanggal masuk", fmtDate(o.joinDate), differs("joinDate"))}
     {o.employmentStatus === "KONTRAK" && row("Akhir kontrak", fmtDate(o.contractEndDate), differs("contractEndDate"))}
   </>;
@@ -271,7 +278,7 @@ export function InterviewSummary({ interview: i, job, candidate }: { interview: 
         {row("Cabang", i.offer.branch || "—")}
         {row("Calon atasan langsung", i.offer.managerName || "—")}
         {row("Status kerja", t(i.offer.employmentStatus === "TETAP" ? "Tetap" : "Kontrak"))}
-        {row("Gaji pokok", <b>{rupiah(i.offer.salary)}</b>)}
+        {row(i.offer.employmentStatus === "HARIAN" ? "Gaji harian" : "Gaji pokok", <b>{rupiah(i.offer.salary)}</b>)}
         {row("Tanggal masuk", fmtDate(i.offer.joinDate))}
         {i.offer.employmentStatus === "KONTRAK" && row("Akhir kontrak", fmtDate(i.offer.contractEndDate))}
       </div>

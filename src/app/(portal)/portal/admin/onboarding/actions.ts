@@ -200,7 +200,7 @@ type Org = NonNullable<Awaited<ReturnType<typeof validate>>["org"]>;
 type CandidateRec = NonNullable<Awaited<ReturnType<typeof prisma.candidate.findUnique>>>;
 
 // Calon menjadi karyawan (satu transaksi): data karyawan + keluarga, gaji pokok dari tawaran wawancara (bila ada).
-async function createEmployee(id: string, c: CandidateRec, data: CandidateData, job: CandidateJob, org: Org, opts: { approvedBy: string | null; salary?: number }) {
+async function createEmployee(id: string, c: CandidateRec, data: CandidateData, job: CandidateJob, org: Org, opts: { approvedBy: string | null; salary?: number; factor?: number }) {
   const password = randomBytes(6).toString("base64url").slice(0, 8);
   const top = await prisma.user.aggregate({ _max: { employeeNo: true } });
   // Employee ID: nomor yang dipesan saat disetujui pemutus (atau nomor kosong berikutnya); awalan P / K / H ikut status.
@@ -229,15 +229,20 @@ async function createEmployee(id: string, c: CandidateRec, data: CandidateData, 
         bpjsTkNumber: data.bpjsTkNumber || null, bpjsKesNumber: data.bpjsKesNumber || null,
         passwordHash: await bcrypt.hash(password, 12),
         managerId: job.managerId || null,
+        // Karyawan harian dibayar lewat payroll mingguan.
+        ...(status === "HARIAN" ? { paymentSchedule: "Mingguan" } : {}),
         family: { create: data.family.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), idNumber: f.idNumber || null, relation: f.relation || "Lainnya" })) },
       },
     });
     // Gaji pokok awal: tawaran wawancara yang disetujui, atau isian Data Pekerjaan (jalur tanpa wawancara).
+    // Status Harian: isian = gaji harian; gaji bulanan = gaji harian x pengali (dasar lembur, BPJS, THR).
     const salary = opts.salary && opts.salary > 0 ? opts.salary : Number(job.salary) || 0;
+    const factor = status === "HARIAN" ? (opts.salary && opts.salary > 0 ? opts.factor : Number(job.monthlyFactor)) || 25 : 0;
     if (salary > 0 && job.joinDate) {
       await tx.employeeSalary.create({
         data: {
-          userId: u.id, effectiveDate: new Date(`${job.joinDate}T00:00:00Z`), basicSalary: salary,
+          userId: u.id, effectiveDate: new Date(`${job.joinDate}T00:00:00Z`),
+          ...(status === "HARIAN" ? { basicSalary: salary * factor, dailyWage: salary, monthlyFactor: factor } : { basicSalary: salary }),
           note: opts.salary && opts.salary > 0 ? "Tawaran kerja (approval wawancara)" : "Gaji awal (Pra-Karyawan)", createdBy: opts.approvedBy,
         },
       });
@@ -486,7 +491,7 @@ export async function registerCandidate(id: string, data: CandidateData, job: Ca
   await prisma.candidate.update({ where: { id }, data: { data: clean, job: j, reviewedBy: access.name ?? null } });
   const v = await validate(id, clean, j, c.email);
   if (v.missing.length || !v.org) { refresh(); return { error: "Belum bisa didaftarkan:", missing: v.missing }; }
-  const { password, user } = await createEmployee(id, c, clean, j, v.org, { approvedBy: access.name ?? null, salary: viaInterview ? Number(i.offer.salary) || 0 : 0 });
+  const { password, user } = await createEmployee(id, c, clean, j, v.org, { approvedBy: access.name ?? null, salary: viaInterview ? Number(i.offer.salary) || 0 : 0, factor: viaInterview ? Number(i.offer.monthlyFactor) || 25 : undefined });
   refresh();
   revalidatePath("/portal/admin/karyawan");
   return { password, userId: user.id };
