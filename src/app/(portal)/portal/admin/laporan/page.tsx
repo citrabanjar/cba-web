@@ -58,7 +58,7 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
     prisma.businessTrip.count({ where: { status: "PENDING" } }),
     prisma.shiftSwapRequest.count({ where: { status: { in: ["MENUNGGU_REKAN", "MENUNGGU_ATASAN"] } } }),
     prisma.overtime.count({ where: { status: { in: ["PENDING", "MENUNGGU_KARYAWAN"] } } }),
-    canLoan ? prisma.employeeLoan.count({ where: { status: "PENDING", isOpening: false } }) : Promise.resolve(0),
+    canLoan ? prisma.employeeLoan.count({ where: { status: { in: ["PENDING", "TRANSFER"] }, isOpening: false } }) : Promise.resolve(0),
     prisma.attendanceCorrection.count({ where: { status: "PENDING" } }),
     prisma.medicalClaim.count({ where: { status: "PENDING" } }),
   ]);

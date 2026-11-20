@@ -19,7 +19,8 @@ const OT_ST: Record<Exclude<ReportStatus, "">, string[]> = {
   menunggu: ["PENDING", "MENUNGGU_KARYAWAN"], disetujui: ["DISETUJUI", "APPROVED"], ditolak: ["REJECTED", "TIDAK_BERSEDIA", "CANCELLED", "DIBATALKAN"],
 };
 const SWAP_ST: Record<Exclude<ReportStatus, "">, string[]> = { menunggu: ["MENUNGGU_REKAN", "MENUNGGU_ATASAN"], disetujui: ["DISETUJUI"], ditolak: ["DITOLAK", "DIBATALKAN"] };
-const LOAN_ST: Record<Exclude<ReportStatus, "">, string[]> = { menunggu: ["PENDING"], disetujui: ["DISETUJUI", "TRANSFER", "BERJALAN", "LUNAS"], ditolak: ["DITOLAK", "BATAL"] };
+// Proses transfer (belum dikonfirmasi karyawan) termasuk Belum selesai.
+const LOAN_ST: Record<Exclude<ReportStatus, "">, string[]> = { menunggu: ["PENDING", "TRANSFER"], disetujui: ["DISETUJUI", "BERJALAN", "LUNAS"], ditolak: ["DITOLAK", "BATAL"] };
 // Saringan status + rentang: "menunggu" = semua yang belum selesai tanpa rentang; "disetujui" / "ditolak" = di dalam rentang;
 // "Semua status" = yang ada di rentang ditambah semua yang belum selesai (walau tanggalnya di luar rentang).
 type StMap = Record<Exclude<ReportStatus, "">, string[]>;

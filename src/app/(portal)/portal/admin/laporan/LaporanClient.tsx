@@ -35,6 +35,7 @@ const SWAP_STATUS: Record<string, { label: string; cls: string }> = {
 };
 const LOAN_STATUS: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "Menunggu", cls: "bg-amber-50 text-amber-700" }, DISETUJUI: { label: "Belum dicairkan", cls: "bg-sky-50 text-sky-700" },
+  TRANSFER: { label: "Proses transfer", cls: "bg-indigo-50 text-indigo-700" },
   BERJALAN: { label: "Berjalan", cls: "bg-emerald-50 text-emerald-700" }, LUNAS: { label: "Lunas", cls: "bg-gray-100 text-gray-600" },
   DITOLAK: { label: "Ditolak", cls: "bg-rose-50 text-rose-700" }, BATAL: { label: "Batal", cls: "bg-gray-100 text-gray-600" },
 };
