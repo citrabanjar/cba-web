@@ -797,13 +797,6 @@ export default function ScheduleClient({
     if (k === "jadwal" && !roster) router.push("?tab=jadwal", { scroll: false });
     else if (k !== "jadwal" && roster) router.replace("?", { scroll: false });
   };
-  const year = String(new Date().getFullYear());
-  const stats = [
-    { label: "Shift Aktif", value: shifts.filter((s) => s.isActive && !s.isOff).length, icon: Clock, tone: "from-brand to-rose-400" },
-    { label: "Pola Kerja", value: patterns.length, icon: Repeat, tone: "from-sky-500 to-indigo-400" },
-    { label: `Libur ${year}`, value: holidays.filter((h) => h.date.startsWith(year)).length, icon: CalendarOff, tone: "from-amber-500 to-orange-400" },
-    { label: "Lokasi Absen", value: locations.filter((l) => l.isActive).length, icon: MapPin, tone: "from-rose-500 to-pink-400" },
-  ];
 
   return (
     <div className="bg-gray-50 min-h-full">
@@ -815,34 +808,16 @@ export default function ScheduleClient({
       </div>
 
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}>
-                  <s.icon size={15} />
-                </span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">
-                {typeof s.value === "number" ? s.value : <T>{s.value}</T>}
-              </p>
-            </div>
+        {/* Tab bergaya garis bawah langsung di atas latar portal (seperti Payroll & Benefit). */}
+        <nav role="tablist" className="no-scrollbar flex gap-1 overflow-x-auto overflow-y-hidden border-b border-white/15">
+          {TABS.map((x) => (
+            <button key={x.key} role="tab" aria-selected={tab === x.key} onClick={() => setTab(x.key)}
+              className={`relative inline-flex h-11 shrink-0 items-center gap-2 px-3 text-sm whitespace-nowrap transition-colors ${tab === x.key ? "font-semibold text-white" : "text-white/60 hover:text-white"}`}>
+              <x.icon size={15} /> <T>{x.label}</T>
+              {tab === x.key && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-white" />}
+            </button>
           ))}
-        </div>
-
-        <div className="flex rounded-2xl border border-gray-200 bg-white p-2">
-          <div role="tablist" className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto">
-            {TABS.map((x) => (
-              <button key={x.key} role="tab" aria-selected={tab === x.key} onClick={() => setTab(x.key)}
-                className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-4 text-sm whitespace-nowrap transition-colors ${
-                  tab === x.key ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                }`}>
-                <x.icon size={15} /> <T>{x.label}</T>
-              </button>
-            ))}
-          </div>
-        </div>
+        </nav>
 
         {tab === "shift" && <ShiftTab shifts={shifts} />}
         {tab === "pola" && <PatternTab patterns={patterns} shifts={shifts} employees={employees} />}

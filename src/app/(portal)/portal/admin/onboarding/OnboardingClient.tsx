@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, ClipboardCheck, Copy, KeyRound, Loader2, MessagesSquare, Printer, Search, Send, Trash2, Undo2, UserCheck, UserPlus, Users, XCircle } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Copy, KeyRound, Loader2, MessagesSquare, Printer, Search, Send, Trash2, Undo2, UserCheck, UserPlus, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -345,32 +345,15 @@ export default function OnboardingClient({ rows, master, canApprove, people }: {
   const open = rows.find((r) => r.id === openId) ?? null;
   const inGroup = (key: string) => rows.filter((r) => (CANDIDATE_GROUPS.find((g) => g.key === key)!.statuses as readonly string[]).includes(r.status));
   const list = inGroup(tab).filter((r) => !q || `${r.name} ${r.email} ${r.phone}`.toLowerCase().includes(q.toLowerCase()));
-  const count = (s: string) => rows.filter((r) => r.status === s).length;
-  const stats = [
-    ...(count("WAWANCARA") + count("APPROVAL_WAWANCARA") > 0
-      ? [{ label: "Tahap wawancara", value: count("WAWANCARA") + count("APPROVAL_WAWANCARA"), icon: MessagesSquare, tone: "from-sky-500 to-cyan-400" }] : []),
-    { label: "Diundang / mengisi", value: count("DIUNDANG") + count("DIKEMBALIKAN"), icon: Users, tone: "from-slate-500 to-slate-400" },
-    { label: "Menunggu pemeriksaan HRD", value: count("DIKIRIM"), icon: ClipboardCheck, tone: "from-amber-500 to-orange-400" },
-    { label: "Menunggu approval", value: count("MENUNGGU_APPROVAL"), icon: UserCheck, tone: "from-violet-500 to-fuchsia-400" },
-    { label: "Disetujui", value: count("DISETUJUI"), icon: CheckCircle2, tone: "from-emerald-500 to-teal-400" },
-  ];
   return (
     <div className="bg-gray-50 min-h-full">
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
-        <div className={`grid grid-cols-2 gap-3 ${stats.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
-          {stats.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-gray-200 bg-white p-4">
-              <div className="flex items-center justify-between"><p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}><s.icon size={15} /></span></div>
-              <p className="mt-2 text-xl font-bold text-gray-900">{s.value}</p>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-2">
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b border-white/15 pb-2">
           {CANDIDATE_GROUPS.map((g) => (
             <button key={g.key} type="button" onClick={() => setTab(g.key)}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm ${tab === g.key ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+              className={`relative inline-flex h-11 items-center gap-1.5 px-3 text-sm transition-colors ${tab === g.key ? "font-semibold text-white" : "text-white/60 hover:text-white"}`}>
               <T>{g.label}</T> <span className="text-xs opacity-70">{inGroup(g.key).length}</span>
+              {tab === g.key && <span className="absolute inset-x-2 -bottom-2 h-0.5 rounded-full bg-white" />}
             </button>
           ))}
           <div className="relative ml-auto">
@@ -379,7 +362,7 @@ export default function OnboardingClient({ rows, master, canApprove, people }: {
           </div>
           {canEdit && (
             <button type="button" onClick={() => setInvite(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85"><UserPlus size={14} /> <T>Undang Calon</T></button>
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-ink hover:bg-white/90"><UserPlus size={14} /> <T>Undang Calon</T></button>
           )}
         </div>
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">

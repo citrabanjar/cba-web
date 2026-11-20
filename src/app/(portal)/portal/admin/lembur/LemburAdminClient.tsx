@@ -3,9 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  AlertTriangle, CalendarClock, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, FileText, Loader2, Plus, Send, Timer, Trash2, Users, Wallet, X,
-} from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, ChevronLeft, ChevronRight, ClipboardList, Loader2, Plus, Send, Trash2, Wallet, X } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { DateInput } from "@/components/ui/date-input";
 import EmployeeCombobox from "@/components/portal/EmployeeCombobox";
@@ -35,14 +33,6 @@ export default function LemburAdminClient({ canSpl, canRevise, spl, month, rows,
   canSpl: boolean; canRevise: boolean; spl: boolean; month: string; rows: AdminOvertime[]; revisions: AdminOvertime[]; employees: EmployeePick[];
 }) {
   const [tab, setTab] = useState<Tab>(spl && canSpl ? "buat" : "rekap");
-  const [y, m] = month.split("-").map(Number);
-  const live = rows.filter((r) => !["DIBATALKAN", "TIDAK_BERSEDIA", "REJECTED", "CANCELLED"].includes(r.status));
-  const stats = [
-    { label: "SPL bulan ini", value: new Set(rows.map((r) => r.spl).filter(Boolean)).size, icon: FileText, tone: "from-brand to-rose-400" },
-    { label: "Karyawan lembur", value: new Set(live.map((r) => r.employeeId ?? r.name)).size, icon: Users, tone: "from-ink to-slate-500" },
-    { label: "Jam dibayar", value: num(rows.reduce((a, r) => a + (r.paid ?? 0), 0)), icon: Timer, tone: "from-emerald-500 to-teal-400" },
-    { label: "Menunggu jawaban", value: rows.filter((r) => r.status === "MENUNGGU_KARYAWAN").length, icon: Clock, tone: "from-amber-500 to-orange-400" },
-  ];
   const tabs = ([
     spl && canSpl && ["buat", "Buat SPL", Plus],
     ["rekap", "Rekap Lembur", ClipboardList],
@@ -58,18 +48,6 @@ export default function LemburAdminClient({ canSpl, canRevise, spl, month, rows,
       </div>
 
       <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-gray-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}><s.icon size={15} /></span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
-              <p className="text-[11px] text-gray-400">{MONTHS[m - 1]} {y}</p>
-            </div>
-          ))}
-        </div>
 
         {revisions.length > 0 && (
           <section className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
@@ -80,14 +58,15 @@ export default function LemburAdminClient({ canSpl, canRevise, spl, month, rows,
         )}
 
         {tabs.length > 1 && (
-          <div className="flex flex-wrap gap-1 rounded-2xl border border-gray-200 bg-white p-2">
+          <nav className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b border-white/15">
             {tabs.map(([k, label, Icon]) => (
               <button key={k} type="button" onClick={() => setTab(k)}
-                className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
+                className={`relative inline-flex h-11 items-center gap-2 px-3 text-sm transition-colors ${tab === k ? "font-semibold text-white" : "text-white/60 hover:text-white"}`}>
                 <Icon size={15} /> <T>{label}</T>
+                {tab === k && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-white" />}
               </button>
             ))}
-          </div>
+          </nav>
         )}
 
         {tab === "buat" && spl && canSpl && <SplForm employees={employees} onDone={() => setTab("rekap")} />}

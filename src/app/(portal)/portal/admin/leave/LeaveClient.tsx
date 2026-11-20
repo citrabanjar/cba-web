@@ -2,9 +2,7 @@
 
 import { proposedText } from "@/lib/approval-text";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import {
-  BadgeCheck, CalendarHeart, ChevronDown, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Users, Wallet,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Coins, Loader2, Paperclip, Plus, Scale, Trash2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -290,14 +288,6 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
   }
   const canEdit = useCanEdit(); // hak lihat saja: tombol ubah disembunyikan
 
-  const active = policies.filter((p) => p.isActive);
-  const annual = policies.find((p) => p.code === "CT");
-  const stats = [
-    { label: "Jenis Aktif", value: active.length, icon: BadgeCheck, tone: "from-brand to-rose-400" },
-    { label: "Cuti Tahunan", value: annual?.quota != null ? `${annual.quota} ${t("hari")}` : "—", icon: CalendarHeart, tone: "from-emerald-500 to-teal-400" },
-    { label: "Cuti Khusus", value: active.filter((p) => p.category === "KHUSUS").length, icon: Users, tone: "from-violet-500 to-indigo-400" },
-    { label: "Tanpa Upah", value: active.filter((p) => !p.paid).length, icon: Coins, tone: "from-slate-500 to-slate-400" },
-  ];
 
   async function remove(p: Policy) {
     if (!await askConfirm(t("Hapus jenis cuti ini?"))) return;
@@ -314,26 +304,16 @@ export default function LeaveClient({ policies, balances, balanceSwitch, superAd
       </div>
 
       <main className="px-4 sm:px-6 py-5 max-w-6xl space-y-5">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}><s.icon size={15} /></span>
-              </div>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{s.value}</p>
-            </div>
-          ))}
-        </div>
 
-        <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
+        <nav className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b border-white/15">
           {([["jenis", "Jenis Cuti", Scale], ["saldo", "Saldo Cuti", Wallet]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
-              className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
+              className={`relative inline-flex h-11 items-center gap-2 px-3 text-sm transition-colors ${tab === k ? "font-semibold text-white" : "text-white/60 hover:text-white"}`}>
               <Icon size={15} /> <T>{label}</T>
+              {tab === k && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-white" />}
             </button>
           ))}
-        </div>
+        </nav>
 
         {tab === "saldo" && <BalanceTab rows={balances} balanceSwitch={balanceSwitch} superAdmin={superAdmin} />}
         {tab === "jenis" && <section className="rounded-2xl border border-gray-200 bg-white">

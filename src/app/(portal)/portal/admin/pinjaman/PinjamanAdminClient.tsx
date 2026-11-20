@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
-import { ArrowUpRight, ChevronDown, Download, FileDown, HandCoins, Loader2, Search, Upload, Wallet, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Download, FileDown, Loader2, Search, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -245,24 +245,9 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
   const list = (filtered ? loans.filter(matchStage) : inGroup(tab)).filter((l) => !q || `${l.name} ${l.employeeId}`.toLowerCase().includes(q.toLowerCase()));
   const running = inGroup("berjalan");
   const outstanding = running.reduce((a, l) => a + loanSummary(l.principal, l.installments).remaining, 0);
-  const stats = [
-    { label: "Pengajuan menunggu", value: String(loans.filter((l) => l.status === "PENDING").length), icon: HandCoins, tone: "from-amber-500 to-orange-400" },
-    { label: "Menunggu pencairan", value: String(loans.filter((l) => l.status === "DISETUJUI").length), icon: HandCoins, tone: "from-violet-500 to-fuchsia-400" },
-    { label: "Pinjaman berjalan", value: String(running.length), icon: Wallet, tone: "from-sky-500 to-indigo-400" },
-    { label: "Total sisa pinjaman", value: formatRupiah(outstanding), icon: Wallet, tone: "from-brand to-rose-400" },
-  ];
   return (
     <main className="max-w-6xl space-y-5 px-4 py-5 sm:px-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-2xl border border-gray-200 bg-white p-4">
-            <div className="flex items-center justify-between"><p className="text-xs font-medium text-gray-500"><T>{s.label}</T></p>
-              <span className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${s.tone}`}><s.icon size={15} /></span></div>
-            <p className="mt-2 text-xl font-bold tracking-tight text-gray-900">{s.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-2">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b border-white/15 pb-2">
         {filtered && (
           <button type="button" onClick={() => router.replace("/portal/admin/pinjaman")}
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-amber-50 px-4 text-sm font-semibold text-amber-800 hover:bg-amber-100">
@@ -271,8 +256,9 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
         )}
         {LOAN_GROUPS.map((g) => (
           <button key={g.key} type="button" onClick={() => { setTab(g.key); if (filtered) router.replace("/portal/admin/pinjaman"); }}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm ${!filtered && tab === g.key ? "bg-ink font-semibold text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+            className={`relative inline-flex h-11 items-center gap-1.5 px-3 text-sm transition-colors ${!filtered && tab === g.key ? "font-semibold text-white" : "text-white/60 hover:text-white"}`}>
             <T>{g.label}</T> <span className="text-xs opacity-70">{inGroup(g.key).length}</span>
+            {!filtered && tab === g.key && <span className="absolute inset-x-2 -bottom-2 h-0.5 rounded-full bg-white" />}
           </button>
         ))}
         <div className="relative ml-auto">
@@ -287,7 +273,7 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
         )}
         {canEdit && (
           <button type="button" onClick={() => setUpload(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white hover:bg-ink/85">
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-ink hover:bg-white/90">
             <Upload size={14} /> <T>Upload Saldo Awal</T>
           </button>
         )}
@@ -295,6 +281,12 @@ export default function PinjamanAdminClient({ loans, employees }: { loans: Admin
       {xfer && <TransferPanel loans={loans.filter((l) => l.status === "DISETUJUI")} onClose={() => setXfer(false)} />}
       {/* Daftar ringkas; klik satu baris untuk membuka rinciannya (hanya satu yang terbuka). */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <p className="flex flex-wrap gap-x-5 gap-y-1 border-b border-gray-100 px-4 py-2.5 text-sm text-gray-600">
+          <span><T>Sisa pinjaman berjalan</T> <b className="font-semibold text-gray-900">{formatRupiah(outstanding)}</b></span>
+          <span><b className="font-semibold text-gray-900">{running.length}</b> <T>pinjaman berjalan</T></span>
+          <span><b className="font-semibold text-gray-900">{loans.filter((l) => l.status === "DISETUJUI").length}</b> <T>menunggu pencairan</T></span>
+          <span><b className="font-semibold text-gray-900">{loans.filter((l) => l.status === "PENDING").length}</b> <T>pengajuan menunggu</T></span>
+        </p>
         {list.length === 0 && <p className="p-8 text-center text-sm text-gray-500"><T>Tidak ada data.</T></p>}
         {list.length > 0 && (
           <div className="hidden grid-cols-[minmax(0,2.2fr)_1fr_1.2fr_1.3fr_100px_20px] gap-3 border-b border-gray-100 bg-gray-50/70 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400 md:grid">

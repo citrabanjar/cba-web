@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "pinjaman berjalan": "active loans",
+  "Sisa pinjaman berjalan": "Outstanding loan balance",
   "Gaji harian": "Daily wage",
   "Gaji harian yang ditawarkan (Rp / hari)": "Offered daily wage (Rp / day)",
   "(dasar lembur, BPJS, THR)": "(basis for overtime, BPJS, THR)",
