@@ -1,6 +1,6 @@
 // Employee ID otomatis (keputusan pemilik 2026-11-20):
 // - Tetap "P", Kontrak "K", Harian "H" + 3 digit nomor urut.
-// - Nomor urut dipakai bersama P, K, dan H (termasuk ID hasil upload), jadi 3 digitnya tidak pernah kembar.
+// - Nomor urut dipakai bersama P, K, dan H (termasuk ID hasil upload), jadi 3 digitnya tidak pernah kembar; nomor kosong diisi dulu.
 // - Status berubah (mis. diangkat Kontrak → Tetap): awalan ikut status, nomor tetap (K123 → P123).
 import { prisma } from "@/lib/prisma";
 
@@ -9,14 +9,14 @@ export const idPrefix = (status: string | null | undefined) => (status === "TETA
 export const isAutoId = (id: string | null | undefined) => PATTERN.test((id ?? "").trim());
 export const formatId = (status: string | null | undefined, n: number) => `${idPrefix(status)}${String(n).padStart(3, "0")}`;
 
-// Nomor berikutnya = nomor terbesar dari semua ID K### / P### / H### yang sudah ada + 1.
+// Nomor berikutnya = nomor terkecil yang belum dipakai ID K### / P### / H### mana pun (nomor kosong diisi dulu;
+// keputusan pemilik 2026-11-20). Nomor karyawan nonaktif / resign tetap terpakai selama datanya ada.
 export async function nextEmployeeNumber() {
   const rows = await prisma.user.findMany({ where: { employeeId: { not: null } }, select: { employeeId: true } });
-  const max = rows.reduce((m, r) => {
-    const hit = PATTERN.exec((r.employeeId ?? "").trim());
-    return hit ? Math.max(m, Number(hit[1])) : m;
-  }, 0);
-  return max + 1;
+  const used = new Set(rows.flatMap((r) => { const hit = PATTERN.exec((r.employeeId ?? "").trim()); return hit ? [Number(hit[1])] : []; }));
+  let n = 1;
+  while (used.has(n)) n++;
+  return n;
 }
 
 export async function nextEmployeeId(status: string | null | undefined) {
