@@ -12,7 +12,6 @@ import { useCanEdit, useIsSuperAdmin } from "@/components/portal/edit-access";
 import { formatRupiah } from "@/lib/utils";
 import { LOAN_GROUPS, loanStageOf, addMonths, buildSchedule, buildScheduleByAmount, loanSummary, periodShort } from "@/lib/loans";
 import { cancelLoan, cancelLoanTransfer, confirmLoanReceived, deleteLoan, markDisbursed, saveSchedule, submitLoanReview } from "@/app/(portal)/portal/admin/pinjaman/actions";
-import { toast } from "@/components/portal/Toast";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 import { proposedText } from "@/lib/approval-text";
 
@@ -282,7 +281,7 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
   const canCancel = ["DISETUJUI", "BERJALAN"].includes(loan.status) && !loan.installments.some((i) => i.status === "LUNAS");
   const canEdit = useCanEdit("pinjaman"); // hak lihat saja: tombol proses pinjaman disembunyikan
   const superAdmin = useIsSuperAdmin();
-  const run = (fn: () => Promise<{ error?: string }>, ok: string) => start(async () => { const r = await fn(); if (r.error) showNotice(t(r.error), "error"); else toast(t(ok)); });
+  const run = (fn: () => Promise<{ error?: string }>, ok: string) => start(async () => { const r = await fn(); if (r.error) showNotice(t(r.error), "error"); else void showNotice(t(ok)); });
   // Proses transfer: menunggu karyawan klik Sudah terima. Kendala diambil alih Super Admin (cek transaksi bank lebih dulu).
   if (loan.status === "TRANSFER") {
     if (!superAdmin) return <p className="max-w-[12rem] text-right text-[11px] text-indigo-700"><T>Menunggu konfirmasi karyawan (Sudah terima).</T></p>;
@@ -307,7 +306,7 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
       {["DISETUJUI", "BERJALAN"].includes(loan.status) && <Button size="sm" variant="outline" onClick={() => onOpen("schedule")}><T>Ubah Sisa Angsuran</T></Button>}
       {canCancel && (
         <Button size="sm" variant="outline" disabled={pending} className="text-rose-600"
-          onClick={async () => { if (await askConfirm(t("Batalkan pinjaman ini?"))) start(async () => { const r = await cancelLoan(loan.id); if (r.error) toast(r.error, "error"); else if (r.proposed) showNotice(proposedText(r.proposed)); }); }}>
+          onClick={async () => { if (await askConfirm(t("Batalkan pinjaman ini?"))) start(async () => { const r = await cancelLoan(loan.id); if (r.error) void showNotice(t(r.error), "error"); else if (r.proposed) showNotice(proposedText(r.proposed)); }); }}>
           <T>Batalkan</T>
         </Button>
       )}
@@ -326,7 +325,7 @@ export function DeleteLoanButton({ loan }: { loan: { id: string; status: string;
     <Button size="sm" variant="outline" disabled={pending} className="gap-1.5 text-rose-600"
       onClick={async () => {
         if (!await askConfirm(`${t("Hapus permanen Pinjaman ke-")}${loan.seqNo}? ${t("Data yang dihapus tidak bisa dikembalikan.")}`)) return;
-        start(async () => { const r = await deleteLoan(loan.id); if (r.error) toast(r.error, "error"); else if (r.proposed) showNotice(proposedText(r.proposed)); });
+        start(async () => { const r = await deleteLoan(loan.id); if (r.error) void showNotice(t(r.error), "error"); else if (r.proposed) showNotice(proposedText(r.proposed)); });
       }}>
       {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} <T>Hapus</T>
     </Button>

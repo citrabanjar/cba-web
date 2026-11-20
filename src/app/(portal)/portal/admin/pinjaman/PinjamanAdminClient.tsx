@@ -18,7 +18,6 @@ import { showNotice } from "@/components/portal/Confirm";
 import { proposedText } from "@/lib/approval-text";
 import { buildLoanTransferFile, getLoanTransferDebit, importOpeningLoans, type OpeningRow } from "./actions";
 import { TRANSFER_TEMPLATES } from "@/lib/bank-transfer";
-import { toast } from "@/components/portal/Toast";
 
 export type AdminLoan = LoanView & { userId: string; name: string; employeeId: string; department: string | null };
 export type LoanEmployee = { employeeId: string; name: string };
@@ -176,7 +175,7 @@ function TransferPanel({ loans, onClose }: { loans: AdminLoan[]; onClose: () => 
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([r.content], { type: "text/plain" }));
     a.download = r.fileName; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    toast(`${t("File transfer dibuat")}: ${r.count} ${t("karyawan")}, ${formatRupiah(r.total ?? 0)}.`);
+    void showNotice(`${t("File transfer dibuat")}: ${r.count} ${t("karyawan")}, ${t("total")} ${formatRupiah(r.total ?? 0)}.`);
     onClose();
     router.refresh();
   });
