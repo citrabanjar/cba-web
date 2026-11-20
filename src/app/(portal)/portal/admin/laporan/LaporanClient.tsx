@@ -102,16 +102,16 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
       sheet("Cuti", ["ID Karyawan", "Nama", "Departemen", "Jenis", "Mulai", "Selesai", "Hari", "Status", "Alasan", "Delegasi", "Diputus oleh"],
         leaves.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", r.policy, formatDate(r.start), formatDate(r.end), r.days, LEAVE_STATUS[r.status]?.label ?? r.status, r.reason, r.delegate ?? "", r.decidedBy ?? ""]));
     } else if (kind === "dinas") {
-      sheet("Dinas", ["ID Karyawan", "Nama", "Departemen", "Tujuan", "Keperluan", "Mulai", "Selesai", "Hari", "Status", "Giliran / Diputus oleh"],
+      sheet("Dinas", ["ID Karyawan", "Nama", "Departemen", "Tujuan", "Keperluan", "Mulai", "Selesai", "Hari", "Status", "Penyetuju / Diputus oleh"],
         trips.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", r.destination, r.purpose, formatDate(r.start), formatDate(r.end), r.days, LEAVE_STATUS[r.status]?.label ?? r.status, r.turn ?? r.decidedBy ?? ""]));
     } else if (kind === "tukar") {
-      sheet("Tukar Shift", ["ID Karyawan", "Pemohon", "Departemen", "Rekan", "Tanggal", "Shift pemohon", "Shift rekan", "Alasan", "Status", "Giliran / Diputus oleh"],
+      sheet("Tukar Shift", ["ID Karyawan", "Pemohon", "Departemen", "Rekan", "Tanggal", "Shift pemohon", "Shift rekan", "Alasan", "Status", "Penyetuju / Diputus oleh"],
         swaps.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", r.partner, formatDate(r.date), r.requesterShift, r.partnerShift, r.reason ?? "", SWAP_STATUS[r.status]?.label ?? r.status, r.turn ?? r.decidedBy ?? ""]));
     } else if (kind === "reimburse") {
-      sheet("Reimbursement", ["ID Karyawan", "Nama", "Departemen", "Tanggal berobat", "Klinik / RS / Apotek", "Kuitansi", "Dibayarkan", "Status", "Giliran / Disetujui oleh"],
+      sheet("Reimbursement", ["ID Karyawan", "Nama", "Departemen", "Tanggal berobat", "Klinik / RS / Apotek", "Kuitansi", "Dibayarkan", "Status", "Penyetuju / Disetujui oleh"],
         claims.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", formatDate(r.date), r.provider, r.amount, r.payout, CLAIM_LABEL[r.status] ?? r.status, r.turn ?? r.decidedBy ?? ""]));
     } else if (kind === "lupa") {
-      sheet("Lupa Absen", ["ID Karyawan", "Nama", "Departemen", "Tanggal", "Jam masuk", "Jam pulang", "Alasan", "Status", "Giliran / Diputus oleh"],
+      sheet("Lupa Absen", ["ID Karyawan", "Nama", "Departemen", "Tanggal", "Jam masuk", "Jam pulang", "Alasan", "Status", "Penyetuju / Diputus oleh"],
         fixes.map((r) => [r.employeeId ?? "", r.name, r.department ?? "", formatDate(r.date), r.checkIn ?? "", r.checkOut ?? "", r.reason, LEAVE_STATUS[r.status]?.label ?? r.status, r.turn ?? r.decidedBy ?? ""]));
     } else if (kind === "pinjaman") {
       sheet("Pinjaman", ["ID Karyawan", "Nama", "Departemen", "Diajukan", "Jumlah", "Tenor", "Potongan mulai", "Keperluan", "Status", "Tahap", "Diputus oleh"],
@@ -257,7 +257,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                         <td className="px-3 py-2">{t(r.policy)}{r.halfDay && <span className="text-[11px] text-gray-400"> · ½ <T>hari</T></span>}</td>
                         <td className="px-3 py-2">{formatDate(r.start)}{r.end !== r.start && <> – {formatDate(r.end)}</>}</td>
                         <td className={td}>{num(r.days)}</td>
-                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? r.turn : r.decidedBy}</p>}</td>
                         <td className="max-w-64 truncate px-3 py-2 text-gray-600" title={r.reason}>{r.reason}</td>
                         <td className="px-3 py-2 text-gray-600">{r.delegate ?? "-"}</td>
                       </tr>
@@ -281,7 +281,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                         <td className="px-3 py-2">{r.destination}</td>
                         <td className="px-3 py-2">{formatDate(r.start)}{r.end !== r.start && <> – {formatDate(r.end)}</>}</td>
                         <td className={td}>{r.days}</td>
-                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? r.turn : r.decidedBy}</p>}</td>
                         <td className="max-w-64 truncate px-3 py-2 text-gray-600" title={r.purpose}>{r.purpose}</td>
                       </tr>
                     );
@@ -304,7 +304,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                         <td className="px-3 py-2">{r.partner}</td>
                         <td className="px-3 py-2">{formatDate(r.date)}</td>
                         <td className="px-3 py-2 font-mono text-xs">{r.requesterShift} ⇄ {r.partnerShift}</td>
-                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? r.turn : r.decidedBy}</p>}</td>
                         <td className="max-w-64 truncate px-3 py-2 text-gray-600" title={r.reason ?? ""}>{r.reason ?? "-"}</td>
                       </tr>
                     );
@@ -328,7 +328,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                         <td className="max-w-56 truncate px-3 py-2 text-gray-700" title={r.provider}>{r.provider}</td>
                         <td className={td}>{rupiah(r.amount)}</td>
                         <td className={td}>{rupiah(r.payout)}</td>
-                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? r.turn : r.decidedBy}</p>}</td>
                         <td className="px-3 py-2 text-[11px]">{r.files.map((f) => <a key={f.id} href={`/api/reimburse-file/${f.id}`} target="_blank" rel="noreferrer" className="mr-2 text-brand hover:underline">{f.name}</a>)}</td>
                       </tr>
                     );
@@ -351,7 +351,7 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                         <td className="px-3 py-2">{formatDate(r.date)}</td>
                         <td className="px-3 py-2 tabular-nums">{r.checkIn ?? <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2 tabular-nums">{r.checkOut ?? <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? <><T>Giliran</T>: {r.turn}</> : r.decidedBy}</p>}</td>
+                        <td className="px-3 py-2"><span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${st.cls}`}><T>{st.label}</T></span>{(r.turn || r.decidedBy) && <p className="mt-0.5 text-[11px] text-gray-400">{r.turn ? r.turn : r.decidedBy}</p>}</td>
                         <td className="max-w-64 truncate px-3 py-2 text-gray-600" title={r.reason}>{r.reason}</td>
                       </tr>
                     );
