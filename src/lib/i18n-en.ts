@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Perintah lembur telah diteruskan ke masing-masing karyawan.": "The overtime order has been forwarded to each employee.",
   "Slip": "Slip",
   "Semua tahun": "All years",
   "Total Gaji Bersih": "Total Net Pay",

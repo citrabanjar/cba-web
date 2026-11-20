@@ -280,7 +280,7 @@ function SplForm({ employees, onDone }: { employees: EmployeePick[]; onDone: () 
     const r = await createSpl({ date, rows: lines.map(({ userId, startTime, endTime, reason }) => ({ userId, startTime, endTime, reason })) });
     if (r.rows) setCheck({ rows: r.rows, error: r.error, date });
     if (r.error) { void showNotice(t(r.error), "error"); return; }
-    void showNotice(`${r.number} ${t("terkirim ke")} ${lines.length} ${t("karyawan. Atasan mereka mendapat info.")}`);
+    void showNotice(t("Perintah lembur telah diteruskan ke masing-masing karyawan."));
     setLines([]); setCheck(null); setDate(""); setSameTime(false);
     router.refresh();
     onDone();
