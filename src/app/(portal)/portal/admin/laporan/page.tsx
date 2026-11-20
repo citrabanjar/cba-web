@@ -30,7 +30,8 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
   const kind = asked === "pinjaman" && !canLoan ? "semua" : asked;
   // Status hanya untuk laporan per pengajuan; tahap hanya untuk pinjaman.
   const status = kind !== "semua" && kind !== "kehadiran" && STATUSES.includes(sp.status as ReportStatus) ? (sp.status as ReportStatus) : "";
-  const stage = kind === "pinjaman" && ["ATASAN", "ADMIN", "PIMPINAN", "SELESAI"].includes(sp.tahap ?? "") ? sp.tahap! : "";
+  // Saringan tahap pinjaman tidak dipakai lagi (cukup status Belum selesai; tahap tampil di kolom Status).
+  const stage = "";
   const from = new Date(`${dari <= sampai ? dari : sampai}T00:00:00Z`), to = new Date(`${dari <= sampai ? sampai : dari}T00:00:00Z`);
   const tooLong = to.getTime() - from.getTime() > 366 * 86_400_000;
 

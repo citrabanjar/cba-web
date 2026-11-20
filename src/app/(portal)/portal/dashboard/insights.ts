@@ -199,10 +199,10 @@ export async function loadIndicators(): Promise<Indicator[]> {
     {
       key: "proses-pinjaman", title: "Proses Pinjaman", value: loanPending.length, note: "pengajuan berjalan",
       steps: [
-        { label: "Atasan", value: loanStage("ATASAN"), href: "/portal/admin/laporan?jenis=pinjaman&tahap=ATASAN" },
-        { label: "Admin", value: loanStage("ADMIN"), href: "/portal/admin/laporan?jenis=pinjaman&tahap=ADMIN" },
-        { label: "Pemutus", value: loanStage("PIMPINAN"), href: "/portal/admin/laporan?jenis=pinjaman&tahap=PIMPINAN" },
-        { label: "Selesai", value: loanDone, href: `/portal/admin/laporan?jenis=pinjaman&tahap=SELESAI&dari=${todayKey}&sampai=${todayKey}` },
+        { label: "Atasan", value: loanStage("ATASAN"), href: "/portal/admin/laporan?jenis=pinjaman&status=menunggu" },
+        { label: "Admin", value: loanStage("ADMIN"), href: "/portal/admin/laporan?jenis=pinjaman&status=menunggu" },
+        { label: "Pemutus", value: loanStage("PIMPINAN"), href: "/portal/admin/laporan?jenis=pinjaman&status=menunggu" },
+        { label: "Selesai", value: loanDone, href: `/portal/admin/laporan?jenis=pinjaman&dari=${todayKey}&sampai=${todayKey}` },
       ],
       icon: "loan", tone: "amber", href: "/portal/admin/laporan?jenis=pinjaman&status=menunggu", actionable: true,
     },

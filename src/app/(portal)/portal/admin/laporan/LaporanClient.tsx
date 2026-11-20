@@ -219,11 +219,6 @@ export default function LaporanClient({ kind, status = "", stage = "", canLoan =
                   <T>{label}</T>
                 </button>
               ))}
-              {stage && (
-                <button type="button" onClick={() => go(kind, status)} className="inline-flex h-8 items-center gap-1 rounded-full bg-brand/10 px-3 text-xs font-semibold text-brand">
-                  <T>Tahap</T>: <T>{stage === "SELESAI" ? "Selesai diputus" : LOAN_STAGE[stage]}</T> <X size={12} />
-                </button>
-              )}
             </div>
           )}
           {(status === "menunggu" || (stage && stage !== "SELESAI")) && (
