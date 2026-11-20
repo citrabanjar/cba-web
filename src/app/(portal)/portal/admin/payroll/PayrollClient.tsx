@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import BonusSchedule from "./BonusSchedule";
 import type { BonusEntry } from "@/lib/payroll-bonus";
-import { Calculator, CalendarClock, CheckCircle2, ChevronRight, HandCoins, Landmark, Loader2, Percent, Play, Receipt, Settings2, ShieldCheck, Wallet, Stethoscope } from "lucide-react";
+import { Calculator, CalendarClock, History, CheckCircle2, ChevronRight, HandCoins, Landmark, Loader2, Percent, Play, Receipt, Settings2, ShieldCheck, Wallet, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import type { PayrollSettings } from "@/lib/payroll";
 import { savePayrollSettings } from "./actions";
 import { proposedText } from "@/lib/approval-text";
 import RunTab, { type NonRoutine, type Run } from "./RunTab";
+import RiwayatTab from "./RiwayatTab";
 import TaxSettings from "./TaxSettings";
 import TerSettings from "./TerSettings";
 import ReimburseSettings from "./ReimburseSettings";
@@ -92,7 +93,8 @@ export default function PayrollClient({ components, settings, runs, employees, n
   taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[]; reimburse: ReimburseValue; revisions?: React.ReactNode;
 }) {
   const t = useT();
-  const [tab, setTab] = useState<"proses" | "komponen" | "pengaturan" | "kalkulator">("komponen");
+  const [tab, setTab] = useState<"proses" | "riwayat" | "komponen" | "pengaturan" | "kalkulator">("komponen");
+  const [focus, setFocus] = useState<string | null>(null); // periode yang dibuka dari Riwayat
   const [setting, setSetting] = useState<(typeof SETTING_SECTIONS)[number]["key"]>("payroll");
   const active = components.filter((c) => c.isActive);
   const bpjsEmployer = active.filter((c) => c.kind === "BENEFIT" && c.method === "PERSEN").reduce((a, c) => a + (c.rate ?? 0), 0);
@@ -123,14 +125,15 @@ export default function PayrollClient({ components, settings, runs, employees, n
           ))}
         </div>
         <div className="flex gap-1 rounded-2xl border border-gray-200 bg-white p-2">
-          {([["pengaturan", "Pengaturan", Settings2], ["komponen", "Komponen", Wallet], ["kalkulator", "Kalkulator Potongan", Calculator], ["proses", "Proses Gaji", Play]] as const).map(([k, label, Icon]) => (
+          {([["pengaturan", "Pengaturan", Settings2], ["komponen", "Komponen", Wallet], ["kalkulator", "Kalkulator Potongan", Calculator], ["proses", "Proses Gaji", Play], ["riwayat", "Riwayat", History]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
               className={`inline-flex h-9 items-center gap-2 rounded-full px-4 text-sm ${tab === k ? "bg-ink font-semibold text-white shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               <Icon size={15} /> <T>{label}</T>
             </button>
           ))}
         </div>
-        {tab === "proses" && <RunTab runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay}
+        {tab === "riwayat" && <RiwayatTab runs={runs} onOpen={(p) => { setFocus(p); setTab("proses"); }} />}
+        {tab === "proses" && <RunTab key={focus ?? "-"} initialPeriod={focus ?? undefined} runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay}
           fixedCodes={components.filter((c) => ["INPUT", "NOMINAL", "PERSEN", "PPH21"].includes(c.method)).map((c) => c.code)} />}
         {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={6} />}
         {tab === "kalkulator" && <DeductionCalculator />}

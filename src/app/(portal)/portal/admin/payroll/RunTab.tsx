@@ -64,16 +64,16 @@ const BONUS_MODE_LABEL: Record<string, string> = { BULANAN: "ikut payroll bulana
 const dmy = (d: string) => d.split("-").reverse().join("-");
 const plusDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
-export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: { fixedCodes?: string[]; runs: Run[]; bonus: BonusEntry[]; weekStartDay: number }) {
+export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], initialPeriod }: { initialPeriod?: string; fixedCodes?: string[]; runs: Run[]; bonus: BonusEntry[]; weekStartDay: number }) {
   const t = useT();
   const canEdit = useCanEdit(); // hak lihat saja: tombol hitung/final/hapus & isian baris disembunyikan
   const superAdmin = useIsSuperAdmin(); // Batalkan Final hanya Super Admin
   const [undo, setUndo] = useState<string | null>(null);
   const [xfer, setXfer] = useState<{ template: string; date: string; debit: string } | null>(null); // isian Buat File Transfer // isian alasan Batalkan Final (null = tertutup)
   const separateList = bonus.filter((b) => b.mode === "TERPISAH");
-  const [freq, setFreq] = useState<Freq>("BULANAN");
+  const [freq, setFreq] = useState<Freq>(() => (initialPeriod ? freqOf(initialPeriod) : "BULANAN"));
   const weekly = freq === "MINGGUAN";
-  const [period, setPeriod] = useState(() => runs.find((r) => r.status === "DRAFT" && freqOf(r.period) === "BULANAN")?.period ?? thisMonth());
+  const [period, setPeriod] = useState(() => initialPeriod ?? runs.find((r) => r.status === "DRAFT" && freqOf(r.period) === "BULANAN")?.period ?? thisMonth());
   const switchFreq = (f: Freq) => {
     setFreq(f); setMsg(null);
     const draft = runs.find((r) => r.status === "DRAFT" && freqOf(r.period) === f)?.period;
