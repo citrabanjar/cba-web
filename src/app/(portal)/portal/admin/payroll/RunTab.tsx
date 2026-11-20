@@ -317,34 +317,35 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [] }: {
                   const sum = (list: LineItem[]) => list.reduce((a, i) => a + i.amount, 0);
                   // Tertutup: total saja; terbuka: rincian Tetap / Tidak rutin.
                   const brief = (list: LineItem[], empty: string) => list.length
-                    ? <p className="tabular-nums text-gray-900">{rupiah(sum(list))} <span className="text-[10px] text-gray-400">· {list.length} <T>komponen</T></span></p>
+                    ? <p className="tabular-nums text-gray-900">{rupiah(sum(list))}</p>
                     : <p className="text-[11px] italic text-gray-400"><T>{empty}</T></p>;
                   return (
                     <tr key={l.id} onClick={() => toggle(l.id)} className={`cursor-pointer align-top hover:bg-gray-50/60 ${isOpen ? "bg-gray-50/40" : ""}`}>
                       <td className="px-4 py-3">
                         <p className="flex items-center gap-1 text-sm font-semibold text-gray-900">
                           <ChevronDown size={14} className={`shrink-0 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />{l.name}
+                          {!isOpen && l.warning && <span title={l.warning}><AlertTriangle size={12} className="text-amber-600" /></span>}
                         </p>
                         <p className="text-[10px] text-gray-400">{[l.employeeId, l.ptkp ?? "TK/0", l.department].filter(Boolean).join(" · ")}</p>
-                        {facts && <p className="mt-1 text-[10px] text-gray-500">{facts}</p>}
-                        {l.warning && <p className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle size={10} />{l.warning}</p>}
+                        {isOpen && facts && <p className="mt-1 text-[10px] text-gray-500">{facts}</p>}
+                        {isOpen && l.warning && <p className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle size={10} />{l.warning}</p>}
                       </td>
                       {showGp && (
                         <td className="px-3 py-3">
                           {gp ? <>
                             <p className="tabular-nums text-gray-900">{rupiah(gp.amount)}</p>
-                            <p className="text-[10px] text-gray-400"><T>{l.daily ? "harian" : "per bulan"}</T></p>
+                            {isOpen && <p className="text-[10px] text-gray-400"><T>{l.daily ? "harian" : "per bulan"}</T></p>}
                           </> : <p className="text-gray-400">-</p>}
                         </td>
                       )}
                       <td className="px-3 py-3">{isOpen ? <ItemGroups items={earn} fixed={fixed} empty="Tidak ada pendapatan lain" /> : brief(earn, "Tidak ada pendapatan lain")}</td>
                       <td className="px-3 py-3">
                         {isOpen ? <ItemGroups items={cut} fixed={fixed} empty="Tidak ada potongan" /> : brief(cut, "Tidak ada potongan")}
-                        {isOpen && benefit > 0 && <p className="mt-1.5 border-t border-dashed border-gray-200 pt-1 text-[10px] text-gray-400"><T>Ditanggung perusahaan</T>: {rupiah(benefit)}</p>}
+                        {isOpen && benefit > 0 && <p className="mt-1.5 border-t border-dashed border-gray-200 pt-1 text-[10px] text-gray-400"><T>Benefit</T>: {rupiah(benefit)}</p>}
                       </td>
                       <td className="px-3 py-3 text-right">
                         <p className="text-sm font-bold tabular-nums text-gray-900">{rupiah(l.netPay)}</p>
-                        <p className="text-[10px] text-gray-400"><T>Bruto pajak</T> {rupiah(l.gross)}</p>
+                        {isOpen && <p className="text-[10px] text-gray-400"><T>Bruto pajak</T> {rupiah(l.gross)}</p>}
                       </td>
                       <td className="px-3 py-3">
                         <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}><T>{final ? "Final" : "Draft"}</T></span>
