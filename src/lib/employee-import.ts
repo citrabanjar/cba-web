@@ -86,7 +86,7 @@ const COLUMNS: Column[] = [
   { field: "branch", names: ["Cabang", "Branch"], example: "KANTOR PUSAT", note: "Harus sudah terdaftar di Parameter Organisasi (menu Organisasi); huruf besar/kecil tidak berpengaruh." },
   { field: "departmentName", names: ["Departemen", "Department"], example: "ENGINEERING DEPARTEMENT", note: "Harus sudah terdaftar di Parameter Organisasi (menu Organisasi); huruf besar/kecil tidak berpengaruh." },
   { field: "position", names: ["Jabatan", "Position"], example: "SUPERVISOR", note: "Harus sudah terdaftar di Parameter Organisasi (menu Organisasi); huruf besar/kecil tidak berpengaruh." },
-  { field: "employmentStatus", names: ["Status Kerja", "Employment Status"], required: true, choices: { tetap: "TETAP", permanent: "TETAP", kontrak: "KONTRAK", contract: "KONTRAK", probation: "PROBATION" }, shown: "TETAP, KONTRAK, PROBATION", example: "KONTRAK" },
+  { field: "employmentStatus", names: ["Status Kerja", "Employment Status"], required: true, choices: { tetap: "TETAP", permanent: "TETAP", kontrak: "KONTRAK", contract: "KONTRAK", harian: "HARIAN", daily: "HARIAN", probation: "PROBATION" }, shown: "TETAP, KONTRAK, HARIAN, PROBATION", example: "KONTRAK" },
   { field: "joinDate", names: ["Tanggal Masuk", "Start Date"], kind: "date", required: true, example: "15-Jan-2024", note: "Menentukan No. Urut dan tanggal berlaku gaji awal." },
   { field: "contractEndDate", names: ["Tanggal Akhir Kontrak", "End Date"], kind: "date", example: "31-Des-2026", note: "Isi untuk karyawan KONTRAK." },
   { field: "resignDate", names: ["Tanggal Resign", "Resign Date"], kind: "date", example: "30-Jun-2026" },

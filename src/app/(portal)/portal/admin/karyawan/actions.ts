@@ -1,5 +1,6 @@
 "use server";
 
+import { idForStatus } from "@/lib/employee-id";
 import { delegateLabel, routeTo } from "@/lib/delegation";import { prisma } from "@/lib/prisma";
 import { getAccess, requireMenu } from "@/lib/access";
 import { requireImport } from "@/lib/import-access";
@@ -19,7 +20,7 @@ import type { EmploymentStatus, Prisma } from "@prisma/client";
 const LIST_PATH = "/portal/admin/karyawan";
 
 const STATUS_MAP: Record<string, EmploymentStatus> = {
-  TETAP: "TETAP", KONTRAK: "KONTRAK", PROBATION: "PROBATION",
+  TETAP: "TETAP", KONTRAK: "KONTRAK", PROBATION: "PROBATION", HARIAN: "HARIAN",
 };
 
 const TEXT_FIELDS = [
@@ -299,6 +300,13 @@ async function applyEmployeeUpdate(id: string, data: EmployeeUpdate, opts: { rol
     const value = STATUS_MAP[data.employmentStatus.toUpperCase()];
     if (value && track("employmentStatus", current.employmentStatus, value)) {
       changes.employmentStatus = value;
+      // Status berubah: awalan Employee ID ikut status (K123 → P123 saat diangkat tetap), nomor tidak berubah.
+      const promoted = changes.employeeId === undefined ? idForStatus(current.employeeId, value) : null;
+      if (promoted) {
+        const taken = await prisma.user.findFirst({ where: { employeeId: promoted, id: { not: id } }, select: { id: true } });
+        if (taken) throw new Error(`Employee ID ${promoted} sudah dipakai karyawan lain`);
+        if (track("employeeId", current.employeeId, promoted)) changes.employeeId = promoted;
+      }
     }
   }
   if (data.departmentName !== undefined) {

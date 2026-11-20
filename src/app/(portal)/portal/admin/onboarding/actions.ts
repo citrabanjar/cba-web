@@ -1,5 +1,6 @@
 "use server";
 
+import { nextEmployeeId } from "@/lib/employee-id";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -129,7 +130,6 @@ async function validate(id: string, data: CandidateData, job: CandidateJob, emai
   const missing = [...missingData(data), ...missingJob(job)];
   if (missing.length) return { missing };
   const problems: string[] = [];
-  if (await prisma.user.findUnique({ where: { employeeId: job.employeeId.trim() }, select: { id: true } })) problems.push(`Employee ID ${job.employeeId} sudah dipakai`);
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) problems.push("Email sudah dipakai karyawan lain");
   if (data.ktpNumber && await prisma.user.findUnique({ where: { ktpNumber: digits(data.ktpNumber) || data.ktpNumber }, select: { id: true } })) problems.push("No. identitas sudah dipakai karyawan lain");
   const org = await orgCheck(job);
@@ -203,13 +203,16 @@ type CandidateRec = NonNullable<Awaited<ReturnType<typeof prisma.candidate.findU
 async function createEmployee(id: string, c: CandidateRec, data: CandidateData, job: CandidateJob, org: Org, opts: { approvedBy: string | null; salary?: number }) {
   const password = randomBytes(6).toString("base64url").slice(0, 8);
   const top = await prisma.user.aggregate({ _max: { employeeNo: true } });
+  // Employee ID otomatis saat didaftarkan: K (kontrak) / P (tetap) + nomor urut berikutnya (lib/employee-id).
+  const status = job.employmentStatus === "TETAP" || job.employmentStatus === "HARIAN" ? job.employmentStatus : "KONTRAK";
+  const employeeId = await nextEmployeeId(status);
   const date = (s: string) => (s ? new Date(`${s}T00:00:00Z`) : null);
   const user = await prisma.$transaction(async (tx) => {
     const u = await tx.user.create({
       data: {
-        employeeNo: (top._max.employeeNo ?? 0) + 1, employeeId: job.employeeId.trim(), name: data.name.trim() || c.name,
+        employeeNo: (top._max.employeeNo ?? 0) + 1, employeeId, name: data.name.trim() || c.name,
         email: c.email, phone: data.phone || c.phone, role: "KARYAWAN", isActive: true,
-        employmentStatus: job.employmentStatus === "TETAP" ? "TETAP" : "KONTRAK",
+        employmentStatus: status,
         joinDate: date(job.joinDate), contractEndDate: job.employmentStatus === "TETAP" ? null : date(job.contractEndDate),
         departmentId: org.departmentId, branch: org.branch, position: org.position,
         birthPlace: data.birthPlace || null, birthDate: date(data.birthDate), idType: data.idType || null,

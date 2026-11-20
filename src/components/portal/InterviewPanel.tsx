@@ -45,7 +45,7 @@ export function OfferForm({ value, onChange, master, title = "Tawaran kerja (iku
       </F>
       <F label="Status kerja">
         <select value={value.employmentStatus} onChange={(e) => setO({ employmentStatus: e.target.value })} className={select}>
-          <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option>
+          <option value="KONTRAK">{t("Kontrak")}</option><option value="TETAP">{t("Tetap")}</option><option value="HARIAN">{t("Harian")}</option>
         </select>
       </F>
       <F label="Gaji pokok yang ditawarkan (Rp / bulan)"><Input type="number" min={0} value={value.salary} onChange={(e) => setO({ salary: e.target.value })} /></F>

@@ -39,12 +39,13 @@ type Employee = {
   department: Dept | null;
 };
 
-const STATUSES = ["KONTRAK", "TETAP"];
+const STATUSES = ["KONTRAK", "TETAP", "HARIAN"];
 
 const STATUS_BADGE: Record<string, string> = {
   TETAP: "bg-emerald-100 text-emerald-700 border-emerald-200",
   KONTRAK: "bg-amber-100 text-amber-700 border-amber-200",
   PROBATION: "bg-orange-100 text-orange-700 border-orange-200",
+  HARIAN: "bg-sky-100 text-sky-700 border-sky-200",
 };
 
 const EMPTY: Partial<EmployeeInput> = {

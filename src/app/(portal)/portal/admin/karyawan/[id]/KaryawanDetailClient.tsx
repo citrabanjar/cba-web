@@ -110,7 +110,7 @@ const TAB_LIST = [
 ];
 
 const STATUS_LABEL: Record<string, string> = {
-  TETAP: "Tetap", KONTRAK: "Kontrak", PROBATION: "Probation",
+  TETAP: "Tetap", KONTRAK: "Kontrak", HARIAN: "Harian", PROBATION: "Probation",
 };
 const FLAG_OPTIONS: Option[] = [
   { value: "true", label: "Ikut" }, { value: "false", label: "Tidak Ikut" },

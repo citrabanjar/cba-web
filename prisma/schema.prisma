@@ -50,6 +50,7 @@ enum EmploymentStatus {
   TETAP
   KONTRAK
   PROBATION
+  HARIAN // karyawan harian (Employee ID awalan H)
 }
 
 enum UserRole {

@@ -10,7 +10,7 @@ import { loadAgent } from "./agent";
 import { assessRecent } from "@/lib/attendance-assess";
 
 const DAY = 24 * 60 * 60 * 1000;
-const STATUS_LABEL: Record<string, string> = { TETAP: "Tetap", KONTRAK: "Kontrak", PROBATION: "Probation" };
+const STATUS_LABEL: Record<string, string> = { TETAP: "Tetap", KONTRAK: "Kontrak", HARIAN: "Harian", PROBATION: "Probation" };
 
 // Kolom tanggal absensi tersimpan tengah malam UTC, jadi "hari ini" dihitung dalam WIB lalu dijadikan UTC.
 function todayDate() {
@@ -175,12 +175,12 @@ export default async function AdminDashboard({ isSuper, announcement }: { isSupe
       }),
     ]);
 
-  const statusParts = ["TETAP", "KONTRAK", "PROBATION"]
+  const statusParts = ["TETAP", "KONTRAK", "HARIAN", "PROBATION"]
     .map((status) => ({
       label: STATUS_LABEL[status],
       value: byStatus.find((r) => r.employmentStatus === status)?._count._all ?? 0,
     }))
-    .filter((p) => p.value > 0 || p.label !== "Probation");
+    .filter((p) => p.value > 0 || (p.label !== "Probation" && p.label !== "Harian"));
 
   // Task Admin disaring sesuai kewenangan: tugas yang tautannya ke menu yang tidak dimiliki Admin tidak ditampilkan
   // (mis. Admin Payroll tidak melihat tugas cuti / Pra-Karyawan). Super Admin melihat semua.
