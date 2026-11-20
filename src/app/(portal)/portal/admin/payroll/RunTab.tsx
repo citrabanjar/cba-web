@@ -166,7 +166,7 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
               <button type="button" disabled={pending || lines.length === 0}
                 onClick={async () => { if (await askConfirm(t("Finalkan periode ini? Angka dikunci dan slip gaji terbit untuk karyawan."))) act(() => finalizePayroll(run.id), "Final. {n} slip gaji terbit."); }}
                 className="inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                <Lock size={14} /> <T>Finalkan & Terbitkan Slip</T>
+                <Lock size={14} /> <T>Finalkan</T>
               </button>
               <button type="button" disabled={pending}
                 onClick={async () => { if (await askConfirm(t("Hapus draft periode ini?"))) act(() => deletePayrollDraft(run.id), "Draft dihapus."); }}
