@@ -1411,6 +1411,7 @@ export default function KaryawanDetailClient({
                     <TableHead className="px-4 text-right"><T>Gaji Bersih</T></TableHead>
                     <TableHead className="hidden sm:table-cell px-4"><T>Dibayar</T></TableHead>
                     <TableHead className="hidden md:table-cell px-4"><T>Via</T></TableHead>
+                    <TableHead className="px-4 text-right"><T>Slip</T></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1420,6 +1421,7 @@ export default function KaryawanDetailClient({
                       <TableCell className="px-4 text-sm text-right tabular-nums">{formatRupiah(p.netPay)}</TableCell>
                       <TableCell className="hidden sm:table-cell px-4 text-sm">{fmtDate(p.paidAt)}</TableCell>
                       <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{p.paidVia ?? "—"}</TableCell>
+                      <TableCell className="px-4 text-right"><a href={`/api/payslip/${p.id}?unduh=1`} className="text-xs font-semibold text-brand hover:underline">PDF</a></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

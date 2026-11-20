@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatRupiah } from "@/lib/utils";
 import { T } from "@/components/i18n";
@@ -51,11 +51,16 @@ export default async function PayslipPage() {
                       <T>Take Home Pay:</T> <span className="font-semibold text-ink">{formatRupiah(slip.netPay)}</span>
                     </p>
                   </div>
-                  {slip.paidAt && (
-                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-                      <T>Dibayar</T> {formatDate(slip.paidAt, "Asia/Jakarta")}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {slip.paidAt && (
+                      <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+                        <T>Dibayar</T> {formatDate(slip.paidAt, "Asia/Jakarta")}
+                      </span>
+                    )}
+                    <a href={`/api/payslip/${slip.id}?unduh=1`} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-gray-50">
+                      <Download size={13} /> PDF
+                    </a>
+                  </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-50 grid grid-cols-2 gap-2 text-xs text-gray-500">
                   <div><T>Gaji Pokok:</T> <span className="font-medium text-gray-700">{formatRupiah(slip.basicSalary)}</span></div>
