@@ -114,17 +114,17 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
       <section className="flex flex-wrap items-end gap-3 p-4 sm:p-5">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-500"><T>Jadwal bayar</T></p>
+          <p className="text-xs font-semibold text-gray-800"><T>Jadwal bayar</T></p>
           <div className="flex h-9 gap-1 rounded-full bg-gray-100 p-1">
             {([["BULANAN", "Bulanan"], ["MINGGUAN", "Mingguan"], ["TERPISAH", "THR / Bonus terpisah"]] as const).map(([f, l]) => (
               <button key={f} type="button" onClick={() => switchFreq(f)}
-                className={`rounded-full px-3 text-xs ${freq === f ? "bg-white font-semibold text-gray-900 shadow-sm" : "text-gray-500"}`}><T>{l}</T></button>
+                className={`rounded-full px-3 text-xs ${freq === f ? "bg-white font-semibold text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}><T>{l}</T></button>
             ))}
           </div>
         </div>
         {freq === "TERPISAH" ? (
           <div className="space-y-1">
-            <p className="text-xs font-medium text-gray-500"><T>THR / Bonus terpisah</T></p>
+            <p className="text-xs font-semibold text-gray-800"><T>THR / Bonus terpisah</T></p>
             {separateList.length === 0 ? (
               <p className="flex h-9 items-center text-xs text-gray-400"><T>Belum ada jadwal “Dibayar terpisah” di Pengaturan → Jadwal THR / Bonus.</T></p>
             ) : (
@@ -137,7 +137,7 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
           </div>
         ) : (
           <div className="space-y-1">
-            <p className="text-xs font-medium text-gray-500"><T>{weekly ? "Tanggal bayar (Senin)" : "Periode"}</T></p>
+            <p className="text-xs font-semibold text-gray-800"><T>{weekly ? "Tanggal bayar (Senin)" : "Periode"}</T></p>
             {/* Mingguan: pilih tanggal gajian; tanggal selain Senin dibulatkan ke Senin sebelumnya. */}
             <input type={weekly ? "date" : "month"} value={weekly && period ? weeklyPayDate(period) : period}
               onChange={(e) => {
@@ -145,25 +145,13 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
                 setPeriod(p); setMsg(null);
               }}
               className="h-9 rounded-lg border border-gray-200 px-3 text-sm" />
-            {weekly && period && (
-              <p className="text-[11px] text-gray-400">
-                <T>Data</T> {dmy(period)} – {dmy(plusDays(period, 6))} · <T>penghasilan</T> {MONTHS[Number(weeklyPayDate(period).slice(5, 7)) - 1]} {weeklyPayDate(period).slice(0, 4)}
-              </p>
-            )}
-          </div>
-        )}
-        {(scheduled.length > 0 || taxedHere.length > 0) && (
-          <div className="space-y-1 text-xs text-gray-600">
-            {scheduled.length > 0 && <p><T>THR / Bonus dibayar di periode ini</T>: {scheduled.map((b) => `${b.code}${b.label ? ` (${b.label})` : ""} ${dmy(b.payDate)}`).join(", ")}</p>}
-            {taxedHere.length > 0 && <p className="text-gray-400"><T>PPh 21 THR / Bonus yang dibayar mingguan / terpisah ikut di sini</T>: {taxedHere.map((b) => `${b.code} ${dmy(b.payDate)} (${t(BONUS_MODE_LABEL[b.mode])})`).join(", ")}</p>}
           </div>
         )}
         {run && (
           <span className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
-            title={final && run.finalizedAt ? `${run.finalizedBy ?? ""} · ${new Date(run.finalizedAt).toLocaleString("id-ID")}` : undefined}>
+>
             <span className={`h-1.5 w-1.5 rounded-full ${final ? "bg-emerald-500" : "bg-amber-500"}`} />
             <T>{final ? "Final" : "Draft"}</T>
-            {final && run.finalizedAt && <span className="font-normal opacity-75">· {run.finalizedBy ?? "—"} · {new Date(run.finalizedAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</span>}
           </span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
@@ -260,6 +248,15 @@ export default function RunTab({ runs, bonus, weekStartDay, fixedCodes = [], ini
         )}
         {msg && <p className={`w-full rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
       </section>
+      {((weekly && period) || scheduled.length > 0 || taxedHere.length > 0) && (
+        <div className="space-y-0.5 border-t border-gray-100 px-4 py-2.5 text-sm text-gray-700 sm:px-5">
+          {weekly && period && (
+            <p><T>Data</T> <b className="font-semibold text-gray-900">{dmy(period)} – {dmy(plusDays(period, 6))}</b> · <T>penghasilan</T> <b className="font-semibold text-gray-900">{MONTHS[Number(weeklyPayDate(period).slice(5, 7)) - 1]} {weeklyPayDate(period).slice(0, 4)}</b></p>
+          )}
+          {scheduled.length > 0 && <p><T>THR / Bonus dibayar di periode ini</T>: {scheduled.map((b) => `${b.code}${b.label ? ` (${b.label})` : ""} ${dmy(b.payDate)}`).join(", ")}</p>}
+          {taxedHere.length > 0 && <p className="text-gray-500"><T>PPh 21 THR / Bonus yang dibayar mingguan / terpisah ikut di sini</T>: {taxedHere.map((b) => `${b.code} ${dmy(b.payDate)} (${t(BONUS_MODE_LABEL[b.mode])})`).join(", ")}</p>}
+        </div>
+      )}
 
       {!run ? (
         <p className="border-t border-gray-100 p-10 text-center text-sm text-gray-500">
