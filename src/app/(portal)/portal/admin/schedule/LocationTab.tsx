@@ -190,7 +190,7 @@ function LocationForm({
           <div className="space-y-2">
             <p className="text-sm font-semibold text-gray-900"><T>Berlaku untuk</T></p>
             <p className="text-[11px] text-gray-400">
-              <T>Lokasi dari karyawan, shift, dan pola kerja digabung. Karyawan yang belum punya lokasi boleh absen di semua lokasi aktif.</T>
+              <T>Lokasi dari karyawan, shift, dan pola kerja digabung. Karyawan yang tidak ditempel lokasi bebas absen di mana saja.</T>
             </p>
             <div className="flex gap-1 rounded-full bg-gray-100 p-1">
               {scopes.map((s) => (

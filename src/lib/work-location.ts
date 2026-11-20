@@ -3,9 +3,9 @@ import type { AllowedLocation } from "@/lib/work-location-client";
 
 export { nearestLocation, type AllowedLocation } from "@/lib/work-location-client";
 
-// Lokasi absen yang boleh dipakai seorang karyawan: gabungan lokasi yang ditempel
-// langsung ke karyawan, ke shift, dan ke pola kerja. Kalau tidak ada yang ditempel,
-// semua lokasi aktif boleh dipakai.
+// Lokasi absen yang boleh dipakai seorang karyawan: lokasi yang ditempel langsung ke karyawan.
+// Kalau tidak ada yang ditempel, karyawan bebas absen di mana saja (daftar kosong = tanpa batas radius;
+// keputusan pemilik 2026-11-20). Alamat GPS tetap disimpan saat absen.
 // Catatan: lokasi per shift dan per pola kerja baru berlaku setelah pola/shift
 // ditempel ke karyawan (Schedule tahap berikutnya).
 export async function getAllowedLocations(userId: string) {
@@ -17,10 +17,7 @@ export async function getAllowedLocations(userId: string) {
     id: l.id, name: l.name, latitude: l.latitude, longitude: l.longitude, radius: l.radius,
   });
   const assigned = (user?.workLocations ?? []).map(pick);
-  if (assigned.length > 0) return { locations: assigned, assigned: true };
-
-  const all = await prisma.workLocation.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
-  return { locations: all.map(pick), assigned: false };
+  return { locations: assigned, assigned: assigned.length > 0 };
 }
 
 // Tanggal hari ini menurut waktu Jakarta, sebagai tengah malam UTC (format kolom @db.Date).

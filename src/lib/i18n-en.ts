@@ -2950,7 +2950,7 @@ export const en: Record<string, string> = {
   "Klik peta atau geser titik merah untuk memindahkan lokasi. Lingkaran abu-abu adalah lokasi lain.": "Click the map or drag the red dot to move the location. Grey circles are other locations.",
   "Radius": "Radius",
   "Berlaku untuk": "Applies to",
-  "Lokasi dari karyawan, shift, dan pola kerja digabung. Karyawan yang belum punya lokasi boleh absen di semua lokasi aktif.": "Locations from employees, shifts, and work patterns are combined. Employees without a location may clock in at any active location.",
+  "Lokasi dari karyawan, shift, dan pola kerja digabung. Karyawan yang tidak ditempel lokasi bebas absen di mana saja.": "Locations from employees, shifts, and work patterns are combined. Employees without an assigned location may clock in anywhere.",
   "Karyawan": "Employees",
   "Lokasi aktif": "Active location",
   "Cari nama atau ID...": "Search name or ID...",

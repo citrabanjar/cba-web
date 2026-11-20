@@ -9,7 +9,7 @@ import { unfinishedCheckout } from "@/lib/attendance-fix";
 
 // Cek lokasi absen. Saat Dinas Luar disetujui, absen boleh di mana saja (lokasinya tetap
 // disimpan). Selain itu, absen di luar radius semua lokasi yang diizinkan ditolak.
-// Selama belum ada lokasi absen sama sekali, absen belum dibatasi.
+// Karyawan yang tidak ditempel lokasi absen bebas absen di mana saja.
 async function checkLocation(userId: string, lat: number, lng: number) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return { error: "Lokasi GPS tidak terbaca. Aktifkan GPS lalu coba lagi." } as const;
