@@ -170,15 +170,15 @@ export async function loadIndicators(): Promise<Indicator[]> {
   }
   const leaveNames = [...new Map(onLeave.map((l) => [l.userId, l.user.name])).values()];
   const tripNames = [...new Map(onTrip.map((t) => [t.userId, t.user.name])).values()];
-  const names = (list: string[]) => (list.length ? `${list.slice(0, 2).map((n) => n.split(" ")[0]).join(", ")}${list.length > 2 ? ` +${list.length - 2}` : ""}` : undefined);
+  // Kartu indikator hanya menampilkan jumlah; rincian nama ada di menu Laporan (keputusan pemilik 2026-11-20).
   const indicators: Indicator[] = [
     {
-      key: "dinas-hari-ini", title: "Dinas Hari Ini", value: tripNames.length, noteValue: names(tripNames),
-      note: tripNames.length ? "sedang dinas luar" : "Tidak ada yang dinas", icon: "trip", tone: "blue", href: `/portal/admin/laporan?jenis=dinas&status=disetujui&dari=${todayKey}&sampai=${todayKey}`,
+      key: "dinas-hari-ini", title: "Dinas Hari Ini", value: tripNames.length,
+      note: "karyawan sedang dinas luar", icon: "trip", tone: "blue", href: `/portal/admin/laporan?jenis=dinas&status=disetujui&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
-      key: "terlambat-hari-ini", title: "Terlambat Hari Ini", value: late.length, noteValue: names(late),
-      note: late.length ? "terlambat masuk" : "Belum ada yang terlambat", icon: "late", tone: "rose", href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
+      key: "terlambat-hari-ini", title: "Terlambat Hari Ini", value: late.length,
+      note: "karyawan terlambat masuk", icon: "late", tone: "rose", href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
       key: "belum-absen-hari-ini", title: "Belum Absen Hari Ini", value: absent.length,
@@ -186,8 +186,8 @@ export async function loadIndicators(): Promise<Indicator[]> {
       href: `/portal/admin/laporan?jenis=kehadiran&belum=1&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
-      key: "tepat-waktu-hari-ini", title: "Tepat Waktu Hari Ini", value: onTime.length, noteValue: late.length + onTime.length,
-      note: "sudah check-in", icon: "present", tone: "emerald", href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
+      key: "tepat-waktu-hari-ini", title: "Tepat Waktu Hari Ini", value: onTime.length,
+      note: "karyawan tepat waktu", icon: "present", tone: "emerald", href: `/portal/admin/laporan?jenis=kehadiran&dari=${todayKey}&sampai=${todayKey}`,
     },
     {
       // Proses cuti: pengajuan yang menunggu persetujuan dan karyawan yang sedang cuti hari ini (sudah disetujui).
