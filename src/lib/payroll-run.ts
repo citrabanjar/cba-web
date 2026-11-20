@@ -216,7 +216,8 @@ async function computeLine(ctx: Ctx, userId: string, nonRoutine: string[], overr
   // Karyawan harian (payroll mingguan): gaji bulanan = gaji harian x pengali (dasar lembur, BPJS, THR).
   const weekly = ctx.weekly;
   const daily = salary?.dailyWage ?? 0, monthlyFactor = salary?.monthlyFactor ?? 0;
-  if (weekly && salary && !(daily > 0 && monthlyFactor > 0)) warnings.push("Gaji harian / pengali belum diisi");
+  // Hanya karyawan berjadwal bayar Mingguan; karyawan bulanan yang ikut sebagian di proses mingguan (mis. lembur) tidak memakai gaji harian.
+  if (weekly && user?.paymentSchedule === "Mingguan" && salary && !(daily > 0 && monthlyFactor > 0)) warnings.push("Gaji harian / pengali belum diisi");
   // Karyawan payroll mingguan memakai gaji harian x pengali juga di proses THR terpisah.
   const basicFull = (weekly || user?.paymentSchedule === "Mingguan") && daily > 0 && monthlyFactor > 0 ? daily * monthlyFactor : salary?.basicSalary ?? 0;
   // Isian profil yang tertaut ke komponen master hanya berlaku selama komponennya tertempel.
