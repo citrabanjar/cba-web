@@ -19,6 +19,8 @@ export type ImportRow = {
   resignDate?: string;
   isActive: boolean;
   basicSalary?: number;
+  dailyWage?: number; // karyawan HARIAN: gaji harian x pengali bulanan = gaji pokok
+  monthlyFactor?: number;
   components: ImportComponent[];
   paymentSchedule?: string;
   bpjsTkNumber?: string;
@@ -65,6 +67,7 @@ type Column = {
   names: string[]; // nama pertama adalah nama kolom di template portal
   kind?: Kind;
   required?: boolean;
+  column?: boolean; // kolom wajib ada di file walau nilainya boleh kosong (mis. Gaji Pokok: kosong untuk HARIAN)
   choices?: Record<string, string>; // isian (huruf kecil) -> nilai yang disimpan
   shown?: string; // pilihan yang ditampilkan di Petunjuk
   note?: string;
@@ -91,7 +94,9 @@ const COLUMNS: Column[] = [
   { field: "contractEndDate", names: ["Tanggal Akhir Kontrak", "End Date"], kind: "date", example: "31-Des-2026", note: "Isi untuk karyawan KONTRAK." },
   { field: "resignDate", names: ["Tanggal Resign", "Resign Date"], kind: "date", example: "30-Jun-2026" },
   { field: "isActive", names: ["Status Aktif", "Follow Company General Policy"], choices: FLAG, shown: "Aktif, Nonaktif", example: "Aktif", note: "Kalau kosong dianggap Aktif. Karyawan Nonaktif tidak bisa login." },
-  { field: "basicSalary", names: ["Gaji Pokok", "Basic Salary"], kind: "money", required: true, example: "5000000", note: "Angka saja, tanpa Rp dan tanpa titik. Dibaca komponen GP (Gaji Pokok)." },
+  { field: "basicSalary", names: ["Gaji Pokok", "Basic Salary"], kind: "money", column: true, example: "5000000", note: "Wajib, kecuali karyawan HARIAN. Angka saja, tanpa Rp dan tanpa titik. Dibaca komponen GP (Gaji Pokok). Untuk HARIAN dihitung otomatis: Gaji Harian x Pengali Bulanan." },
+  { field: "dailyWage", names: ["Gaji Harian", "Daily Wage"], kind: "money", example: "150000", note: "Wajib untuk karyawan HARIAN (kosongkan untuk Tetap / Kontrak). Angka saja." },
+  { field: "monthlyFactor", names: ["Pengali Bulanan", "Monthly Factor"], kind: "money", example: "25", note: "Wajib untuk karyawan HARIAN: jumlah hari pengali gaji bulanan (1-31). Gaji Pokok = Gaji Harian x Pengali." },
   { field: "paymentSchedule", names: ["Jadwal Bayar", "Payment Schedule"], choices: { bulanan: "Bulanan", monthly: "Bulanan", mingguan: "Mingguan", weekly: "Mingguan" }, shown: "Bulanan, Mingguan", example: "Bulanan" },
   { field: "bpjsTkNumber", names: ["No BPJS Ketenagakerjaan", "BPJS Ketenagakerjaan Number"], kind: "digits", example: "12345678901" },
   { field: "bpjsTkActive", names: ["Status BPJS Ketenagakerjaan", "BPJS Ketenagakerjaan"], choices: BPJS, shown: "Ikut, Tidak Ikut", example: "Ikut", note: "Kalau kosong dianggap Tidak Ikut." },
@@ -185,7 +190,7 @@ function toNationality(v: unknown): string | undefined {
 export type PayColumn = { code: string; name: string; kind: string };
 export function templateHeaders(pay: PayColumn[] = []): string[] {
   const base = COLUMNS.map((c) => c.names[0]);
-  const at = base.indexOf("Gaji Pokok") + 1;
+  const at = base.indexOf("Pengali Bulanan") + 1; // setelah Gaji Pokok, Gaji Harian, Pengali Bulanan
   return [...base.slice(0, at), ...pay.map((p) => p.name), ...base.slice(at)];
 }
 
@@ -196,7 +201,7 @@ function instructionRows(pay: PayColumn[] = []): string[][] {
     const col = COLUMNS.find((c) => c.names[0] === name)!;
     return [
       name,
-      col.required ? "Ya" : "Tidak",
+      col.required ? "Ya" : col.column ? "Ya (kecuali HARIAN)" : "Tidak",
       col.choices ? "Pilih salah satu" : FORMAT_LABEL[col.kind ?? "text"],
       col.shown ?? "",
       col.example ?? "",
@@ -380,7 +385,7 @@ export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster, exist
     if (at >= 0) index.set(col.field, at);
   }
 
-  const missing = COLUMNS.filter((c) => c.required && !index.has(c.field)).map((c) => c.names[0]);
+  const missing = COLUMNS.filter((c) => (c.required || c.column) && !index.has(c.field)).map((c) => c.names[0]);
   if (missing.length > 0) {
     return { sheet: found.sheet, rows: [], errors: [`Kolom wajib tidak ditemukan: ${missing.join(", ")}.`], unknown: [], orgMissing: [] };
   }
@@ -441,6 +446,20 @@ export function parseEmployeeFile(buffer: ArrayBuffer, master?: OrgMaster, exist
       if (!name) continue;
       if (Number.isNaN(amount)) problems.push(`Nominal ${name} harus berupa angka`);
       else if (amount) (row.components as ImportComponent[]).push({ type: c.type, name, amount });
+    }
+
+    // Gaji: HARIAN memakai Gaji Harian x Pengali Bulanan (jadwal bayar bawaan Mingguan); selain itu Gaji Pokok wajib.
+    if (row.employmentStatus === "HARIAN") {
+      const daily = Number(row.dailyWage) || 0, factor = Number(row.monthlyFactor) || 0;
+      if (!(daily > 0)) problems.push("Gaji Harian wajib diisi untuk karyawan HARIAN");
+      else if (!(factor >= 1 && factor <= 31)) problems.push("Pengali Bulanan wajib diisi 1 sampai 31 untuk karyawan HARIAN");
+      else {
+        row.basicSalary = Math.round(daily * factor);
+        if (!row.paymentSchedule) row.paymentSchedule = "Mingguan";
+      }
+    } else {
+      delete row.dailyWage; delete row.monthlyFactor;
+      if (!(Number(row.basicSalary) > 0)) problems.push("Gaji Pokok wajib diisi");
     }
 
     for (const { at, p } of payAt) {

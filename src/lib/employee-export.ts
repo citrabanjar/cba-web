@@ -10,12 +10,12 @@ export async function employeeTemplateRows(pay: boolean): Promise<TemplateRow[]>
     orderBy: [{ employeeNo: "asc" }, { employeeId: "asc" }],
     include: {
       department: { select: { name: true } }, manager: { select: { employeeId: true } },
-      salaries: pay ? { where: { effectiveDate: { lte: today } }, orderBy: { effectiveDate: "desc" }, take: 1, select: { basicSalary: true, components: { where: { code: { not: null } }, select: { code: true, amount: true } } } } : false,
+      salaries: pay ? { where: { effectiveDate: { lte: today } }, orderBy: { effectiveDate: "desc" }, take: 1, select: { basicSalary: true, dailyWage: true, monthlyFactor: true, components: { where: { code: { not: null } }, select: { code: true, amount: true } } } } : false,
     },
   });
   const rows: TemplateRow[] = users.map((u) => {
     // Nominal komponen input dari gaji yang berlaku hari ini (kolom komponen gaji di template).
-    const salary = pay ? (u as unknown as { salaries?: { basicSalary: number; components: { code: string | null; amount: number }[] }[] }).salaries?.[0] : undefined;
+    const salary = pay ? (u as unknown as { salaries?: { basicSalary: number; dailyWage: number | null; monthlyFactor: number | null; components: { code: string | null; amount: number }[] }[] }).salaries?.[0] : undefined;
     const payValues = Object.fromEntries((salary?.components ?? []).map((c) => [c.code as string, c.amount]));
     // Nama wilayah tersimpan "Kelurahan, Kecamatan, Kabupaten/Kota, Provinsi".
     const [village, district, city, province] = (u.addressRegionName ?? "").split(", ");
@@ -25,6 +25,7 @@ export async function employeeTemplateRows(pay: boolean): Promise<TemplateRow[]>
       employmentStatus: u.employmentStatus, joinDate: templateDate(u.joinDate), contractEndDate: templateDate(u.contractEndDate),
       resignDate: templateDate(u.resignDate), isActive: u.isActive ? "Aktif" : "Nonaktif",
       basicSalary: salary?.basicSalary, pay: payValues,
+      dailyWage: salary?.dailyWage ?? undefined, monthlyFactor: salary?.monthlyFactor ?? undefined,
       paymentSchedule: u.paymentSchedule ?? undefined,
       bpjsTkNumber: u.bpjsTkNumber ?? undefined, bpjsTkActive: u.bpjsTkActive ? "Ikut" : "Tidak Ikut",
       bpjsKesNumber: u.bpjsKesNumber ?? undefined, bpjsKesActive: u.bpjsKesActive ? "Ikut" : "Tidak Ikut",

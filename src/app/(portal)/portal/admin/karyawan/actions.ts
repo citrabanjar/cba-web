@@ -822,6 +822,9 @@ export async function importEmployees(rows: ImportRow[]) {
                     // Gaji awal berlaku sejak tanggal masuk.
                     effectiveDate: toDate(row.joinDate) ?? new Date(new Date().toISOString().split("T")[0]),
                     basicSalary: row.basicSalary,
+                    // Karyawan harian: gaji harian & pengali (gaji pokok = harian x pengali, dihitung saat baca file).
+                    dailyWage: row.employmentStatus === "HARIAN" ? row.dailyWage ?? null : null,
+                    monthlyFactor: row.employmentStatus === "HARIAN" ? row.monthlyFactor ?? null : null,
                     bpjsTkBase: row.bpjsTkBase,
                     bpjsKesBase: row.bpjsKesBase,
                     note: "Gaji awal dari import",
