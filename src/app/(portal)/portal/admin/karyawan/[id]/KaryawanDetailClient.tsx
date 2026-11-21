@@ -198,7 +198,6 @@ const LeaveRow = ({ label, value }: { label: string; value: React.ReactNode }) =
 // ditambah pemakaian cuti tanpa saldo (Sakit, Izin, cuti khusus) tahun berjalan.
 function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["leaves"] }) {
   const t = useT();
-  const [open, setOpen] = useState<string | null>(null);
   const [year] = useState(() => new Date(Date.now() + 7 * 3600_000).getUTCFullYear());
   const usage = useMemo(() => {
     const codes = new Set(rows.map((r) => r.code));
@@ -218,29 +217,29 @@ function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["le
         <div key={r.policyId} className="border-b border-gray-100 py-2 last:border-b-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-gray-900"><T>{r.policyName}</T> · {r.code}</p>
-            {r.ledger.length > 0 && (
-              <button type="button" onClick={() => setOpen((v) => (v === r.policyId ? null : r.policyId))} className="text-xs font-semibold text-brand">
-                <T>{open === r.policyId ? "Sembunyikan Riwayat" : "Lihat Riwayat"}</T>
-              </button>
-            )}
           </div>
           <LeaveRow label="Sisa saldo" value={`${leaveDays(r.balance)} ${t("hari")}`} />
           {r.pending > 0 && <LeaveRow label="Menunggu persetujuan" value={`${leaveDays(r.pending)} ${t("hari")}`} />}
           {r.pending > 0 && <LeaveRow label="Bisa diajukan" value={`${leaveDays(Math.max(0, r.balance - r.pending))} ${t("hari")}`} />}
           {r.nextDate && r.nextDays ? <LeaveRow label="Penambahan berikutnya" value={`${leaveDays(r.nextDays)} ${t("hari")} · ${formatDate(new Date(r.nextDate))}`} /> : null}
           {r.problem && <p className="mt-1 text-xs text-red-600"><T>{r.problem}</T> — <T>hubungi HRD</T></p>}
-          {open === r.policyId && (
-            <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-100">
+          {r.ledger.length > 0 && (
+            <div className="mt-2 max-h-96 overflow-auto rounded-xl border border-gray-100">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
-                  <tr><th className="px-3 py-1.5 text-left font-medium"><T>Tanggal</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Keterangan</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Hari</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Saldo</T></th></tr>
+                  <tr><th className="px-3 py-1.5 text-left font-medium"><T>Tanggal</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Keterangan</T></th><th className="px-3 py-1.5 text-left font-medium"><T>Alasan</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Hari</T></th><th className="px-3 py-1.5 text-right font-medium"><T>Saldo</T></th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {[...r.ledger].reverse().map((l, n) => (
                     <tr key={`${l.date}-${n}`}>
                       <td className="px-3 py-1.5 text-gray-600 whitespace-nowrap">{formatDate(new Date(l.date))}</td>
-                      <td className="px-3 py-1.5 text-gray-800"><T>{l.label}</T></td>
-                      <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${l.days < 0 ? "text-rose-600" : "text-emerald-600"}`}>{l.days > 0 ? "+" : ""}{leaveDays(l.days)}</td>
+                      <td className="px-3 py-1.5 text-gray-800">
+                        <T>{l.label}</T>
+                        {l.info && <span className="ml-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500 whitespace-nowrap"><T>Tidak memotong saldo</T></span>}
+                      </td>
+                      <td className="px-3 py-1.5 text-gray-500">{l.reason || "—"}</td>
+                      {/* Cuti yang tidak memotong saldo: lamanya ditampilkan abu-abu tanpa tanda minus. */}
+                      <td className={`px-3 py-1.5 text-right tabular-nums font-semibold whitespace-nowrap ${l.info ? "text-gray-400" : l.days < 0 ? "text-rose-600" : "text-emerald-600"}`}>{l.info ? leaveDays(l.days) : `${l.days > 0 ? "+" : ""}${leaveDays(l.days)}`}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-bold text-gray-900">{leaveDays(l.balance)}</td>
                     </tr>
                   ))}
@@ -250,7 +249,7 @@ function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["le
           )}
         </div>
       ))}
-      {usage.length > 0 && (
+      {rows.length === 0 && usage.length > 0 && (
         <div className="border-t border-gray-100 py-2 first:border-t-0">
           <p className="text-sm font-semibold text-gray-900"><T>Pemakaian cuti lainnya tahun</T> {year}</p>
           {usage.map(([name, d]) => <LeaveRow key={name} label={name} value={`${leaveDays(d)} ${t("hari")}`} />)}
@@ -1232,36 +1231,6 @@ export default function KaryawanDetailClient({
         {tab === "cuti" && (
             <CvSheet sections={[
               { key: "saldo", title: "Saldo Cuti", flat: true, content: <LeaveSaldo rows={leaveBalances} leaves={emp.leaves} /> },
-              { key: "cuti", title: "Riwayat Cuti", flat: true, content: (<>
-          {emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4"><T>Periode</T></TableHead>
-                    <TableHead className="px-4"><T>Jenis</T></TableHead>
-                    <TableHead className="px-4"><T>Hari</T></TableHead>
-                    <TableHead className="hidden md:table-cell px-4"><T>Alasan</T></TableHead>
-                    <TableHead className="px-4"><T>Status</T></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {emp.leaves.map((l) => (
-                    <TableRow key={l.id}>
-                      <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(l.startDate)} – {fmtDate(l.endDate)}</TableCell>
-                      <TableCell className="px-4 text-sm">{l.policy ? <>{t(l.policy.name)} <span className="text-[11px] text-gray-400">{l.policy.code}</span></> : <T>{LEAVE_LABEL[l.type] ?? l.type}</T>}</TableCell>
-                      <TableCell className="px-4 text-sm">{l.totalDays}</TableCell>
-                      <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate"><T>{l.reason}</T></TableCell>
-                      <TableCell className="px-4">
-                        <Pill cls={APPROVAL[l.status]?.cls ?? ""}><T>{APPROVAL[l.status]?.label ?? l.status}</T></Pill>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-              </>) },
               { key: "dinas", title: "Riwayat Dinas Luar", flat: true, content: (<>
           {emp.businessTrips.length === 0 ? <Empty text="Belum ada pengajuan dinas luar." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

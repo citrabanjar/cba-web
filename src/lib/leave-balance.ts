@@ -27,7 +27,8 @@ export function addMonths(start: Date, n: number) {
 }
 
 // Satu baris riwayat mutasi saldo, seperti buku tabungan.
-export type LedgerLine = { date: string; label: string; days: number; balance: number };
+// info: cuti yang tidak memotong saldo (mis. cuti sakit / melahirkan); days = lamanya, saldo tetap.
+export type LedgerLine = { date: string; label: string; days: number; balance: number; reason?: string | null; info?: boolean };
 
 export type BalanceRow = {
   userId: string; name: string; employeeId: string; status: string; department: string | null;
@@ -128,6 +129,11 @@ export async function countLeaveDays(userId: string, start: Date, end: Date, uni
 //   dikembalikan untuk periode berjalan saja; riwayat mutasi memuat semuanya.
 // - Pemakaian: pengajuan yang disetujui untuk jenis itu (tanpa bagian di luar tanggungan), pengajuan lama "Cuti Tahunan", dan
 //   jenis lain yang ditandai "Potong cuti tahunan".
+// Tanggal di keterangan riwayat saldo ditulis dd-mm-yyyy (permintaan pemilik 2026-11-21).
+const dmy = (d: Date) => { const x = new Date(d); return `${String(x.getUTCDate()).padStart(2, "0")}-${String(x.getUTCMonth() + 1).padStart(2, "0")}-${x.getUTCFullYear()}`; };
+// Nama jenis cuti lama (tanpa kebijakan) untuk keterangan riwayat.
+const LEAVE_TYPE_NAME: Record<string, string> = { TAHUNAN: "Cuti Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Cuti Melahirkan", PENTING: "Cuti Penting", LAINNYA: "Cuti Lainnya" };
+
 // Titik awal hitungan adalah SALDO_AWAL terbaru (migrasi dari aplikasi lama); tanpa itu,
 // dihitung dari tanggal masuk. Karyawan resign (nonaktif) tidak punya saldo.
 export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]> {
@@ -143,7 +149,7 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
     prisma.leaveBalanceEntry.findMany({ where: whereUser, orderBy: { date: "asc" } }),
     prisma.leaveRequest.findMany({
       where: { ...whereUser, status: { in: ["APPROVED", "PENDING"] } },
-      select: { userId: true, startDate: true, endDate: true, totalDays: true, unpaidDays: true, status: true, type: true, policyId: true, policy: { select: { code: true, name: true, deductsAnnual: true } } },
+      select: { userId: true, startDate: true, endDate: true, totalDays: true, unpaidDays: true, status: true, type: true, reason: true, policyId: true, policy: { select: { code: true, name: true, deductsAnnual: true } } },
     }),
     // Tanggal diangkat tetap: perubahan status kerja terakhir menjadi TETAP.
     prisma.employeeChangeLog.findMany({
@@ -157,10 +163,12 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
   const rows: BalanceRow[] = [];
 
   for (const e of employees) {
-    for (const p of tracked) {
-      if (p.forStatus && p.forStatus !== e.employmentStatus) continue;
-      const g = genderOf(e.gender);
-      if (p.gender && g && p.gender !== g) continue;
+    const g = genderOf(e.gender);
+    const mineTracked = tracked.filter((p) => !(p.forStatus && p.forStatus !== e.employmentStatus) && !(p.gender && g && p.gender !== g));
+    for (const p of mineTracked) {
+      // Cuti jenis lain (tanpa saldo sendiri) ikut tampil di riwayat saldo pertama tanpa memotong saldo.
+      const showOthers = p.id === mineTracked[0].id;
+      const ownRow = new Set(mineTracked.map((x) => x.id));
 
       const mine = entries.filter((x) => x.userId === e.id && x.policyId === p.id);
       const opening = [...mine].reverse().find((x) => x.kind === "SALDO_AWAL") ?? null;
@@ -179,13 +187,13 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
         rows.push({
           ...base, earned: 0, used: 0, adjusted: 0, expired: 0, balance: opening?.days ?? 0, nextDate: null, nextDays: null,
           problem: "Tanggal masuk kosong",
-          ledger: opening ? [{ date: keyOf(opening.date), label: "Saldo awal (aplikasi lama)", days: opening.days, balance: opening.days }] : [],
+          ledger: opening ? [{ date: keyOf(opening.date), label: "Saldo awal", days: opening.days, balance: opening.days }] : [],
         });
         continue;
       }
 
       // Kejadian setelah titik awal, diurutkan menurut tanggal.
-      type Ev = { t: number; kind: "grant" | "reset" | "use" | "adjust" | "expire"; days: number; label: string };
+      type Ev = { t: number; kind: "grant" | "reset" | "use" | "adjust" | "expire" | "info"; days: number; label: string; reason?: string | null };
       const evs: Ev[] = [];
       let nextDate: Date | null = null;
       let nextDays: number | null = null;
@@ -210,7 +218,7 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
           const months = 12 - start.getUTCMonth();
           const prorata = Math.floor(((quota * months) / 12) * 2) / 2;
           if (start > today) { nextDate = start; nextDays = prorata; }
-          else if (after(start)) evs.push({ t: start.getTime(), kind: "grant", days: prorata, label: `Hak Cuti prorata ${months} bulan (mulai berhak ${keyOf(start)})` });
+          else if (after(start)) evs.push({ t: start.getTime(), kind: "grant", days: prorata, label: `Hak Cuti prorata ${months} bulan (mulai berhak ${dmy(start)})` });
         }
         const [mm, dd] = (p.carryOverExpiry ?? "").split("-").map(Number);
         for (let y = isJan1 ? start.getUTCFullYear() : start.getUTCFullYear() + 1; y < start.getUTCFullYear() + 100 && !nextDate; y++) {
@@ -233,16 +241,23 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
         }
       }
       for (const r of requests) {
-        if (!usesThis(r) || r.status !== "APPROVED" || utc(r.startDate) < from) continue;
-        if (charged(r) <= 0) continue;
-        evs.push({ t: utc(r.startDate).getTime(), kind: "use", days: charged(r), label: `${r.policy?.name ?? "Cuti Tahunan"} (${keyOf(r.startDate)} s/d ${keyOf(r.endDate)})` });
+        if (r.userId !== e.id || r.status !== "APPROVED" || utc(r.startDate) < from) continue;
+        const name = r.policy?.name ?? LEAVE_TYPE_NAME[r.type] ?? r.type;
+        const label = `${name} (${dmy(r.startDate)} s/d ${dmy(r.endDate)})`;
+        const t = utc(r.startDate).getTime();
+        if (usesThis(r)) {
+          if (charged(r) > 0) evs.push({ t, kind: "use", days: charged(r), label, reason: r.reason });
+          else if (showOthers) evs.push({ t, kind: "info", days: r.totalDays, label, reason: r.reason });
+        } else if (showOthers && !(r.policyId && ownRow.has(r.policyId))) {
+          evs.push({ t, kind: "info", days: r.totalDays, label, reason: r.reason });
+        }
       }
       for (const x of mine) if (x.kind === "PENYESUAIAN" && utc(x.date) >= from) evs.push({ t: utc(x.date).getTime(), kind: "adjust", days: x.days, label: `Koreksi: ${x.note ?? ""}` });
       evs.sort((a, b) => a.t - b.t || (a.kind === "reset" ? -1 : 1));
 
       let bal = opening?.days ?? 0, earned = 0, used = 0, adjusted = 0, expired = 0, carryLeft = 0;
       const ledger: LedgerLine[] = [];
-      if (opening) ledger.push({ date: keyOf(opening.date), label: "Saldo awal (aplikasi lama)", days: opening.days, balance: round(bal) });
+      if (opening) ledger.push({ date: keyOf(opening.date), label: "Saldo awal", days: opening.days, balance: round(bal) });
       for (const ev of evs) {
         const date = keyOf(new Date(ev.t));
         if (ev.kind === "grant") { bal += ev.days; earned += ev.days; ledger.push({ date, label: ev.label, days: ev.days, balance: round(bal) }); }
@@ -256,7 +271,9 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
         } else if (ev.kind === "use") {
           // Sisa bawaan dipakai lebih dulu.
           carryLeft = Math.max(0, carryLeft - ev.days);
-          bal -= ev.days; used += ev.days; ledger.push({ date, label: ev.label, days: -ev.days, balance: round(bal) });
+          bal -= ev.days; used += ev.days; ledger.push({ date, label: ev.label, days: -ev.days, balance: round(bal), reason: ev.reason });
+        } else if (ev.kind === "info") {
+          ledger.push({ date, label: ev.label, days: ev.days, balance: round(bal), reason: ev.reason, info: true });
         } else if (ev.kind === "expire") {
           const x = Math.min(carryLeft, Math.max(bal, 0));
           carryLeft = 0;
