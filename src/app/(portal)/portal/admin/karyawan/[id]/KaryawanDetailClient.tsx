@@ -421,7 +421,6 @@ function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?
             <TableHead className="px-4"><T>Berlaku</T></TableHead>
             <TableHead className="px-4 text-right"><T>Gaji Pokok</T></TableHead>
             <TableHead className="hidden sm:table-cell px-4 text-right"><T>Tunjangan</T></TableHead>
-            <TableHead className="hidden sm:table-cell px-4 text-right"><T>Potongan</T></TableHead>
             <TableHead className="px-4 text-right"><T>Total Gaji</T></TableHead>
             <TableHead className="hidden md:table-cell px-4"><T>Catatan</T></TableHead>
             <TableHead className="hidden md:table-cell px-4"><T>Oleh</T></TableHead>
@@ -442,8 +441,8 @@ function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?
                   </TableCell>
                   <TableCell className="px-4 text-sm text-right tabular-nums">{formatRupiah(s.basicSalary)}</TableCell>
                   <TableCell className="hidden sm:table-cell px-4 text-sm text-right tabular-nums">{formatRupiah(totals.benefits)}</TableCell>
-                  <TableCell className="hidden sm:table-cell px-4 text-sm text-right tabular-nums">{formatRupiah(totals.deductions)}</TableCell>
-                  <TableCell className="px-4 text-sm text-right tabular-nums font-medium">{formatRupiah(totals.total)}</TableCell>
+                  {/* Riwayat gaji = kenaikan gaji pokok / tunjangan; potongan tidak ditampilkan dan tidak mengurangi total. */}
+                  <TableCell className="px-4 text-sm text-right tabular-nums font-medium">{formatRupiah(s.basicSalary + totals.benefits)}</TableCell>
                   <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.note ?? "—"}</TableCell>
                   <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.createdBy ?? "—"}</TableCell>
                 </TableRow>
