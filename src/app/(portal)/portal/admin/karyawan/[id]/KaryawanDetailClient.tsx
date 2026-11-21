@@ -106,7 +106,7 @@ const TAB_LIST = [
   { key: "cuti", label: "Cuti" }, // saldo & riwayat cuti serta dinas luar (dipisah dari Kehadiran 2026-11-21)
   { key: "gaji", label: "Payroll" },
   { key: "pinjaman", label: "Pinjaman" },
-  { key: "payslip", label: "Slip & Pajak" }, // bukti hasil proses: slip gaji (payroll run) & PPh 21 (pemotongan pajak)
+  { key: "payslip", label: "Slip" }, // bukti hasil proses: slip gaji (payroll run) & PPh 21 (pemotongan pajak)
 ];
 
 const STATUS_LABEL: Record<string, string> = {
@@ -119,7 +119,7 @@ const FLAG_OPTIONS: Option[] = [
 const SECTION_TITLE: Record<Section, string> = {
   detail: "Detail Pekerjaan", unit: "Unit Perusahaan", payroll: "Payroll",
   bank: "Rekening Bank", pribadi: "Data Pribadi", alamat: "Tempat Tinggal",
-  pajak: "Pajak", bpjs: "BPJS",
+  pajak: "Payroll & Pajak", bpjs: "Benefit",
 };
 
 const EVENT_LABEL: Record<string, string> = {
@@ -405,6 +405,7 @@ function salaryTotals(salary: Salary) {
   const deductions = sum("POTONGAN");
   return { benefits, deductions, total: salary.basicSalary + benefits - deductions };
 }
+
 
 function SalaryCard({ salary }: { salary: Salary }) {
   const benefits = salary.components.filter((c) => c.type === "TUNJANGAN");
@@ -865,7 +866,19 @@ export default function KaryawanDetailClient({
       { key: "currentAddress", label: "Alamat Saat Ini (jalan, RT/RW)" },
       { key: "currentRegion", label: "Wilayah Alamat Saat Ini", type: "region", nameKey: "currentRegionName", postalKey: "currentPostal" },
     ],
+    // Payroll & Pajak jadi satu bagian (permintaan pemilik 2026-11-21): jadwal pembayaran ikut di sini.
     pajak: [
+      ...(canSeePay ? [
+      {
+        key: "paymentSchedule", label: "Jadwal Pembayaran", type: "select",
+        options: [
+          { value: "", label: "—" },
+          ...["Bulanan", "Mingguan", emp.paymentSchedule]
+            .filter((value, i, all): value is string => !!value && all.indexOf(value) === i)
+            .map((value) => ({ value, label: value })),
+        ],
+      },
+      ] as FormField[] : []),
       { key: "npwp", label: "NPWP" },
       { key: "ptkpStatus", label: "Status PTKP", type: "select", options: masterOptions([...PTKP_STATUSES], emp.ptkpStatus) },
       { key: "taxability", label: "Metode Pajak (Taxability)", type: "select", options: ["Gross", "Gross Up", "Net"].map((v) => ({ value: v, label: v })) },
@@ -882,7 +895,7 @@ export default function KaryawanDetailClient({
       { key: "bpjsKesNumber", label: "No BPJS Kesehatan" },
       { key: "bpjsKesActive", label: "Status BPJS Kesehatan", type: "select", options: FLAG_OPTIONS },
     ],
-  }), [managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule, emp.gender, emp.maritalStatus, emp.religion, emp.ptkpStatus, emp.taxStatus, emp.taxObjectCode]);
+  }), [canSeePay, managers, master, emp.branch, emp.department, emp.position, emp.employmentStatus, emp.paymentSchedule, emp.gender, emp.maritalStatus, emp.religion, emp.ptkpStatus, emp.taxStatus, emp.taxObjectCode]);
 
   const [form, setForm] = useState<Record<string, string>>(() => (quick ? sectionValues(quick.section) : {}));
 
@@ -1125,16 +1138,36 @@ export default function KaryawanDetailClient({
 
         {tab === "gaji" && (
           <CvSheet sections={[
-            canSeePay && { key: "payroll", title: "Payroll", onEdit: edit("payroll"), content: (<>
-              <CvRow label="Jadwal Bayar">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</CvRow>
-              {emp.paymentSchedule === "Mingguan" && (
+            { key: "pajak", title: "Payroll & Pajak", onEdit: edit("pajak"), content: (<>
+              {canSeePay && <CvRow label="Jadwal Pembayaran">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</CvRow>}
+              {canSeePay && (
+                <CvRow label="Gaji Pokok">
+                  {/* Tanpa total: komponen lain ada di Komponen Gaji. Tombol Penyesuaian Gaji menempel di samping angkanya. */}
+                  <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>{currentSalary ? formatRupiah(currentSalary.basicSalary) : <span className="font-normal text-gray-400"><T>Belum ada data gaji.</T></span>}</span>
+                    {currentSalary && <span className="text-xs font-normal text-gray-500">(<T>berlaku</T> {fmtDate(currentSalary.effectiveDate)})</span>}
+                    {editTarget && canEditPay && (
+                      <button type="button" onClick={() => setSalaryOpen(true)}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 hover:border-brand hover:text-brand">
+                        <Pencil size={12} /> <T>Penyesuaian Gaji</T>
+                      </button>
+                    )}
+                  </span>
+                </CvRow>
+              )}
+              {canSeePay && emp.paymentSchedule === "Mingguan" && (
                 <>
                   <CvRow label="Gaji Harian">{currentSalary?.dailyWage ? formatRupiah(currentSalary.dailyWage) : null}</CvRow>
                   <CvRow label="Pengali Bulanan">{currentSalary?.monthlyFactor ? `${currentSalary.monthlyFactor} x` : null}</CvRow>
                 </>
               )}
+              <CvRow label="NPWP">{emp.npwp}</CvRow>
+              <CvRow label="Status PTKP">{emp.ptkpStatus}</CvRow>
+              <CvRow label="Metode Pajak">{emp.taxability ?? <span className="text-gray-400">Gross</span>}</CvRow>
+              <CvRow label="Status Pajak">{emp.taxStatus}</CvRow>
+              <CvRow label="Kode Objek Pajak">{emp.taxObjectCode}</CvRow>
               {/* Gaji harian & pengali tercatat di riwayat gaji, jadi diisi lewat Penyesuaian Gaji (bukan Edit Payroll). */}
-              {emp.paymentSchedule === "Mingguan" && !currentSalary?.dailyWage && (
+              {canSeePay && emp.paymentSchedule === "Mingguan" && !currentSalary?.dailyWage && (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                   <p className="min-w-0 flex-1 text-xs text-amber-800">
                     <T>Jadwal bayar Mingguan memakai Gaji Harian x Pengali Bulanan. Isi keduanya lewat Penyesuaian Gaji; sebelum diisi, gaji pokok mingguan dihitung Rp 0.</T>
@@ -1145,28 +1178,11 @@ export default function KaryawanDetailClient({
                 </div>
               )}
             </>) },
-            canSeePay && { key: "gaji-kini", flat: true,
-              title: currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini",
-              action: editTarget && canEditPay ? (
-                <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-7 px-3 text-xs">
-                  <T>Penyesuaian Gaji</T>
-                </Button>
-              ) : undefined,
-              content: currentSalary
-                ? <div className="sm:pl-6 sm:max-w-xl"><SalaryCard salary={currentSalary} /></div>
-                : <p className="text-sm text-gray-400"><T>Belum ada data gaji.</T></p> },
             canSeePay && !self && { key: "komponen", title: "Komponen Gaji", flat: true, content: <PayComponentsCard embedded userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
             canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", title: "Riwayat Gaji", flat: true, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
-            { key: "pajak", title: "Pajak", onEdit: edit("pajak"), content: (<>
-              <CvRow label="NPWP">{emp.npwp}</CvRow>
-              <CvRow label="Status PTKP">{emp.ptkpStatus}</CvRow>
-              <CvRow label="Metode Pajak (Taxability)">{emp.taxability ?? <span className="text-gray-400">Gross</span>}</CvRow>
-              <CvRow label="Status Pajak">{emp.taxStatus}</CvRow>
-              <CvRow label="Kode Objek Pajak">{emp.taxObjectCode}</CvRow>
-            </>) },
             // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
-            canSeePay && !self && { key: "pindahan", title: "PPh 21 Pindahan", flat: true, content: <PriorTaxCard embedded userId={emp.id} slips={priorSlips} /> },
-            { key: "bpjs", title: "BPJS", onEdit: edit("bpjs"), content: (<>
+            canSeePay && !self && { key: "pindahan", title: "PPh 21 Pindahan", content: <PriorTaxCard embedded userId={emp.id} slips={priorSlips} /> },
+            { key: "bpjs", title: "Benefit", onEdit: edit("bpjs"), content: (<>
               <CvRow label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</CvRow>
               <CvRow label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</CvRow>
               <CvRow label="No BPJS Kesehatan">{emp.bpjsKesNumber}</CvRow>
