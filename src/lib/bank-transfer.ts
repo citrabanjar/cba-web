@@ -10,12 +10,12 @@ export const TRANSFER_SETTING_KEY = "payroll.transfer"; // { debitAccount } tera
 
 // Kode bank (BIC) dari sheet "List of Bank Codes" template KOPRA. Kunci = nama bank yang sudah dinormalkan.
 const BANK_CODES: [RegExp, string, string][] = [
-  [/^(bca|bank central asia)$/, "CENAIDJA", "Bank Central Asia"],
+  [/^(bca|central asia)$/, "CENAIDJA", "Bank Central Asia"],
   [/^bca syariah$/, "SYCAIDJ1", "BCA Syariah"],
-  [/^(bni|bank negara indonesia)$/, "BNINIDJA", "Bank Negara Indonesia"],
-  [/^(bri|bank rakyat indonesia)$/, "BRINIDJA", "Bank Rakyat Indonesia"],
-  [/^(bsi|bank syariah indonesia)$/, "BSMDIDJA", "Bank Syariah Indonesia"],
-  [/^(btn|bank tabungan negara)$/, "BTANIDJA", "Bank Tabungan Negara"],
+  [/^(bni|negara indonesia)$/, "BNINIDJA", "Bank Negara Indonesia"],
+  [/^(bri|rakyat indonesia)$/, "BRINIDJA", "Bank Rakyat Indonesia"],
+  [/^(bsi|syariah indonesia)$/, "BSMDIDJA", "Bank Syariah Indonesia"],
+  [/^(btn|tabungan negara)$/, "BTANIDJA", "Bank Tabungan Negara"],
   [/^btn syariah$/, "SYBTIDJ1", "BTN Syariah"],
   [/^cimb( niaga)?$/, "BNIAIDJA", "CIMB Niaga"],
   [/^cimb niaga syariah$/, "SYNAIDJ1", "CIMB Niaga Syariah"],
