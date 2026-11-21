@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { BadgeCheck, BriefcaseBusiness, Building2, Cake, CalendarClock, CalendarDays, CalendarX, ChevronDown, ChevronRight, CreditCard, FileText, Hash, Heart, History, Home, Hourglass, IdCard, KeyRound, Landmark, Loader2, Mail, MapPin, MessageCircle, Network, Pencil, Phone, Plus, Receipt, ShieldCheck, Sparkles, Trash2, UserRound, Users, FileStack, Layers, Plane, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -403,6 +403,61 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
         <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400"><T>{label}</T></dt>
         <dd className="mt-0.5 text-sm font-semibold text-gray-900 break-words">{children || "—"}</dd>
       </div>
+    </div>
+  );
+}
+
+// Tab Data Diri bergaya CV (permintaan pemilik 2026-11-21): baris "Label : Isi" tanpa kotak, antarbagian
+// dipisah garis, dan tiap bagian bisa dilipat. Bagian yang dilipat diingat per browser.
+const CV_HIDDEN_KEY = "cba.cv.hidden";
+
+function CvSheet({ sections }: {
+  sections: { key: string; title: string; onEdit?: () => void; content: React.ReactNode }[];
+}) {
+  const [hidden, setHidden] = useState<string[]>([]);
+  useEffect(() => {
+    // Dibaca setelah tampil supaya HTML server & browser sama; sama seperti PortalShell.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    try { setHidden(JSON.parse(localStorage.getItem(CV_HIDDEN_KEY) ?? "[]")); } catch { /* penyimpanan browser tidak tersedia */ }
+  }, []);
+  const toggle = (key: string) => setHidden((h) => {
+    const next = h.includes(key) ? h.filter((k) => k !== key) : [...h, key];
+    try { localStorage.setItem(CV_HIDDEN_KEY, JSON.stringify(next)); } catch { /* abaikan */ }
+    return next;
+  });
+  return (
+    <section className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-200 px-5 sm:px-8">
+      {sections.map((s) => {
+        const open = !hidden.includes(s.key);
+        return (
+          <div key={s.key} className="py-4">
+            <div className="flex items-center justify-between gap-3">
+              <button type="button" onClick={() => toggle(s.key)} aria-expanded={open}
+                className="flex min-w-0 items-center gap-2 text-left">
+                <ChevronDown size={16} className={`shrink-0 text-brand transition-transform ${open ? "" : "-rotate-90"}`} />
+                <h3 className="font-semibold text-[15px] text-gray-900"><T>{s.title}</T></h3>
+              </button>
+              {s.onEdit && open && (
+                <button type="button" onClick={s.onEdit}
+                  className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-ink px-3 text-xs font-semibold text-white transition-colors hover:bg-ink/85">
+                  <Pencil size={12} /> <T>Edit</T>
+                </button>
+              )}
+            </div>
+            {open && <dl className="mt-3 space-y-2 pl-6">{s.content}</dl>}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function CvRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,7.5rem)_auto_minmax(0,1fr)] gap-x-2 text-sm sm:grid-cols-[13rem_auto_minmax(0,1fr)]">
+      <dt className="text-gray-500"><T>{label}</T></dt>
+      <span aria-hidden className="text-gray-400">:</span>
+      <dd className="font-medium text-gray-900 break-words">{children || "—"}</dd>
     </div>
   );
 }
@@ -1264,61 +1319,38 @@ export default function KaryawanDetailClient({
         {tab === "pinjaman" && canSeeLoans && <ProfileLoans loans={loans} readOnly={!!self} />}
 
         {tab === "pribadi" && (
-          <SectionNav sections={[
-              { key: "pribadi", label: "Data Pribadi", icon: UserRound, content: (
-            <SectionCard title="Data Pribadi" onEdit={edit("pribadi")} grid>
-              <Field label="Nama Lengkap">{emp.name}</Field>
-              <Field label="Phone Number">{emp.phone}</Field>
-              <Field label="Email">{emp.email}</Field>
-              <Field label="Tempat Lahir">{emp.birthPlace}</Field>
-              <Field label="Tanggal Lahir">{emp.birthDate ? fmtDate(emp.birthDate) : null}</Field>
-              <Field label="Jenis ID">{emp.idType ? <T>{emp.idType}</T> : null}</Field>
-              <Field label="ID Number">{emp.ktpNumber}</Field>
-              <Field label="Jenis Kelamin">{emp.gender && normalizeChoice("gender", emp.gender)}</Field>
-              <Field label="Status Perkawinan">{emp.maritalStatus && normalizeChoice("maritalStatus", emp.maritalStatus)}</Field>
-              <Field label="Agama">{emp.religion && normalizeChoice("religion", emp.religion)}</Field>
-              <Field label="Kewarganegaraan">{emp.nationality}</Field>
-            </SectionCard>
-              ) },
-              { key: "alamat", label: "Tempat Tinggal", icon: Home, content: (
-            <SectionCard title="Tempat Tinggal" onEdit={edit("alamat")} grid>
-              <Field label="Alamat sesuai Identitas">{[emp.address, emp.addressRegionName, emp.addressPostal].filter(Boolean).join(", ") || null}</Field>
-              <Field label="Alamat Saat Ini">{(emp.addressSameAsId ? [emp.address, emp.addressRegionName, emp.addressPostal] : [emp.currentAddress, emp.currentRegionName, emp.currentPostal]).filter(Boolean).join(", ") || null}</Field>
-            </SectionCard>
-              ) },
-              { key: "keluarga", label: "Keluarga", icon: Users, content: (
-            <SectionCard title="Keluarga" onEdit={canEdit ? () => setFamilyOpen(true) : undefined}>
-              {emp.family.length === 0 ? (
-                <p className="py-4 text-sm text-gray-400"><T>Belum ada data keluarga.</T></p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead><T>Nama</T></TableHead>
-                      <TableHead><T>ID Number</T></TableHead>
-                      <TableHead><T>Jenis Anggota Keluarga</T></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {emp.family.map((f) => (
-                      <TableRow key={f.id}>
-                        <TableCell className="text-sm">{f.name}</TableCell>
-                        <TableCell className="text-sm">{f.idNumber ?? "—"}</TableCell>
-                        <TableCell className="text-sm"><T>{f.relation}</T></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </SectionCard>
-              ) },
-              { key: "bank", label: "Rekening Bank", icon: Landmark, content: (
-            <SectionCard title="Rekening Bank" onEdit={edit("bank")} grid>
-              <Field label="Nama Bank">{emp.bankName}</Field>
-              <Field label="No Rekening">{emp.bankAccount}</Field>
-              <Field label="Nama Pemilik Rekening">{emp.bankHolder}</Field>
-            </SectionCard>
-              ) },
+          <CvSheet sections={[
+            { key: "pribadi", title: "Data Pribadi", onEdit: edit("pribadi"), content: (<>
+              <CvRow label="Nama Lengkap">{emp.name}</CvRow>
+              <CvRow label="Tempat Lahir">{emp.birthPlace}</CvRow>
+              <CvRow label="Tanggal Lahir">{emp.birthDate ? fmtDate(emp.birthDate) : null}</CvRow>
+              <CvRow label="Jenis Kelamin">{emp.gender && normalizeChoice("gender", emp.gender)}</CvRow>
+              <CvRow label="Agama">{emp.religion && normalizeChoice("religion", emp.religion)}</CvRow>
+              <CvRow label="Status Perkawinan">{emp.maritalStatus && normalizeChoice("maritalStatus", emp.maritalStatus)}</CvRow>
+              <CvRow label="Kewarganegaraan">{emp.nationality}</CvRow>
+              <CvRow label="Jenis ID">{emp.idType ? <T>{emp.idType}</T> : null}</CvRow>
+              <CvRow label="ID Number">{emp.ktpNumber}</CvRow>
+              <CvRow label="Phone Number">{emp.phone}</CvRow>
+              <CvRow label="Email">{emp.email}</CvRow>
+            </>) },
+            { key: "alamat", title: "Alamat", onEdit: edit("alamat"), content: (<>
+              <CvRow label="Alamat sesuai Identitas">{[emp.address, emp.addressRegionName, emp.addressPostal].filter(Boolean).join(", ") || null}</CvRow>
+              <CvRow label="Alamat Saat Ini">{(emp.addressSameAsId ? [emp.address, emp.addressRegionName, emp.addressPostal] : [emp.currentAddress, emp.currentRegionName, emp.currentPostal]).filter(Boolean).join(", ") || null}</CvRow>
+            </>) },
+            { key: "keluarga", title: "Keluarga", onEdit: canEdit ? () => setFamilyOpen(true) : undefined, content: (
+              emp.family.length === 0
+                ? <p className="text-sm text-gray-400"><T>Belum ada data keluarga.</T></p>
+                : <>{emp.family.map((f) => (
+                    <CvRow key={f.id} label={f.relation}>
+                      {f.name}{f.idNumber ? <span className="font-normal text-gray-500"> · {f.idNumber}</span> : null}
+                    </CvRow>
+                  ))}</>
+            ) },
+            { key: "bank", title: "Rekening Bank", onEdit: edit("bank"), content: (<>
+              <CvRow label="Nama Bank">{emp.bankName}</CvRow>
+              <CvRow label="No Rekening">{emp.bankAccount}</CvRow>
+              <CvRow label="Nama Pemilik Rekening">{emp.bankHolder}</CvRow>
+            </>) },
           ]} />
         )}
 
