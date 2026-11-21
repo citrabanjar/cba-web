@@ -8,6 +8,7 @@
 export const IMPORT_KINDS = [
   { key: "organisasi", label: "Import Parameter Organisasi", desc: "Penetapan struktur organisasi perusahaan (cabang, departemen, dan jabatan) secara massal melalui berkas Excel sebagai landasan penempatan karyawan." },
   { key: "karyawan", label: "Import Data Karyawan", desc: "Pendaftaran data induk karyawan secara massal melalui berkas Excel." },
+  { key: "kenaikangaji", label: "Import Kenaikan Gaji Massal", desc: "Penyesuaian gaji pokok dan tunjangan banyak karyawan sekaligus melalui berkas Excel; setiap perubahan dicatat sebagai riwayat gaji baru." },
   { key: "pph21pindahan", label: "Import PPh 21 Pindahan", desc: "Data BPA1 pemberi kerja sebelumnya untuk karyawan yang pindah di tahun pajak berjalan, secara massal melalui berkas Excel." },
 ] as const;
 

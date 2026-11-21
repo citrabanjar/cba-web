@@ -5,13 +5,14 @@
 // Super Admin mencentang "Beri Akses" per jenis: yang dicentang bisa dipakai Admin berkewenangan Import Data.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CheckCircle2, FileStack, Loader2, Users, type LucideIcon } from "lucide-react";
+import { Building2, CheckCircle2, FileStack, Loader2, TrendingUp, Users, type LucideIcon } from "lucide-react";
 import { T } from "@/components/i18n";
 import { IMPORT_KINDS, type ImportKind } from "@/lib/import-kinds";
 import type { MasterOptions } from "@/lib/master-data";
 import EmployeeImportDialog from "../karyawan/EmployeeImportDialog";
 import OrgImport from "../setup/OrgImport";
 import PriorTaxImport from "./PriorTaxImport";
+import SalaryRaiseImport from "./SalaryRaiseImport";
 import { saveImportAccess } from "./import-actions";
 
 export type ImportData = {
@@ -22,7 +23,7 @@ export type ImportData = {
 };
 
 const ICON: Record<ImportKind, LucideIcon> = {
-  organisasi: Building2, karyawan: Users, pph21pindahan: FileStack,
+  organisasi: Building2, karyawan: Users, kenaikangaji: TrendingUp, pph21pindahan: FileStack,
 };
 
 export default function ImportDataTab({ data }: { data: ImportData }) {
@@ -81,6 +82,7 @@ export default function ImportDataTab({ data }: { data: ImportData }) {
       {open === "karyawan" && <EmployeeImportDialog master={data.master} employeeIds={data.employeeIds} onClose={done} />}
       {open === "organisasi" && <OrgImport existing={data.org} onClose={() => done(true)} />}
       {open === "pph21pindahan" && <PriorTaxImport onClose={done} />}
+      {open === "kenaikangaji" && <SalaryRaiseImport onClose={done} />}
     </div>
   );
 }

@@ -148,7 +148,7 @@ const MONTH_NAMES: Record<string, number> = {
   agu: 8, ags: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12,
 };
 
-function toDate(v: unknown): string | undefined {
+export function toDate(v: unknown): string | undefined {
   if (typeof v === "number") {
     const d = XLSX.SSF.parse_date_code(v);
     if (!d) return undefined;
