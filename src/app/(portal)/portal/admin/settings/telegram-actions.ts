@@ -17,7 +17,20 @@ export async function telegramStatus(): Promise<TelegramStatus> {
   if (!base.token) return { ...base, webhook: "", ok: false };
   const info = await tgCall<{ url: string; last_error_message?: string }>("getWebhookInfo", {});
   const url = info.result?.url ?? "";
-  return { ...base, webhook: url, ok: !!url && url === portalUrl("/api/telegram/webhook"), ...(info.result?.last_error_message ? { error: info.result.last_error_message } : {}) };
+  return { ...base, webhook: url, ok: url.endsWith("/api/telegram/webhook"), ...(info.result?.last_error_message ? { error: info.result.last_error_message } : {}) };
+}
+
+// Telegram tidak mengikuti pengalihan (mis. citrabanjar.com → www.citrabanjar.com, 308), jadi alamat webhook
+// didaftarkan memakai alamat akhir setelah pengalihan.
+async function finalUrl(url: string) {
+  let cur = url;
+  for (let i = 0; i < 3; i++) {
+    const r = await fetch(cur, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => null);
+    const loc = r && r.status >= 300 && r.status < 400 ? r.headers.get("location") : null;
+    if (!loc) break;
+    cur = new URL(loc, cur).toString();
+  }
+  return cur;
 }
 
 export async function activateTelegramWebhook(): Promise<TelegramStatus> {
@@ -25,7 +38,7 @@ export async function activateTelegramWebhook(): Promise<TelegramStatus> {
   if (!access || !isSuperAdmin(access.role)) return { token: false, bot: "", secret: false, webhook: "", ok: false, linked: 0, error: "Hanya Super Admin." };
   if (!telegramOn() || !telegramSecret()) return { ...(await telegramStatus()), error: "Isi TELEGRAM_BOT_TOKEN dan TELEGRAM_WEBHOOK_SECRET di Vercel lebih dulu, lalu redeploy." };
   const r = await tgCall("setWebhook", {
-    url: portalUrl("/api/telegram/webhook"), secret_token: telegramSecret(), allowed_updates: ["message", "callback_query"], drop_pending_updates: true,
+    url: await finalUrl(portalUrl("/api/telegram/webhook")), secret_token: telegramSecret(), allowed_updates: ["message", "callback_query"], drop_pending_updates: true,
   });
   const status = await telegramStatus();
   return r.ok ? status : { ...status, error: r.description ?? "Gagal mendaftarkan webhook." };
