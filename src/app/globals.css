@@ -438,13 +438,16 @@ body {
 }
 
 /* Profil karyawan gaya CV: tabel/kartu bawaan di dalam satu bagian diratakan (tanpa kotak, bayangan, dan judul ganda). */
-.portal-theme main .cv-flat > :is(.bg-white, section, div.rounded-2xl, div.rounded-xl) {
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+/* !important: aturan "kartu di dalam kartu" (.portal-theme … :is(.bg-white.rounded-xl …)) lebih spesifik dan
+   memberi dasar putih lagi. */
+.portal-theme main .cv-flat > :is(.bg-white, section, div.rounded-2xl, div.rounded-xl),
+.portal-theme main .cv-flat > div:not(.bg-white) > section.bg-white {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 .cv-flat > * > .section-head {
   display: none;
