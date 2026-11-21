@@ -346,43 +346,40 @@ function LoansCv({ loans, readOnly }: { loans: LoanView[]; readOnly: boolean }) 
   const t = useT();
   const [dialog, setDialog] = useState<{ kind: "approve" | "disburse" | "schedule"; loan: LoanView } | null>(null);
   const month = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
-  const running = loans.filter((l) => l.status === "BERJALAN");
-  const outstanding = running.reduce((a, l) => a + loanSummary(l.principal, l.installments).remaining, 0);
-  const open = running.flatMap((l) => l.installments).filter((i) => i.status !== "LUNAS");
-  const dueThisMonth = open.filter((i) => i.period === month).reduce((a, i) => a + i.amount, 0);
-  const next = open.filter((i) => i.period > month).sort((a, b) => a.period.localeCompare(b.period))[0];
-  const nextSum = next ? open.filter((i) => i.period === next.period).reduce((a, i) => a + i.amount, 0) : 0;
   const statusOf = (l: LoanView) => { const stage = loanStageOf(l.status, l.stage); return stage ? { label: LOAN_STAGE[stage], tone: LOAN_STATUS.PENDING.tone, stage } : { ...(LOAN_STATUS[l.status] ?? { label: l.status, tone: "bg-gray-100 text-gray-600" }), stage }; };
-  const active = loans.filter((l) => !(LOAN_GROUPS[2].statuses as readonly string[]).includes(l.status));
-  const done = loans.filter((l) => (LOAN_GROUPS[2].statuses as readonly string[]).includes(l.status));
+  const isDone = (l: LoanView) => (LOAN_GROUPS[2].statuses as readonly string[]).includes(l.status);
+  // Satu bagian per pinjaman: yang sedang berjalan paling atas, lalu yang selesai (terbaru dulu).
+  // Ringkasan (sisa, angsuran bulan ini, berikutnya) menyatu di bagian pinjaman berjalan, di atas tabel angsurannya.
+  const ordered = [...loans].sort((x, y) => Number(isDone(x)) - Number(isDone(y)) || (y.seqNo || 0) - (x.seqNo || 0));
   return (
     <>
-      <CvSheet sections={[
-        { key: "ringkasan-pinjaman", title: "Ringkasan Pinjaman", content: loans.length === 0
-          ? <CvRow label="Status"><T>Belum ada pinjaman.</T></CvRow>
-          : (<>
-            <CvRow label="Pinjaman berjalan">{String(running.length)}</CvRow>
-            <CvRow label="Total sisa pinjaman">{formatRupiah(outstanding)}</CvRow>
-            <CvRow label="Angsuran bulan ini">{formatRupiah(dueThisMonth)}</CvRow>
-            <CvRow label="Angsuran berikutnya">{next ? `${periodShort(next.period)} · ${formatRupiah(nextSum)}` : null}</CvRow>
-          </>) },
-        // Di bawah Ringkasan: satu bagian per pinjaman (berjalan maupun selesai), berurutan Pinjaman ke-1, ke-2, ...
-        // dan isinya cukup tabel angsuran. Pinjaman yang di-take over tetap tampil dengan tabelnya (riwayat).
-        ...[...active, ...done].sort((x, y) => (x.seqNo || 0) - (y.seqNo || 0)).map((l) => {
+      <CvSheet sections={loans.length === 0
+        ? [{ key: "pinjaman", title: "Pinjaman", content: <CvRow label="Status"><T>Belum ada pinjaman.</T></CvRow> }]
+        : ordered.map((l) => {
           const st = statusOf(l);
+          const done = isDone(l);
           const into = l.status === "DIGABUNG" ? l.note?.match(/dipindahkan ke Pinjaman ke-(\d+)/)?.[1] : null;
           const label = l.status === "DIGABUNG" ? `${t("Take over")}${into ? ` ${t("ke Pinjaman ke-")}${into}` : ""}` : t(st.label);
-          const isActive = active.includes(l);
+          const s = loanSummary(l.principal, l.installments);
+          const open = l.installments.filter((i) => i.status !== "LUNAS");
+          const thisMonth = open.filter((i) => i.period === month).reduce((a, i) => a + i.amount, 0);
+          const next = open.filter((i) => i.period > month).sort((a, b) => a.period.localeCompare(b.period))[0];
           return {
-            key: `pinjaman-${l.id}`, flat: true,
+            key: `pinjaman-${l.id}`,
             title: `${l.seqNo > 0 ? `${t("Pinjaman ke-")}${l.seqNo}` : t("Pinjaman")} · ${formatRupiah(l.principal)} · ${label}`,
-            action: readOnly || !isActive ? undefined : <LoanActions inline loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />,
-            content: l.installments.length > 0 || l.status === "DIGABUNG"
-              ? <div className="px-5 py-1"><LoanScheduleTable loan={l} /></div>
-              : <p className="px-6 text-sm text-gray-400"><T>Belum ada tabel angsuran.</T></p>,
+            action: readOnly || done ? undefined : <LoanActions inline loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />,
+            content: (<>
+              {l.status === "BERJALAN" && (<>
+                <CvRow label="Sisa pinjaman">{formatRupiah(s.remaining)}</CvRow>
+                <CvRow label="Angsuran bulan ini">{formatRupiah(thisMonth)}</CvRow>
+                <CvRow label="Angsuran berikutnya">{next ? `${periodShort(next.period)} · ${formatRupiah(next.amount)}` : null}</CvRow>
+              </>)}
+              {l.installments.length > 0 || l.status === "DIGABUNG"
+                ? <div className="pt-1"><LoanScheduleTable loan={l} /></div>
+                : <p className="text-sm text-gray-400"><T>Belum ada tabel angsuran.</T></p>}
+            </>),
           };
-        }),
-      ]} />
+        })} />
       {dialog && <LoanDialog kind={dialog.kind} loan={dialog.loan} running={loans.filter((l) => l.status === "BERJALAN" && l.id !== dialog.loan.id)} onClose={() => setDialog(null)} />}
     </>
   );
