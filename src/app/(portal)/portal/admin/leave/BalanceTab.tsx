@@ -173,7 +173,6 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
   const [adjusting, setAdjusting] = useState<BalanceRow | null>(null);
   const [importing, setImporting] = useState(false);
   const shown = rows.filter((r) => !q || `${r.name} ${r.employeeId} ${r.department ?? ""} ${r.code}`.toLowerCase().includes(q.toLowerCase()));
-  const withoutOpening = rows.filter((r) => r.opening === null).length;
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white">
@@ -208,11 +207,6 @@ export default function BalanceTab({ rows, balanceSwitch, superAdmin }: { rows: 
       ) : !balanceSwitch.active && (
         <p className="mx-5 mt-4 flex items-center gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-sm text-gray-600">
           <AlertCircle size={15} /> <T>Saldo cuti belum diaktifkan Super Admin; saldo ditampilkan 0.</T>
-        </p>
-      )}
-      {superAdmin && withoutOpening > 0 && (
-        <p className="mx-5 mt-4 flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-          <AlertCircle size={15} /> {withoutOpening} <T>karyawan belum punya saldo awal dari aplikasi lama; saldonya dihitung dari tanggal masuk.</T>
         </p>
       )}
       <div className="max-h-[calc(100vh-260px)] min-h-64 overflow-auto p-2">
