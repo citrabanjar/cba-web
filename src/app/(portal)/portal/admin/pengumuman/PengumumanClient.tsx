@@ -82,7 +82,9 @@ export default function PengumumanClient({ rows }: { rows: AnnouncementView[] })
             <h3 className="font-semibold text-gray-900"><T>{sel ? "Ubah Pengumuman" : "Pengumuman Baru"}</T></h3>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500"><T>Judul</T> *</label>
-              <Input value={form.title} disabled={!canEdit} maxLength={200} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              {/* Kotak isian jelas (putih, bingkai abu). rounded-[12px], bukan rounded-xl: .bg-white.rounded-xl dianggap kartu kaca dan bingkainya jadi putih. */}
+              <Input value={form.title} disabled={!canEdit} maxLength={200} onChange={(e) => setForm({ ...form, title: e.target.value })}
+                className="h-10 rounded-[12px] border border-gray-300 bg-white px-3 text-sm focus:border-brand disabled:bg-gray-50" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500"><T>Isi pengumuman</T> *</label>
