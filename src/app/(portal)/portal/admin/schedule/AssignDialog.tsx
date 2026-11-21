@@ -9,15 +9,19 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { T, useT } from "@/components/i18n";
 import { assignSchedule } from "./actions";
 
-export type EmployeeOption = { id: string; label: string; sub?: string; department?: string | null };
+// scheduled: karyawan sudah punya jadwal kerja (pola / manual).
+export type EmployeeOption = { id: string; label: string; sub?: string; department?: string | null; scheduled?: boolean };
 
-// Tempel satu pola kerja ke banyak karyawan sekaligus, bisa dipilih per departemen.
+// Tempel satu pola kerja ke banyak karyawan sekaligus, bisa dipilih per departemen. Hanya karyawan yang belum punya
+// jadwal (aturan pemilik 2026-11-21): satu karyawan satu jadwal; ganti pola lewat profil karyawan -> Jadwal Kerja.
 export default function AssignDialog({
   pattern, employees, onClose,
 }: {
   pattern: { id: string; name: string }; employees: EmployeeOption[]; onClose: () => void;
 }) {
   const t = useT();
+  const free = employees.filter((e) => !e.scheduled);
+  const taken = employees.length - free.length;
   const [selected, setSelected] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [dept, setDept] = useState("");
@@ -27,10 +31,10 @@ export default function AssignDialog({
   const [pending, start] = useTransition();
 
   const departments = useMemo(
-    () => [...new Set(employees.map((e) => e.department).filter(Boolean) as string[])].sort(),
-    [employees],
+    () => [...new Set(free.map((e) => e.department).filter(Boolean) as string[])].sort(),
+    [free],
   );
-  const shown = employees.filter((e) =>
+  const shown = free.filter((e) =>
     (!dept || e.department === dept) &&
     (!q || `${e.label} ${e.sub ?? ""}`.toLowerCase().includes(q.toLowerCase())));
   const allShownSelected = shown.length > 0 && shown.every((e) => selected.includes(e.id));
@@ -41,7 +45,7 @@ export default function AssignDialog({
   function save() {
     setMsg(null);
     start(async () => {
-      const r = await assignSchedule(selected, { type: "POLA", patternId: pattern.id, effectiveDate, note });
+      const r = await assignSchedule(selected, { type: "POLA", patternId: pattern.id, effectiveDate, note }, true);
       if (r.error) setMsg({ ok: false, text: r.error });
       else onClose();
     });
@@ -84,7 +88,7 @@ export default function AssignDialog({
               <span className="text-gray-500">{selected.length} <T>karyawan dipilih</T></span>
             </div>
             <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-gray-200 p-2">
-              {shown.length === 0 && <p className="py-2 text-xs text-gray-400"><T>Tidak ada data.</T></p>}
+              {shown.length === 0 && <p className="py-2 text-xs text-gray-400"><T>{free.length ? "Tidak ada data." : "Semua karyawan sudah punya jadwal kerja."}</T></p>}
               {shown.map((e) => (
                 <label key={e.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-50">
                   <input type="checkbox" checked={selected.includes(e.id)} onChange={() => toggle(e.id)} className="h-4 w-4 accent-[var(--color-brand)]" />
@@ -94,6 +98,7 @@ export default function AssignDialog({
               ))}
             </div>
           </div>
+          {taken > 0 && <p className="text-[11px] text-gray-400">{taken} <T>karyawan yang sudah punya jadwal kerja tidak ditampilkan. Ganti pola kerja lewat profil karyawan → Jadwal Kerja.</T></p>}
           {msg && <p className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><T>{msg.text}</T></p>}
         </div>
         <DialogFooter>

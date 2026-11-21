@@ -1078,6 +1078,8 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Semua karyawan sudah punya jadwal kerja.": "All employees already have a work schedule.",
+  "karyawan yang sudah punya jadwal kerja tidak ditampilkan. Ganti pola kerja lewat profil karyawan → Jadwal Kerja.": "employees who already have a work schedule are hidden. Change the work pattern from the employee profile → Work Schedule.",
   "Import Kenaikan Gaji Massal": "Import Mass Salary Increase",
   "Penyesuaian gaji pokok dan tunjangan banyak karyawan sekaligus melalui berkas Excel; setiap perubahan dicatat sebagai riwayat gaji baru.": "Adjust base salary and allowances for many employees at once via an Excel file; every change is recorded as a new salary history entry.",
   "Upload Kenaikan Gaji Massal": "Upload Mass Salary Increase",

@@ -40,7 +40,7 @@ export default async function SchedulePage({
     prisma.user.findMany({
       where: { isActive: true, role: { not: "SUPER_ADMIN" } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, employeeId: true, department: { select: { name: true } } },
+      select: { id: true, name: true, employeeId: true, department: { select: { name: true } }, _count: { select: { schedules: true } } },
     }),
   ]);
 
@@ -60,7 +60,7 @@ export default async function SchedulePage({
         radius: l.radius, isActive: l.isActive,
         employeeIds: l.employees.map((e) => e.id), shiftIds: l.shifts.map((s) => s.id), patternIds: l.patterns.map((p) => p.id),
       }))}
-      employees={employees.map((e) => ({ id: e.id, label: e.name, sub: e.employeeId ?? undefined, department: e.department?.name ?? null }))}
+      employees={employees.map((e) => ({ id: e.id, label: e.name, sub: e.employeeId ?? undefined, department: e.department?.name ?? null, scheduled: e._count.schedules > 0 }))}
       rule={{
         overtimeNeedsApproval: rule?.overtimeNeedsApproval ?? true,
         holidayWorkIsOvertime: rule?.holidayWorkIsOvertime ?? true,

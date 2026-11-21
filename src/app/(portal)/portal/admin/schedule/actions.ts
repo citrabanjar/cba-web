@@ -340,7 +340,8 @@ export async function deleteLocation(id: string): Promise<Result> {
 export type ScheduleInput = { type: "POLA" | "MANUAL"; patternId: string; effectiveDate: string; note: string };
 
 // Tempel jadwal ke satu atau banyak karyawan. Jadwal di tanggal berlaku yang sama diganti.
-export async function assignSchedule(userIds: string[], input: ScheduleInput): Promise<Result & { count?: number }> {
+// onlyNew (Tempel ke Karyawan dari Pola Kerja): karyawan yang sudah punya jadwal ditolak; ganti pola lewat profil.
+export async function assignSchedule(userIds: string[], input: ScheduleInput, onlyNew = false): Promise<Result & { count?: number }> {
   const user = await requireMenuApply("absensi");
   const ids = [...new Set(userIds)].filter(Boolean);
   if (ids.length === 0) return { error: "Pilih minimal satu karyawan." };
@@ -349,6 +350,10 @@ export async function assignSchedule(userIds: string[], input: ScheduleInput): P
   if (input.type === "POLA") {
     const pattern = await prisma.workPattern.findUnique({ where: { id: input.patternId }, select: { id: true } });
     if (!pattern) return { error: "Pilih pola kerja." };
+  }
+  if (onlyNew) {
+    const has = await prisma.user.findMany({ where: { id: { in: ids }, schedules: { some: {} } }, select: { name: true } });
+    if (has.length) return { error: `Sudah punya jadwal kerja: ${has.map((u) => u.name).join(", ")}. Ganti pola kerja lewat profil karyawan → Jadwal Kerja.` };
   }
   const effectiveDate = new Date(`${input.effectiveDate}T00:00:00Z`);
   const data = {
