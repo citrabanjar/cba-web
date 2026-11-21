@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import BonusSchedule from "./BonusSchedule";
 import type { BonusEntry } from "@/lib/payroll-bonus";
-import { Calculator, CalendarClock, History, CheckCircle2, ChevronRight, Loader2, Percent, Play, Receipt, Settings2, Wallet, Stethoscope } from "lucide-react";
+import { CalendarClock, History, CheckCircle2, ChevronRight, Loader2, Percent, Play, Receipt, Settings2, Wallet, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,6 @@ import ReimburseSettings from "./ReimburseSettings";
 import type { ReimburseSettings as ReimburseValue } from "@/lib/reimburse-shared";
 import type { TaxYearConfig, TerVersion } from "@/lib/pph21";
 import ComponentsTab, { type Component, type PayEmployee } from "./ComponentsTab";
-import DeductionCalculator from "./DeductionCalculator";
 import { showNotice } from "@/components/portal/Confirm";
 
 const select = "h-9 w-full rounded-lg border border-input bg-white px-2 text-sm";
@@ -92,7 +91,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
   components: Component[]; settings: PayrollSettings; runs: Run[]; employees: PayEmployee[]; nonRoutine: NonRoutine[]; bonus: BonusEntry[];
   taxSettings: Record<string, TaxYearConfig>; terSettings: TerVersion[]; reimburse: ReimburseValue; revisions?: React.ReactNode;
 }) {
-  const [tab, setTab] = useState<"proses" | "riwayat" | "komponen" | "pengaturan" | "kalkulator">("komponen");
+  const [tab, setTab] = useState<"proses" | "riwayat" | "komponen" | "pengaturan">("komponen");
   const [focus, setFocus] = useState<string | null>(null); // periode yang dibuka dari Riwayat
   const [setting, setSetting] = useState<(typeof SETTING_SECTIONS)[number]["key"]>("payroll");
   return (
@@ -105,7 +104,7 @@ export default function PayrollClient({ components, settings, runs, employees, n
         {revisions}
         {/* Tab bergaya garis bawah langsung di atas latar portal (tanpa kotak). */}
         <nav className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-white/15 [scrollbar-width:none]">
-          {([["pengaturan", "Pengaturan", Settings2], ["komponen", "Komponen", Wallet], ["kalkulator", "Kalkulator Potongan", Calculator], ["proses", "Proses Gaji", Play], ["riwayat", "Riwayat", History]] as const).map(([k, label, Icon]) => (
+          {([["pengaturan", "Pengaturan", Settings2], ["komponen", "Komponen", Wallet], ["proses", "Proses Gaji", Play], ["riwayat", "Riwayat", History]] as const).map(([k, label, Icon]) => (
             <button key={k} type="button" onClick={() => setTab(k)}
               className={`relative inline-flex h-11 shrink-0 items-center gap-2 px-3 text-sm transition-colors ${tab === k ? "font-semibold text-white" : "text-white/60 hover:text-white"}`}>
               <Icon size={15} /> <T>{label}</T>
@@ -117,7 +116,6 @@ export default function PayrollClient({ components, settings, runs, employees, n
         {tab === "proses" && <RunTab key={focus ?? "-"} initialPeriod={focus ?? undefined} runs={runs} bonus={bonus} weekStartDay={settings.weekStartDay}
           fixedCodes={components.filter((c) => ["INPUT", "NOMINAL", "PERSEN", "PPH21"].includes(c.method)).map((c) => c.code)} />}
         {tab === "komponen" && <ComponentsTab components={components} employees={employees} workDaysPerWeek={6} />}
-        {tab === "kalkulator" && <DeductionCalculator />}
         {tab === "pengaturan" && (
           // Menu di kiri, isi pengaturan terpilih di kanan (seperti halaman Organisasi / Notifikasi).
           <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
