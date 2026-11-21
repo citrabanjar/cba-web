@@ -171,12 +171,6 @@ const LEAVE_LABEL: Record<string, string> = {
   TAHUNAN: "Tahunan", SAKIT: "Sakit", MELAHIRKAN: "Melahirkan",
   PENTING: "Penting", LAINNYA: "Lainnya",
 };
-const APPROVAL: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: "Menunggu", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  APPROVED: { label: "Disetujui", cls: "bg-green-50 text-green-700 border-green-200" },
-  REJECTED: { label: "Ditolak", cls: "bg-red-50 text-red-700 border-red-200" },
-  CANCELLED: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-600 border-gray-200" },
-};
 
 // Kolom @db.Date tersimpan tengah malam UTC, jadi tampilkan dalam UTC.
 // Zona waktu ditulis eksplisit supaya hasil server dan browser sama.
@@ -205,6 +199,7 @@ function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["le
     for (const l of leaves) {
       if (l.status !== "APPROVED" || new Date(l.startDate).getUTCFullYear() !== year) continue;
       if (l.policy && codes.has(l.policy.code)) continue;
+      if (l.policy?.code === "DL" || l.policy?.name === "Dinas Luar") continue; // dinas luar bukan cuti
       const name = l.policy?.name ?? LEAVE_LABEL[l.type] ?? l.type;
       sum.set(name, (sum.get(name) ?? 0) + l.totalDays);
     }
@@ -216,7 +211,7 @@ function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["le
       {rows.map((r) => (
         <div key={r.policyId} className="border-b border-gray-100 py-2 last:border-b-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-gray-900"><T>{r.policyName}</T> · {r.code}</p>
+            <p className="text-sm font-semibold text-gray-900"><T>{r.policyName}</T></p>
           </div>
           <LeaveRow label="Sisa saldo" value={`${leaveDays(r.balance)} ${t("hari")}`} />
           {r.pending > 0 && <LeaveRow label="Menunggu persetujuan" value={`${leaveDays(r.pending)} ${t("hari")}`} />}
@@ -1231,36 +1226,6 @@ export default function KaryawanDetailClient({
         {tab === "cuti" && (
             <CvSheet sections={[
               { key: "saldo", title: "Saldo Cuti", flat: true, content: <LeaveSaldo rows={leaveBalances} leaves={emp.leaves} /> },
-              { key: "dinas", title: "Riwayat Dinas Luar", flat: true, content: (<>
-          {emp.businessTrips.length === 0 ? <Empty text="Belum ada pengajuan dinas luar." /> : (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4"><T>Periode</T></TableHead>
-                    <TableHead className="px-4"><T>Tujuan</T></TableHead>
-                    <TableHead className="px-4"><T>Hari</T></TableHead>
-                    <TableHead className="hidden md:table-cell px-4"><T>Keperluan</T></TableHead>
-                    <TableHead className="px-4"><T>Status</T></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {emp.businessTrips.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(t.startDate)} – {fmtDate(t.endDate)}</TableCell>
-                      <TableCell className="px-4 text-sm">{t.destination}</TableCell>
-                      <TableCell className="px-4 text-sm">{t.totalDays}</TableCell>
-                      <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate">{t.purpose}</TableCell>
-                      <TableCell className="px-4">
-                        <Pill cls={APPROVAL[t.status]?.cls ?? ""}><T>{APPROVAL[t.status]?.label ?? t.status}</T></Pill>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-              </>) },
             ]} />
         )}
 

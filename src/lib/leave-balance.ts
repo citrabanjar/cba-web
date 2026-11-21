@@ -204,7 +204,7 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
           const d = addMonths(join, n);
           if (stopAt && d > stopAt) break;
           if (d > today) { nextDate = d; nextDays = p.accrualPerMonth; break; }
-          if (d > from) evs.push({ t: d.getTime(), kind: "grant", days: p.accrualPerMonth, label: `Bertambah (genap ${n} bulan kerja)` });
+          if (d > from) evs.push({ t: d.getTime(), kind: "grant", days: p.accrualPerMonth, label: `Alokasi hak cuti masa (genap ${n} bulan kerja)` });
         }
       } else if (p.renewal === "JANUARI") {
         const quota = p.quota ?? 0;
@@ -242,6 +242,8 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
       }
       for (const r of requests) {
         if (r.userId !== e.id || r.status !== "APPROVED" || utc(r.startDate) < from) continue;
+        // Dinas Luar bukan cuti: tidak ikut riwayat saldo (keputusan pemilik 2026-11-21).
+        if (r.policy?.code === "DL" || r.policy?.name === "Dinas Luar") continue;
         const name = r.policy?.name ?? LEAVE_TYPE_NAME[r.type] ?? r.type;
         const label = `${name} (${dmy(r.startDate)} s/d ${dmy(r.endDate)})`;
         const t = utc(r.startDate).getTime();
