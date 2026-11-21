@@ -30,7 +30,7 @@ const BANK_CODES: [RegExp, string, string][] = [
   [/^mega$/, "MEGAIDJA", "Bank Mega"],
   [/^muamalat( indonesia)?$/, "MUABIDJA", "Bank Muamalat Indonesia"],
   [/^jago$/, "JAGBIDJA", "Bank Jago"],
-  [/^seabank( indonesia)?$/, "SSPIIDJA", "Bank Seabank Indonesia"],
+  [/^(seabank|sea)( indonesia)?$/, "SSPIIDJA", "Bank Seabank Indonesia"],
   [/^(dki|dki jakarta)$/, "BDKIIDJ1", "Bank DKI"],
   [/^(bjb|jabar|jabar banten|bpd jabar dan banten)$/, "PDJBIDJA", "Bank BJB"],
   [/^jateng$/, "PDJGIDJ1", "Bank Jateng"],
