@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Banknote, Briefcase, CalendarDays, CalendarHeart, Check, Clock, FileText, HandCoins, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, Wallet, X } from "lucide-react";
+import { Banknote, Briefcase, Send, CalendarDays, CalendarHeart, Check, Clock, FileText, HandCoins, KeyRound, Loader2, Pencil, Plus, Trash2, User, UserCog, Users, Wallet, X } from "lucide-react";
 import type { BalanceRow } from "@/lib/leave-balance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,10 @@ import { PROFILE_FIELDS, fieldLabel, showValue, type FamilyRow, type ProfileChan
 import type { DayShift } from "@/lib/schedule";
 import AttendanceCalendar from "../admin/karyawan/[id]/AttendanceCalendar";
 import { cancelProfileChange, changeMyPassword, submitProfileChange } from "./actions";
+import { createTelegramLink, unlinkTelegram } from "./telegram-actions";
 import RegionSelect from "@/components/RegionSelect";
 import SectionNav from "@/components/portal/SectionNav";
-import { showNotice } from "@/components/portal/Confirm";
+import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
 type Me = {
   id: string; name: string; employeeId: string | null; image: string | null; status: string; position: string | null; branch: string | null;
@@ -532,11 +533,54 @@ export function SelfAction({ values, family, pending }: { values: Record<string,
 }
 
 // Tab Akun: ganti password dan riwayat pengajuan perubahan data.
-export function SelfAccount({ requests }: { requests: Req[] }) {
+// Telegram (opsional): tautan sekali pakai ke bot; setelah Start di Telegram, notifikasi & persetujuan masuk ke sana.
+function TelegramCard({ linked, available }: { linked: boolean; available: boolean }) {
+  const t = useT();
+  const [pending, start] = useTransition();
+  const [url, setUrl] = useState<string | null>(null);
+  const link = () => start(async () => {
+    const r = await createTelegramLink();
+    if (r.error || !r.url) { void showNotice(t(r.error ?? "Gagal membuat tautan."), "error"); return; }
+    setUrl(r.url);
+    window.open(r.url, "_blank", "noopener");
+  });
+  const unlink = async () => {
+    if (!(await askConfirm(t("Lepas Telegram dari akun ini? Notifikasi tidak dikirim ke Telegram lagi.")))) return;
+    start(async () => { const r = await unlinkTelegram(); if (r.error) void showNotice(t(r.error), "error"); });
+  };
+  return (
+    <Section icon={Send} title="Telegram">
+      <div className="space-y-3 text-sm">
+        <p className="text-gray-600"><T>Hubungkan Telegram untuk menerima hasil pengajuan Anda dan, bila Anda penyetuju, menyetujui atau menolak Cuti, Pengajuan Absen, Dinas Luar, Lembur, dan Lupa Absen langsung dari Telegram. Opsional.</T></p>
+        {!available ? (
+          <p className="text-gray-400"><T>Telegram belum diaktifkan perusahaan.</T></p>
+        ) : linked ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700"><T>Terhubung</T></span>
+            <Button variant="outline" size="sm" disabled={pending} onClick={unlink}>{pending && <Loader2 size={14} className="animate-spin" />} <T>Lepas Telegram</T></Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Button size="sm" disabled={pending} onClick={link} className="gap-1.5">{pending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} <T>Hubungkan Telegram</T></Button>
+            {url && (
+              <p className="text-xs text-gray-500">
+                <T>Telegram terbuka di tab baru. Tekan Start di bot, lalu muat ulang halaman ini. Bila tidak terbuka:</T>{" "}
+                <a href={url} target="_blank" rel="noreferrer" className="font-semibold text-brand underline"><T>buka tautan</T></a> <T>(berlaku 15 menit)</T>
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+export function SelfAccount({ requests, telegram }: { requests: Req[]; telegram: { linked: boolean; available: boolean } }) {
   const done = requests.filter((r) => r.status !== "PENDING");
   return (
     <SectionNav sections={[
       { key: "password", label: "Ganti Password", icon: KeyRound, content: <PasswordCard /> },
+      { key: "telegram", label: "Telegram", icon: Send, content: <TelegramCard {...telegram} /> },
       { key: "riwayat", label: "Riwayat Pengajuan Perubahan", icon: Clock, content: (
         <Section icon={Clock} title="Riwayat Pengajuan Perubahan">
           {done.length === 0

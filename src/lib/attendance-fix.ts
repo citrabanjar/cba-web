@@ -79,9 +79,11 @@ export async function submitFixFor(u: { id: string; name: string | null }, input
   if (wf.error) return { error: wf.error };
   if (!wf.flow && !(await hasApprover(u.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
   const flow = await withDelegation(wf.flow, u.id);
-  await prisma.attendanceCorrection.create({
+  const created = await prisma.attendanceCorrection.create({
     data: { userId: u.id, date, checkIn, checkOut, reason: input.reason.trim().slice(0, 500), ...(flow ? { approval: flow } : {}) },
   });
+  const { askApprovers } = await import("@/lib/telegram-approval"); // dinamis: telegram-approval memakai hmWib dari file ini
+  await askApprovers("fix", created.id);
   fixRefresh();
   return { approver: await firstApproverName(flow, u.id) };
 }

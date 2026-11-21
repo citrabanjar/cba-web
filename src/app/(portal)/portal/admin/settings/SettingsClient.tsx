@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { changeAdminPassword } from "./actions";
 import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Bot, ClipboardList, LayoutDashboard, UserCog, ToggleRight, ShieldCheck, Users, Upload } from "lucide-react";
 import ImportDataTab, { type ImportData } from "./ImportDataTab";
+import TelegramSettings from "./TelegramSettings";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,7 @@ export default function SettingsClient({
         <>
           <OnboardingSettings {...onboarding} />
           <SimSettings enabled={onboarding.sim.enabled} count={onboarding.sim.count} requests={onboarding.sim.requests} />
+          <TelegramSettings />
         </>
       )}
       {tab === "peran" && access && <RolesSettings roles={access.roles} importEnabled={access.importEnabled} />}

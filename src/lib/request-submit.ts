@@ -1,6 +1,7 @@
 // Inti pengajuan karyawan (Cuti, Dinas Luar, Pinjaman, Tukar Shift, Lembur) dengan identitas pengaju sebagai parameter.
 // Dipanggil server action tiap menu (identitas dari sesi login) dan oleh Absen Uji (pengajuan uji). Bukan server
 // action, jadi tidak bisa dipanggil langsung dari browser. Aturannya sama persis dengan pengajuan dari menu.
+import { askApprovers } from "@/lib/telegram-approval";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import type { EmployeeLoan } from "@prisma/client";
@@ -144,7 +145,7 @@ export async function createLeave(userId: string, input: LeaveInput, opts: { abs
   });
   if (clash) return { error: "Tanggal itu bertabrakan dengan pengajuan cuti lain." };
 
-  await prisma.leaveRequest.create({
+  const created = await prisma.leaveRequest.create({
     data: {
       userId, policyId: policy.id, type: legacyType(policy.category),
       startDate: start, endDate: end, totalDays, halfDay, unpaidDays, reason, status: "PENDING", ...(flow ? { approval: flow } : {}),
@@ -153,6 +154,7 @@ export async function createLeave(userId: string, input: LeaveInput, opts: { abs
       ...(delegate ? { delegateId: delegate.id, delegateName: delegate.name } : {}),
     },
   });
+  await askApprovers("leave", created.id);
 
   // Notifikasi info (tanpa tombol keputusan), keputusan pemilik 2026-11-17:
   // - jalur default (atasan langsung memutus) → atasan dari atasan langsung mendapat info;
@@ -237,7 +239,7 @@ export async function submitTripFor(u: Who, input: TripInput) {
 
   const totalDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
 
-  await prisma.businessTrip.create({
+  const createdTrip = await prisma.businessTrip.create({
     data: {
       userId: u.id,
       ...(flow ? { approval: flow } : {}),
@@ -249,6 +251,7 @@ export async function submitTripFor(u: Who, input: TripInput) {
       status: "PENDING",
     },
   });
+  await askApprovers("trip", createdTrip.id);
 
   revalidatePath("/portal/dinas");
   return { ok: true, days: totalDays, approver: await firstApproverName(flow, u.id) };
@@ -384,9 +387,10 @@ export async function submitOvertimeFor(u: Who, input: OvertimeInput): Promise<{
   if (!wfFlow && !(await hasApprover(u.id))) return { error: "Atasan langsung Anda belum diatur atau sudah tidak aktif, jadi pengajuan belum bisa dikirim. Hubungi HRD." };
   // Penyetuju yang sedang cuti dengan delegasi → pengajuan baru dialihkan ke delegasinya.
   const flow = await withDelegation(wfFlow, u.id);
-  await prisma.overtime.create({
+  const createdOt = await prisma.overtime.create({
     data: { userId: u.id, ...row, reason: input.reason.trim(), status: "PENDING", createdBy: u.name, ...(flow ? { approval: flow } : {}) },
   });
+  await askApprovers("overtime", createdOt.id);
   otRefresh();
   return { approver: await firstApproverName(flow, u.id) };
 }

@@ -9,6 +9,7 @@ import { loadEmployeeDetail } from "@/lib/employee-detail";
 import { PROFILE_KEYS, profileValue, type FamilyRow, type ProfileChanges } from "@/lib/profile-change";
 import KaryawanDetailClient from "../admin/karyawan/[id]/KaryawanDetailClient";
 import { SelfAccount, SelfAction } from "./ProfilClient";
+import { telegramBotName, telegramOn } from "@/lib/telegram";
 
 export const metadata: Metadata = { title: "Profil Saya" };
 
@@ -26,7 +27,7 @@ export default async function ProfilPage({ searchParams }: { searchParams: Promi
   const [user, requests] = await Promise.all([
     prisma.user.findUnique({
       where: { id },
-      select: { ...Object.fromEntries(PROFILE_KEYS.map((k) => [k, true])), family: { orderBy: { createdAt: "asc" }, select: { name: true, idNumber: true, relation: true } } },
+      select: { ...Object.fromEntries(PROFILE_KEYS.map((k) => [k, true])), telegramChatId: true, family: { orderBy: { createdAt: "asc" }, select: { name: true, idNumber: true, relation: true } } },
     }),
     prisma.profileChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
@@ -45,7 +46,7 @@ export default async function ProfilPage({ searchParams }: { searchParams: Promi
       canEdit={false}
       self={{
         action: <SelfAction values={values} family={family} pending={reqs.some((r) => r.status === "PENDING")} />,
-        account: <SelfAccount requests={reqs} />,
+        account: <SelfAccount requests={reqs} telegram={{ linked: !!user?.telegramChatId, available: telegramOn() && !!telegramBotName() }} />,
       }}
     />
   );

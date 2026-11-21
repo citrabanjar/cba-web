@@ -109,6 +109,10 @@ model User {
   resetCode        String?
   resetExpires     DateTime?
   resetTries       Int              @default(0)
+  // Telegram (opsional): chat yang terhubung lewat Profil Saya -> Hubungkan Telegram (kode sekali pakai, 15 menit).
+  telegramChatId      String?   @unique
+  telegramLinkCode    String?   @unique
+  telegramLinkExpires DateTime?
   kantorkuId       String?
   menuAccess       String[]         @default([]) // menu yang dibuka super admin untuk ADMIN
 
