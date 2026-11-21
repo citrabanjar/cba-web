@@ -42,7 +42,7 @@ export async function activateTelegramWebhook(): Promise<TelegramStatus> {
   });
   // Daftar perintah di tombol Menu Telegram.
   await tgCall("setMyCommands", { commands: [
-    { command: "menu", description: "Buat pengajuan (Absen, Lembur, Cuti, Dinas Luar)" },
+    { command: "menu", description: "Absensi & pengajuan (Lembur, Cuti, Dinas, Tukar Shift)" },
     { command: "putus", description: "Lepas akun portal dari Telegram" },
   ] });
   const status = await telegramStatus();

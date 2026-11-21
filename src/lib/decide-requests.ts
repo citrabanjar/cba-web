@@ -11,6 +11,8 @@ import { readApproval } from "@/lib/onboarding-interview";
 import { dateRange, decisionText, notify } from "@/lib/notify";
 import { applyFix, fixRefresh, hmWib } from "@/lib/attendance-fix";
 import { askApprovers } from "@/lib/telegram-approval";
+import { routeTo } from "@/lib/delegation";
+import { activeManager, applySwap, hasAttendance, periodFinal } from "@/lib/shift-swap";
 
 export type Actor = { id: string; role: string; name: string | null };
 type Result = { error?: string };
@@ -150,3 +152,68 @@ export async function decideFixAs(a: Actor, id: string, approve: boolean, note: 
   return {};
 }
 
+// ─── Tukar shift: rekan menerima / menolak, lalu atasan langsung kedua karyawan memutus ───
+const SWAP_ATT = "Salah satu karyawan sudah check-in/check-out di tanggal itu, tukar shift tidak bisa lagi.";
+function swapRefresh() {
+  for (const p of ["/portal/tukar-shift", "/portal/persetujuan", "/portal/notifikasi", "/portal/dashboard", "/portal/profil", "/portal/admin/schedule"]) revalidatePath(p);
+  revalidatePath("/portal/admin/karyawan", "layout");
+}
+
+// Rekan menerima / menolak. Diterima → diteruskan ke atasan langsung kedua karyawan.
+export async function respondSwapAs(a: Actor, id: string, accept: boolean, note: string): Promise<Result> {
+  const r = await prisma.shiftSwapRequest.findUnique({ where: { id } });
+  if (!r || r.partnerId !== a.id || r.status !== "MENUNGGU_REKAN") return { error: "Pengajuan tidak ditemukan atau sudah diproses." };
+  if (!accept) {
+    await prisma.shiftSwapRequest.update({ where: { id }, data: { status: "DITOLAK", note: note.trim() || "Ditolak rekan", decidedBy: a.name, decidedAt: new Date() } });
+    await notify(r.requesterId, "Tukar shift ditolak rekan", `${dateRange(r.date, r.date)} · ${decisionText(false, a.name, note)}`, "/portal/tukar-shift", { telegram: true });
+    swapRefresh();
+    return {};
+  }
+  if (await hasAttendance([r.requesterId, r.partnerId], r.date)) return { error: SWAP_ATT };
+  const [ma0, mb0] = await Promise.all([activeManager(r.requesterId), activeManager(r.partnerId)]);
+  if (!ma0 || !mb0) return { error: "Atasan langsung salah satu karyawan belum diatur. Hubungi HRD." };
+  // Atasan yang sedang cuti dengan delegasi → dialihkan ke delegasinya.
+  const [ma, mb] = await Promise.all([
+    routeTo({ id: ma0, name: "" }, r.requesterId).then((x) => x.id),
+    routeTo({ id: mb0, name: "" }, r.partnerId).then((x) => x.id),
+  ]);
+  await prisma.shiftSwapRequest.update({
+    where: { id },
+    data: { status: "MENUNGGU_ATASAN", partnerAt: new Date(), managerAId: ma, managerBId: mb === ma ? null : mb },
+  });
+  await askApprovers("swap", id);
+  swapRefresh();
+  return {};
+}
+
+// Atasan langsung pemohon / rekan menyetujui atau menolak. Setelah semua atasan setuju, shift ditukar.
+export async function decideSwapAs(a: Actor, id: string, approve: boolean, note: string): Promise<Result> {
+  const r = await prisma.shiftSwapRequest.findUnique({ where: { id } });
+  if (!r || r.status !== "MENUNGGU_ATASAN") return { error: "Pengajuan tidak ditemukan atau sudah diputus." };
+  const isA = r.managerAId === a.id && !r.managerAAt;
+  const isB = r.managerBId === a.id && !r.managerBAt;
+  if (!isA && !isB) return { error: "Anda bukan penyetuju pengajuan ini." };
+  if (!approve) {
+    if (!note.trim()) return { error: "Tulis alasan penolakan." };
+    await prisma.shiftSwapRequest.update({ where: { id }, data: { status: "DITOLAK", note: note.trim(), decidedBy: a.name, decidedAt: new Date() } });
+    await notify([r.requesterId, r.partnerId], "Tukar shift ditolak", `${dateRange(r.date, r.date)} · ${decisionText(false, a.name, note)}`, "/portal/tukar-shift", { telegram: true });
+    swapRefresh();
+    return {};
+  }
+  if (await hasAttendance([r.requesterId, r.partnerId], r.date)) return { error: SWAP_ATT };
+  if (await periodFinal(r.date)) return { error: "Periode gaji bulan itu sudah final." };
+  const now = new Date();
+  const data = { ...(isA ? { managerAAt: now, managerAName: a.name } : {}), ...(isB ? { managerBAt: now, managerBName: a.name } : {}) };
+  const doneA = isA || !!r.managerAAt;
+  const doneB = !r.managerBId || isB || !!r.managerBAt;
+  if (doneA && doneB) {
+    const res = await applySwap(r, a.name);
+    if (res.error) return { error: res.error };
+    await prisma.shiftSwapRequest.update({ where: { id }, data: { ...data, status: "DISETUJUI", note: note.trim() || null, decidedBy: a.name, decidedAt: now } });
+    await notify([r.requesterId, r.partnerId], "Tukar shift disetujui", `${dateRange(r.date, r.date)} · ${decisionText(true, a.name)} Shift sudah ditukar.`, "/portal/tukar-shift", { telegram: true });
+  } else {
+    await prisma.shiftSwapRequest.update({ where: { id }, data });
+  }
+  swapRefresh();
+  return {};
+}

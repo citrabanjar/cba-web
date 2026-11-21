@@ -1,19 +1,23 @@
 // Pengajuan langsung dari chat Telegram dengan tombol (keputusan pemilik 2026-11-21): ketik "menu" → pilih pengajuan →
 // pilih / ketik isian (kolom ketik otomatis membalas pertanyaan bot) → ringkasan → Kirim. Menu sama dengan Tombol HP:
-// Pengajuan Absen (Lupa Absen · Tidak Masuk potong Cuti Tahunan / Izin Tanpa Hak Cuti), Lembur, Cuti, Dinas Luar.
+// Absensi (Live Location), Pengajuan Absen (Lupa Absen · Tidak Masuk potong Cuti Tahunan / Izin Tanpa Hak Cuti), Lembur,
+// Cuti, Dinas Luar, Tukar Shift.
 // Tanpa tabel status percakapan: langkah sebelumnya dibawa di data tombol dan di penanda tersembunyi pada pesan bot.
 // Pengirimannya lewat fungsi yang sama dengan portal, jadi aturannya (saldo, H-x, bentrok tanggal, periode final,
 // penyetuju / Workflow) sama persis.
+import { createHmac } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { wibToday } from "@/lib/attendance-assess";
-import { FIX_LIVE, submitFixFor } from "@/lib/attendance-fix";
-import { createLeave, submitAbsenceFor, submitOvertimeFor, submitTripFor } from "@/lib/request-submit";
+import { openAttendance, wibToday } from "@/lib/attendance-assess";
+import { FIX_LIVE, hmWib, submitFixFor } from "@/lib/attendance-fix";
+import { clockInFor, clockOutFor } from "@/lib/clock";
+import { swapShifts } from "@/lib/shift-swap";
+import { createLeave, submitAbsenceFor, submitOvertimeFor, submitSwapFor, submitTripFor } from "@/lib/request-submit";
 import { eligible, hasBalance, todayDate, visibleBalances } from "@/lib/leave-balance";
 import { isPersonApprover } from "@/lib/delegation";
 import { formatDate } from "@/lib/utils";
-import { esc, tgAnswer, tgDownload, tgEdit, tgSend, type TgButton } from "@/lib/telegram";
+import { esc, telegramSecret, tgAnswer, tgDownload, tgEdit, tgSend, type TgButton } from "@/lib/telegram";
 
-type Who = { id: string; name: string | null };
+type Who = { id: string; name: string | null; role?: string };
 type Entity = { type: string; url?: string };
 export type TgMedia = { fileId: string; mime: string; size: number; name: string };
 const DAY = 86_400_000;
@@ -57,16 +61,17 @@ function tagOf(msg: { text?: string; entities?: Entity[] } | undefined) {
 }
 // Penanda dari pesan yang dibalas: tautan tersembunyi (baru) atau teks "#..." (pesan lama).
 export const replyTag = tagOf;
-export const FORM_TAG = /#(fx|fr|os|oe|or|ar|tt|tp|ls|le|lr|lf)\|/;
+export const FORM_TAG = /#(fx|fr|os|oe|or|ar|tt|tp|ls|le|lr|lf|sd|sn|sr)\|/;
 const line = (text: string | undefined, key: string) => (text ?? "").match(new RegExp(`^${key}: (.+)$`, "m"))?.[1]?.trim() ?? "";
 const clean = (s: string, max = 500) => s.replace(/[\n|]/g, " ").trim().slice(0, max);
 
 export async function sendFormMenu(chatId: string) {
   const buttons: TgButton[][] = [
-    [{ text: "🕘 Pengajuan Absen", data: "m|abs" }, { text: "⏱️ Lembur", data: "m|ot" }],
-    [{ text: "🗓️ Cuti", data: "m|lv" }, { text: "🚗 Dinas Luar", data: "m|tr" }],
+    [{ text: "📍 Absensi", data: "m|att" }, { text: "🕘 Pengajuan Absen", data: "m|abs" }],
+    [{ text: "⏱️ Lembur", data: "m|ot" }, { text: "🗓️ Cuti", data: "m|lv" }],
+    [{ text: "🚗 Dinas Luar", data: "m|tr" }, { text: "🔄 Tukar Shift", data: "m|sw" }],
   ];
-  await tgSend(chatId, "📝 <b>Pilih pengajuan</b>", { buttons });
+  await tgSend(chatId, "📝 <b>Pilih menu</b>", { buttons });
 }
 
 const cancelRow: TgButton[] = [{ text: "✖️ Batal", data: "x" }];
@@ -78,6 +83,8 @@ const dayButtons = (dates: string[], data: (d: string) => string, today: string)
 // m|abs · m|fix · m|ot · m|lv · m|tr (menu)
 // fd|tgl (Lupa Absen) · od|tgl (Lembur) · ab|T/U → as|K|mulai → ae|K|mulai|selesai (Tidak Masuk)
 // ts|mulai → te|mulai|selesai (Dinas Luar) · lp|policyId (Cuti) · k|... (Kirim) · x (Batal)
+// m|att (Absensi) · cw|i/o|lat|lng|waktu|tanda (tetap absen setelah peringatan)
+// m|sw → sd|tgl (atau ketik #sd) → ketik nama rekan #sn → sp|tgl|rekan → alasan #sr (Tukar Shift)
 type Q = { id: string; data: string; message: { message_id: number; text?: string; entities?: Entity[] } };
 export async function onFormButton(q: Q, chatId: string, who: Who) {
   const [k, ...p] = q.data.split("|");
@@ -89,7 +96,10 @@ export async function onFormButton(q: Q, chatId: string, who: Who) {
   }
   if (k === "m") {
     await tgAnswer(q.id, "");
-    if (p[0] === "abs") await absenceMenu(chatId, who);
+    if ((p[0] === "att" || p[0] === "sw") && who.role === "SUPER_ADMIN") await tgSend(chatId, "ℹ️ Menu ini untuk karyawan; akun Super Admin tidak absen dan tidak punya jadwal shift.");
+    else if (p[0] === "att") await attendanceStatus(chatId, who);
+    else if (p[0] === "sw") await swapDates(chatId);
+    else if (p[0] === "abs") await absenceMenu(chatId, who);
     else if (p[0] === "fix") await fixDates(chatId, who);
     else if (p[0] === "ot") await otDates(chatId);
     else if (p[0] === "lv") await leaveTypes(chatId, who);
@@ -168,8 +178,94 @@ export async function onFormButton(q: Q, chatId: string, who: Who) {
     await ask(chatId, `🗓️ <b>${esc(policy.name)}</b>${policy.noticeDays > 0 ? `\n<i>Diajukan paling lambat ${policy.noticeDays} hari sebelumnya.</i>` : ""}\nTanggal <b>mulai</b> cuti?`, `#ls|${p[0]}`, "Contoh 03-12-2026");
     return true;
   }
+  // Absen setelah peringatan (terlambat / pulang awal): lokasi dibawa di tombol, ditandatangani supaya tidak bisa dipalsukan.
+  if (k === "cw" && p.length === 5) {
+    const [io, lat, lng, ts, sig] = p;
+    if (sig !== clockSig(chatId, io, lat, lng, ts)) { await tgAnswer(q.id, "Tombol tidak berlaku.", true); return true; }
+    if (Date.now() / 1000 - parseInt(ts, 36) > 300) {
+      await tgAnswer(q.id, "Sudah lebih dari 5 menit. Bagikan Live Location lagi.", true);
+      await tgEdit(chatId, q.message.message_id, `${esc(q.message.text ?? "")}\n\n⌛ Kedaluwarsa. Bagikan Live Location lagi.`).catch(() => null);
+      return true;
+    }
+    const r = io === "o" ? await clockOutFor(who.id, Number(lat), Number(lng), true) : await clockInFor(who.id, Number(lat), Number(lng), true);
+    if (r.error) { await tgAnswer(q.id, r.error, true); return true; }
+    await tgAnswer(q.id, "Tercatat.");
+    await tgEdit(chatId, q.message.message_id, clockDone(io, r)).catch(() => null);
+    return true;
+  }
+  // Tukar Shift.
+  if (k === "sd" && p[0] === "lain") {
+    await tgAnswer(q.id, "");
+    await ask(chatId, "🔄 <b>Tukar Shift</b>\nTanggal tukar shift?", "#sd|", "Contoh 03-12-2026");
+    return true;
+  }
+  if (k === "sd" && p[0]) { await tgAnswer(q.id, label(dash(p[0]))); await askPartner(chatId, who, p[0]); return true; }
+  if (k === "sp" && p[1]) {
+    await tgAnswer(q.id, "");
+    const date = new Date(`${dash(p[0])}T00:00:00Z`);
+    const [partner, s] = await Promise.all([
+      prisma.user.findUnique({ where: { id: p[1] }, select: { name: true } }),
+      swapShifts(who.id, p[1], date),
+    ]);
+    if (!partner) return true;
+    const err = "error" in s.a ? `Jadwal Anda: ${s.a.error}.` : "error" in s.b ? `Jadwal rekan: ${s.b.error}.` : s.a.code === s.b.code ? "Shift Anda dan rekan sama, tidak perlu ditukar." : "";
+    if (err) { await tgSend(chatId, `⚠️ ${esc(err)}`, { buttons: [[{ text: "Pilih rekan lain", data: `sd|${p[0]}` }], cancelRow] }); return true; }
+    await ask(chatId, `🔄 Tukar shift <b>${label(dash(p[0]))}</b> dengan <b>${esc(partner.name)}</b>\nAnda: ${esc(shiftText(s.a))} → ${esc(shiftText(s.b))}\nAlasan tukar shift?`, `#sr|${p[0]}|${p[1]}`, "Alasan");
+    return true;
+  }
   if (k === "k") return submit(q, chatId, who, p);
   return false;
+}
+
+// ── Absensi (Live Location) ───────────────────────────────────────────────────────────────────────────────
+type Shift = Awaited<ReturnType<typeof swapShifts>>["a"];
+const shiftText = (s: Shift) => ("error" in s ? "belum ada jadwal" : `${s.name || s.code}${"start" in s && s.start ? ` (${s.start}–${s.end})` : ""}`);
+const clockSig = (chatId: string, io: string, lat: string, lng: string, ts: string) =>
+  createHmac("sha256", telegramSecret() || "cba").update(`${chatId}|${io}|${lat}|${lng}|${ts}`).digest("base64url").slice(0, 12);
+function clockDone(io: string, r: { location?: string | null; address?: string }) {
+  const where = r.location ? `${esc(r.location)}${r.address ? `\n<i>${esc(r.address)}</i>` : ""}` : esc(r.address ?? "");
+  return `✅ <b>Absen ${io === "o" ? "pulang" : "masuk"} tercatat</b> pukul ${hmWib(new Date())} WIB\n📍 ${where}\n\nLive Location boleh dihentikan sekarang.`;
+}
+const LIVE_HOW = "Bagikan <b>Live Location</b> dari HP: 📎 → <b>Lokasi</b> → <b>Bagikan Lokasi Langsung</b> (Share My Live Location).\n<i>Lokasi biasa / titik yang dipilih di peta tidak diterima.</i>";
+
+async function attendanceStatus(chatId: string, who: Who) {
+  const today = wibToday();
+  const [open, s] = await Promise.all([openAttendance(who.id), swapShifts(who.id, who.id, today)]);
+  const day = today.toLocaleDateString("id-ID", { weekday: "long", timeZone: "UTC" });
+  const head = `📍 <b>Absensi</b> · ${day}, ${label(ymd(today))}\nShift: ${esc(shiftText(s.a))}`;
+  const times = open ? `\nMasuk: ${open.checkIn ? hmWib(open.checkIn) : "--:--"} · Pulang: ${open.checkOut ? hmWib(open.checkOut) : "--:--"}${open.date.getTime() !== today.getTime() ? ` (shift ${label(ymd(open.date))})` : ""}` : "";
+  if (open?.checkIn && open.checkOut) { await tgSend(chatId, `${head}${times}\n\n✅ Absen hari ini sudah lengkap.`); return; }
+  const next = open?.checkIn ? "pulang" : "masuk";
+  await tgSend(chatId, `${head}${times}\n\nUntuk absen <b>${next}</b>: ${LIVE_HOW}`);
+}
+
+// Lokasi yang dikirim karyawan: hanya Live Location asli (bukan diteruskan, bukan lokasi statis / titik peta).
+export async function onLocation(chatId: string, who: Who, loc: { latitude: number; longitude: number; live_period?: number; forwarded: boolean; sentAt: number }) {
+  if (who.role === "SUPER_ADMIN") { await tgSend(chatId, "ℹ️ Akun Super Admin tidak absen."); return; }
+  if (loc.forwarded || !loc.live_period) { await tgSend(chatId, `⚠️ Absen hanya bisa dengan Live Location.\n${LIVE_HOW}`); return; }
+  if (loc.sentAt && Date.now() / 1000 - loc.sentAt > 120) return; // pesan lama yang terlambat sampai: diabaikan
+  const open = await openAttendance(who.id);
+  const io = open?.checkIn && !open.checkOut ? "o" : "i";
+  const r = io === "o" ? await clockOutFor(who.id, loc.latitude, loc.longitude) : await clockInFor(who.id, loc.latitude, loc.longitude);
+  if (r.error) { await tgSend(chatId, `⚠️ ${esc(r.error)}`); return; }
+  if (r.warn) {
+    const lat = loc.latitude.toFixed(6), lng = loc.longitude.toFixed(6), ts = Math.floor(Date.now() / 1000).toString(36);
+    await tgSend(chatId, `⚠️ ${esc(r.warn)}`, { buttons: [[{ text: `✅ Tetap absen ${io === "o" ? "pulang" : "masuk"}`, data: `cw|${io}|${lat}|${lng}|${ts}|${clockSig(chatId, io, lat, lng, ts)}` }], cancelRow] });
+    return;
+  }
+  await tgSend(chatId, clockDone(io, r));
+}
+
+// ── Tukar Shift ───────────────────────────────────────────────────────────────────────────────────────────
+async function swapDates(chatId: string) {
+  const t = wibToday().getTime();
+  const days = Array.from({ length: 6 }, (_, i) => ymd(new Date(t + i * DAY)));
+  await tgSend(chatId, "🔄 <b>Tukar Shift</b>\nTanggal tukar shift:", { buttons: [...dayButtons(days, (d) => `sd|${d8(d)}`, ymd(new Date(t))), [{ text: "📅 Tanggal lain", data: "sd|lain" }], cancelRow] });
+}
+
+async function askPartner(chatId: string, who: Who, date8: string) {
+  const s = await swapShifts(who.id, who.id, new Date(`${dash(date8)}T00:00:00Z`));
+  await ask(chatId, `🔄 Tukar shift <b>${label(dash(date8))}</b>\nShift Anda: ${esc(shiftText(s.a))}\nKetik <b>nama</b> atau <b>NIK</b> rekan:`, `#sn|${date8}`, "Nama / NIK rekan");
 }
 
 async function submit(q: Q, chatId: string, who: Who, p: string[]) {
@@ -191,6 +287,13 @@ async function submit(q: Q, chatId: string, who: Who, p: string[]) {
     }
     const c = await createLeave(who.id, { policyId: p[1], startDate: dash(p[2]), endDate: dash(p[3]), reason, dayPart: "PENUH", delegateId: "", files });
     r = "error" in c && c.error ? { error: c.error } : { approver: "approver" in c ? c.approver : undefined };
+  } else if (p[0] === "sw") {
+    r = await submitSwapFor(who, { date: dash(p[1]), partnerId: p[2], reason });
+    if (!r.error) {
+      await tgAnswer(q.id, "Terkirim.");
+      await tgEdit(chatId, q.message.message_id, `${esc(text)}\n\n✅ <b>Terkirim</b> ke ${esc(line(text, "Rekan"))}. Setelah rekan menerima, diteruskan ke atasan langsung.`).catch(() => null);
+      return true;
+    }
   } else return false;
   if (r.error) { await tgAnswer(q.id, r.error, true); return true; }
   await tgAnswer(q.id, "Terkirim.");
@@ -270,7 +373,7 @@ async function leaveTypes(chatId: string, who: Who) {
 
 // ── Balasan teks / foto ───────────────────────────────────────────────────────────────────────────────────
 export async function onFormReply(chatId: string, tag: string, text: string, media?: TgMedia) {
-  const m = tag.match(/#(fx|fr|os|oe|or|ar|tt|tp|ls|le|lr|lf)\|(.*)$/);
+  const m = tag.match(/#(fx|fr|os|oe|or|ar|tt|tp|ls|le|lr|lf|sd|sn|sr)\|(.*)$/);
   if (!m) return false;
   const k = m[1], p = m[2].split("|");
   const again = (msg: string, ph: string) => ask(chatId, `⚠️ ${msg}`, m[0], ph);
@@ -316,8 +419,38 @@ export async function onFormReply(chatId: string, tag: string, text: string, med
     return true;
   }
 
+  if (k === "sd") {
+    const d = parseDate(text); if (!d) { await again("Format tanggal belum benar. Ketik lagi.", "Contoh 03-12-2026"); return true; }
+    const who = await prisma.user.findFirst({ where: { telegramChatId: chatId, isActive: true }, select: { id: true, name: true } });
+    if (who) await askPartner(chatId, who, d8(d));
+    return true;
+  }
+  if (k === "sn") {
+    const q = clean(text, 60);
+    if (q.length < 2) { await again("Ketik minimal 2 huruf nama, atau NIK rekan.", "Nama / NIK rekan"); return true; }
+    const me = await prisma.user.findFirst({ where: { telegramChatId: chatId, isActive: true }, select: { id: true } });
+    if (!me) return true;
+    const found = await prisma.user.findMany({
+      where: { isActive: true, role: { not: "SUPER_ADMIN" }, id: { not: me.id }, OR: [{ name: { contains: q, mode: "insensitive" } }, { employeeId: { equals: q, mode: "insensitive" } }] },
+      orderBy: { name: "asc" }, take: 9, select: { id: true, name: true, department: { select: { name: true } } },
+    });
+    if (!found.length) { await again(`Rekan "${esc(q)}" tidak ditemukan. Ketik lagi.`, "Nama / NIK rekan"); return true; }
+    const more = found.length > 8 ? "\n<i>Terlalu banyak yang cocok; bila rekan tidak ada di daftar, ketik nama lebih lengkap.</i>" : "";
+    await tgSend(chatId, `🔄 Pilih rekan:${more}`, { buttons: [
+      ...found.slice(0, 8).map((u) => [{ text: `${u.name}${u.department ? ` · ${u.department.name}` : ""}`.slice(0, 60), data: `sp|${p[0]}|${u.id}` }]),
+      [{ text: "🔎 Cari lagi", data: `sd|${p[0]}` }], cancelRow,
+    ] });
+    return true;
+  }
+
   const reason = clean(text);
   if (!reason) return true;
+  if (k === "sr") {
+    const partner = await prisma.user.findUnique({ where: { id: p[1] }, select: { name: true } });
+    await tgSend(chatId, `🔄 <b>Tukar Shift</b>\nTanggal: ${label(dash(p[0]))}\nRekan: ${esc(partner?.name)}\nAlasan: ${esc(reason)}`,
+      { buttons: [[{ text: "✅ Kirim", data: `k|sw|${p[0]}|${p[1]}` }, ...cancelRow]] });
+    return true;
+  }
   if (k === "fr") {
     await tgSend(chatId, `🕘 <b>Lupa Absen</b>\nTanggal: ${label(p[0])}\nJam ${p[1] === "i" ? "masuk" : "pulang"}: ${hhmm(p[2])}\nAlasan: ${esc(reason)}`,
       { buttons: [[{ text: "✅ Kirim", data: `k|fx|${p[0]}|${p[1]}|${p[2]}` }, ...cancelRow]] });

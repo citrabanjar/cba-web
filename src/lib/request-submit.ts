@@ -351,9 +351,10 @@ export async function submitSwapFor(u: Who, input: SwapInput): Promise<{ error?:
     where: { date, status: { in: OPEN_SWAP }, OR: [{ requesterId: { in: [u.id, input.partnerId] } }, { partnerId: { in: [u.id, input.partnerId] } }] },
   });
   if (busy) return { error: "Sudah ada pengajuan tukar shift yang berjalan di tanggal itu untuk Anda atau rekan." };
-  await prisma.shiftSwapRequest.create({
+  const swap = await prisma.shiftSwapRequest.create({
     data: { requesterId: u.id, partnerId: input.partnerId, date, requesterShift: s.a.code, partnerShift: s.b.code, reason: input.reason.trim() || null },
   });
+  await askApprovers("swapr", swap.id);
   swapRefresh();
   return {};
 }

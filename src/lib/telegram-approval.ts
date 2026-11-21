@@ -1,4 +1,4 @@
-// Telegram: kirim pengajuan Cuti / Pengajuan Absen / Dinas Luar / Lembur / Lupa Absen ke penyetuju dengan tombol
+// Telegram: kirim pengajuan Cuti / Pengajuan Absen / Dinas Luar / Lembur / Lupa Absen / Tukar Shift ke penyetuju dengan tombol
 // Setujui / Tolak, lalu proses klik tombol dari webhook (keputusan pemilik 2026-11-21: Telegram opsional, persetujuan
 // langsung dari Telegram). Keputusannya lewat lib/decide-requests, jadi aturannya sama persis dengan menu Persetujuan.
 import { prisma } from "@/lib/prisma";
@@ -6,13 +6,15 @@ import { actionableApprovers, readApproval } from "@/lib/onboarding-interview";
 import { dateRange } from "@/lib/notify";
 import { hmWib } from "@/lib/attendance-fix";
 import { esc, portalUrl, telegramOn, tgAnswer, tgEdit, tgSend, type TgButton } from "@/lib/telegram";
-import { FORM_TAG, onFormButton, onFormReply, replyTag, sendFormMenu, type TgMedia } from "@/lib/telegram-forms";
+import { FORM_TAG, onFormButton, onFormReply, onLocation, replyTag, sendFormMenu, type TgMedia } from "@/lib/telegram-forms";
 
-export type TgKind = "leave" | "trip" | "overtime" | "fix";
-const KINDS: TgKind[] = ["leave", "trip", "overtime", "fix"];
+// swapr = tukar shift menunggu jawaban rekan; swap = tukar shift menunggu atasan langsung.
+export type TgKind = "leave" | "trip" | "overtime" | "fix" | "swapr" | "swap";
+const KINDS: TgKind[] = ["leave", "trip", "overtime", "fix", "swapr", "swap"];
 const isKind = (k: string): k is TgKind => (KINDS as string[]).includes(k);
 
-type Pending = { userId: string; approval: unknown; html: string };
+// ids: penerima tertentu (tukar shift), selain itu dari Workflow / atasan langsung.
+type Pending = { userId: string; approval: unknown; html: string; ids?: string[] };
 
 // Ringkasan pengajuan yang masih menunggu (null = tidak ada / sudah diputus).
 async function load(kind: TgKind, id: string): Promise<Pending | null> {
@@ -32,6 +34,23 @@ async function load(kind: TgKind, id: string): Promise<Pending | null> {
     if (!r || r.status !== "PENDING") return null;
     return { userId: r.userId, approval: r.approval, html: `<b>Lembur</b>\n${esc(r.user.name)}\n${esc(dateRange(r.date, r.date))} · ${esc(r.startTime)}–${esc(r.endTime)}\nAlasan: ${esc(r.reason)}` };
   }
+  if (kind === "swapr" || kind === "swap") {
+    const r = await prisma.shiftSwapRequest.findUnique({ where: { id }, include: { requester: { select: { name: true } }, partner: { select: { name: true } } } });
+    if (!r) return null;
+    const why = r.reason ? `\nAlasan: ${esc(r.reason)}` : "";
+    // Nama shift (bukan kodenya) supaya mudah dibaca.
+    const shifts = await prisma.workShift.findMany({ where: { code: { in: [r.requesterShift, r.partnerShift] } }, select: { code: true, name: true } });
+    const sh = (code: string) => esc(shifts.find((x) => x.code === code)?.name ?? code);
+    if (kind === "swapr") {
+      if (r.status !== "MENUNGGU_REKAN") return null;
+      return { userId: r.requesterId, approval: null, ids: [r.partnerId],
+        html: `<b>Tukar Shift</b>\n${esc(r.requester.name)} mengajak tukar shift\n${esc(dateRange(r.date, r.date))} · shift Anda <b>${sh(r.partnerShift)}</b> menjadi <b>${sh(r.requesterShift)}</b>${why}` };
+    }
+    if (r.status !== "MENUNGGU_ATASAN") return null;
+    const ids = [r.managerAId && !r.managerAAt ? r.managerAId : null, r.managerBId && !r.managerBAt ? r.managerBId : null].filter((x): x is string => !!x);
+    return { userId: r.requesterId, approval: null, ids,
+      html: `<b>Tukar Shift</b>\n${esc(r.requester.name)} (${sh(r.requesterShift)}) ⇄ ${esc(r.partner.name)} (${sh(r.partnerShift)})\n${esc(dateRange(r.date, r.date))}${why}` };
+  }
   const r = await prisma.attendanceCorrection.findUnique({ where: { id }, include: { user: { select: { name: true } } } });
   if (!r || r.status !== "PENDING") return null;
   const jam = [r.checkIn && `masuk ${hmWib(r.checkIn)}`, r.checkOut && `pulang ${hmWib(r.checkOut)}`].filter(Boolean).join(" · ");
@@ -40,13 +59,14 @@ async function load(kind: TgKind, id: string): Promise<Pending | null> {
 
 // Penyetuju yang sedang bergiliran: level Workflow yang berjalan, atau atasan langsung yang aktif.
 async function approverIds(p: Pending) {
+  if (p.ids) return p.ids;
   const flow = readApproval(p.approval);
   if (flow) return actionableApprovers(flow);
   const u = await prisma.user.findUnique({ where: { id: p.userId }, select: { managerId: true, manager: { select: { isActive: true } } } });
   return u?.managerId && u.manager?.isActive ? [u.managerId] : [];
 }
 
-const buttons = (kind: TgKind, id: string): TgButton[][] => [[{ text: "✅ Setujui", data: `a|${kind}|${id}` }, { text: "❌ Tolak", data: `r|${kind}|${id}` }]];
+const buttons = (kind: TgKind, id: string): TgButton[][] => [[{ text: kind === "swapr" ? "✅ Terima" : "✅ Setujui", data: `a|${kind}|${id}` }, { text: "❌ Tolak", data: `r|${kind}|${id}` }]];
 
 // Kirim pengajuan ke penyetuju yang sudah menghubungkan Telegram. Tidak pernah melempar error.
 export async function askApprovers(kind: TgKind, id: string) {
@@ -57,7 +77,8 @@ export async function askApprovers(kind: TgKind, id: string) {
     const ids = await approverIds(p);
     if (!ids.length) return;
     const chats = await prisma.user.findMany({ where: { id: { in: ids }, isActive: true, telegramChatId: { not: null } }, select: { telegramChatId: true } });
-    const html = `🔔 <b>Menunggu persetujuan Anda</b>\n\n${p.html}\n\n<a href="${portalUrl("/portal/persetujuan")}">Buka di portal</a>`;
+    const head = kind === "swapr" ? "Permintaan tukar shift untuk Anda" : "Menunggu persetujuan Anda";
+    const html = `🔔 <b>${head}</b>\n\n${p.html}\n\n<a href="${portalUrl(kind === "swapr" ? "/portal/notifikasi" : "/portal/persetujuan")}">Buka di portal</a>`;
     await Promise.all(chats.map((c) => tgSend(c.telegramChatId!, html, { buttons: buttons(kind, id) }).catch(() => null)));
   } catch {
     // diabaikan
@@ -68,6 +89,8 @@ export async function askApprovers(kind: TgKind, id: string) {
 type TgUser = { id: number; first_name?: string };
 type TgMessage = {
   message_id: number; chat: { id: number; type: string }; from?: TgUser; text?: string; caption?: string; entities?: { type: string; url?: string }[];
+  date?: number; forward_origin?: unknown; forward_date?: number;
+  location?: { latitude: number; longitude: number; live_period?: number; horizontal_accuracy?: number };
   photo?: { file_id: string; file_size?: number }[]; document?: { file_id: string; mime_type?: string; file_size?: number; file_name?: string };
   reply_to_message?: TgMessage;
 };
@@ -80,11 +103,11 @@ const actorOf = (chatId: string) =>
 // Keputusan lewat modul bersama (import dinamis supaya tidak saling memanggil saat modul dimuat).
 async function decide(kind: TgKind, actor: { id: string; name: string | null; role: string }, id: string, approve: boolean, note: string) {
   const d = await import("@/lib/decide-requests");
-  const fn = { leave: d.decideLeaveAs, trip: d.decideTripAs, overtime: d.decideOvertimeAs, fix: d.decideFixAs }[kind];
+  const fn = { leave: d.decideLeaveAs, trip: d.decideTripAs, overtime: d.decideOvertimeAs, fix: d.decideFixAs, swapr: d.respondSwapAs, swap: d.decideSwapAs }[kind];
   return fn(actor, id, approve, note);
 }
 
-const REJECT_TAG = /#tolak-(leave|trip|overtime|fix)-([a-z0-9]+)-(\d+)/;
+const REJECT_TAG = /#tolak-(leave|trip|overtime|fix|swapr|swap)-([a-z0-9]+)-(\d+)/;
 
 export async function handleTelegramUpdate(u: TgUpdate) {
   if (u.callback_query) return onButton(u.callback_query);
@@ -100,6 +123,13 @@ export async function handleTelegramUpdate(u: TgUpdate) {
       ? { fileId: photo.file_id, mime: "image/jpeg", size: photo.file_size ?? 0, name: "foto.jpg" }
       : { fileId: m.document!.file_id, mime: m.document!.mime_type ?? "", size: m.document!.file_size ?? 0, name: m.document!.file_name ?? "lampiran" };
     await onFormReply(String(m.chat.id), tag, m.caption ?? "", media);
+    return;
+  }
+  // Lokasi: absen masuk / pulang (wajib Live Location).
+  if (m.location) {
+    const who = await actorOf(String(m.chat.id));
+    if (!who) { await tgSend(String(m.chat.id), "Chat ini belum terhubung ke akun portal."); return; }
+    await onLocation(String(m.chat.id), who, { ...m.location, forwarded: !!(m.forward_origin || m.forward_date), sentAt: m.date ?? 0 });
     return;
   }
   if (!m.text) return;
@@ -119,10 +149,10 @@ export async function handleTelegramUpdate(u: TgUpdate) {
       prisma.user.updateMany({ where: { telegramChatId: chatId, id: { not: user.id } }, data: { telegramChatId: null } }),
       prisma.user.update({ where: { id: user.id }, data: { telegramChatId: chatId, telegramLinkCode: null, telegramLinkExpires: null } }),
     ]);
-    await tgSend(chatId, `✅ Terhubung sebagai <b>${esc(user.name)}</b>.\nPengajuan Cuti, Pengajuan Absen, Dinas Luar, Lembur, dan Lupa Absen yang perlu Anda putuskan, serta hasil pengajuan Anda, akan dikirim ke sini.\n\nKetik <b>menu</b> untuk membuat pengajuan, /putus untuk melepas.`);
+    await tgSend(chatId, `✅ Terhubung sebagai <b>${esc(user.name)}</b>.\nPengajuan yang perlu Anda putuskan dan hasil pengajuan Anda akan dikirim ke sini.\n\nKetik <b>menu</b> untuk absen dan membuat pengajuan, /putus untuk melepas.`);
     return;
   }
-  // Menu pengajuan dari chat (tahap 1: Lupa Absen & Lembur).
+  // Menu absensi & pengajuan dari chat.
   if (/^\/?(menu|ajukan)$/i.test(text)) {
     if (!(await actorOf(chatId))) { await tgSend(chatId, "Chat ini belum terhubung ke akun portal. Hubungkan dulu lewat portal → Profil Saya → Akun → Hubungkan Telegram."); return; }
     await sendFormMenu(chatId);
@@ -154,7 +184,7 @@ export async function handleTelegramUpdate(u: TgUpdate) {
     await tgSend(chatId, "❌ Pengajuan ditolak. Pemohon sudah diberi tahu.");
     return;
   }
-  await tgSend(chatId, "Ketik <b>menu</b> untuk membuat pengajuan. Untuk memutuskan pengajuan, gunakan tombol <b>Setujui</b> / <b>Tolak</b> pada pesannya. Untuk melepas akun ketik /putus.");
+  await tgSend(chatId, "Ketik <b>menu</b> untuk absen dan membuat pengajuan. Untuk memutuskan pengajuan, gunakan tombol <b>Setujui</b> / <b>Tolak</b> pada pesannya. Untuk melepas akun ketik /putus.");
 }
 
 async function onButton(q: TgCallback) {
@@ -185,6 +215,7 @@ async function onButton(q: TgCallback) {
   }
   const r = await decide(kind, actor, id, true, "");
   if (r.error) { await tgAnswer(q.id, r.error, true); return; }
-  await tgAnswer(q.id, "Disetujui.");
-  await tgEdit(chatId, msg.message_id, `${p.html}\n\n✅ <b>Disetujui</b> oleh ${esc(actor.name)}`).catch(() => null);
+  const ok = kind === "swapr" ? "Diterima" : "Disetujui";
+  await tgAnswer(q.id, `${ok}.`);
+  await tgEdit(chatId, msg.message_id, `${p.html}\n\n✅ <b>${ok}</b> oleh ${esc(actor.name)}${kind === "swapr" ? ". Diteruskan ke atasan langsung." : ""}`).catch(() => null);
 }
