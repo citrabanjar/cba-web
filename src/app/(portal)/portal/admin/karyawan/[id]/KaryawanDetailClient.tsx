@@ -407,33 +407,9 @@ function salaryTotals(salary: Salary) {
 }
 
 
-function SalaryCard({ salary }: { salary: Salary }) {
-  const benefits = salary.components.filter((c) => c.type === "TUNJANGAN");
-  const deductions = salary.components.filter((c) => c.type === "POTONGAN");
-  const rows = [
-    ...(salary.dailyWage ? [{ label: `Gaji harian x ${salary.monthlyFactor ?? 0} (pengali bulanan)`, value: salary.dailyWage }] : []),
-    { label: salary.dailyWage ? "Gaji Pokok (setara bulanan)" : "Gaji Pokok", value: salary.basicSalary },
-    ...benefits.map((c) => ({ label: c.name, value: c.amount })),
-    ...deductions.map((c) => ({ label: `Potongan: ${c.name}`, value: -c.amount })),
-  ];
-  return (
-    <div className="py-1">
-      {rows.map((r) => (
-        <div key={r.label} className="flex justify-between gap-4 py-1 text-sm">
-          <span className="text-gray-600"><T>{r.label}</T></span>
-          <span className="text-gray-800 tabular-nums">{formatRupiah(r.value)}</span>
-        </div>
-      ))}
-      <div className="flex justify-between gap-4 pt-2 mt-1 border-t border-gray-100 text-sm font-semibold text-gray-900">
-        <span><T>Total Gaji</T></span>
-        <span className="tabular-nums">{formatRupiah(salaryTotals(salary).total)}</span>
-      </div>
-    </div>
-  );
-}
 
+// Riwayat Gaji: satu baris per perubahan, tanpa rincian buka-tutup (permintaan pemilik 2026-11-21).
 function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?: string }) {
-  const [openId, setOpenId] = useState<string | null>(null);
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="section-head px-5 py-3">
@@ -453,21 +429,11 @@ function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?
         </TableHeader>
         <TableBody>
           {salaries.map((s) => {
-            const open = openId === s.id;
             const totals = salaryTotals(s);
             return (
-              <Fragment key={s.id}>
-                <TableRow>
+                <TableRow key={s.id}>
                   <TableCell className="px-4 text-sm whitespace-nowrap">
-                    <button
-                      type="button"
-                      aria-expanded={open}
-                      onClick={() => setOpenId(open ? null : s.id)}
-                      className="inline-flex items-center gap-1 hover:text-brand"
-                    >
-                      {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      {fmtDate(s.effectiveDate)}
-                    </button>
+                    {fmtDate(s.effectiveDate)}
                     {s.id === currentId && (
                       <span className="ml-2">
                         <Pill cls="bg-green-50 text-green-700 border-green-200"><T>Saat ini</T></Pill>
@@ -481,15 +447,6 @@ function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?
                   <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.note ?? "—"}</TableCell>
                   <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.createdBy ?? "—"}</TableCell>
                 </TableRow>
-                {open && (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={7} className="px-4 bg-gray-50/60 whitespace-normal">
-                      <div className="max-w-md"><SalaryCard salary={s} /></div>
-                      {s.note && <p className="md:hidden text-xs text-gray-500 pb-1">{s.note}</p>}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
             );
           })}
         </TableBody>
