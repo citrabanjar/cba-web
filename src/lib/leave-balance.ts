@@ -204,7 +204,7 @@ export async function computeBalances(userIds?: string[]): Promise<BalanceRow[]>
           const d = addMonths(join, n);
           if (stopAt && d > stopAt) break;
           if (d > today) { nextDate = d; nextDays = p.accrualPerMonth; break; }
-          if (d > from) evs.push({ t: d.getTime(), kind: "grant", days: p.accrualPerMonth, label: `Alokasi hak cuti masa (genap ${n} bulan kerja)` });
+          if (d > from) evs.push({ t: d.getTime(), kind: "grant", days: p.accrualPerMonth, label: "Alokasi hak cuti masa" });
         }
       } else if (p.renewal === "JANUARI") {
         const quota = p.quota ?? 0;
