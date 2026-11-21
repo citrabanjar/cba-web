@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Settings2 } from "lucide-react";
+import { Loader2, Plus, Settings2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,8 +98,24 @@ function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row:
 export default function PayComponentsCard({ userId, rows, joinDate = null, embedded = false }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null; embedded?: boolean }) {
   const t = useT();
   const canEdit = useCanEdit("gaji"); // hak lihat saja: komponen tidak bisa dibuka untuk diubah
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PayComponentRow | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [, run] = useTransition();
+  // Tambah / hapus langsung dari kartu (permintaan pemilik 2026-11-21). Tanggal Mulai/Sampai tetap bisa diatur lewat klik kartu.
+  const finish = (r: { error?: string; proposed?: string }) => {
+    if (r.error) void showNotice(t(r.error), "error");
+    else if (r.proposed) void showNotice(proposedText(r.proposed));
+  };
+  const add = (row: PayComponentRow) => {
+    setBusy(row.componentId);
+    run(async () => { finish(await savePayAssignment(userId, row.componentId, { startDate: null, endDate: null, note: "" })); setBusy(null); });
+  };
+  // Konfirmasi di luar transisi supaya dialognya tampil.
+  const remove = async (row: PayComponentRow) => {
+    if (!(await askConfirm(`${t("Hapus komponen")} ${row.code} · ${t(row.name)} ${t("dari karyawan ini?")}`))) return;
+    setBusy(row.componentId);
+    run(async () => { finish(await removePayAssignment(userId, row.componentId)); setBusy(null); });
+  };
   // Tertempel lebih dulu, yang belum tertempel di bawah tiap kelompok.
   const visible = [...rows.filter((r) => r.assigned), ...rows.filter((r) => !r.assigned)];
   const notAssigned = rows.filter((r) => !r.assigned).length;
@@ -109,14 +125,11 @@ export default function PayComponentsCard({ userId, rows, joinDate = null, embed
       <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-3">
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-gray-900">{!embedded && <><T>Komponen Gaji</T> </>}<span className="text-xs font-normal text-gray-400">{activeCount} <T>berlaku</T>{notAssigned > 0 && <> · {notAssigned} <T>belum ditempel</T></>}</span></h3>
-          <p className="text-xs text-gray-400"><T>Komponen yang dihitung saat Proses Gaji. Untuk demosi/promosi, atur tanggal Sampai/Mulai; komponennya sendiri tidak diubah.</T></p>
+          <p className="text-xs text-gray-400"><T>Komponen yang dihitung saat Proses Gaji. Klik + untuk menambahkan ke karyawan, ikon tempat sampah untuk menghapus. Untuk demosi/promosi, klik kartunya lalu atur tanggal Sampai/Mulai.</T></p>
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600">
-          <input type="checkbox" checked={open} onChange={(e) => setOpen(e.target.checked)} className="h-4 w-4 accent-[var(--color-brand)]" />
-          <T>Tampilkan komponen</T>
-        </label>
       </div>
-      {open && <div className="grid gap-4 p-4 md:grid-cols-3">
+      {/* Daftar komponen selalu tampil (tombol Tampilkan komponen dihapus, permintaan pemilik 2026-11-21). */}
+      <div className="grid gap-4 p-4 md:grid-cols-3">
         {KINDS.map((k) => {
           const list = visible.filter((r) => r.kind === k.key);
           return (
@@ -127,9 +140,9 @@ export default function PayComponentsCard({ userId, rows, joinDate = null, embed
                 {list.map((r) => {
                   const st = status(r.assigned, joinDate);
                   return (
-                    <li key={r.componentId}>
-                      <button type="button" onClick={() => setEditing(r)} disabled={!canEdit}
-                        className={`group flex w-full items-start gap-2 rounded-xl border border-gray-100 px-2.5 py-2 text-left enabled:hover:border-gray-300 ${st.active ? "" : "opacity-70"}`}>
+                    <li key={r.componentId} className="flex items-stretch gap-1.5">
+                      <button type="button" onClick={() => setEditing(r)} disabled={!canEdit || !r.assigned}
+                        className={`group flex min-w-0 flex-1 items-start gap-2 rounded-xl border border-gray-100 px-2.5 py-2 text-left enabled:hover:border-gray-300 ${st.active ? "" : "opacity-70"}`}>
                         <span className="mt-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: st.active ? k.color : "#9ca3af" }}>{r.code}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm text-gray-900">{t(r.name)}</span>
@@ -137,8 +150,22 @@ export default function PayComponentsCard({ userId, rows, joinDate = null, embed
                           <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.tone}`}>{t(st.label)}</span>
                           {r.assigned?.note && <span className="ml-1.5 text-[10px] text-gray-500">{r.assigned.note}</span>}
                         </span>
-                        {canEdit && <Settings2 size={13} className="mt-1 shrink-0 text-gray-300 group-hover:text-brand" />}
+                        {canEdit && r.assigned && <Settings2 size={13} className="mt-1 shrink-0 text-gray-300 group-hover:text-brand" />}
                       </button>
+                      {/* Gaji Pokok selalu melekat di karyawan, jadi tidak bisa dihapus. */}
+                      {canEdit && r.code !== "GP" && (
+                        r.assigned ? (
+                          <button type="button" disabled={busy === r.componentId} onClick={() => remove(r)} aria-label={t("Hapus")} title={t("Hapus dari karyawan")}
+                            className="flex w-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 text-gray-400 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50">
+                            {busy === r.componentId ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                          </button>
+                        ) : (
+                          <button type="button" disabled={busy === r.componentId} onClick={() => add(r)} aria-label={t("Tambah")} title={t("Tambahkan ke karyawan")}
+                            className="flex w-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 text-gray-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50">
+                            {busy === r.componentId ? <Loader2 size={14} className="animate-spin" /> : <Plus size={15} />}
+                          </button>
+                        )
+                      )}
                     </li>
                   );
                 })}
@@ -146,7 +173,7 @@ export default function PayComponentsCard({ userId, rows, joinDate = null, embed
             </div>
           );
         })}
-      </div>}
+      </div>
       {editing && <AssignDialog key={editing.componentId} userId={userId} row={editing} joinDate={joinDate} onClose={() => setEditing(null)} />}
     </section>
   );
