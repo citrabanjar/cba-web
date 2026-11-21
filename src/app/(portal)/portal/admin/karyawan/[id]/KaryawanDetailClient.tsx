@@ -31,7 +31,7 @@ import Pph21Card, { type Pph21Year } from "./Pph21Card";
 import PriorTaxCard, { type PriorSlipItem } from "./PriorTaxCard";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import { DeleteLoanButton, LoanActions, LoanDialog } from "@/components/portal/LoanManager";
-import { LoanRequestSummary, LoanScheduleTable, LoanTrail, type LoanView } from "@/components/portal/LoanCard";
+import { LoanScheduleTable, type LoanView } from "@/components/portal/LoanCard";
 import { LOAN_GROUPS, LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort } from "@/lib/loans";
 import RegionSelect from "@/components/RegionSelect";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
@@ -353,7 +353,6 @@ function LoansCv({ loans, readOnly }: { loans: LoanView[]; readOnly: boolean }) 
   const next = open.filter((i) => i.period > month).sort((a, b) => a.period.localeCompare(b.period))[0];
   const nextSum = next ? open.filter((i) => i.period === next.period).reduce((a, i) => a + i.amount, 0) : 0;
   const statusOf = (l: LoanView) => { const stage = loanStageOf(l.status, l.stage); return stage ? { label: LOAN_STAGE[stage], tone: LOAN_STATUS.PENDING.tone, stage } : { ...(LOAN_STATUS[l.status] ?? { label: l.status, tone: "bg-gray-100 text-gray-600" }), stage }; };
-  const dmy = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
   const active = loans.filter((l) => !(LOAN_GROUPS[2].statuses as readonly string[]).includes(l.status));
   const done = loans.filter((l) => (LOAN_GROUPS[2].statuses as readonly string[]).includes(l.status));
   return (
@@ -367,31 +366,16 @@ function LoansCv({ loans, readOnly }: { loans: LoanView[]; readOnly: boolean }) 
             <CvRow label="Angsuran bulan ini">{formatRupiah(dueThisMonth)}</CvRow>
             <CvRow label="Angsuran berikutnya">{next ? `${periodShort(next.period)} · ${formatRupiah(nextSum)}` : null}</CvRow>
           </>) },
+        // Di bawah Ringkasan Pinjaman cukup tabel angsuran per pinjaman (permintaan pemilik 2026-11-21).
         ...active.map((l) => {
           const st = statusOf(l);
-          const s = loanSummary(l.principal, l.installments);
-          const showProcess = !readOnly || ["PENDING", "DITOLAK", "BATAL"].includes(l.status);
           return {
-            key: `pinjaman-${l.id}`,
-            title: `${l.seqNo > 0 ? `${t("Pinjaman ke-")}${l.seqNo}` : t("Pinjaman")} · ${t(st.label)}`,
+            key: `pinjaman-${l.id}`, flat: true,
+            title: `${l.seqNo > 0 ? `${t("Pinjaman ke-")}${l.seqNo}` : t("Pinjaman")} · ${formatRupiah(l.principal)} · ${t(st.label)}`,
             action: readOnly ? undefined : <LoanActions inline loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />,
-            content: (<>
-              <CvRow label="Nominal">{formatRupiah(l.principal)}{l.isOpening && <span className="ml-2 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700"><T>Saldo awal migrasi</T></span>}</CvRow>
-              {l.originalAmount ? <CvRow label={l.isOpening ? "Pinjaman semula" : "Dana baru"}>{formatRupiah(l.originalAmount)}</CvRow> : null}
-              <CvRow label="Angsuran">{`${l.tenor} ${t("kali")} · ${t("mulai")} ${periodShort(l.startPeriod)}`}</CvRow>
-              {l.disbursedAt && <CvRow label="Dicairkan">{dmy(l.disbursedAt)}</CvRow>}
-              {showProcess && l.purpose && <CvRow label="Keperluan">{l.purpose}</CvRow>}
-              {showProcess && l.note && <CvRow label="Catatan">{l.note}</CvRow>}
-              {showProcess && (l.flow?.managerName || l.flow?.workflow || l.flow?.topName) && (
-                <CvRow label="Persetujuan"><span className="font-normal [&>p]:mt-0"><LoanTrail flow={l.flow!} status={l.status} stage={st.stage} /></span></CvRow>
-              )}
-              {l.status === "PENDING" && l.flow?.request && <LoanRequestSummary plan={l.flow.request} />}
-              {l.installments.length > 0 && (<>
-                <CvRow label="Sudah dibayar">{`${formatRupiah(s.paid)} (${s.paidCount}/${l.installments.length})`}</CvRow>
-                <CvRow label="Sisa">{formatRupiah(s.remaining)}</CvRow>
-                <div className="pt-1"><LoanScheduleTable loan={l} /></div>
-              </>)}
-            </>),
+            content: l.installments.length > 0
+              ? <div className="px-5 py-1"><LoanScheduleTable loan={l} /></div>
+              : <p className="px-6 text-sm text-gray-400"><T>Belum ada tabel angsuran.</T></p>,
           };
         }),
         done.length > 0 && { key: "pinjaman-selesai", title: "Pinjaman Selesai", content: (<>
