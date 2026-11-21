@@ -32,7 +32,7 @@ import PriorTaxCard, { type PriorSlipItem } from "./PriorTaxCard";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import { LoanActions, LoanDialog } from "@/components/portal/LoanManager";
 import { LoanScheduleTable, type LoanView } from "@/components/portal/LoanCard";
-import { LOAN_GROUPS, LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort } from "@/lib/loans";
+import { LOAN_GROUPS, LOAN_STAGE, LOAN_STATUS, addMonths, loanStageOf, loanSummary, periodShort } from "@/lib/loans";
 import RegionSelect from "@/components/RegionSelect";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
 
@@ -345,7 +345,6 @@ function CvRow({ label, children }: { label: string; children: React.ReactNode }
 function LoansCv({ loans, readOnly }: { loans: LoanView[]; readOnly: boolean }) {
   const t = useT();
   const [dialog, setDialog] = useState<{ kind: "approve" | "disburse" | "schedule"; loan: LoanView } | null>(null);
-  const month = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
   const statusOf = (l: LoanView) => { const stage = loanStageOf(l.status, l.stage); return stage ? { label: LOAN_STAGE[stage], tone: LOAN_STATUS.PENDING.tone, stage } : { ...(LOAN_STATUS[l.status] ?? { label: l.status, tone: "bg-gray-100 text-gray-600" }), stage }; };
   const isDone = (l: LoanView) => (LOAN_GROUPS[2].statuses as readonly string[]).includes(l.status);
   // Satu bagian per pinjaman: yang sedang berjalan paling atas, lalu yang selesai (terbaru dulu).
@@ -361,18 +360,28 @@ function LoansCv({ loans, readOnly }: { loans: LoanView[]; readOnly: boolean }) 
           const into = l.status === "DIGABUNG" ? l.note?.match(/dipindahkan ke Pinjaman ke-(\d+)/)?.[1] : null;
           const label = l.status === "DIGABUNG" ? `${t("Take over")}${into ? ` ${t("ke Pinjaman ke-")}${into}` : ""}` : t(st.label);
           const s = loanSummary(l.principal, l.installments);
-          const open = l.installments.filter((i) => i.status !== "LUNAS");
-          const thisMonth = open.filter((i) => i.period === month).reduce((a, i) => a + i.amount, 0);
-          const next = open.filter((i) => i.period > month).sort((a, b) => a.period.localeCompare(b.period))[0];
+          // Ringkasan per pinjaman (permintaan pemilik 2026-11-21). Pelunasan hanya untuk pinjaman yang sudah lunas:
+          // tanggal = angsuran terakhir; take over = sisa saldo dipindah ke pinjaman baru (baris Take over di tabel).
+          const rows = [...l.installments].sort((a, b) => a.seq - b.seq);
+          const perMonth = (rows.find((i) => i.status !== "LUNAS") ?? rows[0])?.amount ?? 0;
+          const lastRow = rows[rows.length - 1];
+          const takeoverRest = l.status === "DIGABUNG" ? Math.max(0, l.principal - rows.reduce((a, r) => a + r.amount, 0)) : 0;
+          const settled = done && (l.status === "LUNAS" || l.status === "DIGABUNG");
+          const settleDate = takeoverRest > 0
+            ? `${periodShort(lastRow ? addMonths(lastRow.period, 1) : l.startPeriod)} (${t("take over dari Pinjaman ke-")}${into ?? "?"})`
+            : lastRow ? (lastRow.paidAt ? fmtDate(new Date(lastRow.paidAt)) : periodShort(lastRow.period)) : null;
+          const settleAmount = takeoverRest > 0 ? takeoverRest : lastRow?.amount ?? 0;
           return {
             key: `pinjaman-${l.id}`,
             title: `${l.seqNo > 0 ? `${t("Pinjaman ke-")}${l.seqNo}` : t("Pinjaman")} · ${formatRupiah(l.principal)} · ${label}`,
             action: readOnly || done ? undefined : <LoanActions inline loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />,
             content: (<>
-              {l.status === "BERJALAN" && (<>
-                <CvRow label="Sisa pinjaman">{formatRupiah(s.remaining)}</CvRow>
-                <CvRow label="Angsuran bulan ini">{formatRupiah(thisMonth)}</CvRow>
-                <CvRow label="Angsuran berikutnya">{next ? `${periodShort(next.period)} · ${formatRupiah(next.amount)}` : null}</CvRow>
+              <CvRow label="Pengajuan Pinjaman">{formatRupiah(l.originalAmount ?? l.principal)}</CvRow>
+              <CvRow label="Angsuran per bulan">{formatRupiah(perMonth)}</CvRow>
+              <CvRow label="Sisa Pinjaman">{formatRupiah(l.status === "DIGABUNG" ? 0 : s.remaining)}</CvRow>
+              {settled && (<>
+                <CvRow label="Tanggal pelunasan">{settleDate}</CvRow>
+                <CvRow label="Nilai pelunasan">{formatRupiah(settleAmount)}</CvRow>
               </>)}
               {l.installments.length > 0 || l.status === "DIGABUNG"
                 ? <div className="pt-1"><LoanScheduleTable loan={l} /></div>
