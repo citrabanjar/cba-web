@@ -125,17 +125,20 @@ export default function PayComponentsCard({ userId, rows, joinDate = null }: { u
       {KINDS.map((k) => {
         const mine = rows.filter((r) => r.kind === k.key && r.assigned);
         const free = rows.filter((r) => r.kind === k.key && !r.assigned);
+        // Tiap komponen satu baris dengan titik dua sendiri; label jenis hanya di baris pertama.
+        const grid = "grid grid-cols-[minmax(0,7.5rem)_auto_minmax(0,1fr)] gap-x-2 text-sm sm:grid-cols-[13rem_auto_minmax(0,1fr)]";
         return (
-          <div key={k.key} className="grid grid-cols-[minmax(0,7.5rem)_auto_minmax(0,1fr)] gap-x-2 text-sm sm:grid-cols-[13rem_auto_minmax(0,1fr)]">
-            <span className="text-gray-500"><T>{k.short}</T></span>
-            <span aria-hidden className="text-gray-400">:</span>
-            <div className="min-w-0 space-y-1">
-              {mine.length === 0 && <p className="text-gray-400">—</p>}
-              {mine.map((r) => {
-                const st = status(r.assigned, joinDate);
-                return (
-                  <div key={r.componentId} className="flex min-w-0 items-center gap-2">
-                    {/* Satu baris per komponen, tanpa keterangan rumus (permintaan pemilik). */}
+          <div key={k.key} className="space-y-1">
+            {mine.length === 0 && (
+              <div className={grid}><span className="text-gray-500"><T>{k.short}</T></span><span aria-hidden className="text-gray-400">:</span><span className="text-gray-400">—</span></div>
+            )}
+            {mine.map((r, i) => {
+              const st = status(r.assigned, joinDate);
+              return (
+                <div key={r.componentId} className={grid}>
+                  <span className="text-gray-500">{i === 0 && <T>{k.short}</T>}</span>
+                  <span aria-hidden className="text-gray-400">:</span>
+                  <div className="flex min-w-0 items-center gap-2">
                     <button type="button" onClick={() => setEditing(r)} disabled={!canEdit}
                       className="min-w-0 truncate text-left font-medium text-gray-900 enabled:hover:text-brand">{t(r.name)}</button>
                     {st.label !== "Berlaku" && <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.tone}`}>{t(st.label)}</span>}
@@ -147,22 +150,29 @@ export default function PayComponentsCard({ userId, rows, joinDate = null }: { u
                       </button>
                     )}
                   </div>
-                );
-              })}
-              {canEdit && free.length > 0 && (adding === k.key ? (
-                <select autoFocus defaultValue="" onBlur={() => setAdding(null)}
-                  onChange={(e) => { const row = free.find((r) => r.componentId === e.target.value); setAdding(null); if (row) add(row); }}
-                  className="h-8 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40">
-                  <option value="" disabled>{t("Pilih komponen...")}</option>
-                  {free.map((r) => <option key={r.componentId} value={r.componentId}>{t(r.name)}</option>)}
-                </select>
-              ) : (
-                <button type="button" onClick={() => setAdding(k.key)} disabled={!!busy} aria-label={`${t("Tambah")} ${t(k.short)}`}
-                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-brand hover:bg-brand/5 disabled:opacity-50">
-                  {busy && free.some((r) => r.componentId === busy) ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} <T>Tambah</T>
-                </button>
-              ))}
-            </div>
+                </div>
+              );
+            })}
+            {canEdit && free.length > 0 && (
+              <div className={grid}>
+                <span /><span />
+                <div>
+                  {adding === k.key ? (
+                    <select autoFocus defaultValue="" onBlur={() => setAdding(null)}
+                      onChange={(e) => { const row = free.find((r) => r.componentId === e.target.value); setAdding(null); if (row) add(row); }}
+                      className="h-8 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40">
+                      <option value="" disabled>{t("Pilih komponen...")}</option>
+                      {free.map((r) => <option key={r.componentId} value={r.componentId}>{t(r.name)}</option>)}
+                    </select>
+                  ) : (
+                    <button type="button" onClick={() => setAdding(k.key)} disabled={!!busy} aria-label={`${t("Tambah")} ${t(k.short)}`}
+                      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-brand hover:bg-brand/5 disabled:opacity-50">
+                      {busy && free.some((r) => r.componentId === busy) ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} <T>Tambah</T>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
