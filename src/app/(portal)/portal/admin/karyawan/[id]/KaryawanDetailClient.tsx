@@ -1178,7 +1178,6 @@ export default function KaryawanDetailClient({
               )}
             </>) },
             canSeePay && !self && { key: "komponen", title: "Komponen Gaji", content: <PayComponentsCard embedded userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
-            canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", title: "Riwayat Gaji", flat: true, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
             // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
             canSeePay && !self && { key: "pindahan", title: "PPh 21 Pindahan", content: <PriorTaxCard embedded userId={emp.id} slips={priorSlips} /> },
             { key: "bpjs", title: "Benefit", onEdit: edit("bpjs"), content: (<>
@@ -1187,6 +1186,8 @@ export default function KaryawanDetailClient({
               <CvRow label="No BPJS Kesehatan">{emp.bpjsKesNumber}</CvRow>
               <CvRow label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</CvRow>
             </>) },
+            // Riwayat Gaji paling bawah (permintaan pemilik 2026-11-21).
+            canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", title: "Riwayat Gaji", flat: true, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
           ]} />
         )}
 
