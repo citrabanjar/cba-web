@@ -30,7 +30,7 @@ import type { BalanceRow } from "@/lib/leave-balance";
 import Pph21Card, { type Pph21Year } from "./Pph21Card";
 import PriorTaxCard, { type PriorSlipItem } from "./PriorTaxCard";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
-import { DeleteLoanButton, LoanActions, LoanDialog } from "@/components/portal/LoanManager";
+import { LoanActions, LoanDialog } from "@/components/portal/LoanManager";
 import { LoanScheduleTable, type LoanView } from "@/components/portal/LoanCard";
 import { LOAN_GROUPS, LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort } from "@/lib/loans";
 import RegionSelect from "@/components/RegionSelect";
@@ -366,29 +366,22 @@ function LoansCv({ loans, readOnly }: { loans: LoanView[]; readOnly: boolean }) 
             <CvRow label="Angsuran bulan ini">{formatRupiah(dueThisMonth)}</CvRow>
             <CvRow label="Angsuran berikutnya">{next ? `${periodShort(next.period)} · ${formatRupiah(nextSum)}` : null}</CvRow>
           </>) },
-        // Di bawah Ringkasan Pinjaman cukup tabel angsuran per pinjaman (permintaan pemilik 2026-11-21).
-        ...active.map((l) => {
+        // Di bawah Ringkasan: satu bagian per pinjaman (berjalan maupun selesai), berurutan Pinjaman ke-1, ke-2, ...
+        // dan isinya cukup tabel angsuran. Pinjaman yang di-take over tetap tampil dengan tabelnya (riwayat).
+        ...[...active, ...done].sort((x, y) => (x.seqNo || 0) - (y.seqNo || 0)).map((l) => {
           const st = statusOf(l);
+          const into = l.status === "DIGABUNG" ? l.note?.match(/dipindahkan ke Pinjaman ke-(\d+)/)?.[1] : null;
+          const label = l.status === "DIGABUNG" ? `${t("Take over")}${into ? ` ${t("ke Pinjaman ke-")}${into}` : ""}` : t(st.label);
+          const isActive = active.includes(l);
           return {
             key: `pinjaman-${l.id}`, flat: true,
-            title: `${l.seqNo > 0 ? `${t("Pinjaman ke-")}${l.seqNo}` : t("Pinjaman")} · ${formatRupiah(l.principal)} · ${t(st.label)}`,
-            action: readOnly ? undefined : <LoanActions inline loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />,
-            content: l.installments.length > 0
+            title: `${l.seqNo > 0 ? `${t("Pinjaman ke-")}${l.seqNo}` : t("Pinjaman")} · ${formatRupiah(l.principal)} · ${label}`,
+            action: readOnly || !isActive ? undefined : <LoanActions inline loan={l} onOpen={(kind) => setDialog({ kind, loan: l })} />,
+            content: l.installments.length > 0 || l.status === "DIGABUNG"
               ? <div className="px-5 py-1"><LoanScheduleTable loan={l} /></div>
               : <p className="px-6 text-sm text-gray-400"><T>Belum ada tabel angsuran.</T></p>,
           };
         }),
-        done.length > 0 && { key: "pinjaman-selesai", title: "Pinjaman Selesai", content: (<>
-          {done.map((l) => (
-            <CvRow key={l.id} label={l.seqNo > 0 ? `${t("Pinjaman ke-")}${l.seqNo}` : "Pinjaman"}>
-              <span className="inline-flex flex-wrap items-center gap-2">
-                {formatRupiah(l.principal)}
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusOf(l).tone}`}><T>{statusOf(l).label}</T></span>
-                {!readOnly && <DeleteLoanButton loan={l} />}
-              </span>
-            </CvRow>
-          ))}
-        </>) },
       ]} />
       {dialog && <LoanDialog kind={dialog.kind} loan={dialog.loan} running={loans.filter((l) => l.status === "BERJALAN" && l.id !== dialog.loan.id)} onClose={() => setDialog(null)} />}
     </>

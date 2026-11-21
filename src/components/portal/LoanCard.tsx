@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { T, useT } from "@/components/i18n";
 import { formatRupiah } from "@/lib/utils";
-import { LOAN_STAGE, LOAN_STATUS, loanStageOf, loanSummary, periodShort, type LoanFlow, type LoanPlan } from "@/lib/loans";
+import { LOAN_STAGE, LOAN_STATUS, addMonths, loanStageOf, loanSummary, periodShort, type LoanFlow, type LoanPlan } from "@/lib/loans";
 
 export type LoanView = {
   id: string; seqNo: number; disbursedAt: string | null; principal: number; tenor: number; startPeriod: string; purpose: string | null; status: string;
@@ -148,8 +148,15 @@ export function LoanRequestSummary({ plan: p }: { plan: LoanPlan }) {
 export function LoanScheduleTable({ loan }: { loan: LoanView }) {
   const t = useT();
   const th = "px-3 py-1.5 font-medium";
-  // Sisa setelah bayar dihitung lebih dulu (tanpa mengubah variabel di dalam render baris).
-  const rows = [...loan.installments].sort((a, b) => a.seq - b.seq);
+  // Pinjaman yang di-take over (digabung): angsuran yang belum terpotong sudah dipindah ke pinjaman gabungan.
+  // Sisa saldonya ditampilkan sebagai angsuran terakhir "Take over" supaya tabelnya lunas secara transaksi
+  // (hanya tampilan; periodenya bulan sesudah potongan terakhir). Permintaan pemilik 2026-11-21.
+  const sorted = [...loan.installments].sort((a, b) => a.seq - b.seq);
+  const rest = loan.status === "DIGABUNG" ? loan.principal - sorted.reduce((x, r) => x + r.amount, 0) : 0;
+  const last = sorted[sorted.length - 1];
+  const rows = rest > 0
+    ? [...sorted, { id: "takeover", seq: (last?.seq ?? 0) + 1, period: last ? addMonths(last.period, 1) : loan.startPeriod, amount: rest, status: "TAKEOVER", paidAt: null }]
+    : sorted;
   const lefts = rows.map((_, n) => Math.max(0, loan.principal - rows.slice(0, n + 1).reduce((x, r) => x + r.amount, 0)));
   return (
     <div className="max-h-96 overflow-auto rounded-xl border border-gray-100">
@@ -172,8 +179,8 @@ export function LoanScheduleTable({ loan }: { loan: LoanView }) {
                 <td className="px-3 py-1.5 text-right tabular-nums text-gray-800">{formatRupiah(r.amount)}</td>
                 <td className="hidden px-3 py-1.5 text-right tabular-nums text-gray-500 sm:table-cell">{formatRupiah(lefts[n])}</td>
                 <td className="px-3 py-1.5">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.status === "LUNAS" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                    {t(r.status === "LUNAS" ? "Terpotong" : "Belum")}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.status === "LUNAS" ? "bg-emerald-50 text-emerald-700" : r.status === "TAKEOVER" ? "bg-indigo-50 text-indigo-700" : "bg-gray-100 text-gray-500"}`}>
+                    {t(r.status === "LUNAS" ? "Terpotong" : r.status === "TAKEOVER" ? "Take over" : "Belum")}
                   </span>
                 </td>
               </tr>
