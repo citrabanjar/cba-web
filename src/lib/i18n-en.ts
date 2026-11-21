@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "pada tanggal": "on",
   "Alokasi Cuti": "Leave Allocation",
   "Tidak memotong saldo": "Does not reduce balance",
   "Semua pinjaman yang dipilih milik karyawan Cash; cairkan tunai lewat Tandai Dicairkan.": "All selected loans belong to Cash employees; disburse in cash via Mark as Disbursed.",

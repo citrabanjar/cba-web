@@ -212,7 +212,7 @@ export default function ProfilClient({ me, salary, balances, loans, lastSlip, sl
                 <Row label="Sisa saldo" value={`${days(r.balance)} ${t("hari")}`} />
                 {r.pending > 0 && <Row label="Menunggu persetujuan" value={`${days(r.pending)} ${t("hari")}`} />}
                 {r.pending > 0 && <Row label="Bisa diajukan" value={`${days(Math.max(0, r.balance - r.pending))} ${t("hari")}`} />}
-                {r.nextDate && r.nextDays ? <Row label="Alokasi Cuti" value={`${days(r.nextDays)} ${t("hari")} · ${d(r.nextDate)}`} /> : null}
+                {r.nextDate && r.nextDays ? <Row label="Alokasi Cuti" value={`${days(r.nextDays)} ${t("hari")} ${t("pada tanggal")} ${d(r.nextDate)}`} /> : null}
                 {r.problem && <p className="mt-1 text-xs text-red-600"><T>{r.problem}</T> — <T>hubungi HRD</T></p>}
                 {showLedger === r.policyId && (
                   <div className="mt-2 overflow-hidden rounded-xl border border-gray-100">

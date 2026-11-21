@@ -221,7 +221,7 @@ function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["le
           <LeaveRow label="Sisa saldo" value={`${leaveDays(r.balance)} ${t("hari")}`} />
           {r.pending > 0 && <LeaveRow label="Menunggu persetujuan" value={`${leaveDays(r.pending)} ${t("hari")}`} />}
           {r.pending > 0 && <LeaveRow label="Bisa diajukan" value={`${leaveDays(Math.max(0, r.balance - r.pending))} ${t("hari")}`} />}
-          {r.nextDate && r.nextDays ? <LeaveRow label="Alokasi Cuti" value={`${leaveDays(r.nextDays)} ${t("hari")} · ${formatDate(new Date(r.nextDate))}`} /> : null}
+          {r.nextDate && r.nextDays ? <LeaveRow label="Alokasi Cuti" value={`${leaveDays(r.nextDays)} ${t("hari")} ${t("pada tanggal")} ${formatDate(new Date(r.nextDate))}`} /> : null}
           {r.problem && <p className="mt-1 text-xs text-red-600"><T>{r.problem}</T> — <T>hubungi HRD</T></p>}
           {r.ledger.length > 0 && (
             <div className="mt-2 max-h-96 overflow-auto rounded-xl border border-gray-100">
