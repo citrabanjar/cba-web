@@ -52,12 +52,12 @@ export async function onFormButton(q: { id: string; data: string; message: { mes
     await tgAnswer(q.id, label(p[0]));
     const att = await prisma.attendance.findUnique({ where: { userId_date: { userId: who.id, date: new Date(`${p[0]}T00:00:00Z`) } }, select: { checkIn: true } });
     const io = att?.checkIn ? "o" : "i";
-    await ask(chatId, `🕘 Lupa Absen <b>${label(p[0])}</b>\nJam <b>${io === "i" ? "masuk" : "pulang"}</b> sebenarnya? (contoh 17:30)`, `#fx|${p[0]}|${io}`, "Contoh 17:30");
+    await ask(chatId, `🕘 Lupa Absen <b>${label(p[0])}</b>\nJam <b>${io === "i" ? "masuk" : "pulang"}</b> sebenarnya?`, `#fx|${p[0]}|${io}`, "Contoh 17:30");
     return true;
   }
   if (k === "od" && p[0]) {
     await tgAnswer(q.id, label(p[0]));
-    await ask(chatId, `⏱️ Lembur <b>${label(p[0])}</b>\nJam <b>mulai</b> lembur? (contoh 17:00)`, `#os|${p[0]}`, "Contoh 17:00");
+    await ask(chatId, `⏱️ Lembur <b>${label(p[0])}</b>\nJam <b>mulai</b> lembur?`, `#os|${p[0]}`, "Contoh 17:00");
     return true;
   }
   if (k === "k") {
@@ -116,7 +116,7 @@ export async function onFormReply(chatId: string, replyTo: string, text: string)
   const [, k, date, a, b] = m;
   const time = () => parseTime(text);
   // Jam salah: tanya ulang langkah yang sama (kolom ketik kembali otomatis membalas).
-  const bad = () => ask(chatId, "⚠️ Format jam belum benar. Ketik lagi, contoh <b>17:30</b>.", m[0], "Contoh 17:30");
+  const bad = () => ask(chatId, "⚠️ Format jam belum benar. Ketik lagi.", m[0], "Contoh 17:30");
   if (k === "fx") {
     const t = time(); if (!t) { await bad(); return true; }
     await ask(chatId, `🕘 Lupa Absen <b>${label(date)}</b> · jam ${a === "i" ? "masuk" : "pulang"} <b>${t}</b>\nAlasan lupa absen?`, `#fr|${date}|${a}|${t.replace(":", "")}`, "Alasan");
@@ -124,7 +124,7 @@ export async function onFormReply(chatId: string, replyTo: string, text: string)
   }
   if (k === "os") {
     const t = time(); if (!t) { await bad(); return true; }
-    await ask(chatId, `⏱️ Lembur <b>${label(date)}</b> · mulai <b>${t}</b>\nJam <b>selesai</b> lembur? (contoh 20:00)`, `#oe|${date}|${t.replace(":", "")}`, "Contoh 20:00");
+    await ask(chatId, `⏱️ Lembur <b>${label(date)}</b> · mulai <b>${t}</b>\nJam <b>selesai</b> lembur?`, `#oe|${date}|${t.replace(":", "")}`, "Contoh 20:00");
     return true;
   }
   if (k === "oe") {
