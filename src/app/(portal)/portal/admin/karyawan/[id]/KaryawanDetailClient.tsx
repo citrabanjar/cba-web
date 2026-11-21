@@ -103,6 +103,7 @@ const TAB_LIST = [
   { key: "pribadi", label: "Data Diri" },
   { key: "pekerjaan", label: "Pekerjaan" },
   { key: "absensi", label: "Kehadiran" },
+  { key: "cuti", label: "Cuti" }, // saldo & riwayat cuti serta dinas luar (dipisah dari Kehadiran 2026-11-21)
   { key: "gaji", label: "Payroll" },
   { key: "pinjaman", label: "Pinjaman" },
   { key: "payslip", label: "Slip & Pajak" }, // bukti hasil proses: slip gaji (payroll run) & PPh 21 (pemotongan pajak)
@@ -176,26 +177,12 @@ const APPROVAL: Record<string, { label: string; cls: string }> = {
   REJECTED: { label: "Ditolak", cls: "bg-red-50 text-red-700 border-red-200" },
   CANCELLED: { label: "Dibatalkan", cls: "bg-gray-100 text-gray-600 border-gray-200" },
 };
-const ATTENDANCE: Record<string, string> = {
-  HADIR: "bg-green-50 text-green-700 border-green-200",
-  IZIN: "bg-blue-50 text-blue-700 border-blue-200",
-  SAKIT: "bg-amber-50 text-amber-700 border-amber-200",
-  ALPHA: "bg-red-50 text-red-700 border-red-200",
-  CUTI: "bg-purple-50 text-purple-700 border-purple-200",
-  DINAS: "bg-sky-50 text-sky-700 border-sky-200",
-};
 
 // Kolom @db.Date tersimpan tengah malam UTC, jadi tampilkan dalam UTC.
 // Zona waktu ditulis eksplisit supaya hasil server dan browser sama.
 function fmtDate(d: Date | null): string {
   if (!d) return "—";
   return formatDate(d);
-}
-function fmtTime(d: Date | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleTimeString("id-ID", {
-    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
-  });
 }
 
 // Angka hari cuti: 2,5 (koma desimal).
@@ -273,56 +260,6 @@ function LeaveSaldo({ rows, leaves }: { rows: BalanceRow[]; leaves: Employee["le
   );
 }
 
-const MONTHS_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-
-// Riwayat Absensi: difilter per bulan (default bulan berjalan), tabel bergulir dengan judul kolom tetap.
-function AttendanceHistory({ rows }: { rows: Employee["attendances"] }) {
-  const monthOf = (d: Date) => new Date(d).toISOString().slice(0, 7); // kolom @db.Date = tengah malam UTC
-  const [nowMonth] = useState(() => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7));
-  const months = useMemo(() => [...new Set([nowMonth, ...rows.map((a) => monthOf(a.date))])].sort().reverse(), [rows, nowMonth]);
-  const [month, setMonth] = useState(nowMonth);
-  const list = rows.filter((a) => monthOf(a.date) === month);
-  const label = (m: string) => `${MONTHS_ID[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
-  return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5">
-        <select value={month} aria-label="Bulan" onChange={(e) => setMonth(e.target.value)}
-          className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
-          {months.map((m) => <option key={m} value={m}>{label(m)}</option>)}
-        </select>
-        <span className="text-xs text-gray-400">{list.length} <T>hari</T></span>
-      </div>
-      {list.length === 0 ? <div className="p-4"><Empty text="Belum ada data absensi." /></div> : (
-        <Table containerClassName="max-h-[60vh] overflow-y-auto">
-          <TableHeader className="sticky top-0 z-10 bg-gray-50">
-            <TableRow className="bg-gray-50 hover:bg-gray-50">
-              <TableHead className="px-4"><T>Tanggal</T></TableHead>
-              <TableHead className="px-4"><T>Masuk</T></TableHead>
-              <TableHead className="px-4"><T>Pulang</T></TableHead>
-              <TableHead className="px-4"><T>Status</T></TableHead>
-              <TableHead className="hidden md:table-cell px-4"><T>Lokasi</T></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.map((a) => (
-              <TableRow key={a.id}>
-                <TableCell className="px-4 text-sm whitespace-nowrap">{fmtDate(a.date)}</TableCell>
-                <TableCell className="px-4 text-sm">{fmtTime(a.checkIn)}</TableCell>
-                <TableCell className="px-4 text-sm">{fmtTime(a.checkOut)}</TableCell>
-                <TableCell className="px-4">
-                  <Pill cls={ATTENDANCE[a.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}>{a.status}</Pill>
-                </TableCell>
-                <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500 max-w-xs truncate">
-                  {a.checkInAddr ?? "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </div>
-  );
-}
 const toInputDate = (d: Date | null) => (d ? new Date(d).toISOString().split("T")[0] : "");
 
 function masterOptions(names: string[], current?: string | null): Option[] {
@@ -848,8 +785,8 @@ export default function KaryawanDetailClient({
   const proposeOnly = !self && canEditTarget && canPropose && !canEditMenu;
   const quick = canEdit ? QUICK_ACTIONS[initialAction ?? ""] : undefined;
   const [tab, setTab] = useState(() => {
-    // Cuti & Dinas kini bagian dari Kehadiran; PPh 21 bagian dari Slip & Pajak.
-    const want = initialTab === "cuti" ? "absensi" : initialTab === "pph21" ? "payslip" : initialTab;
+    // PPh 21 bagian dari Slip & Pajak.
+    const want = initialTab === "pph21" ? "payslip" : initialTab;
     return quick ? "pekerjaan" : want && TAB_LIST.some((x) => x.key === want) ? want : "pribadi";
   });
   const [editing, setEditing] = useState<Section | null>(quick?.section ?? null);
@@ -1288,7 +1225,12 @@ export default function KaryawanDetailClient({
           <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper && !self ? emp.id : undefined}
             shiftEdit={editTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={editTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} canExempt={isSuper && !self} />} />
-            <CvSheet initial={initialTab === "cuti" ? "cuti" : undefined} sections={[
+          </div>
+        )}
+
+        {/* Riwayat Absensi harian dihapus dari profil: sudah terlihat di kalender (keputusan pemilik 2026-11-21). */}
+        {tab === "cuti" && (
+            <CvSheet sections={[
               { key: "saldo", title: "Saldo Cuti", flat: true, content: <LeaveSaldo rows={leaveBalances} leaves={emp.leaves} /> },
               { key: "cuti", title: "Riwayat Cuti", flat: true, content: (<>
           {emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
@@ -1350,9 +1292,7 @@ export default function KaryawanDetailClient({
             </div>
           )}
               </>) },
-              { key: "riwayat-absen", title: "Riwayat Absensi", flat: true, content: <AttendanceHistory rows={emp.attendances} /> },
             ]} />
-          </div>
         )}
 
 
