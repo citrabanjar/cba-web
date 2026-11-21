@@ -1139,7 +1139,6 @@ export default function KaryawanDetailClient({
               <ContactButton href={waLink(emp.phone)} label="WhatsApp">
                 <MessageCircle size={17} />
               </ContactButton>
-              <span className="ml-auto truncate text-xs text-gray-400">{emp.email ?? emp.phone ?? ""}</span>
             </div>
           </div>
 
