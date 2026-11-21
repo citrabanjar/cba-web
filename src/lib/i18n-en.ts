@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "nominal belum diisi": "amount not set",
   "Semua karyawan sudah punya jadwal kerja.": "All employees already have a work schedule.",
   "karyawan yang sudah punya jadwal kerja tidak ditampilkan. Ganti pola kerja lewat profil karyawan → Jadwal Kerja.": "employees who already have a work schedule are hidden. Change the work pattern from the employee profile → Work Schedule.",
   "Import Kenaikan Gaji Massal": "Import Mass Salary Increase",

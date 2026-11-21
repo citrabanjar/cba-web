@@ -909,6 +909,10 @@ export default function KaryawanDetailClient({
   const initials = emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const today = new Date().toISOString().split("T")[0];
   const currentSalary = emp.salaries.find((s) => toInputDate(s.effectiveDate) <= today) ?? emp.salaries[0];
+  // Nominal komponen Input di kartu Komponen Gaji: dari gaji yang berlaku (GP = gaji pokok).
+  const payAmounts: Record<string, number> = currentSalary
+    ? { GP: currentSalary.basicSalary, ...Object.fromEntries(currentSalary.components.filter((c) => c.code).map((c) => [c.code!, c.amount])) }
+    : {};
   const edit = (section: Section) => (canEdit || proposeOnly ? () => openEdit(section) : undefined);
 
   function sectionValues(section: Section) {
@@ -1184,7 +1188,7 @@ export default function KaryawanDetailClient({
                 </div>
               )}
             </>) },
-            canSeePay && !self && { key: "komponen", title: "Komponen Gaji", content: <PayComponentsCard embedded userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
+            canSeePay && !self && { key: "komponen", title: "Komponen Gaji", content: <PayComponentsCard embedded userId={emp.id} rows={payComponents} amounts={payAmounts} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
             // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
             canSeePay && !self && { key: "pindahan", title: "PPh 21 Pindahan", content: <PriorTaxCard embedded userId={emp.id} slips={priorSlips} /> },
             { key: "bpjs", title: "Benefit", onEdit: edit("bpjs"), content: (<>
