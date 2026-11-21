@@ -40,6 +40,11 @@ export async function activateTelegramWebhook(): Promise<TelegramStatus> {
   const r = await tgCall("setWebhook", {
     url: await finalUrl(portalUrl("/api/telegram/webhook")), secret_token: telegramSecret(), allowed_updates: ["message", "callback_query"], drop_pending_updates: true,
   });
+  // Daftar perintah di tombol Menu Telegram.
+  await tgCall("setMyCommands", { commands: [
+    { command: "menu", description: "Buat pengajuan (Lupa Absen, Lembur)" },
+    { command: "putus", description: "Lepas akun portal dari Telegram" },
+  ] });
   const status = await telegramStatus();
   return r.ok ? status : { ...status, error: r.description ?? "Gagal mendaftarkan webhook." };
 }

@@ -6,6 +6,7 @@ import { actionableApprovers, readApproval } from "@/lib/onboarding-interview";
 import { dateRange } from "@/lib/notify";
 import { hmWib } from "@/lib/attendance-fix";
 import { esc, portalUrl, telegramOn, tgAnswer, tgEdit, tgSend, type TgButton } from "@/lib/telegram";
+import { onFormButton, onFormReply, sendFormMenu } from "@/lib/telegram-forms";
 
 export type TgKind = "leave" | "trip" | "overtime" | "fix";
 const KINDS: TgKind[] = ["leave", "trip", "overtime", "fix"];
@@ -101,7 +102,13 @@ export async function handleTelegramUpdate(u: TgUpdate) {
       prisma.user.updateMany({ where: { telegramChatId: chatId, id: { not: user.id } }, data: { telegramChatId: null } }),
       prisma.user.update({ where: { id: user.id }, data: { telegramChatId: chatId, telegramLinkCode: null, telegramLinkExpires: null } }),
     ]);
-    await tgSend(chatId, `✅ Terhubung sebagai <b>${esc(user.name)}</b>.\nPengajuan Cuti, Pengajuan Absen, Dinas Luar, Lembur, dan Lupa Absen yang perlu Anda putuskan, serta hasil pengajuan Anda, akan dikirim ke sini.\n\nKetik /putus untuk melepas.`);
+    await tgSend(chatId, `✅ Terhubung sebagai <b>${esc(user.name)}</b>.\nPengajuan Cuti, Pengajuan Absen, Dinas Luar, Lembur, dan Lupa Absen yang perlu Anda putuskan, serta hasil pengajuan Anda, akan dikirim ke sini.\n\nKetik <b>menu</b> untuk membuat pengajuan, /putus untuk melepas.`);
+    return;
+  }
+  // Menu pengajuan dari chat (tahap 1: Lupa Absen & Lembur).
+  if (/^\/?(menu|ajukan)$/i.test(text)) {
+    if (!(await actorOf(chatId))) { await tgSend(chatId, "Chat ini belum terhubung ke akun portal. Hubungkan dulu lewat portal → Profil Saya → Akun → Hubungkan Telegram."); return; }
+    await sendFormMenu(chatId);
     return;
   }
   if (text === "/putus" || text === "/stop") {
@@ -110,6 +117,11 @@ export async function handleTelegramUpdate(u: TgUpdate) {
     return;
   }
 
+  // Balasan isian pengajuan (jam / alasan) dari menu.
+  if (m.reply_to_message?.text && /#(fx|fr|os|oe|or)\|/.test(m.reply_to_message.text)) {
+    if (!(await actorOf(chatId))) { await tgSend(chatId, "Chat ini belum terhubung ke akun portal."); return; }
+    if (await onFormReply(chatId, m.reply_to_message.text, text)) return;
+  }
   // Balasan alasan penolakan (menjawab pesan "Tulis alasan penolakan ... #tolak-<jenis>-<id>-<pesan>").
   const tag = m.reply_to_message?.text?.match(REJECT_TAG);
   if (tag) {
@@ -124,12 +136,18 @@ export async function handleTelegramUpdate(u: TgUpdate) {
     await tgSend(chatId, "❌ Pengajuan ditolak. Pemohon sudah diberi tahu.");
     return;
   }
-  await tgSend(chatId, "Gunakan tombol <b>Setujui</b> / <b>Tolak</b> pada pesan pengajuan. Untuk melepas akun ketik /putus.");
+  await tgSend(chatId, "Ketik <b>menu</b> untuk membuat pengajuan. Untuk memutuskan pengajuan, gunakan tombol <b>Setujui</b> / <b>Tolak</b> pada pesannya. Untuk melepas akun ketik /putus.");
 }
 
 async function onButton(q: TgCallback) {
   const [act, kind, id] = (q.data ?? "").split("|");
   const msg = q.message;
+  // Tombol menu pengajuan (bukan Setujui / Tolak).
+  if (msg && q.data && act !== "a" && act !== "r") {
+    const who = await actorOf(String(msg.chat.id));
+    if (!who) { await tgAnswer(q.id, "Chat ini belum terhubung ke akun portal.", true); return; }
+    if (await onFormButton({ id: q.id, data: q.data, message: msg }, String(msg.chat.id), who)) return;
+  }
   if (!msg || !id || !isKind(kind) || (act !== "a" && act !== "r")) { await tgAnswer(q.id, "Tombol tidak dikenal."); return; }
   const chatId = String(msg.chat.id);
   const actor = await actorOf(chatId);

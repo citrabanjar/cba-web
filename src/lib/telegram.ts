@@ -5,7 +5,8 @@
 // Tanpa token, semua fungsi diam (tidak mengirim apa pun) supaya portal tetap jalan.
 // Gagal kirim tidak boleh menggagalkan proses di portal (pengajuan / keputusan tetap tersimpan).
 
-export type TgButton = { text: string; data: string };
+// data: tombol aksi (callback); url: tombol yang membuka halaman portal.
+export type TgButton = { text: string; data?: string; url?: string };
 
 const token = () => process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 export const telegramOn = () => !!token();
@@ -30,7 +31,7 @@ export const esc = (s: string | null | undefined) => (s ?? "").replace(/&/g, "&a
 export async function tgSend(chatId: string, html: string, opts: { buttons?: TgButton[][]; forceReply?: boolean; placeholder?: string } = {}) {
   return tgCall<{ message_id: number }>("sendMessage", {
     chat_id: chatId, text: html, parse_mode: "HTML", disable_web_page_preview: true,
-    ...(opts.buttons ? { reply_markup: { inline_keyboard: opts.buttons.map((row) => row.map((b) => ({ text: b.text, callback_data: b.data }))) } } : {}),
+    ...(opts.buttons ? { reply_markup: { inline_keyboard: opts.buttons.map((row) => row.map((b) => (b.url ? { text: b.text, url: b.url } : { text: b.text, callback_data: b.data }))) } } : {}),
     ...(opts.forceReply ? { reply_markup: { force_reply: true, input_field_placeholder: opts.placeholder ?? "" } } : {}),
   });
 }
