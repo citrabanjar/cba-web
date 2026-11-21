@@ -10,11 +10,12 @@ import { holdDiff } from "@/lib/hold-diff";
 // proposed = perubahan parameter ditahan untuk approval (aturan Peran Admin): berisi nama approver.
 // Menempel jadwal ke karyawan (operasional) tidak ditahan.
 type Result = { error?: string; proposed?: string };
+// Kolom lama overtimeStartAfter / overtimeMinimum / overtimeRounding tidak ada di form dan tidak dipakai perhitungan
+// lembur, jadi tidak ditampilkan di ringkasan approval.
 const SHIFT_LABELS: Record<string, string> = {
   code: "Kode", name: "Nama", isOff: "Hari libur", startTime: "Jam masuk", endTime: "Jam pulang", breaks: "Istirahat",
   lateTolerance: "Toleransi terlambat (menit)", earlyLeaveTolerance: "Toleransi pulang cepat (menit)", checkInEarliest: "Absen masuk dibuka sebelum jam masuk (menit)",
-  checkOutLatest: "Absen pulang ditutup setelah jam pulang (menit)", overtimeStartAfter: "Lembur mulai setelah (menit)", overtimeMinimum: "Minimal lembur (menit)",
-  overtimeRounding: "Pembulatan lembur (menit)", isActive: "Aktif",
+  checkOutLatest: "Absen pulang ditutup setelah jam pulang (menit)", isActive: "Aktif",
 };
 
 export type BreakTime = { start: string; end: string };
