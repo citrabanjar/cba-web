@@ -114,8 +114,19 @@ export async function onFormButton(q: Q, chatId: string, who: Who) {
   // Tidak Masuk: tanggal mulai (hari ini s/d 6 hari lalu) → tanggal selesai (mulai s/d hari ini) → alasan.
   if (k === "ab" && (p[0] === "T" || p[0] === "U")) {
     await tgAnswer(q.id, "");
+    // Potong Cuti: cek sisa saldo dulu (seperti di portal). Saldo habis / belum ada → arahkan ke Izin Tanpa Hak Cuti.
+    let info = "";
+    if (p[0] === "T") {
+      const sisa = await annualAvailable(who);
+      if (!sisa) {
+        await tgSend(chatId, `⚠️ Sisa saldo Cuti Tahunan Anda <b>${sisa === null ? "belum tersedia" : "0 hari"}</b>, jadi tidak bisa potong cuti.\nAjukan sebagai Izin Tanpa Hak Cuti?`,
+          { buttons: [[{ text: "Izin Tanpa Hak Cuti", data: "ab|U" }], cancelRow] });
+        return true;
+      }
+      info = `\nSisa saldo Cuti Tahunan: <b>${fmtDays(sisa)} hari</b>.`;
+    }
     const days = Array.from({ length: 7 }, (_, i) => ymd(new Date(wibToday().getTime() - i * DAY)));
-    await tgSend(chatId, `🕘 <b>Tidak Masuk · ${p[0] === "T" ? "Potong Cuti Tahunan" : "Izin Tanpa Hak Cuti"}</b>\nTidak masuk <b>mulai</b> tanggal:\n<i>Lebih dari 7 hari lalu: lewat portal.</i>`,
+    await tgSend(chatId, `🕘 <b>Tidak Masuk · ${p[0] === "T" ? "Potong Cuti Tahunan" : "Izin Tanpa Hak Cuti"}</b>${info}\nTidak masuk <b>mulai</b> tanggal:\n<i>Lebih dari 7 hari lalu: lewat portal.</i>`,
       { buttons: [...dayButtons(days, (d) => `as|${p[0]}|${d8(d)}`, today), cancelRow] });
     return true;
   }
@@ -187,15 +198,21 @@ async function submit(q: Q, chatId: string, who: Who, p: string[]) {
   return true;
 }
 
-// Pengajuan Absen: Lupa Absen, atau Tidak Masuk (potong Cuti Tahunan dengan sisa saldo / Izin Tanpa Hak Cuti).
-async function absenceMenu(chatId: string, who: Who) {
+// Sisa Cuti Tahunan yang bisa dipakai (sama dengan halaman Pengajuan Absen di portal): saldo dikurangi pengajuan
+// yang masih menunggu. null = saldo belum tersedia / belum bisa dihitung.
+async function annualAvailable(who: Who) {
   const [rows, annual] = await Promise.all([
     visibleBalances([who.id]),
     prisma.leavePolicy.findMany({ where: { isActive: true, category: "TAHUNAN" }, orderBy: { sortOrder: "asc" } }),
   ]);
   const ids = new Set(annual.filter((p) => hasBalance(p)).map((p) => p.id));
   const row = rows.find((b) => ids.has(b.policyId));
-  const sisa = row && !row.problem ? Math.max(0, row.balance - row.pending) : null;
+  return row && !row.problem ? Math.max(0, row.balance - row.pending) : null;
+}
+
+// Pengajuan Absen: Lupa Absen, atau Tidak Masuk (potong Cuti Tahunan dengan sisa saldo / Izin Tanpa Hak Cuti).
+async function absenceMenu(chatId: string, who: Who) {
+  const sisa = await annualAvailable(who);
   await tgSend(chatId, "🕘 <b>Pengajuan Absen</b>", { buttons: [
     [{ text: "Lupa Absen (jam masuk / pulang)", data: "m|fix" }],
     [{ text: `Tidak Masuk · Potong Cuti${sisa !== null ? ` (sisa ${fmtDays(sisa)} hari)` : ""}`, data: "ab|T" }],
