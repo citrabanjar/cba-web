@@ -143,3 +143,44 @@ export function LoanRequestSummary({ plan: p }: { plan: LoanPlan }) {
     </div>
   );
 }
+
+// Tabel angsuran berkotak untuk profil karyawan gaya CV (sama dengan tabel riwayat Saldo Cuti).
+export function LoanScheduleTable({ loan }: { loan: LoanView }) {
+  const t = useT();
+  const th = "px-3 py-1.5 font-medium";
+  // Sisa setelah bayar dihitung lebih dulu (tanpa mengubah variabel di dalam render baris).
+  const rows = [...loan.installments].sort((a, b) => a.seq - b.seq);
+  const lefts = rows.map((_, n) => Math.max(0, loan.principal - rows.slice(0, n + 1).reduce((x, r) => x + r.amount, 0)));
+  return (
+    <div className="max-h-96 overflow-auto rounded-xl border border-gray-100">
+      <table className="w-full text-sm">
+        <thead className="sticky top-0 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+          <tr>
+            <th className={`${th} text-left`}><T>Ke-</T></th>
+            <th className={`${th} text-left`}><T>Periode potongan</T></th>
+            <th className={`${th} text-right`}><T>Nominal</T></th>
+            <th className={`${th} hidden text-right sm:table-cell`}><T>Sisa setelah bayar</T></th>
+            <th className={`${th} text-left`}><T>Status</T></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {rows.map((r, n) => {
+            return (
+              <tr key={r.id}>
+                <td className="px-3 py-1.5 text-gray-500">{r.seq}</td>
+                <td className="px-3 py-1.5 text-gray-800">{periodShort(r.period)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-gray-800">{formatRupiah(r.amount)}</td>
+                <td className="hidden px-3 py-1.5 text-right tabular-nums text-gray-500 sm:table-cell">{formatRupiah(lefts[n])}</td>
+                <td className="px-3 py-1.5">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.status === "LUNAS" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                    {t(r.status === "LUNAS" ? "Terpotong" : "Belum")}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}

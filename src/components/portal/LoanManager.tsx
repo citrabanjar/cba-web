@@ -275,7 +275,9 @@ function ScheduleDialog({ loan, onClose }: { loan: LoanView; onClose: () => void
 }
 
 // Tombol aksi untuk satu pinjaman, sesuai statusnya.
-export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "approve" | "disburse" | "schedule") => void }) {
+// inline: tombol berjajar mendatar (header bagian profil gaya CV); bawaan bersusun ke bawah (kartu).
+export function LoanActions({ loan, onOpen, inline = false }: { loan: LoanView; onOpen: (kind: "approve" | "disburse" | "schedule") => void; inline?: boolean }) {
+  const wrap = inline ? "flex flex-wrap justify-end gap-1.5" : "flex flex-col gap-1.5";
   const t = useT();
   const [pending, start] = useTransition();
   const canCancel = ["DISETUJUI", "BERJALAN"].includes(loan.status) && !loan.installments.some((i) => i.status === "LUNAS");
@@ -286,7 +288,7 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
   if (loan.status === "TRANSFER") {
     if (!superAdmin) return <p className="max-w-[12rem] text-right text-[11px] text-indigo-700"><T>Menunggu konfirmasi karyawan (Sudah terima).</T></p>;
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className={wrap}>
         <Button size="sm" disabled={pending}
           onClick={async () => { if (await askConfirm(t("Konfirmasi paksa: dana pinjaman sudah diterima karyawan? Pastikan transaksi di bank sudah dicek."))) run(() => confirmLoanReceived(loan.id), "Pinjaman aktif."); }}>
           <T>Konfirmasi Paksa</T>
@@ -300,7 +302,7 @@ export function LoanActions({ loan, onOpen }: { loan: LoanView; onOpen: (kind: "
   }
   if (!canEdit) return null;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={wrap}>
       {loanStageOf(loan.status, loan.stage) === "ADMIN" && <Button size="sm" onClick={() => onOpen("approve")}><T>Periksa</T></Button>}
       {loan.status === "DISETUJUI" && <Button size="sm" onClick={() => onOpen("disburse")}><T>Tandai Dicairkan</T></Button>}
       {["DISETUJUI", "BERJALAN"].includes(loan.status) && <Button size="sm" variant="outline" onClick={() => onOpen("schedule")}><T>Ubah Sisa Angsuran</T></Button>}
