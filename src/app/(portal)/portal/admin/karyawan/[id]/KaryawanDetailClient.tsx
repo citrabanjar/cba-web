@@ -1257,35 +1257,36 @@ export default function KaryawanDetailClient({
 
         {tab === "payslip" && canSeePay && (
           <CvSheet initial={initialTab === "pph21" ? "pph21" : undefined} sections={[
-            { key: "slip", title: "Slip Gaji", flat: true, content: (
-          emp.payslips.length === 0 ? <Empty text="Belum ada slip gaji." /> : (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
-                    <TableHead className="px-4"><T>Periode</T></TableHead>
-                    <TableHead className="px-4 text-right"><T>Gaji Bersih</T></TableHead>
-                    <TableHead className="hidden sm:table-cell px-4"><T>Dibayar</T></TableHead>
-                    <TableHead className="hidden md:table-cell px-4"><T>Via</T></TableHead>
-                    <TableHead className="px-4 text-right"><T>Slip</T></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            // Tabel berkotak seperti riwayat Saldo Cuti (permintaan pemilik 2026-11-21).
+            { key: "slip", title: "Slip Gaji", content: (
+          emp.payslips.length === 0 ? <p className="text-sm text-gray-400"><T>Belum ada slip gaji.</T></p> : (
+            <div className="max-h-96 overflow-auto rounded-xl border border-gray-100">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+                  <tr>
+                    <th className="px-3 py-1.5 text-left font-medium"><T>Periode</T></th>
+                    <th className="px-3 py-1.5 text-right font-medium"><T>Gaji Bersih</T></th>
+                    <th className="hidden px-3 py-1.5 text-left font-medium sm:table-cell"><T>Dibayar</T></th>
+                    <th className="hidden px-3 py-1.5 text-left font-medium md:table-cell"><T>Via</T></th>
+                    <th className="px-3 py-1.5 text-right font-medium"><T>Slip</T></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
                   {emp.payslips.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="px-4 text-sm">{p.periodLabel}</TableCell>
-                      <TableCell className="px-4 text-sm text-right tabular-nums">{formatRupiah(p.netPay)}</TableCell>
-                      <TableCell className="hidden sm:table-cell px-4 text-sm">{fmtDate(p.paidAt)}</TableCell>
-                      <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{p.paidVia ?? "—"}</TableCell>
-                      <TableCell className="px-4 text-right"><a href={`/api/payslip/${p.id}?unduh=1`} className="text-xs font-semibold text-brand hover:underline">PDF</a></TableCell>
-                    </TableRow>
+                    <tr key={p.id}>
+                      <td className="px-3 py-1.5 text-gray-800">{p.periodLabel}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-gray-900">{formatRupiah(p.netPay)}</td>
+                      <td className="hidden px-3 py-1.5 text-gray-600 sm:table-cell">{fmtDate(p.paidAt)}</td>
+                      <td className="hidden px-3 py-1.5 text-gray-500 md:table-cell">{p.paidVia ?? "—"}</td>
+                      <td className="px-3 py-1.5 text-right"><a href={`/api/payslip/${p.id}?unduh=1`} className="text-xs font-semibold text-brand hover:underline">PDF</a></td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )
             ) },
-            { key: "pph21", title: "PPh 21", flat: true, content: <Pph21Card userId={emp.id} years={pph21Years} /> },
+            { key: "pph21", title: "PPh 21", content: <Pph21Card userId={emp.id} years={pph21Years} /> },
           ]} />
         )}
 
