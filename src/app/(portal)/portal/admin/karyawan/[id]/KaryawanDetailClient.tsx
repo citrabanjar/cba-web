@@ -1177,7 +1177,7 @@ export default function KaryawanDetailClient({
                 </div>
               )}
             </>) },
-            canSeePay && !self && { key: "komponen", title: "Komponen Gaji", flat: true, content: <PayComponentsCard embedded userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
+            canSeePay && !self && { key: "komponen", title: "Komponen Gaji", content: <PayComponentsCard embedded userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
             canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", title: "Riwayat Gaji", flat: true, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
             // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
             canSeePay && !self && { key: "pindahan", title: "PPh 21 Pindahan", content: <PriorTaxCard embedded userId={emp.id} slips={priorSlips} /> },

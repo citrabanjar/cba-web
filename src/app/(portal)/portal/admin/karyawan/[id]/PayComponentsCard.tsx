@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, Plus, Settings2, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +18,9 @@ export type PayComponentRow = {
 };
 
 const KINDS = [
-  { key: "PENDAPATAN", label: "Pendapatan", color: "#10b981" },
-  { key: "POTONGAN", label: "Potongan", color: "#f43f5e" },
-  { key: "BENEFIT", label: "Benefit ditanggung perusahaan", color: "#6366f1" },
+  { key: "PENDAPATAN", short: "Pendapatan" },
+  { key: "POTONGAN", short: "Potongan" },
+  { key: "BENEFIT", short: "Benefit" },
 ] as const;
 
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
@@ -95,7 +95,7 @@ function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row:
 
 // Komponen gaji yang tertempel ke karyawan ini beserta masa berlakunya.
 // embedded: tampil di dalam bagian profil gaya CV yang sudah berjudul, jadi judul sendiri tidak diulang.
-export default function PayComponentsCard({ userId, rows, joinDate = null, embedded = false }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null; embedded?: boolean }) {
+export default function PayComponentsCard({ userId, rows, joinDate = null }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null; embedded?: boolean }) {
   const t = useT();
   const canEdit = useCanEdit("gaji"); // hak lihat saja: komponen tidak bisa dibuka untuk diubah
   const [editing, setEditing] = useState<PayComponentRow | null>(null);
@@ -116,65 +116,57 @@ export default function PayComponentsCard({ userId, rows, joinDate = null, embed
     setBusy(row.componentId);
     run(async () => { finish(await removePayAssignment(userId, row.componentId)); setBusy(null); });
   };
-  // Tertempel lebih dulu, yang belum tertempel di bawah tiap kelompok.
-  const visible = [...rows.filter((r) => r.assigned), ...rows.filter((r) => !r.assigned)];
-  const notAssigned = rows.filter((r) => !r.assigned).length;
-  const activeCount = rows.filter((r) => status(r.assigned, joinDate).active).length;
+  const [adding, setAdding] = useState<string | null>(null); // jenis yang sedang dibuka daftar tambahnya
+  // Gaya CV (permintaan pemilik 2026-11-21): "Pendapatan : Gaji Pokok / Tunjangan Jabatan", dst.
+  // Hanya komponen yang dimiliki karyawan yang tampil; + menambah dari daftar komponen jenis itu, ikon sampah menghapus.
+  // Klik nama komponen untuk mengatur tanggal Mulai/Sampai (demosi/promosi).
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white">
-      <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-3">
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900">{!embedded && <><T>Komponen Gaji</T> </>}<span className="text-xs font-normal text-gray-400">{activeCount} <T>berlaku</T>{notAssigned > 0 && <> · {notAssigned} <T>belum ditempel</T></>}</span></h3>
-          <p className="text-xs text-gray-400"><T>Komponen yang dihitung saat Proses Gaji. Klik + untuk menambahkan ke karyawan, ikon tempat sampah untuk menghapus. Untuk demosi/promosi, klik kartunya lalu atur tanggal Sampai/Mulai.</T></p>
-        </div>
-      </div>
-      {/* Daftar komponen selalu tampil (tombol Tampilkan komponen dihapus, permintaan pemilik 2026-11-21). */}
-      <div className="grid gap-4 p-4 md:grid-cols-3">
-        {KINDS.map((k) => {
-          const list = visible.filter((r) => r.kind === k.key);
-          return (
-            <div key={k.key}>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: k.color }}><T>{k.label}</T></p>
-              {list.length === 0 && <p className="text-xs text-gray-400">—</p>}
-              <ul className="space-y-1.5">
-                {list.map((r) => {
-                  const st = status(r.assigned, joinDate);
-                  return (
-                    <li key={r.componentId} className="flex items-stretch gap-1.5">
-                      <button type="button" onClick={() => setEditing(r)} disabled={!canEdit || !r.assigned}
-                        className={`group flex min-w-0 flex-1 items-start gap-2 rounded-xl border border-gray-100 px-2.5 py-2 text-left enabled:hover:border-gray-300 ${st.active ? "" : "opacity-70"}`}>
-                        <span className="mt-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: st.active ? k.color : "#9ca3af" }}>{r.code}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm text-gray-900">{t(r.name)}</span>
-                          <span className="block truncate text-[11px] text-gray-400" title={t(r.formula)}>{t(r.formula)}</span>
-                          <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.tone}`}>{t(st.label)}</span>
-                          {r.assigned?.note && <span className="ml-1.5 text-[10px] text-gray-500">{r.assigned.note}</span>}
-                        </span>
-                        {canEdit && r.assigned && <Settings2 size={13} className="mt-1 shrink-0 text-gray-300 group-hover:text-brand" />}
+    <div className="space-y-3">
+      {KINDS.map((k) => {
+        const mine = rows.filter((r) => r.kind === k.key && r.assigned);
+        const free = rows.filter((r) => r.kind === k.key && !r.assigned);
+        return (
+          <div key={k.key} className="grid grid-cols-[minmax(0,7.5rem)_auto_minmax(0,1fr)] gap-x-2 text-sm sm:grid-cols-[13rem_auto_minmax(0,1fr)]">
+            <span className="text-gray-500"><T>{k.short}</T></span>
+            <span aria-hidden className="text-gray-400">:</span>
+            <div className="min-w-0 space-y-1">
+              {mine.length === 0 && <p className="text-gray-400">—</p>}
+              {mine.map((r) => {
+                const st = status(r.assigned, joinDate);
+                return (
+                  <div key={r.componentId} className="flex min-w-0 items-center gap-2">
+                    {/* Satu baris per komponen, tanpa keterangan rumus (permintaan pemilik). */}
+                    <button type="button" onClick={() => setEditing(r)} disabled={!canEdit}
+                      className="min-w-0 truncate text-left font-medium text-gray-900 enabled:hover:text-brand">{t(r.name)}</button>
+                    {st.label !== "Berlaku" && <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.tone}`}>{t(st.label)}</span>}
+                    {/* Gaji Pokok selalu melekat di karyawan, jadi tidak bisa dihapus. */}
+                    {canEdit && r.code !== "GP" && (
+                      <button type="button" disabled={busy === r.componentId} onClick={() => remove(r)} aria-label={t("Hapus")} title={t("Hapus dari karyawan")}
+                        className="shrink-0 rounded-full p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50">
+                        {busy === r.componentId ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>
-                      {/* Gaji Pokok selalu melekat di karyawan, jadi tidak bisa dihapus. */}
-                      {canEdit && r.code !== "GP" && (
-                        r.assigned ? (
-                          <button type="button" disabled={busy === r.componentId} onClick={() => remove(r)} aria-label={t("Hapus")} title={t("Hapus dari karyawan")}
-                            className="flex w-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 text-gray-400 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50">
-                            {busy === r.componentId ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                          </button>
-                        ) : (
-                          <button type="button" disabled={busy === r.componentId} onClick={() => add(r)} aria-label={t("Tambah")} title={t("Tambahkan ke karyawan")}
-                            className="flex w-9 shrink-0 items-center justify-center rounded-xl border border-gray-100 text-gray-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50">
-                            {busy === r.componentId ? <Loader2 size={14} className="animate-spin" /> : <Plus size={15} />}
-                          </button>
-                        )
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+                    )}
+                  </div>
+                );
+              })}
+              {canEdit && free.length > 0 && (adding === k.key ? (
+                <select autoFocus defaultValue="" onBlur={() => setAdding(null)}
+                  onChange={(e) => { const row = free.find((r) => r.componentId === e.target.value); setAdding(null); if (row) add(row); }}
+                  className="h-8 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40">
+                  <option value="" disabled>{t("Pilih komponen...")}</option>
+                  {free.map((r) => <option key={r.componentId} value={r.componentId}>{t(r.name)}</option>)}
+                </select>
+              ) : (
+                <button type="button" onClick={() => setAdding(k.key)} disabled={!!busy} aria-label={`${t("Tambah")} ${t(k.short)}`}
+                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold text-brand hover:bg-brand/5 disabled:opacity-50">
+                  {busy && free.some((r) => r.componentId === busy) ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} <T>Tambah</T>
+                </button>
+              ))}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
       {editing && <AssignDialog key={editing.componentId} userId={userId} row={editing} joinDate={joinDate} onClose={() => setEditing(null)} />}
-    </section>
+    </div>
   );
 }

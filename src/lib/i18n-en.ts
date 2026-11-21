@@ -1078,6 +1078,7 @@ export const en: Record<string, string> = {
   "Kelola akun dan pengaturan portal": "Manage your account and portal settings",
   "Akun": "Account",
   "Kehadiran": "Attendance",
+  "Pilih komponen...": "Choose component...",
   "Hapus komponen": "Remove component",
   "dari karyawan ini?": "from this employee?",
   "Hapus dari karyawan": "Remove from employee",
