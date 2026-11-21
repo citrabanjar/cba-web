@@ -925,6 +925,7 @@ export default function KaryawanDetailClient({
       { key: "gender", label: "Jenis Kelamin", type: "select", options: masterOptions([...PERSONAL_CHOICES.gender], normalizeChoice("gender", emp.gender)) },
       { key: "maritalStatus", label: "Status Perkawinan", type: "select", options: masterOptions([...PERSONAL_CHOICES.maritalStatus], normalizeChoice("maritalStatus", emp.maritalStatus)) },
       { key: "religion", label: "Agama", type: "select", options: masterOptions([...PERSONAL_CHOICES.religion], normalizeChoice("religion", emp.religion)) },
+      { key: "nationality", label: "Kewarganegaraan", type: "suggest", options: [{ value: "Indonesia", label: "" }] },
     ],
     alamat: [
       { key: "address", label: "Alamat sesuai Identitas (jalan, RT/RW)" },
@@ -1276,6 +1277,7 @@ export default function KaryawanDetailClient({
               <Field label="Jenis Kelamin">{emp.gender && normalizeChoice("gender", emp.gender)}</Field>
               <Field label="Status Perkawinan">{emp.maritalStatus && normalizeChoice("maritalStatus", emp.maritalStatus)}</Field>
               <Field label="Agama">{emp.religion && normalizeChoice("religion", emp.religion)}</Field>
+              <Field label="Kewarganegaraan">{emp.nationality}</Field>
             </SectionCard>
               ) },
               { key: "alamat", label: "Tempat Tinggal", icon: Home, content: (

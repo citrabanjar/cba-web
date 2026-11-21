@@ -18,6 +18,7 @@ export const PROFILE_FIELDS: ProfileField[] = [
   { key: "gender", label: "Jenis Kelamin", group: "Data Diri", type: "select", options: ["Laki-laki", "Perempuan"] },
   { key: "maritalStatus", label: "Status Perkawinan", group: "Data Diri", type: "select", options: ["Belum Menikah", "Menikah", "Cerai"] },
   { key: "religion", label: "Agama", group: "Data Diri", type: "select", options: ["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu"] },
+  { key: "nationality", label: "Kewarganegaraan", group: "Data Diri" },
   { key: "address", label: "Alamat sesuai Identitas", group: "Tempat Tinggal", type: "textarea" },
   { key: "addressRegion", label: "Wilayah sesuai Identitas", group: "Tempat Tinggal", type: "region", nameKey: "addressRegionName", postalKey: "addressPostal" },
   { key: "addressRegionName", label: "Wilayah sesuai Identitas", group: "Tempat Tinggal", type: "regionName" },
