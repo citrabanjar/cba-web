@@ -6,7 +6,7 @@ import { actionableApprovers, readApproval } from "@/lib/onboarding-interview";
 import { dateRange } from "@/lib/notify";
 import { hmWib } from "@/lib/attendance-fix";
 import { esc, portalUrl, telegramOn, tgAnswer, tgEdit, tgSend, type TgButton } from "@/lib/telegram";
-import { onFormButton, onFormReply, replyTag, sendFormMenu } from "@/lib/telegram-forms";
+import { FORM_TAG, onFormButton, onFormReply, replyTag, sendFormMenu, type TgMedia } from "@/lib/telegram-forms";
 
 export type TgKind = "leave" | "trip" | "overtime" | "fix";
 const KINDS: TgKind[] = ["leave", "trip", "overtime", "fix"];
@@ -66,7 +66,11 @@ export async function askApprovers(kind: TgKind, id: string) {
 
 // ── Webhook ────────────────────────────────────────────────────────────────────────────────────────────────
 type TgUser = { id: number; first_name?: string };
-type TgMessage = { message_id: number; chat: { id: number; type: string }; from?: TgUser; text?: string; entities?: { type: string; url?: string }[]; reply_to_message?: TgMessage };
+type TgMessage = {
+  message_id: number; chat: { id: number; type: string }; from?: TgUser; text?: string; caption?: string; entities?: { type: string; url?: string }[];
+  photo?: { file_id: string; file_size?: number }[]; document?: { file_id: string; mime_type?: string; file_size?: number; file_name?: string };
+  reply_to_message?: TgMessage;
+};
 type TgCallback = { id: string; from: TgUser; data?: string; message?: TgMessage };
 export type TgUpdate = { update_id: number; message?: TgMessage; callback_query?: TgCallback };
 
@@ -85,7 +89,20 @@ const REJECT_TAG = /#tolak-(leave|trip|overtime|fix)-([a-z0-9]+)-(\d+)/;
 export async function handleTelegramUpdate(u: TgUpdate) {
   if (u.callback_query) return onButton(u.callback_query);
   const m = u.message;
-  if (!m?.text || m.chat.type !== "private") return;
+  if (!m || m.chat.type !== "private") return;
+  // Foto / dokumen: hanya sebagai lampiran Cuti (membalas pertanyaan bot).
+  if (!m.text && (m.photo?.length || m.document)) {
+    const tag = replyTag(m.reply_to_message);
+    if (!FORM_TAG.test(tag) || !(await actorOf(String(m.chat.id)))) return;
+    // Foto: ukuran terbesar yang masih di bawah batas lampiran; dokumen: apa adanya (dicek di langkah berikutnya).
+    const photo = m.photo ? [...m.photo].sort((a, b) => (b.file_size ?? 0) - (a.file_size ?? 0)).find((x) => (x.file_size ?? 0) <= 900_000) ?? m.photo[0] : null;
+    const media: TgMedia = photo
+      ? { fileId: photo.file_id, mime: "image/jpeg", size: photo.file_size ?? 0, name: "foto.jpg" }
+      : { fileId: m.document!.file_id, mime: m.document!.mime_type ?? "", size: m.document!.file_size ?? 0, name: m.document!.file_name ?? "lampiran" };
+    await onFormReply(String(m.chat.id), tag, m.caption ?? "", media);
+    return;
+  }
+  if (!m.text) return;
   const chatId = String(m.chat.id);
   const text = m.text.trim();
 
@@ -119,7 +136,7 @@ export async function handleTelegramUpdate(u: TgUpdate) {
 
   // Balasan isian pengajuan (jam / alasan) dari menu.
   const formTag = replyTag(m.reply_to_message);
-  if (/#(fx|fr|os|oe|or)\|/.test(formTag)) {
+  if (FORM_TAG.test(formTag)) {
     if (!(await actorOf(chatId))) { await tgSend(chatId, "Chat ini belum terhubung ke akun portal."); return; }
     if (await onFormReply(chatId, formTag, text)) return;
   }

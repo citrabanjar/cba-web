@@ -45,6 +45,18 @@ export async function tgAnswer(callbackId: string, text: string, alert = false) 
   return tgCall("answerCallbackQuery", { callback_query_id: callbackId, text: text.slice(0, 190), show_alert: alert });
 }
 
+// Ambil berkas kiriman pengguna (mis. foto surat dokter) dari server Telegram.
+export async function tgDownload(fileId: string): Promise<Buffer | null> {
+  const f = await tgCall<{ file_path?: string }>("getFile", { file_id: fileId });
+  if (!f.ok || !f.result?.file_path) return null;
+  try {
+    const r = await fetch(`https://api.telegram.org/file/bot${token()}/${f.result.file_path}`);
+    return r.ok ? Buffer.from(await r.arrayBuffer()) : null;
+  } catch {
+    return null;
+  }
+}
+
 // Kirim ke banyak user sekaligus (hanya yang sudah menghubungkan Telegram). Tidak pernah melempar error.
 export async function tgSendMany(chats: (string | null | undefined)[], html: string, buttons?: TgButton[][]) {
   if (!telegramOn()) return;
