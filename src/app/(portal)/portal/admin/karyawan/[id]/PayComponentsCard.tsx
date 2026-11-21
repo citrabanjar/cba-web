@@ -11,7 +11,6 @@ import { useCanEdit } from "@/components/portal/edit-access";
 import { removePayAssignment, savePayAssignment } from "../actions";
 import { proposedText } from "@/lib/approval-text";
 import { askConfirm, showNotice } from "@/components/portal/Confirm";
-import { formatRupiah } from "@/lib/utils";
 
 export type PayComponentRow = {
   componentId: string; code: string; name: string; kind: string; method: string; formula: string;
@@ -96,8 +95,7 @@ function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row:
 
 // Komponen gaji yang tertempel ke karyawan ini beserta masa berlakunya.
 // embedded: tampil di dalam bagian profil gaya CV yang sudah berjudul, jadi judul sendiri tidak diulang.
-// amounts: nominal komponen bercara hitung Input dari gaji yang berlaku (kode → nominal; GP = gaji pokok).
-export default function PayComponentsCard({ userId, rows, joinDate = null, amounts }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null; embedded?: boolean; amounts?: Record<string, number> }) {
+export default function PayComponentsCard({ userId, rows, joinDate = null }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null; embedded?: boolean }) {
   const t = useT();
   const canEdit = useCanEdit("gaji"); // hak lihat saja: komponen tidak bisa dibuka untuk diubah
   const [editing, setEditing] = useState<PayComponentRow | null>(null);
@@ -143,12 +141,6 @@ export default function PayComponentsCard({ userId, rows, joinDate = null, amoun
                   <div className="flex min-w-0 items-center gap-2">
                     <button type="button" onClick={() => setEditing(r)} disabled={!canEdit}
                       className="min-w-0 truncate text-left font-medium text-gray-900 enabled:hover:text-brand">{t(r.name)}</button>
-                    {/* Nominal komponen Input (dari Penyesuaian Gaji / import); kosong = belum diisi. */}
-                    {amounts && r.method === "INPUT" && (
-                      amounts[r.code] > 0
-                        ? <span className="shrink-0 tabular-nums text-gray-700">{formatRupiah(amounts[r.code])}</span>
-                        : <span className="shrink-0 text-xs text-gray-400"><T>nominal belum diisi</T></span>
-                    )}
                     {st.label !== "Berlaku" && <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.tone}`}>{t(st.label)}</span>}
                     {/* Gaji Pokok selalu melekat di karyawan, jadi tidak bisa dihapus. */}
                     {canEdit && r.code !== "GP" && (
