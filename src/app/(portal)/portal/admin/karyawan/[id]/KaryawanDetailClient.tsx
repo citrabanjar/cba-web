@@ -408,48 +408,43 @@ function salaryTotals(salary: Salary) {
 
 
 
-// Riwayat Gaji: satu baris per perubahan, tanpa rincian buka-tutup (permintaan pemilik 2026-11-21).
+// Riwayat Gaji: tabel berkotak seperti riwayat Saldo Cuti; satu baris per perubahan, tanpa potongan (permintaan pemilik 2026-11-21).
 function SalaryHistory({ salaries, currentId }: { salaries: Salary[]; currentId?: string }) {
+  const th = "px-3 py-1.5 font-medium";
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="section-head px-5 py-3">
-        <h3 className="font-semibold text-sm"><T>Riwayat Gaji</T></h3>
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="px-4"><T>Berlaku</T></TableHead>
-            <TableHead className="px-4 text-right"><T>Gaji Pokok</T></TableHead>
-            <TableHead className="hidden sm:table-cell px-4 text-right"><T>Tunjangan</T></TableHead>
-            <TableHead className="px-4 text-right"><T>Total Gaji</T></TableHead>
-            <TableHead className="hidden md:table-cell px-4"><T>Catatan</T></TableHead>
-            <TableHead className="hidden md:table-cell px-4"><T>Oleh</T></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {salaries.map((s) => {
-            const totals = salaryTotals(s);
-            return (
-                <TableRow key={s.id}>
-                  <TableCell className="px-4 text-sm whitespace-nowrap">
+    <div className="px-5 py-1">
+      <div className="max-h-96 overflow-auto rounded-xl border border-gray-100">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400">
+            <tr>
+              <th className={`${th} text-left`}><T>Berlaku</T></th>
+              <th className={`${th} text-right`}><T>Gaji Pokok</T></th>
+              <th className={`${th} hidden text-right sm:table-cell`}><T>Tunjangan</T></th>
+              <th className={`${th} text-right`}><T>Total Gaji</T></th>
+              <th className={`${th} hidden text-left md:table-cell`}><T>Catatan</T></th>
+              <th className={`${th} hidden text-left md:table-cell`}><T>Oleh</T></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {salaries.map((s) => {
+              const { benefits } = salaryTotals(s);
+              return (
+                <tr key={s.id}>
+                  <td className="px-3 py-1.5 whitespace-nowrap text-gray-600">
                     {fmtDate(s.effectiveDate)}
-                    {s.id === currentId && (
-                      <span className="ml-2">
-                        <Pill cls="bg-green-50 text-green-700 border-green-200"><T>Saat ini</T></Pill>
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 text-sm text-right tabular-nums">{formatRupiah(s.basicSalary)}</TableCell>
-                  <TableCell className="hidden sm:table-cell px-4 text-sm text-right tabular-nums">{formatRupiah(totals.benefits)}</TableCell>
-                  {/* Riwayat gaji = kenaikan gaji pokok / tunjangan; potongan tidak ditampilkan dan tidak mengurangi total. */}
-                  <TableCell className="px-4 text-sm text-right tabular-nums font-medium">{formatRupiah(s.basicSalary + totals.benefits)}</TableCell>
-                  <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.note ?? "—"}</TableCell>
-                  <TableCell className="hidden md:table-cell px-4 text-xs text-gray-500">{s.createdBy ?? "—"}</TableCell>
-                </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                    {s.id === currentId && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"><T>Saat ini</T></span>}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-gray-800">{formatRupiah(s.basicSalary)}</td>
+                  <td className="hidden px-3 py-1.5 text-right tabular-nums text-gray-800 sm:table-cell">{formatRupiah(benefits)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-bold text-gray-900">{formatRupiah(s.basicSalary + benefits)}</td>
+                  <td className="hidden px-3 py-1.5 text-gray-500 md:table-cell">{s.note ?? "—"}</td>
+                  <td className="hidden px-3 py-1.5 text-gray-500 md:table-cell">{s.createdBy ?? "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
