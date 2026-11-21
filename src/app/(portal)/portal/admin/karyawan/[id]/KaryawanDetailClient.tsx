@@ -1143,13 +1143,12 @@ export default function KaryawanDetailClient({
               {canSeePay && (
                 <CvRow label="Gaji Pokok">
                   {/* Tanpa total: komponen lain ada di Komponen Gaji. Tombol Penyesuaian Gaji menempel di samping angkanya. */}
-                  <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span>{currentSalary ? formatRupiah(currentSalary.basicSalary) : <span className="font-normal text-gray-400"><T>Belum ada data gaji.</T></span>}</span>
-                    {currentSalary && <span className="text-xs font-normal text-gray-500">(<T>berlaku</T> {fmtDate(currentSalary.effectiveDate)})</span>}
                     {editTarget && canEditPay && (
-                      <button type="button" onClick={() => setSalaryOpen(true)}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 hover:border-brand hover:text-brand">
-                        <Pencil size={12} /> <T>Penyesuaian Gaji</T>
+                      <button type="button" onClick={() => setSalaryOpen(true)} aria-label={t("Penyesuaian Gaji")} title={t("Penyesuaian Gaji")}
+                        className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-brand">
+                        <Pencil size={14} />
                       </button>
                     )}
                   </span>
