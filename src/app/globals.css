@@ -437,6 +437,19 @@ body {
   right: 6px;
 }
 
+/* Profil karyawan gaya CV: tabel/kartu bawaan di dalam satu bagian diratakan (tanpa kotak, bayangan, dan judul ganda). */
+.portal-theme main .cv-flat > :is(.bg-white, section, div.rounded-2xl, div.rounded-xl) {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.cv-flat > * > .section-head {
+  display: none;
+}
+
 /* Judul kartu di profil karyawan: warnanya bergantian dalam satu tab */
 .section-head {
   --tone: var(--color-brand);

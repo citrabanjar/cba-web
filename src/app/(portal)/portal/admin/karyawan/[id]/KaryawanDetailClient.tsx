@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { BadgeCheck, BriefcaseBusiness, Building2, Cake, CalendarClock, CalendarDays, CalendarX, ChevronDown, ChevronRight, CreditCard, FileText, Hash, Heart, History, Home, Hourglass, IdCard, KeyRound, Landmark, Loader2, Mail, MapPin, MessageCircle, Network, Pencil, Phone, Plus, Receipt, ShieldCheck, Sparkles, Trash2, UserRound, Users, FileStack, Layers, Plane, Wallet } from "lucide-react";
+import { BriefcaseBusiness, ChevronDown, ChevronRight, Hash, Hourglass, Loader2, Mail, MessageCircle, Pencil, Phone, Plus, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +29,6 @@ import type { DayShift } from "@/lib/schedule";
 import type { BalanceRow } from "@/lib/leave-balance";
 import Pph21Card, { type Pph21Year } from "./Pph21Card";
 import PriorTaxCard, { type PriorSlipItem } from "./PriorTaxCard";
-import SectionNav from "@/components/portal/SectionNav";
 import PayComponentsCard, { type PayComponentRow } from "./PayComponentsCard";
 import ProfileLoans from "@/components/portal/LoanManager";
 import type { LoanView } from "@/components/portal/LoanCard";
@@ -339,87 +338,28 @@ function Pill({ cls, children }: { cls: string; children: React.ReactNode }) {
   );
 }
 
-// Ikon judul kartu, warnanya mengikuti urutan kartu di dalam tab (lihat .section-stack di globals.css).
-const SECTION_ICON: Record<string, React.ElementType> = {
-  "Data Pribadi": UserRound, "Tempat Tinggal": Home, "Keluarga": Users, "Rekening Bank": Landmark,
-  "Detail Pekerjaan": BriefcaseBusiness, "Unit Perusahaan": Building2, "Riwayat Pekerjaan": History,
-  "Payroll": CalendarClock, "Pajak": Receipt, "BPJS": ShieldCheck, "Akses Portal": KeyRound,
-};
-
-// Kartu bagian bergaya Code XR Dashboard v3: judul dengan ikon berwarna dan tombol Edit berbentuk pil.
-// `grid` menyusun isian sebagai kotak-kotak kecil; tanpa `grid` isinya bebas (tabel, dll).
-function SectionCard({
-  title, onEdit, action, grid = false, children,
-}: {
-  title: string; onEdit?: () => void; action?: React.ReactNode; grid?: boolean; children: React.ReactNode;
-}) {
-  const Icon = SECTION_ICON[title] ?? FileText;
-  return (
-    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <div className="section-head flex items-center justify-between gap-3 px-5 py-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="section-icon"><Icon size={17} /></span>
-          <h3 className="font-semibold text-[15px] truncate"><T>{title}</T></h3>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {action}
-          {onEdit && (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-white transition-colors hover:bg-ink/85"
-            >
-              <Pencil size={13} /> <T>Edit</T>
-            </button>
-          )}
-        </div>
-      </div>
-      <dl className={grid ? "grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3" : "px-5 pb-4"}>{children}</dl>
-    </section>
-  );
-}
-
-// Ikon tiap isian supaya kotaknya mudah dikenali.
-const FIELD_ICON: Record<string, React.ElementType> = {
-  "Nama Lengkap": UserRound, "Phone Number": Phone, "Email": Mail, "Tempat Lahir": MapPin,
-  "Tanggal Lahir": Cake, "Jenis ID": IdCard, "ID Number": IdCard, "Jenis Kelamin": UserRound,
-  "Status Perkawinan": Heart, "Agama": Sparkles, "Alamat sesuai Identitas": Home, "Alamat Saat Ini": MapPin,
-  "Nama Bank": Landmark, "No Rekening": CreditCard, "Nama Pemilik Rekening": UserRound,
-  "Employee ID": Hash, "Tanggal Masuk": CalendarDays, "Status": BadgeCheck, "Tanggal Akhir Kontrak": CalendarX,
-  "No SPK": FileText, "Tanggal SPK": CalendarDays, "Masa Kerja": Hourglass, "Tanggal Berhenti": CalendarX,
-  "Cabang": Building2, "Departemen": Network, "Jabatan": BriefcaseBusiness, "Atasan Langsung": UserRound,
-  "Payroll": CalendarClock, "NPWP": Receipt, "Status PTKP": Receipt, "Taxability": Receipt,
-  "Status Pajak": Receipt, "Kode Objek Pajak": Hash,
-};
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  const Icon = FIELD_ICON[label] ?? (label.includes("BPJS") ? ShieldCheck : FileText);
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/70 px-4 py-3">
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200">
-        <Icon size={15} />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400"><T>{label}</T></dt>
-        <dd className="mt-0.5 text-sm font-semibold text-gray-900 break-words">{children || "—"}</dd>
-      </div>
-    </div>
-  );
-}
-
 // Tab Data Diri bergaya CV (permintaan pemilik 2026-11-21): baris "Label : Isi" tanpa kotak, antarbagian
 // dipisah garis, dan tiap bagian bisa dilipat. Bagian yang dilipat diingat per browser.
 const CV_HIDDEN_KEY = "cba.cv.hidden";
 
-function CvSheet({ sections }: {
-  sections: { key: string; title: string; onEdit?: () => void; content: React.ReactNode }[];
-}) {
+type CvSection = {
+  key: string; title: string; onEdit?: () => void; action?: React.ReactNode;
+  // flat: isi berupa tabel/kartu bawaan; kartunya diratakan (lihat .cv-flat di globals.css) dan tanpa indentasi.
+  flat?: boolean; content: React.ReactNode;
+};
+
+function CvSheet({ sections, initial }: { sections: (CvSection | false | null | undefined)[]; initial?: string }) {
+  const list = sections.filter(Boolean) as CvSection[];
   const [hidden, setHidden] = useState<string[]>([]);
   useEffect(() => {
     // Dibaca setelah tampil supaya HTML server & browser sama; sama seperti PortalShell.
+    let saved: string[] = [];
+    try { saved = JSON.parse(localStorage.getItem(CV_HIDDEN_KEY) ?? "[]"); } catch { /* penyimpanan browser tidak tersedia */ }
+    // Bagian yang dituju tautan (mis. ?tab=cuti) selalu dibuka lalu digulir ke sana.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    try { setHidden(JSON.parse(localStorage.getItem(CV_HIDDEN_KEY) ?? "[]")); } catch { /* penyimpanan browser tidak tersedia */ }
-  }, []);
+    setHidden(initial ? saved.filter((k) => k !== initial) : saved);
+    if (initial) requestAnimationFrame(() => document.getElementById(`cv-${initial}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [initial]);
   const toggle = (key: string) => setHidden((h) => {
     const next = h.includes(key) ? h.filter((k) => k !== key) : [...h, key];
     try { localStorage.setItem(CV_HIDDEN_KEY, JSON.stringify(next)); } catch { /* abaikan */ }
@@ -427,24 +367,29 @@ function CvSheet({ sections }: {
   });
   return (
     <section className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-200 px-5 sm:px-8">
-      {sections.map((s) => {
+      {list.map((s) => {
         const open = !hidden.includes(s.key);
         return (
-          <div key={s.key} className="py-4">
+          <div key={s.key} id={`cv-${s.key}`} className="scroll-mt-24 py-4">
             <div className="flex items-center justify-between gap-3">
               <button type="button" onClick={() => toggle(s.key)} aria-expanded={open}
                 className="flex min-w-0 items-center gap-2 text-left">
                 <ChevronDown size={16} className={`shrink-0 text-brand transition-transform ${open ? "" : "-rotate-90"}`} />
                 <h3 className="font-semibold text-[15px] text-gray-900"><T>{s.title}</T></h3>
               </button>
-              {s.onEdit && open && (
-                <button type="button" onClick={s.onEdit}
-                  className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-ink px-3 text-xs font-semibold text-white transition-colors hover:bg-ink/85">
-                  <Pencil size={12} /> <T>Edit</T>
-                </button>
+              {open && (s.action || s.onEdit) && (
+                <div className="flex shrink-0 items-center gap-2">
+                  {s.action}
+                  {s.onEdit && (
+                    <button type="button" onClick={s.onEdit}
+                      className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink px-3 text-xs font-semibold text-white transition-colors hover:bg-ink/85">
+                      <Pencil size={12} /> <T>Edit</T>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-            {open && <dl className="mt-3 space-y-2 pl-6">{s.content}</dl>}
+            {open && <div className={s.flat ? "cv-flat mt-3" : "mt-3 space-y-2 pl-6"}>{s.content}</div>}
           </div>
         );
       })}
@@ -455,9 +400,9 @@ function CvSheet({ sections }: {
 function CvRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[minmax(0,7.5rem)_auto_minmax(0,1fr)] gap-x-2 text-sm sm:grid-cols-[13rem_auto_minmax(0,1fr)]">
-      <dt className="text-gray-500"><T>{label}</T></dt>
+      <span className="text-gray-500"><T>{label}</T></span>
       <span aria-hidden className="text-gray-400">:</span>
-      <dd className="font-medium text-gray-900 break-words">{children || "—"}</dd>
+      <span className="font-medium text-gray-900 break-words">{children || "—"}</span>
     </div>
   );
 }
@@ -1193,35 +1138,30 @@ export default function KaryawanDetailClient({
         </div>
 
         {tab === "pekerjaan" && (
-          <SectionNav sections={[
-              { key: "detail", label: "Detail Pekerjaan", icon: BriefcaseBusiness, content: (
-            <SectionCard title="Detail Pekerjaan" onEdit={edit("detail")} grid>
-              <Field label="Employee ID">{emp.employeeId}</Field>
-              <Field label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</Field>
-              <Field label="Status"><T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T></Field>
+          <CvSheet sections={[
+            { key: "detail", title: "Detail Pekerjaan", onEdit: edit("detail"), content: (<>
+              <CvRow label="Employee ID">{emp.employeeId}</CvRow>
+              <CvRow label="Tanggal Masuk">{emp.joinDate ? fmtDate(emp.joinDate) : null}</CvRow>
+              <CvRow label="Status"><T>{STATUS_LABEL[emp.employmentStatus] ?? emp.employmentStatus}</T></CvRow>
               {emp.employmentStatus === "KONTRAK" && (
-                <Field label="Tanggal Akhir Kontrak">{emp.contractEndDate ? fmtDate(emp.contractEndDate) : null}</Field>
+                <CvRow label="Tanggal Akhir Kontrak">{emp.contractEndDate ? fmtDate(emp.contractEndDate) : null}</CvRow>
               )}
-              <Field label="No SPK">{emp.spkNumber}</Field>
-              <Field label="Tanggal SPK">{emp.spkDate ? fmtDate(emp.spkDate) : null}</Field>
-              <Field label="Masa Kerja">{tenure}</Field>
-              {emp.resignDate && <Field label="Tanggal Berhenti">{fmtDate(emp.resignDate)}</Field>}
-            </SectionCard>
-              ) },
-              { key: "unit", label: "Unit Perusahaan", icon: Building2, content: (
-            <SectionCard title="Unit Perusahaan" onEdit={edit("unit")} grid>
-              <Field label="Cabang">{emp.branch}</Field>
-              <Field label="Departemen">{emp.department?.name}</Field>
-              <Field label="Jabatan">{emp.position}</Field>
-              <Field label="Atasan Langsung">
+              <CvRow label="No SPK">{emp.spkNumber}</CvRow>
+              <CvRow label="Tanggal SPK">{emp.spkDate ? fmtDate(emp.spkDate) : null}</CvRow>
+              <CvRow label="Masa Kerja">{tenure}</CvRow>
+              {emp.resignDate && <CvRow label="Tanggal Berhenti">{fmtDate(emp.resignDate)}</CvRow>}
+            </>) },
+            { key: "unit", title: "Unit Perusahaan", onEdit: edit("unit"), content: (<>
+              <CvRow label="Cabang">{emp.branch}</CvRow>
+              <CvRow label="Departemen">{emp.department?.name}</CvRow>
+              <CvRow label="Jabatan">{emp.position}</CvRow>
+              <CvRow label="Atasan Langsung">
                 {emp.manager ? [emp.manager.employeeId, emp.manager.name].filter(Boolean).join(" - ") : isOwner ? <T>Owner</T> : null}
-              </Field>
-            </SectionCard>
-              ) },
-              { key: "riwayat", label: "Riwayat Pekerjaan", icon: History, content: (
-            <SectionCard title="Riwayat Pekerjaan">
+              </CvRow>
+            </>) },
+            { key: "riwayat-kerja", title: "Riwayat Pekerjaan", flat: true, content: (<>
               {emp.employmentEvents.length === 0 ? (
-                <p className="py-4 text-sm text-gray-400"><T>Belum ada riwayat pekerjaan.</T></p>
+                <p className="text-sm text-gray-400"><T>Belum ada riwayat pekerjaan.</T></p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -1248,23 +1188,20 @@ export default function KaryawanDetailClient({
                   </TableBody>
                 </Table>
               )}
-            </SectionCard>
-              ) },
+            </>) },
           ]} />
         )}
 
         {tab === "gaji" && (
-          <SectionNav sections={[
-            canSeePay && { key: "payroll", label: "Payroll", icon: CalendarClock, content: (<>
-              <SectionCard title="Payroll" onEdit={edit("payroll")} grid>
-                <Field label="Jadwal Bayar">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</Field>
-                {emp.paymentSchedule === "Mingguan" && (
-                  <>
-                    <Field label="Gaji Harian">{currentSalary?.dailyWage ? formatRupiah(currentSalary.dailyWage) : null}</Field>
-                    <Field label="Pengali Bulanan">{currentSalary?.monthlyFactor ? `${currentSalary.monthlyFactor} x` : null}</Field>
-                  </>
-                )}
-              </SectionCard>
+          <CvSheet sections={[
+            canSeePay && { key: "payroll", title: "Payroll", onEdit: edit("payroll"), content: (<>
+              <CvRow label="Jadwal Bayar">{emp.paymentSchedule ? <T>{emp.paymentSchedule}</T> : null}</CvRow>
+              {emp.paymentSchedule === "Mingguan" && (
+                <>
+                  <CvRow label="Gaji Harian">{currentSalary?.dailyWage ? formatRupiah(currentSalary.dailyWage) : null}</CvRow>
+                  <CvRow label="Pengali Bulanan">{currentSalary?.monthlyFactor ? `${currentSalary.monthlyFactor} x` : null}</CvRow>
+                </>
+              )}
               {/* Gaji harian & pengali tercatat di riwayat gaji, jadi diisi lewat Penyesuaian Gaji (bukan Edit Payroll). */}
               {emp.paymentSchedule === "Mingguan" && !currentSalary?.dailyWage && (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -1277,41 +1214,33 @@ export default function KaryawanDetailClient({
                 </div>
               )}
             </>) },
-              { key: "pajak", label: "Pajak", icon: Receipt, content: (
-            <SectionCard title="Pajak" onEdit={edit("pajak")} grid>
-              <Field label="NPWP">{emp.npwp}</Field>
-              <Field label="Status PTKP">{emp.ptkpStatus}</Field>
-              <Field label="Metode Pajak (Taxability)">{emp.taxability ?? <span className="text-gray-400">Gross</span>}</Field>
-              <Field label="Status Pajak">{emp.taxStatus}</Field>
-              <Field label="Kode Objek Pajak">{emp.taxObjectCode}</Field>
-            </SectionCard>
-              ) },
-            // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
-            canSeePay && !self && { key: "pindahan", label: "PPh 21 Pindahan", icon: FileStack, content: <PriorTaxCard userId={emp.id} slips={priorSlips} /> },
-              { key: "bpjs", label: "BPJS", icon: ShieldCheck, content: (
-            <SectionCard title="BPJS" onEdit={edit("bpjs")} grid>
-              <Field label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</Field>
-              <Field label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
-              <Field label="No BPJS Kesehatan">{emp.bpjsKesNumber}</Field>
-              <Field label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</Field>
-            </SectionCard>
-              ) },
-            canSeePay && { key: "gaji", label: "Gaji Saat Ini", icon: Wallet, content: (
-            <SectionCard
-              title={currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini"}
-              action={editTarget && canEditPay ? (
+            canSeePay && { key: "gaji-kini", flat: true,
+              title: currentSalary ? `${t("Gaji Saat Ini")} (${t("berlaku")} ${fmtDate(currentSalary.effectiveDate)})` : "Gaji Saat Ini",
+              action: editTarget && canEditPay ? (
                 <Button size="sm" onClick={() => setSalaryOpen(true)} className="h-7 px-3 text-xs">
                   <T>Penyesuaian Gaji</T>
                 </Button>
-              ) : undefined}
-            >
-              {currentSalary
-                ? <SalaryCard salary={currentSalary} />
-                : <p className="py-4 text-sm text-gray-400"><T>Belum ada data gaji.</T></p>}
-            </SectionCard>
-            ) },
-            canSeePay && !self && { key: "komponen", label: "Komponen Gaji", icon: Layers, content: <PayComponentsCard userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
-            canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", label: "Riwayat Gaji", icon: History, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
+              ) : undefined,
+              content: currentSalary
+                ? <div className="sm:pl-6 sm:max-w-xl"><SalaryCard salary={currentSalary} /></div>
+                : <p className="text-sm text-gray-400"><T>Belum ada data gaji.</T></p> },
+            canSeePay && !self && { key: "komponen", title: "Komponen Gaji", flat: true, content: <PayComponentsCard embedded userId={emp.id} rows={payComponents} joinDate={emp.joinDate ? new Date(emp.joinDate).toISOString().slice(0, 10) : null} /> },
+            canSeePay && emp.salaries.length > 0 && { key: "riwayat-gaji", title: "Riwayat Gaji", flat: true, content: <SalaryHistory salaries={emp.salaries} currentId={currentSalary?.id} /> },
+            { key: "pajak", title: "Pajak", onEdit: edit("pajak"), content: (<>
+              <CvRow label="NPWP">{emp.npwp}</CvRow>
+              <CvRow label="Status PTKP">{emp.ptkpStatus}</CvRow>
+              <CvRow label="Metode Pajak (Taxability)">{emp.taxability ?? <span className="text-gray-400">Gross</span>}</CvRow>
+              <CvRow label="Status Pajak">{emp.taxStatus}</CvRow>
+              <CvRow label="Kode Objek Pajak">{emp.taxObjectCode}</CvRow>
+            </>) },
+            // Karyawan pindahan: data BPA1 pemberi kerja sebelumnya, diisi sekali.
+            canSeePay && !self && { key: "pindahan", title: "PPh 21 Pindahan", flat: true, content: <PriorTaxCard embedded userId={emp.id} slips={priorSlips} /> },
+            { key: "bpjs", title: "BPJS", onEdit: edit("bpjs"), content: (<>
+              <CvRow label="No BPJS Ketenagakerjaan">{emp.bpjsTkNumber}</CvRow>
+              <CvRow label="Status BPJS Ketenagakerjaan">{emp.bpjsTkActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</CvRow>
+              <CvRow label="No BPJS Kesehatan">{emp.bpjsKesNumber}</CvRow>
+              <CvRow label="Status BPJS Kesehatan">{emp.bpjsKesActive ? <T>{"Ikut"}</T> : <T>{"Tidak Ikut"}</T>}</CvRow>
+            </>) },
           ]} />
         )}
 
@@ -1354,16 +1283,14 @@ export default function KaryawanDetailClient({
         )}
 
         {tab === "absensi" && (
-          <SectionNav initial={initialTab === "cuti" ? "cuti" : initialDate ? "kalender" : undefined} sections={[
-            { key: "kalender", label: "Kalender & Jadwal", icon: CalendarDays, content: (
+          <div className="space-y-4">
+            {/* Kalender & jadwal sengaja tidak diubah: bentuknya sudah pas dengan kartu kehadiran (permintaan pemilik). */}
           <AttendanceCalendar initialDate={initialDate} attendances={emp.attendances} leaves={emp.leaves} trips={emp.businessTrips} shiftDays={shiftDays} overtimes={overtimes} editUserId={isSuper && !self ? emp.id : undefined}
             shiftEdit={editTarget && canEditSchedule && placing ? { userId: emp.id, shifts: shiftOptions, onDone: () => setPlacing(false) } : undefined}
             side={<ScheduleCard userId={emp.id} schedules={schedules} patterns={patterns} canEdit={editTarget && canEditSchedule} placing={placing} onPlace={() => setPlacing(true)} exempt={!!emp.attendanceExempt} canExempt={isSuper && !self} />} />
-            ) },
-            { key: "saldo", label: "Saldo Cuti", icon: Wallet, content: (
-          <LeaveSaldo rows={leaveBalances} leaves={emp.leaves} />
-            ) },
-            { key: "cuti", label: "Riwayat Cuti", icon: CalendarDays, content: (<>
+            <CvSheet initial={initialTab === "cuti" ? "cuti" : undefined} sections={[
+              { key: "saldo", title: "Saldo Cuti", flat: true, content: <LeaveSaldo rows={leaveBalances} leaves={emp.leaves} /> },
+              { key: "cuti", title: "Riwayat Cuti", flat: true, content: (<>
           {emp.leaves.length === 0 ? <Empty text="Belum ada pengajuan cuti." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1392,8 +1319,8 @@ export default function KaryawanDetailClient({
               </Table>
             </div>
           )}
-            </>) },
-            { key: "dinas", label: "Riwayat Dinas Luar", icon: Plane, content: (<>
+              </>) },
+              { key: "dinas", title: "Riwayat Dinas Luar", flat: true, content: (<>
           {emp.businessTrips.length === 0 ? <Empty text="Belum ada pengajuan dinas luar." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1422,19 +1349,18 @@ export default function KaryawanDetailClient({
               </Table>
             </div>
           )}
-            </>) },
-            { key: "riwayat", label: "Riwayat Absensi", icon: History, content: (
-          <AttendanceHistory rows={emp.attendances} />
-            ) },
-          ]} />
+              </>) },
+              { key: "riwayat-absen", title: "Riwayat Absensi", flat: true, content: <AttendanceHistory rows={emp.attendances} /> },
+            ]} />
+          </div>
         )}
 
 
         {tab === "akun" && self?.account}
 
         {tab === "payslip" && canSeePay && (
-          <SectionNav initial={initialTab === "pph21" ? "pph21" : undefined} sections={[
-            { key: "slip", label: "Slip Gaji", icon: FileText, content: (
+          <CvSheet initial={initialTab === "pph21" ? "pph21" : undefined} sections={[
+            { key: "slip", title: "Slip Gaji", flat: true, content: (
           emp.payslips.length === 0 ? <Empty text="Belum ada slip gaji." /> : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <Table>
@@ -1462,7 +1388,7 @@ export default function KaryawanDetailClient({
             </div>
           )
             ) },
-            { key: "pph21", label: "PPh 21", icon: Receipt, content: <Pph21Card userId={emp.id} years={pph21Years} /> },
+            { key: "pph21", title: "PPh 21", flat: true, content: <Pph21Card userId={emp.id} years={pph21Years} /> },
           ]} />
         )}
 

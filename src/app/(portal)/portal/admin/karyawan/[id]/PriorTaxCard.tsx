@@ -17,7 +17,8 @@ const thisYear = () => new Date(Date.now() + 7 * 3600_000).getUTCFullYear();
 
 // Profil karyawan → Payroll: PPh 21 pindahan (karyawan yang pindah dari pemberi kerja lain di tahun yang sama).
 // Diisi sekali dari BPA1 pemberi kerja sebelumnya: nomor BPA1, penghasilan neto, PPh 21 yang telah dipotong.
-export default function PriorTaxCard({ userId, slips }: { userId: string; slips: PriorSlipItem[] }) {
+// embedded: tampil di dalam bagian profil gaya CV yang sudah berjudul, jadi ikon & judul sendiri tidak diulang.
+export default function PriorTaxCard({ userId, slips, embedded = false }: { userId: string; slips: PriorSlipItem[]; embedded?: boolean }) {
   const t = useT();
   const canEdit = useCanEdit("gaji");
   const [form, setForm] = useState<Form | null>(null);
@@ -41,9 +42,9 @@ export default function PriorTaxCard({ userId, slips }: { userId: string; slips:
   return (
     <section className="rounded-2xl border border-gray-200 bg-white">
       <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><FileStack size={17} /></span>
+        {!embedded && <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-rose-400 text-white"><FileStack size={17} /></span>}
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900"><T>PPh 21 Pindahan</T></h3>
+          {!embedded && <h3 className="font-semibold text-gray-900"><T>PPh 21 Pindahan</T></h3>}
           <p className="text-xs text-gray-400"><T>Hanya untuk karyawan yang tahun ini pindah dari pemberi kerja lain. Isi sekali dari BPA1 pemberi kerja sebelumnya; dipakai di hitung ulang PPh 21 Desember / bulan keluar dan 1721-A1.</T></p>
         </div>
         {canEdit && !form && (

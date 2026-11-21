@@ -94,7 +94,8 @@ function AssignDialog({ userId, row, joinDate, onClose }: { userId: string; row:
 }
 
 // Komponen gaji yang tertempel ke karyawan ini beserta masa berlakunya.
-export default function PayComponentsCard({ userId, rows, joinDate = null }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null }) {
+// embedded: tampil di dalam bagian profil gaya CV yang sudah berjudul, jadi judul sendiri tidak diulang.
+export default function PayComponentsCard({ userId, rows, joinDate = null, embedded = false }: { userId: string; rows: PayComponentRow[]; joinDate?: string | null; embedded?: boolean }) {
   const t = useT();
   const canEdit = useCanEdit("gaji"); // hak lihat saja: komponen tidak bisa dibuka untuk diubah
   const [open, setOpen] = useState(false);
@@ -107,7 +108,7 @@ export default function PayComponentsCard({ userId, rows, joinDate = null }: { u
     <section className="rounded-2xl border border-gray-200 bg-white">
       <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-5 py-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900"><T>Komponen Gaji</T> <span className="text-xs font-normal text-gray-400">{activeCount} <T>berlaku</T>{notAssigned > 0 && <> · {notAssigned} <T>belum ditempel</T></>}</span></h3>
+          <h3 className="font-semibold text-gray-900">{!embedded && <><T>Komponen Gaji</T> </>}<span className="text-xs font-normal text-gray-400">{activeCount} <T>berlaku</T>{notAssigned > 0 && <> · {notAssigned} <T>belum ditempel</T></>}</span></h3>
           <p className="text-xs text-gray-400"><T>Komponen yang dihitung saat Proses Gaji. Untuk demosi/promosi, atur tanggal Sampai/Mulai; komponennya sendiri tidak diubah.</T></p>
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600">
