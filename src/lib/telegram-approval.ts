@@ -6,7 +6,7 @@ import { actionableApprovers, readApproval } from "@/lib/onboarding-interview";
 import { dateRange } from "@/lib/notify";
 import { hmWib } from "@/lib/attendance-fix";
 import { esc, portalUrl, telegramOn, tgAnswer, tgEdit, tgSend, type TgButton } from "@/lib/telegram";
-import { onFormButton, onFormReply, sendFormMenu } from "@/lib/telegram-forms";
+import { onFormButton, onFormReply, replyTag, sendFormMenu } from "@/lib/telegram-forms";
 
 export type TgKind = "leave" | "trip" | "overtime" | "fix";
 const KINDS: TgKind[] = ["leave", "trip", "overtime", "fix"];
@@ -66,7 +66,7 @@ export async function askApprovers(kind: TgKind, id: string) {
 
 // ── Webhook ────────────────────────────────────────────────────────────────────────────────────────────────
 type TgUser = { id: number; first_name?: string };
-type TgMessage = { message_id: number; chat: { id: number; type: string }; from?: TgUser; text?: string; reply_to_message?: TgMessage };
+type TgMessage = { message_id: number; chat: { id: number; type: string }; from?: TgUser; text?: string; entities?: { type: string; url?: string }[]; reply_to_message?: TgMessage };
 type TgCallback = { id: string; from: TgUser; data?: string; message?: TgMessage };
 export type TgUpdate = { update_id: number; message?: TgMessage; callback_query?: TgCallback };
 
@@ -118,9 +118,10 @@ export async function handleTelegramUpdate(u: TgUpdate) {
   }
 
   // Balasan isian pengajuan (jam / alasan) dari menu.
-  if (m.reply_to_message?.text && /#(fx|fr|os|oe|or)\|/.test(m.reply_to_message.text)) {
+  const formTag = replyTag(m.reply_to_message);
+  if (/#(fx|fr|os|oe|or)\|/.test(formTag)) {
     if (!(await actorOf(chatId))) { await tgSend(chatId, "Chat ini belum terhubung ke akun portal."); return; }
-    if (await onFormReply(chatId, m.reply_to_message.text, text)) return;
+    if (await onFormReply(chatId, formTag, text)) return;
   }
   // Balasan alasan penolakan (menjawab pesan "Tulis alasan penolakan ... #tolak-<jenis>-<id>-<pesan>").
   const tag = m.reply_to_message?.text?.match(REJECT_TAG);

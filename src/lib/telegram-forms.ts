@@ -21,8 +21,16 @@ export function parseTime(raw: string) {
   const h = Number(m[1]), mi = Number(m[2]);
   return h <= 23 && mi <= 59 ? `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}` : null;
 }
+// Penanda langkah disembunyikan di tautan tak terlihat (spasi nol-lebar) supaya pesan tetap bersih; saat karyawan
+// mengetik jawaban (kolom ketik otomatis membalas pesan ini), penanda dibaca dari entitas tautan pesan yang dibalas.
+const TAG_URL = "https://www.citrabanjar.com/tg#";
 const ask = (chatId: string, html: string, tag: string, placeholder: string) =>
-  tgSend(chatId, `${html}\n\n<i>Balas pesan ini.</i> ${tag}`, { forceReply: true, placeholder });
+  tgSend(chatId, `${html}<a href="${TAG_URL}${encodeURIComponent(tag)}">\u200b</a>`, { forceReply: true, placeholder });
+// Penanda dari pesan yang dibalas: tautan tersembunyi (baru) atau teks "#..." (pesan lama).
+export function replyTag(reply: { text?: string; entities?: { type: string; url?: string }[] } | undefined) {
+  const url = reply?.entities?.find((e) => e.type === "text_link" && e.url?.startsWith(TAG_URL))?.url;
+  return url ? decodeURIComponent(url.slice(TAG_URL.length)) : reply?.text ?? "";
+}
 
 export async function sendFormMenu(chatId: string) {
   const buttons: TgButton[][] = [[{ text: "🕘 Lupa Absen", data: "m|fix" }, { text: "⏱️ Lembur", data: "m|ot" }]];
@@ -107,7 +115,8 @@ export async function onFormReply(chatId: string, replyTo: string, text: string)
   if (!m) return false;
   const [, k, date, a, b] = m;
   const time = () => parseTime(text);
-  const bad = () => tgSend(chatId, "Format jam belum benar. Balas lagi pesan sebelumnya dengan contoh <b>17:30</b>.");
+  // Jam salah: tanya ulang langkah yang sama (kolom ketik kembali otomatis membalas).
+  const bad = () => ask(chatId, "⚠️ Format jam belum benar. Ketik lagi, contoh <b>17:30</b>.", m[0], "Contoh 17:30");
   if (k === "fx") {
     const t = time(); if (!t) { await bad(); return true; }
     await ask(chatId, `🕘 Lupa Absen <b>${label(date)}</b> · jam ${a === "i" ? "masuk" : "pulang"} <b>${t}</b>\nAlasan lupa absen?`, `#fr|${date}|${a}|${t.replace(":", "")}`, "Alasan");
